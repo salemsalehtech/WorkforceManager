@@ -1,5 +1,8 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using WorkforceManager.UI.ViewModels;
 
 namespace WorkforceManager.UI.Views
@@ -17,32 +20,54 @@ namespace WorkforceManager.UI.Views
             DataContext = data;
         }
 
+        /// <summary>
+        /// يرسم بطاقة القسيمة لصورة عالية الدقة عشان نطبعها كصورة بدل ما
+        /// نطبع العنصر مباشرة. السبب: الطباعة/الرسم خارج الشاشة لعنصر اتجاهه
+        /// من اليمين لليسار (RTL) بتطلع الكلام معكوس أفقيًا (مقلوب زي المراية)
+        /// — دي مشكلة معروفة في WPF (الشاشة بتعوّض الانعكاس، لكن الرسم خارجها لأ).
+        /// فبنعكس الصورة أفقيًا مرة تانية عشان ترجع مظبوطة، وبعدها نطبعها.
+        /// </summary>
+        private BitmapSource RenderPayslip(double dpi)
+        {
+            var element = PrintArea;
+            element.UpdateLayout();
+            var w = element.ActualWidth;
+            var h = element.ActualHeight;
+
+            var rtb = new RenderTargetBitmap(
+                (int)Math.Ceiling(w * dpi / 96.0),
+                (int)Math.Ceiling(h * dpi / 96.0),
+                dpi, dpi, PixelFormats.Pbgra32);
+            rtb.Render(element);
+
+            // عكس أفقي (ScaleX = -1) لإلغاء انعكاس الـ RTL في الرسم خارج الشاشة
+            return new TransformedBitmap(rtb, new ScaleTransform(-1, 1));
+        }
+
         private void Print_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new PrintDialog();
             if (dialog.ShowDialog() != true) return;
 
-            // نطبع منطقة القسيمة نفسها فقط (من غير شريط الأدوات).
-            // بنكبّرها لعرض الصفحة المطبوعة مع هوامش بسيطة، ونركّزها أفقيًا.
-            var element = PrintArea;
-            var margin = 40.0;
-            var printableWidth = dialog.PrintableAreaWidth - margin * 2;
+            // نصوّر القسيمة بدقة عالية (300 نقطة/بوصة) عشان تطلع حادة، ونطبع
+            // الصورة نفسها — بكده الكلام العربي بيطلع مظبوط مش معكوس.
+            var bitmap = RenderPayslip(300);
 
-            element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            var contentWidth = element.DesiredSize.Width;
-            var scale = contentWidth > 0 ? System.Math.Min(1.0, printableWidth / contentWidth) : 1.0;
+            var image = new Image
+            {
+                Source = bitmap,
+                Stretch = Stretch.Uniform, // يحافظ على النسبة ويتمركز
+                FlowDirection = FlowDirection.LeftToRight
+            };
 
-            var original = element.LayoutTransform;
-            element.LayoutTransform = new System.Windows.Media.ScaleTransform(scale, scale);
-            try
-            {
-                dialog.PrintVisual(element, "قسيمة أجر");
-            }
-            finally
-            {
-                // نرجّع العرض لحالته الطبيعية بعد الطباعة
-                element.LayoutTransform = original;
-            }
+            const double margin = 40.0;
+            var availableWidth = dialog.PrintableAreaWidth - margin * 2;
+            var availableHeight = dialog.PrintableAreaHeight - margin * 2;
+            image.Measure(new Size(availableWidth, availableHeight));
+            image.Arrange(new Rect(margin, margin, availableWidth, availableHeight));
+            image.UpdateLayout();
+
+            dialog.PrintVisual(image, "قسيمة أجر");
         }
 
         private void Close_Click(object sender, RoutedEventArgs e) => Close();
