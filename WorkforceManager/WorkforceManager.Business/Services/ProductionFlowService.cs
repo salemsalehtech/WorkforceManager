@@ -193,8 +193,13 @@ namespace WorkforceManager.Business.Services
                 {
                     WorkerName = workersById[g.Key].FullName,
                     TotalPieces = g.Sum(s => s.PieceCount),
+                    // حماية من القسمة على صفر (زي DailyProduction.WorkdaysCompleted) —
+                    // الكوتة مفروض دايمًا > 0 بالتحقق، بس ده أمان لو البيانات اتبوّظت
                     TotalWorkdays = Math.Round(g.Sum(s =>
-                        (decimal)s.PieceCount / stageById[s.ProductionStageId].PiecesPerWorkday), 2)
+                    {
+                        var quota = stageById[s.ProductionStageId].PiecesPerWorkday;
+                        return quota == 0 ? 0m : (decimal)s.PieceCount / quota;
+                    }), 2)
                 })
                 .OrderByDescending(t => t.TotalWorkdays)
                 .ToList();
