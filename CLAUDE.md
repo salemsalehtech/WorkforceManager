@@ -31,10 +31,43 @@ dotnet run --project WorkforceManager.UI
 dotnet build
 ```
 
+From the **repo root** (one level above the `.sln`):
+
+```powershell
+# build the distributable — wipes dist/ first, so only ONE copy ever exists
+.\publish.ps1                      # self-contained folder + zip (~172 MB / ~70 MB)
+.\publish.ps1 -Mode SingleFile     # one compressed .exe (~70 MB)
+.\publish.ps1 -Mode Light          # framework-dependent (~15 MB, needs .NET 8 Desktop Runtime installed)
+
+# nuke all build artifacts (bin/obj/dist) — everything here is regenerable
+.\clean.ps1
+.\clean.ps1 -KeepDist
+```
+
+Both scripts must stay **UTF-8 with BOM** — Windows PowerShell 5.1 reads `.ps1` as ANSI without a BOM
+and the Arabic strings break the parser.
+
+`publish-assets/` holds the files copied into every release (`اقرأني.txt`, `portable.marker`) — they live
+in the repo, not only inside a zip. Releases ship **without** a `Data/` folder; the app creates and seeds
+its own on first run.
+
+Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output):
+- `Directory.Build.props` (next to the `.sln`) holds everything shared by all 4 projects —
+  `ImplicitUsings`, `Nullable`, version identity, `SatelliteResourceLanguages` (drops 13 unused
+  translation folders, ~16 MB/release), and `DebugType=embedded` for Release (no `.pdb` files, but crash
+  stack traces keep line numbers).
+- `WorkforceManager.UI` pins `RuntimeIdentifier=win-x64` — without it the SQLite package copies native
+  libs for 20 platforms (linux-mips64, wasm, maccatalyst…), ~24 MB per build. Note this puts build output
+  under `bin\<Config>\net8.0-windows\win-x64\`.
+- `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
+  UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
+
 There is no test project in the solution yet.
 
-The SQLite DB lives outside the repo at `%LocalAppData%\WorkforceManager\workforce.db`, created by
-`App.OnStartup` via `EnsureCreatedAsync` + `DatabaseSeeder.SeedIfEmptyAsync` — not via migrations at runtime.
+The SQLite DB lives outside the repo at `%LocalAppData%\WorkforceManager\workforce.db` (or in `Data\` next
+to the exe when a `portable.marker` file is present — see `AppPaths`). `App.OnStartup` creates/updates it
+with `Database.MigrateAsync()` + `DatabaseSeeder.SeedIfEmptyAsync`, so migrations DO run at startup and
+schema changes reach an existing customer DB without wiping data.
 
 ## Architecture
 

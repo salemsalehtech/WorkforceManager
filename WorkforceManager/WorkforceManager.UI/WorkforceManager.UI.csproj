@@ -1,28 +1,41 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <!-- الإعدادات المشتركة (ImplicitUsings / Nullable / اللغات / رقم الإصدار) في Directory.Build.props -->
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <RootNamespace>WorkforceManager.UI</RootNamespace>
-    <!-- أيقونة البرنامج (تظهر على الـ exe والاختصارات) + هوية النسخة -->
+    <!-- أيقونة البرنامج (تظهر على الـ exe والاختصارات) -->
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <AssemblyName>WorkforceManager</AssemblyName>
-    <Product>نظام إدارة إنتاجية وأجور العمال</Product>
-    <Company>WorkforceManager</Company>
-    <Version>1.0.0</Version>
-    <FileVersion>1.0.0.0</FileVersion>
+    <!--
+      البرنامج WPF يعني ويندوز 64-بت وبس. من غير تحديد المنصة دي، حزمة SQLite
+      بتنسخ مكتباتها الأصلية لـ 20 منصة (لينكس، ماك، wasm، mips، ppc64...) —
+      24 ميجا في كل بناء، منها 22.5 ملهاش أي لازمة على ويندوز.
+      SelfContained=false عشان البناء العادي يفضل خفيف؛ النشر المستقل بيتحدد
+      من publish.ps1 وقت الحاجة.
+    -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
+
+  <!-- إعدادات نسخة التوزيع (DebugType وخلافه) في Directory.Build.props -->
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
     <PackageReference Include="MaterialDesignThemes" Version="5.1.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
-    <!-- مطلوبة لأداة dotnet-ef عشان تقدر تولّد Migrations من مشروع UI كمشروع بداية التشغيل -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8">
+    <!--
+      مطلوبة لأداة dotnet-ef عشان تقدر تولّد Migrations من مشروع UI كمشروع بداية التشغيل.
+      محصورة في وضع Debug عن قصد: الحزمة دي بتجرّ معاها مترجم Roslyn
+      (Microsoft.CodeAnalysis.* بـ 12 ميجا) وده كان بيتشحن مع نسخة المصنع من غير
+      أي داعي — أدوات تطوير مالهاش لازمة عند المستخدم النهائي.
+      أوامر dotnet ef بتبني Debug افتراضيًا فبتفضل شغالة عادي.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8"
+                     Condition="'$(Configuration)' == 'Debug'">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>

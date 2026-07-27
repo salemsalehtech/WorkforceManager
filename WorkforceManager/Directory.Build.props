@@ -1,0 +1,46 @@
+<Project>
+
+  <!--
+    إعدادات مشتركة لكل مشاريع الحل.
+    MSBuild بيقرا الملف ده تلقائيًا لكل مشروع تحت المجلد ده — يعني أي إعداد عام
+    يتكتب هنا مرة واحدة بدل ما يتكرر (ويتنسى) في كل ملف .csproj على حدة.
+
+    ملاحظة: TargetFramework مش هنا عن قصد — مشروع UI بيستهدف net8.0-windows
+    عشان WPF، والباقي net8.0 عادي، فكل مشروع بيحدده لنفسه.
+  -->
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      استبعاد ملفات ترجمة المكتبات الخارجية (13 لغة: روسي، ياباني، ألماني، كوري...).
+      دي رسائل أخطاء مترجمة جاية مع EF Core و MaterialDesign، والبرنامج عربي
+      بالكامل ومش بيستخدم ولا واحدة منها — وكانت بتزوّد ~16 ميجا على كل نسخة نشر.
+    -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!--
+      embedded = معلومات التصحيح جوه الـ dll نفسه، من غير ملفات .pdb منفصلة.
+      كده نسخة التوزيع تطلع من غير ملفات زيادة، وفي نفس الوقت لو حصل كراش
+      عند المستخدم الـ stack trace بيفضل فيه أرقام السطور — وده اللي بيخلي
+      تشخيص أي مشكلة في المصنع ممكن أصلًا. (DebugType=none كان هيوفر ~100 كيلو
+      ويضيّع أرقام السطور — صفقة خسرانة.)
+    -->
+    <DebugType>embedded</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- هوية النسخة — مكان واحد لتغيير رقم الإصدار لكل المشاريع مرة واحدة -->
+  <PropertyGroup>
+    <Company>WorkforceManager</Company>
+    <Product>نظام إدارة إنتاجية وأجور العمال</Product>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+
+</Project>
