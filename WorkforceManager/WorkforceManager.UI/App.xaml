@@ -412,6 +412,138 @@
               نفس لغة التفاعل بتاعة الزر الأساسي بس أخف: الإطار بيتلون بلون
               البراند عند المرور والخلفية بتتظلل، من غير ظل قوي عشان يفضل ثانوي
             -->
+            <!--
+                شريحة حالة الحضور: زرار تعليم سريع بدل القائمة المنسدلة.
+                المتعلّم بياخد **لون حالته** (أخضر/أصفر/أحمر) من AccentColor
+                اللي على الخيار نفسه، فالمستخدم يقرا حالة العامل من اللون
+                من غير ما يقرا النص أصلاً.
+
+                ملاحظة مهمة: النص جوّه TextBlock صريح مش ContentPresenter —
+                لأن MaterialDesign بتحقن ستايل ضمني على ToggleButton بيخليه
+                مفتاح تبديل (switch) والنص بيختفي. الأيقونة + النص هنا
+                مضمونين إنهم يترسموا.
+            -->
+            <Style x:Key="StatusChip" TargetType="ToggleButton">
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Margin" Value="0,0,7,0" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <!--
+                                طبقتين فوق بعض بدل ما نغيّر اللون في التريجر:
+                                WPF مبيسمحش بـ Binding جوه Setter.Value، فاللون
+                                اللي جاي من البيانات (AccentColor) بيتحط على
+                                طبقة ثابتة، والتريجر بيظهّرها بالشفافية بس.
+                            -->
+                            <Grid MinWidth="104">
+                                <Border x:Name="Outline" CornerRadius="16" BorderThickness="1.6"
+                                        Background="{StaticResource CardBgBrush}"
+                                        BorderBrush="{StaticResource CardBorderBrush}" />
+
+                                <Border x:Name="Fill" CornerRadius="16" Opacity="0"
+                                        Background="{Binding AccentColor}" />
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                            VerticalAlignment="Center" Margin="14,8">
+                                    <materialDesign:PackIcon x:Name="Ico" Kind="{Binding Icon}"
+                                                            Width="16" Height="16" VerticalAlignment="Center"
+                                                            Foreground="{Binding AccentColor}" />
+                                    <TextBlock x:Name="Txt" Text="{Binding Display}" Margin="6,0,0,0"
+                                               FontSize="12.5" FontWeight="Medium" VerticalAlignment="Center"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Outline" Property="Background" Value="{StaticResource SubtleBgBrush}" />
+                                    <Setter TargetName="Fill" Property="Opacity" Value="0.12" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Fill" Property="Opacity" Value="1" />
+                                    <Setter TargetName="Txt" Property="Foreground" Value="White" />
+                                    <Setter TargetName="Txt" Property="FontWeight" Value="Bold" />
+                                    <Setter TargetName="Ico" Property="Foreground" Value="White" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- شريحة شيفت العامل بالساعة: أصغر وبلون النجاح، عشان تتفرق عن أزرار الحالة -->
+            <Style x:Key="ShiftChip" TargetType="ToggleButton">
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Margin" Value="0,0,6,0" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Bd" Background="{StaticResource CardBgBrush}"
+                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.4"
+                                    CornerRadius="13" Padding="11,5">
+                                <TextBlock x:Name="Txt" Text="{TemplateBinding Content}"
+                                           FontSize="11.5" FontWeight="Medium" VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextMutedBrush}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource SuccessBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource SuccessBrush}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource SuccessBrush}" />
+                                    <Setter TargetName="Txt" Property="Foreground" Value="White" />
+                                    <Setter TargetName="Txt" Property="FontWeight" Value="SemiBold" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- بطاقة عامل واحد في قائمة الحضور (بتعلى شوية مع الماوس) -->
+            <Style x:Key="WorkerCard" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource CardBgBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1.4" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="Padding" Value="14,11" />
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{StaticResource SoftPanelBgBrush}" />
+                        <Setter Property="BorderBrush" Value="#CFD8E8" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- عدّاد واحد في شريط ملخص الحضور -->
+            <Style x:Key="SummaryStat" TargetType="StackPanel">
+                <Setter Property="Margin" Value="0,0,26,0" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <Style x:Key="SummaryNumber" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="24" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+            </Style>
+
+            <Style x:Key="SummaryLabel" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="11.5" />
+                <Setter Property="Margin" Value="0,2,0,0" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+            </Style>
+
+            <Style x:Key="SummaryDivider" TargetType="Border">
+                <Setter Property="Width" Value="1" />
+                <Setter Property="Margin" Value="0,4,26,4" />
+                <Setter Property="Background" Value="{StaticResource CardBorderBrush}" />
+            </Style>
+
             <Style x:Key="GhostButton" TargetType="Button">
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
                 <Setter Property="FontSize" Value="13" />

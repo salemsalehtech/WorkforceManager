@@ -16,8 +16,7 @@ namespace WorkforceManager.Business.Services
     /// </summary>
     public class PayrollService
     {
-        /// <summary>خصم الغياب بدون إذن عن اليوم الواحد = نص يومية (نفس WeeklySummaryService)</summary>
-        private const decimal UnexcusedAbsenceDeductionPerDay = 0.5m;
+        // قاعدة خصم الغياب في AbsenceDeductionRule (مشتركة مع WeeklySummaryService)
 
         private readonly IDailyProductionRepository _productionRepo;
         private readonly IAttendanceRepository _attendanceRepo;
@@ -94,11 +93,12 @@ namespace WorkforceManager.Business.Services
                 {
                     WorkerId = workerId,
                     WorkerName = workerRef.FullName,
-                    EmployeeCode = workerRef.EmployeeCode,
                     IsHourly = workerRef.IsHourly,
                     DailyWageEgp = workerRef.DailyWageEgp,
                     ProducedWorkdays = producedWorkdays,
-                    AbsenceDeduction = absentWithoutPermission * UnexcusedAbsenceDeductionPerDay,
+                    // نفس قاعدة WeeklySummaryService بالحرف: أيام الغياب اللي ليها
+                    // جزاء تلقائي بتتخصم من خلال الجزاء، فمبتتعدّش هنا كمان
+                    AbsenceDeduction = AbsenceDeductionRule.ComputeUnpenalizedAbsenceDeduction(wa, wpen),
                     PenaltyDeduction = wpen.Sum(p => p.DeductedWorkdays),
                     DaysWorked = workDays,
                     BonusEgp = wadj.Where(a => a.Type == WageAdjustmentType.Bonus).Sum(a => a.AmountEgp),

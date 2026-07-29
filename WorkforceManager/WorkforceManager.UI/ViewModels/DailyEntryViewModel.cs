@@ -3,6 +3,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
@@ -86,7 +87,6 @@ namespace WorkforceManager.UI.ViewModels
             FlowSessions.Add(firstSession);
 
             await LoadDayRecordsAsync();
-            await LoadHourlyAsync();
             await LoadAttendanceAsync();
             await LoadPenaltiesAsync();
             await LoadAdjustmentsAsync();
@@ -99,7 +99,6 @@ namespace WorkforceManager.UI.ViewModels
                 await session.ReloadAsync();
 
             await LoadDayRecordsAsync();
-            await LoadHourlyAsync();
             await LoadAttendanceAsync();
             await LoadPenaltiesAsync();
             await LoadAdjustmentsAsync();
@@ -116,9 +115,14 @@ namespace WorkforceManager.UI.ViewModels
 
         public ObservableCollection<FlowSessionViewModel> FlowSessions { get; } = new();
 
-        /// <summary>رحلة جديدة مربوطة بيوم الشاشة وتحديث الحضور والسجلات بعد حفظها</summary>
+        /// <summary>
+        /// رحلة جديدة مربوطة بيوم الشاشة وتحديث الحضور والسجلات بعد حفظها.
+        /// بتاخد كمان طريقة توصلها لباقي الرحلات المفتوحة، عشان تحذير
+        /// "العامل مكلّف بحاجة تانية" يشوف اللي لسه متحفظش في رحلات
+        /// المنتجات التانية مش المحفوظ بس.
+        /// </summary>
         private FlowSessionViewModel CreateSession() =>
-            new(_scopeFactory, _products, () => EntryDate, OnFlowSavedAsync);
+            new(_scopeFactory, _products, () => EntryDate, OnFlowSavedAsync, () => FlowSessions);
 
         /// <summary>إضافة منتج تاني للشغل عليه في نفس اليوم (رحلة جديدة فاضية بيختار منتجها)</summary>
         [RelayCommand]
@@ -223,164 +227,188 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        // ======================= قسم العمال بالساعة =======================
+        // ======================= قسم الحضور (موحّد: بالقطعة + بالساعة) =======================
+        //
+        // تبويب "العمال بالساعة" المنفصل اتشال — العمال بالساعة بقوا في نفس
+        // قائمة الحضور، وبيتسجل شغلهم من اختصارات الشيفت اللي على سطرهم.
 
         /// <summary>
-        /// خيارات وقت انتهاء الشغل (الشيفت بيبدأ 8ص). القيمة بنظام 24
-        /// (16=4م، 20=8م، 24=12ص). بنعرض من 12ظ لـ 12 منتصف الليل.
+        /// قائمة الحضور الموحّدة: العمال بالقطعة والعمال بالساعة في مكان
+        /// واحد، كل واحد بحالاته المناسبة لنوعه (والعامل بالساعة بيزود
+        /// عليه اختصارات الشيفت).
         /// </summary>
-        public static List<EndHourOption> EndHourOptions { get; } = BuildEndHourOptions();
-
-        private static List<EndHourOption> BuildEndHourOptions()
-        {
-            var list = new List<EndHourOption>();
-            for (var h = 12; h <= 24; h++)
-            {
-                string label = h switch
-                {
-                    12 => "12 ظهرًا",
-                    24 => "12 منتصف الليل",
-                    < 12 => $"{h} صباحًا",
-                    _ => $"{h - 12} مساءً"
-                };
-                list.Add(new EndHourOption(h, $"خلص {label}"));
-            }
-            return list;
-        }
-
-        public ObservableCollection<HourlyRow> HourlyRows { get; } = new();
-
-        private async Task LoadHourlyAsync()
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
-            var hourlyService = scope.ServiceProvider.GetRequiredService<HourlyWorkdayService>();
-
-            // العمال بالساعة فقط (اللي ليهم دور بالساعة)
-            var workers = (await workerRepo.FindAsync(w => w.IsActive && w.HourlyRole != null))
-                .OrderBy(w => w.FullName)
-                .ToList();
-
-            var existing = (await hourlyService.GetByDateAsync(EntryDate))
-                .ToDictionary(h => h.WorkerId);
-
-            HourlyRows.Clear();
-            foreach (var w in workers)
-            {
-                existing.TryGetValue(w.Id, out var log);
-                HourlyRows.Add(new HourlyRow
-                {
-                    WorkerId = w.Id,
-                    FullName = w.FullName,
-                    EmployeeCode = w.EmployeeCode ?? "—",
-                    RoleText = w.HourlyRole!.Value.ToArabicName(),
-                    // لو متسجل قبل كده، بنعرض وقته المحفوظ
-                    SelectedEndHour = log is not null
-                        ? EndHourOptions.FirstOrDefault(o => o.Hour24 == log.EndHour24)
-                        : null
-                });
-            }
-        }
-
-        [RelayCommand]
-        private async Task SaveHourlyAsync()
-        {
-            // العمال اللي المستخدم حدد لهم وقت انتهاء
-            var toSave = HourlyRows.Where(r => r.SelectedEndHour is not null).ToList();
-            if (toSave.Count == 0)
-            {
-                MessageBox.Show("مفيش أي عامل محدد له وقت انتهاء للحفظ", "تنبيه",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-
-            using var scope = _scopeFactory.CreateScope();
-            var hourlyService = scope.ServiceProvider.GetRequiredService<HourlyWorkdayService>();
-
-            var saved = 0;
-            foreach (var row in toSave)
-            {
-                await hourlyService.RecordHourlyWorkAsync(row.WorkerId, EntryDate, row.SelectedEndHour!.Hour24);
-                saved++;
-            }
-
-            MessageBox.Show($"تم حفظ شغل {saved} عامل بالساعة بتاريخ {EntryDate:yyyy/MM/dd}\n(واتسجل حضورهم تلقائيًا)",
-                "تم الحفظ", MessageBoxButton.OK, MessageBoxImage.Information);
-
-            await LoadHourlyAsync();
-            await LoadAttendanceAsync();
-        }
-
-        // ======================= قسم الحضور =======================
-
-        public static List<AttendanceStatusOption> StatusOptions { get; } = new()
-        {
-            new AttendanceStatusOption(null, "—"),
-            new AttendanceStatusOption(AttendanceStatus.Present, "حاضر"),
-            new AttendanceStatusOption(AttendanceStatus.AbsentWithPermission, "غياب بإذن"),
-            new AttendanceStatusOption(AttendanceStatus.AbsentWithoutPermission, "غياب بدون إذن")
-        };
-
         public ObservableCollection<AttendanceRow> AttendanceRows { get; } = new();
+
+        /// <summary>الصفوف المعروضة فعليًا بعد البحث (البحث بيفلتر العرض بس، مش بيمسح أي اختيار)</summary>
+        public ObservableCollection<AttendanceRow> VisibleAttendanceRows { get; } = new();
+
+
+        [ObservableProperty]
+        private string _attendanceSearch = string.Empty;
+
+        partial void OnAttendanceSearchChanged(string value) => ApplyAttendanceFilter();
+
+        private void ApplyAttendanceFilter()
+        {
+            var query = AttendanceSearch?.Trim() ?? "";
+
+            var matches = string.IsNullOrEmpty(query)
+                ? AttendanceRows
+                : AttendanceRows.Where(r =>
+                    r.FullName.Contains(query, StringComparison.OrdinalIgnoreCase));
+
+            VisibleAttendanceRows.Clear();
+            foreach (var row in matches) VisibleAttendanceRows.Add(row);
+
+            OnPropertyChanged(nameof(NoAttendanceMatches));
+        }
+
+        public bool NoAttendanceMatches => VisibleAttendanceRows.Count == 0 && AttendanceRows.Count > 0;
+
+        // ------- عدّادات الملخص اللي فوق القائمة -------
+
+        public int PresentCount => AttendanceRows.Count(r => r.SelectedStatus == AttendanceStatus.Present);
+        public int ExcusedCount => AttendanceRows.Count(r => r.SelectedStatus == AttendanceStatus.AbsentWithPermission);
+        public int UnexcusedCount => AttendanceRows.Count(r => r.SelectedStatus == AttendanceStatus.AbsentWithoutPermission);
+        public int UnsetCount => AttendanceRows.Count(r => r.SelectedStatus is null);
+        public int TotalWorkersCount => AttendanceRows.Count;
+
+        /// <summary>الخصم المتوقع لو حفظت دلوقتي — تحذير قبل الحفظ مش بعده</summary>
+        public string PendingPenaltyText => UnexcusedCount == 0
+            ? ""
+            : $"هيتسجل {UnexcusedCount} جزاء غياب تلقائي (نص يومية لكل واحد)";
+
+        private void RefreshAttendanceSummary()
+        {
+            OnPropertyChanged(nameof(PresentCount));
+            OnPropertyChanged(nameof(ExcusedCount));
+            OnPropertyChanged(nameof(UnexcusedCount));
+            OnPropertyChanged(nameof(UnsetCount));
+            OnPropertyChanged(nameof(TotalWorkersCount));
+            OnPropertyChanged(nameof(PendingPenaltyText));
+        }
 
         private async Task LoadAttendanceAsync()
         {
             using var scope = _scopeFactory.CreateScope();
             var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
             var attendanceRepo = scope.ServiceProvider.GetRequiredService<IAttendanceRepository>();
+            var hourlyService = scope.ServiceProvider.GetRequiredService<HourlyWorkdayService>();
+            var automation = scope.ServiceProvider.GetRequiredService<AttendanceAutomationService>();
 
             var workers = await workerRepo.GetActiveWithSkillsAsync();
-            var existing = (await attendanceRepo.GetByDateAsync(EntryDate))
+            var savedStatuses = (await attendanceRepo.GetByDateAsync(EntryDate))
                 .ToDictionary(a => a.WorkerId, a => a.Status);
 
-            AttendanceRows.Clear();
-            foreach (var w in workers)
-            {
-                // القيمة المحفوظة مسبقًا بتظهر محددة، ولو مفيش سجل بتبقى "—"
-                var selected = existing.TryGetValue(w.Id, out var st)
-                    ? StatusOptions.First(o => o.Value == st)
-                    : StatusOptions[0];
+            // "مين اشتغل النهارده" من القاعدة المشتركة (مش استنتاج محلي)
+            var workersWithWork = await automation.GetWorkersWithLoggedWorkAsync(EntryDate);
 
-                AttendanceRows.Add(new AttendanceRow
+            var hourlyLogs = (await hourlyService.GetByDateAsync(EntryDate))
+                .ToDictionary(h => h.WorkerId, h => h.EndHour24);
+
+            AttendanceRows.Clear();
+            foreach (var w in workers.OrderBy(w => w.IsHourly).ThenBy(w => w.FullName))
+            {
+                savedStatuses.TryGetValue(w.Id, out var saved);
+                var hasSaved = savedStatuses.ContainsKey(w.Id);
+                var hasWork = workersWithWork.Contains(w.Id);
+
+                var row = new AttendanceRow(
+                    w.Id,
+                    w.FullName,
+                    w.IsHourly,
+                    w.IsHourly ? w.HourlyRole!.Value.ToArabicName() : "بالقطعة")
                 {
-                    WorkerId = w.Id,
-                    FullName = w.FullName,
-                    EmployeeCode = w.EmployeeCode ?? "—",
-                    SelectedStatus = selected
-                });
+                    HasLoggedWork = hasWork,
+                    SavedStatus = hasSaved ? saved : null
+                };
+
+                // المحفوظ بيكسب دايمًا؛ ولو مفيش محفوظ والعامل له شغل
+                // مسجّل → "حاضر" تلقائي وظاهر قدام المستخدم قبل ما يحفظ
+                var initialStatus = hasSaved
+                    ? saved
+                    : hasWork ? AttendanceStatus.Present : (AttendanceStatus?)null;
+
+                row.SelectStatusSilently(initialStatus);
+
+                if (w.IsHourly && hourlyLogs.TryGetValue(w.Id, out var endHour))
+                    row.SelectShiftSilently(endHour);
+
+                // أي تغيير في السطر بيحدّث عدّادات الملخص فورًا
+                row.StatusChanged += RefreshAttendanceSummary;
+
+                AttendanceRows.Add(row);
             }
+
+            ApplyAttendanceFilter();
+            RefreshAttendanceSummary();
         }
 
         [RelayCommand]
         private async Task SaveAttendanceAsync()
         {
-            // تجميع الصفوف اللي المستخدم حدّد لها حالة ("—" معناها مفيش تسجيل، بنسيبه)
-            var toSave = AttendanceRows
-                .Where(row => row.SelectedStatus?.Value is not null)
-                .Select(row => (row.WorkerId, Status: row.SelectedStatus!.Value!.Value))
-                .ToList();
+            // الصفوف اللي عليها حالة محددة (اللي من غير تحديد بنسيبها زي ما هي)
+            var rowsToSave = AttendanceRows.Where(r => r.SelectedStatus is not null).ToList();
 
-            if (toSave.Count == 0)
+            if (rowsToSave.Count == 0)
             {
                 MessageBox.Show("مفيش أي حالة حضور محددة للحفظ", "تنبيه",
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
+            // تحذير مبكر: عامل له شغل مسجّل واتعلّم غياب. الخدمة هترفض
+            // برضه (قاعدة حماية)، بس الرسالة هنا بتوضّح السبب قبل الحفظ
+            var conflicting = rowsToSave
+                .Where(r => r.HasLoggedWork && r.SelectedStatus != AttendanceStatus.Present)
+                .ToList();
+
+            if (conflicting.Count > 0)
+            {
+                var names = string.Join("\n", conflicting.Select(r => $"  • {r.FullName}"));
+                MessageBox.Show(
+                    "العمال دول ليهم شغل مسجّل النهارده ومتعلّم عليهم غياب:\n" + names +
+                    "\n\nعامل شغل مينفعش يتسجل غايب في نفس اليوم. لو فعلاً كانوا غايبين، " +
+                    "امسح شغلهم الأول من تبويب \"سجلات اليوم\".",
+                    "تعارض: شغل مسجّل مع غياب", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             try
             {
-                using var scope = _scopeFactory.CreateScope();
-                var attendanceService = scope.ServiceProvider.GetRequiredService<AttendanceService>();
+                AttendanceSaveResultDto result;
+                using (var scope = _scopeFactory.CreateScope())
+                {
+                    var attendanceService = scope.ServiceProvider.GetRequiredService<AttendanceService>();
+                    var hourlyService = scope.ServiceProvider.GetRequiredService<HourlyWorkdayService>();
 
-                // حفظ جماعي في حفظة واحدة بدل استعلام + حفظ لكل عامل
-                var saved = await attendanceService.RecordAttendanceBatchAsync(EntryDate, toSave);
+                    // شغل العمال بالساعة الأول (بيسجل حضور تلقائي لو مفيش)،
+                    // وبعدين الحضور بيكتب الحالة النهائية اللي المستخدم اختارها
+                    foreach (var row in rowsToSave.Where(r => r.IsHourly && r.SelectedEndHour is not null))
+                        await hourlyService.RecordHourlyWorkAsync(row.WorkerId, EntryDate, row.SelectedEndHour!.Value);
 
-                MessageBox.Show($"تم حفظ حضور {saved} عامل بتاريخ {EntryDate:yyyy/MM/dd}",
+                    var entries = rowsToSave.Select(r => (r.WorkerId, Status: r.SelectedStatus!.Value));
+
+                    // حفظ جماعي + مصالحة جزاءات الغياب في معاملة واحدة
+                    result = await attendanceService.RecordAttendanceBatchAsync(EntryDate, entries);
+                }
+
+                var penaltyLines = "";
+                if (result.AutoPenaltiesCreated > 0)
+                    penaltyLines += $"\n⚠ اتسجل {result.AutoPenaltiesCreated} جزاء غياب تلقائي (نص يومية لكل واحد)";
+                if (result.AutoPenaltiesRemoved > 0)
+                    penaltyLines += $"\n✔ اتشال {result.AutoPenaltiesRemoved} جزاء غياب تلقائي (الحالة اتغيّرت)";
+
+                MessageBox.Show(
+                    $"تم حفظ حضور {result.SavedCount} عامل بتاريخ {EntryDate:yyyy/MM/dd}{penaltyLines}",
                     "تم الحفظ", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                await LoadAttendanceAsync();
+                await LoadPenaltiesAsync(); // الجزاءات التلقائية تظهر/تختفي فورًا
             }
             catch (InvalidOperationException ex)
             {
-                // قاعدة الحماية: غياب لعامل له إنتاج في نفس اليوم بيترفض برسالة بأسماء العمال
+                // قاعدة الحماية: غياب لعامل له شغل في نفس اليوم بيترفض برسالة بأسماء العمال
                 MessageBox.Show(ex.Message, "تعارض في البيانات", MessageBoxButton.OK, MessageBoxImage.Warning);
                 await LoadAttendanceAsync(); // إرجاع القائمة للحالة المحفوظة الفعلية
             }
@@ -587,44 +615,257 @@ namespace WorkforceManager.UI.ViewModels
     }
 
     /// <summary>خيار وقت انتهاء الشغل في قائمة العامل بالساعة</summary>
-    public record EndHourOption(int Hour24, string Display);
-
     /// <summary>
-    /// سطر عامل بالساعة في تبويب التسجيل: بيختار وقت الانتهاء، والنظام
-    /// بيعرض اليوميات المحسوبة لحظيًا قبل الحفظ.
+    /// زرار حالة واحد في سطر الحضور. الاختيار مانع للجمع (حالة واحدة
+    /// لليوم — B1): تعليم واحد بيشيل التعليم عن الباقي، وتعليمه تاني
+    /// بيلغي التسجيل ويرجّع السطر لـ"بدون تسجيل".
     /// </summary>
-    public partial class HourlyRow : ObservableObject
+    public partial class AttendanceStatusChoice : ObservableObject
     {
-        public int WorkerId { get; init; }
-        public string FullName { get; init; } = "";
-        public string EmployeeCode { get; init; } = "";
-        public string RoleText { get; init; } = "";
+        private readonly AttendanceRow _row;
+
+        public AttendanceStatusChoice(AttendanceRow row, AttendanceStatus status)
+        {
+            _row = row;
+            Status = status;
+            Display = status.ToArabicName();
+            AccentColor = AttendanceVisuals.ColorFor(status);
+            Icon = AttendanceVisuals.IconFor(status);
+        }
+
+        public AttendanceStatus Status { get; }
+        public string Display { get; }
+
+        /// <summary>
+        /// لون الحالة لما تتعلّم (أخضر حاضر / أصفر بإذن / أحمر بدون إذن).
+        /// نص hex زي <c>AdjustmentRow.TypeColor</c> — WPF بيحوّله لفرشاة لوحده.
+        /// </summary>
+        public string AccentColor { get; }
+
+        /// <summary>أيقونة MaterialDesign اللي بتوصف الحالة (بتتقري أسرع من النص)</summary>
+        public string Icon { get; }
+
+        /// <summary>بيوقف إبلاغ السطر وإحنا بنعدّل الاختيار برمجيًا (منع تكرار لا نهائي)</summary>
+        private bool _suppressNotify;
 
         [ObservableProperty]
-        private EndHourOption? _selectedEndHour;
+        private bool _isSelected;
 
-        /// <summary>معاينة اليوميات لحظيًا حسب وقت الانتهاء المختار</summary>
-        public string WorkdaysPreview =>
-            SelectedEndHour is null
-                ? ""
-                : $"≈ {HourlyWorkdayService.ComputeWorkdays(SelectedEndHour.Hour24)} يومية";
+        partial void OnIsSelectedChanged(bool value)
+        {
+            if (_suppressNotify) return;
+            _row.OnChoiceToggled(this, value);
+        }
 
-        // تحديث المعاينة كل ما وقت الانتهاء يتغير
-        partial void OnSelectedEndHourChanged(EndHourOption? value) => OnPropertyChanged(nameof(WorkdaysPreview));
+        /// <summary>تعليم/إلغاء من غير ما نرجّع نداء للسطر (بيستخدمه السطر وهو بيوحّد الاختيار)</summary>
+        internal void SetSelectedSilently(bool selected)
+        {
+            _suppressNotify = true;
+            try { IsSelected = selected; }
+            finally { _suppressNotify = false; }
+        }
     }
 
-    /// <summary>خيار حالة حضور في القائمة المنسدلة ("—" = بدون تسجيل)</summary>
-    public record AttendanceStatusOption(AttendanceStatus? Value, string Display);
-
-    /// <summary>سطر حضور لعامل واحد</summary>
-    public partial class AttendanceRow : ObservableObject
+    /// <summary>
+    /// اختصار شيفت للعامل بالساعة (شيفت عادي / لحد 8م / لحد 12).
+    /// نفس منطق الاختيار المانع للجمع بتاع الحالات — شيفت واحد بس في اليوم.
+    /// </summary>
+    public partial class ShiftChoice : ObservableObject
     {
-        public int WorkerId { get; init; }
-        public string FullName { get; init; } = "";
-        public string EmployeeCode { get; init; } = "";
+        private readonly AttendanceRow _row;
+
+        public ShiftChoice(AttendanceRow row, int endHour24, string label)
+        {
+            _row = row;
+            EndHour24 = endHour24;
+            Display = $"{label} ({HourlyWorkdayService.ComputeWorkdays(endHour24)} يومية)";
+        }
+
+        public int EndHour24 { get; }
+        public string Display { get; }
+
+        private bool _suppressNotify;
 
         [ObservableProperty]
-        private AttendanceStatusOption? _selectedStatus;
+        private bool _isSelected;
+
+        partial void OnIsSelectedChanged(bool value)
+        {
+            if (_suppressNotify) return;
+            _row.OnShiftToggled(this, value);
+        }
+
+        internal void SetSelectedSilently(bool selected)
+        {
+            _suppressNotify = true;
+            try { IsSelected = selected; }
+            finally { _suppressNotify = false; }
+        }
+    }
+
+    /// <summary>
+    /// سطر حضور لعامل واحد في القائمة الموحّدة (بالقطعة أو بالساعة).
+    ///
+    /// الحالات المعروضة بتيجي من <see cref="AttendanceStatusCatalog"/>
+    /// حسب نوع العامل — مش مكتوبة هنا. والعامل بالساعة بيزود عليه
+    /// اختصارات الشيفت عشان يتسجل شغله من نفس الشاشة من غير تبويب منفصل.
+    /// </summary>
+    public partial class AttendanceRow : ObservableObject
+    {
+        /// <summary>بيمنع التكرار اللانهائي وإحنا بنلغي تعليم باقي الاختيارات</summary>
+        private bool _syncing;
+
+        public AttendanceRow(int workerId, string fullName, bool isHourly, string roleText)
+        {
+            WorkerId = workerId;
+            FullName = fullName;
+            IsHourly = isHourly;
+            RoleText = roleText;
+
+            StatusChoices = AttendanceStatusCatalog.ForWorker(isHourly)
+                .Select(status => new AttendanceStatusChoice(this, status))
+                .ToList();
+
+            ShiftChoices = isHourly
+                ? HourlyWorkdayService.ShiftPresets
+                    .Select(preset => new ShiftChoice(this, preset.EndHour24, preset.Label))
+                    .ToList()
+                : new List<ShiftChoice>();
+        }
+
+        public int WorkerId { get; }
+        public string FullName { get; }
+
+        /// <summary>عامل بالساعة؟ (بيحدد الحالات المعروضة وظهور اختصارات الشيفت)</summary>
+        public bool IsHourly { get; }
+
+        /// <summary>نوع العامل للعرض: "بالقطعة" أو دوره بالساعة (رص/جودة/تدريب)</summary>
+        public string RoleText { get; }
+
+        /// <summary>أول حرفين من الاسم — بيتعرضوا في الدايرة جنب كل عامل بدل صورة</summary>
+        public string Initials
+        {
+            get
+            {
+                var parts = FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 0) return "؟";
+                return parts.Length == 1
+                    ? parts[0][..Math.Min(2, parts[0].Length)]
+                    : $"{parts[0][0]}{parts[1][0]}";
+            }
+        }
+
+        /// <summary>لون الشريط الجانبي للبطاقة = لون الحالة المختارة (رمادي لو لسه مفيش)</summary>
+        public string StatusColor => AttendanceVisuals.ColorFor(SelectedStatus);
+
+        public IReadOnlyList<AttendanceStatusChoice> StatusChoices { get; }
+        public IReadOnlyList<ShiftChoice> ShiftChoices { get; }
+
+        /// <summary>الحالة المختارة دلوقتي (null = بدون تسجيل)</summary>
+        public AttendanceStatus? SelectedStatus =>
+            StatusChoices.FirstOrDefault(c => c.IsSelected)?.Status;
+
+        /// <summary>وقت انتهاء الشيفت المختار للعامل بالساعة (null = مفيش شغل ساعة النهارده)</summary>
+        public int? SelectedEndHour =>
+            ShiftChoices.FirstOrDefault(c => c.IsSelected)?.EndHour24;
+
+        // ------- الحضور التلقائي من الشغل المسجّل -------
+
+        /// <summary>
+        /// العامل ده له شغل مسجّل النهارده (إنتاج على مراحل أو شغل ساعة).
+        /// بيتحدد من القاعدة المشتركة في AttendanceAutomationService.
+        /// </summary>
+        public bool HasLoggedWork { get; init; }
+
+        /// <summary>الشرح اللي بيظهر جنب العامل اللي اتعلّم "حاضر" تلقائيًا</summary>
+        public string WorkNote => HasLoggedWork ? "له شغل مسجّل النهارده" : "";
+
+        /// <summary>الحالة المحفوظة فعليًا في قاعدة البيانات (لمعرفة إذا كان فيه تعديل غير محفوظ)</summary>
+        public AttendanceStatus? SavedStatus { get; init; }
+
+        // ------- منطق الاختيار المانع للجمع -------
+
+        internal void OnChoiceToggled(AttendanceStatusChoice toggled, bool isSelected)
+        {
+            if (_syncing) return;
+
+            _syncing = true;
+            try
+            {
+                // حالة واحدة بس في اليوم: تعليم واحدة بيشيل الباقي
+                if (isSelected)
+                    foreach (var other in StatusChoices.Where(c => !ReferenceEquals(c, toggled)))
+                        other.SetSelectedSilently(false);
+            }
+            finally
+            {
+                _syncing = false;
+            }
+
+            RaiseStatusVisualsChanged();
+        }
+
+        internal void OnShiftToggled(ShiftChoice toggled, bool isSelected)
+        {
+            if (_syncing) return;
+
+            _syncing = true;
+            try
+            {
+                if (isSelected)
+                {
+                    foreach (var other in ShiftChoices.Where(c => !ReferenceEquals(c, toggled)))
+                        other.SetSelectedSilently(false);
+
+                    // اختيار شيفت معناه العامل اشتغل — يبقى حاضر بالبديهة
+                    SelectStatusSilently(AttendanceStatus.Present);
+                }
+            }
+            finally
+            {
+                _syncing = false;
+            }
+
+            OnPropertyChanged(nameof(SelectedEndHour));
+            RaiseStatusVisualsChanged();
+        }
+
+        /// <summary>يحدد حالة من غير ما يشغّل منطق المزامنة (للتحميل الأولي والحضور التلقائي)</summary>
+        public void SelectStatusSilently(AttendanceStatus? status)
+        {
+            foreach (var choice in StatusChoices)
+                choice.SetSelectedSilently(choice.Status == status);
+
+            RaiseStatusVisualsChanged();
+        }
+
+        /// <summary>يحدد شيفت من غير منطق المزامنة (للتحميل الأولي)</summary>
+        public void SelectShiftSilently(int? endHour24)
+        {
+            foreach (var choice in ShiftChoices)
+                choice.SetSelectedSilently(choice.EndHour24 == endHour24);
+
+            OnPropertyChanged(nameof(SelectedEndHour));
+        }
+
+        /// <summary>فيه تعديل لسه متحفظش؟ (لتلوين السطر)</summary>
+        public bool HasUnsavedChange => SelectedStatus != SavedStatus;
+
+        /// <summary>
+        /// بيبلّغ كل الخصائص اللي بتتغير مع الحالة (اللون + التعديل غير
+        /// المحفوظ). مكان واحد عشان أي تغيير للحالة يحدّث البطاقة كاملة،
+        /// ومنسناش خاصية.
+        /// </summary>
+        private void RaiseStatusVisualsChanged()
+        {
+            OnPropertyChanged(nameof(SelectedStatus));
+            OnPropertyChanged(nameof(StatusColor));
+            OnPropertyChanged(nameof(HasUnsavedChange));
+            StatusChanged?.Invoke();
+        }
+
+        /// <summary>بيتنادى مع أي تغيير حالة — الشاشة الأم بتحدّث عدّادات الملخص</summary>
+        public event Action? StatusChanged;
     }
 
     /// <summary>خيار خصم جزاء في القائمة المنسدلة</summary>

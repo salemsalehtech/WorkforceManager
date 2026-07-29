@@ -62,7 +62,10 @@ Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output)
 - `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
   UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
 
-There is no test project in the solution yet.
+`WorkforceManager.Tests` (xUnit, `net8.0`) covers the worker-assignment rule — run with `dotnet test`
+from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
+EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
+the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
 
 The SQLite DB lives outside the repo at `%LocalAppData%\WorkforceManager\workforce.db` (or in `Data\` next
 to the exe when a `portable.marker` file is present — see `AppPaths`). `App.OnStartup` creates/updates it
@@ -100,9 +103,16 @@ Core  <----------------------- UI
   auto-split + manual override, stage ranges "from stage X to Y: N pieces", live per-worker workdays
   preview, independent save; "add product" button appends sessions; row-level commands live on the row
   view-models via callbacks, not RelativeSource), a "سجلات اليوم" correction tab (edit/delete saved
-  production records), an "العمال بالساعة" tab (hourly workers pick an end-hour → live workdays preview
-  via the ladder → save + auto-attendance), attendance grid (upsert per worker/date),
-  penalties (add with reason/deduction, list + delete for the day), and an "السلف والحوافز" tab
+  production records), a **unified** attendance grid (upsert per worker/date) that replaced the
+  separate "العمال بالساعة" tab — piece-rate and hourly workers in one list, status picked via inline
+  single-select `ToggleButton` chips (`StatusChip`/`ShiftChip` styles in App.xaml) instead of a
+  dropdown, options served by `AttendanceStatusCatalog.ForWorker(isHourly)` (reads the
+  `AttendanceStatus` enum, never a hardcoded list — both types currently share all three statuses).
+  Hourly rows add three shift chips from `HourlyWorkdayService.ShiftPresets` (شيفت عادي / لحد 8م /
+  لحد 12 = 1 / 1.5 / 2 workdays), the only three distinct outcomes the ladder can produce; the old
+  13-entry end-hour dropdown is gone from the UI though `RecordHourlyWorkAsync` still accepts any hour.
+  Mutual exclusion lives in `AttendanceRow.OnChoiceToggled`; picking a shift also marks the worker
+  Present. Then penalties (add with reason/deduction, list + delete for the day), and an "السلف والحوافز" tab
   (advances/bonuses in EGP: pick worker + type + amount + note, list with delete; سلفة red, حافز green).
   `ReportsView` is implemented: daily evaluation tab (colored ratings vs team
   average) + weekly sheet tab (net-workdays ranking, week navigation, Excel export via
@@ -154,6 +164,16 @@ Core  <----------------------- UI
   corrections. Date-leading index like the other by-date tables.
 - Soft-delete convention: `Worker.IsActive` / `Product.IsActive` / `ProductionStage.IsActive` flags are used
   instead of hard deletes, to preserve historical production/attendance records.
+- `Worker.EmployeeCode` is **invisible plumbing — never show it in any screen, export, or payslip**. It was
+  removed from every UI surface (workers grid + profile + add/edit dialog, both report grids, attendance
+  cards, payslip, and all four Excel sheets) because it added nothing for the user; searching is by name
+  only. The column and its seed values (`W001`–`W046`) survive on purpose: `DatabaseSeeder`
+  `.ToDictionaryAsync(w => w.EmployeeCode!)` matches `WorkerSkillsSeed` **by code, not by name**, so
+  dropping it would leave a fresh install with zero skill links and therefore nobody qualified for any
+  stage. For the same reason `WorkerManagementService.UpdateWorkerAsync` deliberately does **not** touch
+  `EmployeeCode` (an edit that nulled it would silently break re-seeding for that worker), and
+  `CreateWorkerAsync` leaves it null for new workers. Removing the Excel "الكود" column shifted every
+  later column index in `WeeklyReportExcelService` — check the whole sheet if you touch those layouts.
 - Two worker pay types: piece-rate (default) vs hourly. `Worker.HourlyRole` (nullable `HourlyRole` enum:
   Training/Racking/Quality/Other) — non-null means the worker is paid by hours, not pieces. Hourly workers
   have no `WorkerSkill` links, don't appear in production flow, and log via `HourlyWorkLog` instead.
@@ -173,6 +193,29 @@ Core  <----------------------- UI
 
 - `DailyProduction` rows are created only by `WorkdayCalculationService` (single/batch) or
   `ProductionFlowService.RecordFlowAsync` — both snapshot the stage quota automatically.
+- **Worker-assignment rule** (`WorkerAssignmentGuard` in Business — the ONLY place this rule exists;
+  never re-implement it in a controller/ViewModel). An "assignment" is a `DailyProduction` row, so
+  "assigned" = has a row for that worker/stage/date. By default a worker holds one assignment per
+  production day (there is no shift concept, so the day IS the scope). `Evaluate(existing, requested)`
+  is pure and testable; it processes `requested` in order and each item is compared against the saved
+  rows **plus the earlier items in the same request**, so a worker put on two stages of one flow is
+  caught too. Outcomes: exact duplicate (same worker+stage+date) is **always blocked** with an "already
+  assigned" message and is NOT an override case; a different stage/product on the same day needs
+  explicit confirmation; anything else passes. `EnsureAllowed(result, confirmOverride)` is the single
+  place that turns a result into "continue or stop" and throws `AssignmentConfirmationRequiredException`
+  (carries structured conflicts, derives from `InvalidOperationException` so existing catch blocks
+  still work). Both creation services take `confirmOverride = false` as an optional last parameter —
+  the flag applies only to the call that carries it and never overrides the duplicate block.
+  The check + the insert run inside one `IUnitOfWork.BeginWriteTransactionAsync()`, which opens
+  `BEGIN IMMEDIATE` (`EfUnitOfWork`) so the read the decision rests on is under the same write lock as
+  the insert — two instances can't both pass the check and write. There is deliberately **no** unique
+  index on `(WorkerId, ProductionStageId, Date)`: existing customer DBs may hold legitimate duplicates
+  from two separate saves, so the migration would fail and the rule would change behaviour retroactively.
+  UI side (`FlowSessionViewModel`): adding a worker validates **before** the chip is rendered (nothing
+  to roll back on Cancel), comparing against saved rows + every open flow session's unsaved chips; the
+  save path is two-phase (attempt → `AssignmentConfirmationRequiredException` → dialog → re-send with
+  `confirmOverride: true`). `_confirmedAssignments` only prevents asking twice about the same pair the
+  user just confirmed — it is cleared on reload/date change and is not a "remember my choice".
 - `ProductionFlowService.RecordFlowAsync` is the main production-entry path: takes stage ranges
   ("from stage X to Y produced N pieces" — every stage in a range gets N) + per-stage worker shares.
   Validates everything (ranges in line order, no overlaps, share sums == stage pieces, workers must be
@@ -201,8 +244,26 @@ Core  <----------------------- UI
   Present. `WeeklySummaryService` sums `HourlyWorkLog.WorkdaysCredited` into `ProducedWorkdays` so hourly
   days flow into net workdays / weekly sheet / pay exactly like piece production.
 - `AttendanceService.RecordAttendanceAsync` is an upsert (one record per worker/date). Recording an
-  absence for a worker who has production that day is REJECTED (single and batch — batch is
-  all-or-nothing, names the conflicting workers). Delete the production first if truly absent.
+  absence for a worker who has **work logged** that day is REJECTED (single and batch — batch is
+  all-or-nothing, names the conflicting workers). Delete the work first if truly absent. "Has work
+  logged" comes from `AttendanceAutomationService.GetWorkersWithLoggedWorkAsync` — production rows OR
+  hourly logs, so hourly workers are covered too (they have no stage production by design).
+- **Attendance automation** (`AttendanceAutomationService` — the only place these rules exist):
+  - *Auto-Present*: on load, a worker with logged work is pre-selected as Present and the row shows why
+    (`WorkNote`). A saved status always wins over the auto value.
+  - *Auto absence penalty*: `AbsentWithoutPermission` ⇒ exactly one `HalfDay` penalty tagged
+    `PenaltySource.AutoAbsence`. Changing the status away removes it. Applies to piece-rate **and**
+    hourly workers. `ReconcileAbsencePenaltiesAsync` is idempotent and only touches penalties it
+    created — `PenaltySource.Manual` (value 0, so every pre-existing row) is never modified or deleted,
+    and `PenaltyService.RemovePenaltyAsync` refuses to hand-delete an auto penalty.
+  - Attendance + penalty reconcile run in one `IUnitOfWork` transaction (`BEGIN IMMEDIATE`), so two
+    instances saving the same day can't produce two penalties for one absence.
+- **No double deduction** (`AbsenceDeductionRule` — shared by `WeeklySummaryService` and
+  `PayrollService`): an unexcused absence day costs **0.5 workday, once**. Before this feature the 0.5
+  was a hidden subtraction; now it is a visible auto penalty. `ComputeUnpenalizedAbsenceDeduction`
+  counts only absence days that have **no** auto penalty, so new days are charged through the penalty
+  and legacy days keep their built-in deduction — same total either way, and no data migration was
+  needed to backfill historical rows.
 - Daily evaluation: a sole producer gets `TopPerformer` iff `TotalWorkdays >= 1.0` (objective bar —
   percent-vs-average is meaningless with no peers), else `Average`.
 - UI hygiene: never use `_ = SomeAsync()` — use `SafeAsync.Run(...)` (ViewModels) so failures surface

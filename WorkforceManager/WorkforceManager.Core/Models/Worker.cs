@@ -19,7 +19,16 @@ namespace WorkforceManager.Core.Models
         [MaxLength(150)]
         public string FullName { get; set; } = string.Empty;
 
-        /// <summary>رقم كودي/وظيفي اختياري لتسهيل البحث والفرز (اختياري)</summary>
+        /// <summary>
+        /// كود العامل — **مش معروض في أي شاشة**، اتشال من الواجهة كلها
+        /// لأنه مكانش بيضيف حاجة للمستخدم (الاسم كافي للبحث والتمييز).
+        ///
+        /// العمود نفسه فضل موجود عن قصد لأنه المفتاح اللي بتترابط بيه
+        /// مهارات العمال وقت التهيئة الأولى
+        /// (<c>DatabaseSeeder.SeedWorkerSkillLinksAsync</c> بتطابق
+        /// <c>WorkerSkillsSeed</c> بالكود مش بالاسم). لو اتشال، أي تركيب
+        /// جديد هيطلع من غير أي مهارات مربوطة، ومحدش هيبقى مؤهل لأي مرحلة.
+        /// </summary>
         [MaxLength(30)]
         public string? EmployeeCode { get; set; }
 
@@ -85,9 +94,5 @@ namespace WorkforceManager.Core.Models
         /// <summary>تعديلات الأجر بالجنيه (سلف وحوافز) — تدخل في صافي أجر الفترة</summary>
         public virtual ICollection<WageAdjustment> WageAdjustments { get; set; } = new List<WageAdjustment>();
 
-        [NotMapped]
-        public string DisplayName => string.IsNullOrWhiteSpace(EmployeeCode)
-            ? FullName
-            : $"{FullName} ({EmployeeCode})";
     }
 }

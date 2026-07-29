@@ -12,7 +12,6 @@ namespace WorkforceManager.Business.DTOs
     {
         public int WorkerId { get; set; }
         public string WorkerName { get; set; } = string.Empty;
-        public string? EmployeeCode { get; set; }
 
         /// <summary>أول يوم في الأسبوع (الخميس)</summary>
         public DateTime WeekStart { get; set; }

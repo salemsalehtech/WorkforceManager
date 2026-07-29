@@ -115,7 +115,6 @@
                         <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="40" />
                         <DataGridTextColumn Header="⭐" Binding="{Binding BestMark}" Width="36" />
                         <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="*" />
-                        <DataGridTextColumn Header="الكود" Binding="{Binding EmployeeCode}" Width="65" />
                         <DataGridTextColumn Header="أنتج" Binding="{Binding ProducedWorkdays}" Width="65" />
                         <DataGridTextColumn Header="القطع" Binding="{Binding TotalPieces}" Width="75" />
                         <DataGridTextColumn Header="حضور" Binding="{Binding PresentDays}" Width="60" />
@@ -367,7 +366,6 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="40" />
                                 <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="*" />
-                                <DataGridTextColumn Header="الكود" Binding="{Binding EmployeeCode}" Width="70" />
                                 <DataGridTextColumn Header="النوع" Binding="{Binding TypeText}" Width="75" />
                                 <DataGridTextColumn Header="أيام العمل" Binding="{Binding DaysWorked}" Width="85" />
                                 <DataGridTextColumn Header="صافي اليوميات" Binding="{Binding NetWorkdays}" Width="100" />

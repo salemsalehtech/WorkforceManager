@@ -20,8 +20,8 @@ namespace WorkforceManager.Business.Services
     /// </summary>
     public class WeeklySummaryService
     {
-        /// <summary>خصم الغياب بدون إذن عن اليوم الواحد = نص يومية</summary>
-        private const decimal UnexcusedAbsenceDeductionPerDay = 0.5m;
+        // قاعدة خصم الغياب اتنقلت لـ AbsenceDeductionRule (مكان واحد مشترك
+        // مع PayrollService) عشان الخصم ميتحسبش مرتين بعد جزاء الغياب التلقائي
 
         private readonly IDailyProductionRepository _productionRepo;
         private readonly IAttendanceRepository _attendanceRepo;
@@ -204,7 +204,6 @@ namespace WorkforceManager.Business.Services
             {
                 WorkerId = workerId,
                 WorkerName = workerRef.FullName,
-                EmployeeCode = workerRef.EmployeeCode,
                 WeekStart = weekStart,
                 WeekEnd = weekEnd,
 
@@ -230,8 +229,11 @@ namespace WorkforceManager.Business.Services
                 PresentDays = workerAttendance.Count(a => a.Status == AttendanceStatus.Present),
                 AbsentWithPermissionDays = workerAttendance.Count(a => a.Status == AttendanceStatus.AbsentWithPermission),
                 AbsentWithoutPermissionDays = absentWithoutPermission,
-                // قاعدة الخصم المتفق عليها: نص يومية عن كل يوم غياب بدون إذن
-                AbsenceDeduction = absentWithoutPermission * UnexcusedAbsenceDeductionPerDay,
+                // نص يومية عن كل يوم غياب بدون إذن — بس الأيام اللي ليها جزاء
+                // تلقائي بتتخصم من خلال الجزاء نفسه، فمبتتعدّش هنا تاني
+                // (القاعدة المشتركة في AbsenceDeductionRule)
+                AbsenceDeduction = AbsenceDeductionRule.ComputeUnpenalizedAbsenceDeduction(
+                    workerAttendance, workerPenalties),
 
                 Penalties = workerPenalties.Select(p => new PenaltySummaryDto
                 {

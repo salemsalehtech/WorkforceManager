@@ -42,10 +42,14 @@ namespace WorkforceManager.UI
                     services.AddScoped<IGenericRepository<ProductionStage>, GenericRepository<ProductionStage>>();
                     services.AddScoped<IGenericRepository<WorkerSkill>, GenericRepository<WorkerSkill>>();
                     services.AddScoped<IGenericRepository<AppUser>, GenericRepository<AppUser>>();
+                    // معاملات الكتابة (نفس الـ DbContext بتاع الـ Scope) — للتحقق الذري قبل الحفظ
+                    services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
                     // Business Services
+                    services.AddScoped<WorkerAssignmentGuard>();
                     services.AddScoped<WorkdayCalculationService>();
                     services.AddScoped<PerformanceEvaluationService>();
+                    services.AddScoped<AttendanceAutomationService>();
                     services.AddScoped<AttendanceService>();
                     services.AddScoped<PenaltyService>();
                     services.AddScoped<WeeklySummaryService>();

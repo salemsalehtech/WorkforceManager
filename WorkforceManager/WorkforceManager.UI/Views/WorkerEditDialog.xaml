@@ -33,9 +33,6 @@
                 <TextBlock Text="اسم العامل (إجباري)" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="NameBox" Margin="0,0,0,12" />
 
-                <TextBlock Text="الكود الوظيفي" Style="{StaticResource FieldLabel}" />
-                <TextBox x:Name="CodeBox" Margin="0,0,0,12" />
-
                 <TextBlock Text="رقم التليفون" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="PhoneBox" Margin="0,0,0,12" />
 

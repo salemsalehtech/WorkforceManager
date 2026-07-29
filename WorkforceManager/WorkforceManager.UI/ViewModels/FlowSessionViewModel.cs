@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Interfaces;
+using System.Linq;
 
 namespace WorkforceManager.UI.ViewModels
 {
@@ -30,6 +31,22 @@ namespace WorkforceManager.UI.ViewModels
         private readonly Func<Task> _onSavedAsync;
 
         /// <summary>
+        /// كل الرحلات المفتوحة على الشاشة (بما فيها دي). قاعدة "العامل
+        /// ميشتغلش على أكتر من مرحلة" لازم تشوف اللي لسه متحفظش كمان —
+        /// المستخدم ممكن يفتح منتجين ويحط نفس العامل في الاتنين قبل ما
+        /// يحفظ أي واحدة، والتعارض ده حقيقي بنفس القدر.
+        /// </summary>
+        private readonly Func<IEnumerable<FlowSessionViewModel>> _getOpenSessions;
+
+        /// <summary>
+        /// التكليفات اللي المستخدم أكّد عليها صراحة في الرحلة دي (لليوم
+        /// الحالي). الغرض منها **مش** حفظ اختياره لعمليات جاية — ده بس
+        /// عشان ميتسألش تاني عند الحفظ على نفس التكليف اللي أكّده وهو
+        /// بيضيفه. بتتفضى مع إعادة تحميل الرحلة أو تغيير اليوم.
+        /// </summary>
+        private readonly HashSet<(int StageId, int WorkerId)> _confirmedAssignments = new();
+
+        /// <summary>
         /// بيمنع إعادة الحساب أثناء ما الكود نفسه بيعدّل القيم (بناء الصفوف
         /// أو التوزيع التلقائي) — من غيره كل تعديل برمجي كان هيشغّل
         /// سلسلة إعادة حساب لا نهائية.
@@ -40,12 +57,14 @@ namespace WorkforceManager.UI.ViewModels
             IServiceScopeFactory scopeFactory,
             IReadOnlyList<ProductOption> products,
             Func<DateTime> getEntryDate,
-            Func<Task> onSavedAsync)
+            Func<Task> onSavedAsync,
+            Func<IEnumerable<FlowSessionViewModel>> getOpenSessions)
         {
             _scopeFactory = scopeFactory;
             Products = products;
             _getEntryDate = getEntryDate;
             _onSavedAsync = onSavedAsync;
+            _getOpenSessions = getOpenSessions;
         }
 
         /// <summary>كل المنتجات النشطة (قائمة مشتركة بين كل الرحلات — للقراءة بس)</summary>
@@ -88,6 +107,8 @@ namespace WorkforceManager.UI.ViewModels
                 FlowRanges.Clear();
                 FlowPreview.Clear();
                 FlowWarning = string.Empty;
+                // الموافقات بتخص التكليفات اللي كانت على الشاشة — الرحلة بتبدأ نظيفة
+                _confirmedAssignments.Clear();
 
                 var product = SelectedProduct;
                 if (product is null || product.Stages.Count == 0) return;
@@ -110,7 +131,7 @@ namespace WorkforceManager.UI.ViewModels
                 foreach (var stage in product.Stages)
                 {
                     alreadyByStage.TryGetValue(stage.StageId, out var already);
-                    FlowStages.Add(new FlowStageRow(AddWorkerToStage)
+                    FlowStages.Add(new FlowStageRow(AddWorkerToStageAsync)
                     {
                         StageId = stage.StageId,
                         DisplayOrder = stage.DisplayOrder,
@@ -282,13 +303,59 @@ namespace WorkforceManager.UI.ViewModels
             RecomputeFlow();
         }
 
-        /// <summary>بيتنادى من زرار "＋ عامل" اللي على بطاقة المرحلة نفسها</summary>
-        private void AddWorkerToStage(FlowStageRow stage)
+        /// <summary>
+        /// بيتنادى من زرار "＋ عامل" اللي على بطاقة المرحلة نفسها.
+        ///
+        /// هنا بيتطبّق تحذير "العامل مكلّف بحاجة تانية النهارده": بنتحقق
+        /// **قبل** ما الشريحة تتضاف على الشاشة أصلاً — يعني لو المستخدم
+        /// لغى، مفيش حاجة تترجّع لأن مفيش حاجة اتعملت من الأساس (ولا في
+        /// الشاشة ولا في قاعدة البيانات).
+        ///
+        /// ده تحذير سريع للراحة بس — الخدمة بتعيد نفس التحقق وقت الحفظ
+        /// وهي مصدر الحقيقة الوحيد.
+        /// </summary>
+        private async Task AddWorkerToStageAsync(FlowStageRow stage)
         {
             if (stage.SelectedWorkerToAdd is not { } pick) return;
+            if (SelectedProduct is not { } product) return;
 
-            // منع إضافة نفس العامل مرتين لنفس المرحلة
+            // منع إضافة نفس العامل مرتين لنفس المرحلة في نفس الرحلة
             if (stage.AssignedWorkers.Any(s => s.WorkerId == pick.WorkerId)) return;
+
+            var attempted = new WorkerAssignmentDto
+            {
+                WorkerId = pick.WorkerId,
+                WorkerName = pick.Name,
+                ProductId = product.ProductId,
+                ProductName = product.Name,
+                ProductionStageId = stage.StageId,
+                StageName = stage.StageName
+            };
+
+            // نفس قاعدة الخدمة بالحرف (WorkerAssignmentGuard.Evaluate) — مش نسخة تانية منها
+            var known = await LoadKnownAssignmentsAsync();
+            var check = WorkerAssignmentGuard.Evaluate(known, new[] { attempted });
+
+            // تكرار حرفي: مسجل بالفعل على نفس المرحلة النهارده — مش حالة تأكيد
+            if (check.HasDuplicates)
+            {
+                MessageBox.Show(
+                    $"العامل \"{pick.Name}\" مسجل بالفعل على مرحلة \"{stage.StageName}\" النهارده.\n" +
+                    "لو عايز تعدّل عدد قطعه، استخدم تبويب \"سجلات اليوم\".",
+                    "مسجل بالفعل", MessageBoxButton.OK, MessageBoxImage.Information);
+                stage.SelectedWorkerToAdd = null;
+                return;
+            }
+
+            // تعارض: مكلّف بمرحلة/منتج تاني — تأكيد صريح، والافتراضي "لأ"
+            if (check.RequiresConfirmation && !ConfirmOverride(check.Conflicts))
+            {
+                stage.SelectedWorkerToAdd = null;
+                return; // إلغاء: مفيش أي تغيير لا على الشاشة ولا في البيانات
+            }
+
+            if (check.RequiresConfirmation)
+                _confirmedAssignments.Add((stage.StageId, pick.WorkerId));
 
             stage.AssignedWorkers.Add(
                 new FlowShareEntry(stage, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare));
@@ -300,7 +367,74 @@ namespace WorkforceManager.UI.ViewModels
         private void RemoveWorkerShare(FlowShareEntry share)
         {
             share.Parent.AssignedWorkers.Remove(share);
+            // الموافقة كانت على التكليف ده بالذات — بيشيلها معاه عشان لو
+            // اتضاف تاني يتسأل من جديد (مفيش "افتكر اختياري")
+            _confirmedAssignments.Remove((share.Parent.StageId, share.WorkerId));
             RecomputeFlow(); // إعادة التوزيع المتساوي بعد إزالة عامل
+        }
+
+        /// <summary>
+        /// تكليفات اليوم اللي القاعدة بتتقاس عليها: المحفوظ في قاعدة
+        /// البيانات + اللي لسه على الشاشة في أي رحلة مفتوحة.
+        /// </summary>
+        private async Task<List<WorkerAssignmentDto>> LoadKnownAssignmentsAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var guard = scope.ServiceProvider.GetRequiredService<WorkerAssignmentGuard>();
+
+            var saved = await guard.GetDayAssignmentsAsync(_getEntryDate());
+            var onScreen = _getOpenSessions().SelectMany(s => s.CurrentAssignments());
+
+            return saved.Concat(onScreen).ToList();
+        }
+
+        /// <summary>تكليفات الرحلة دي زي ما هي على الشاشة دلوقتي (لسه متحفظتش)</summary>
+        internal IEnumerable<WorkerAssignmentDto> CurrentAssignments()
+        {
+            if (SelectedProduct is not { } product) yield break;
+
+            foreach (var stage in FlowStages)
+                foreach (var share in stage.AssignedWorkers)
+                    yield return new WorkerAssignmentDto
+                    {
+                        WorkerId = share.WorkerId,
+                        WorkerName = share.WorkerName,
+                        ProductId = product.ProductId,
+                        ProductName = product.Name,
+                        ProductionStageId = stage.StageId,
+                        StageName = stage.StageName
+                    };
+        }
+
+        /// <summary>
+        /// هل التعارض ده اتأكد عليه بالفعل وإحنا بنضيف العامل؟
+        ///
+        /// بنقارن بطرفي التعارض مش بالطرف "المطلوب" بس: الخدمة بترتب
+        /// التكليفات بترتيب المراحل في خط الإنتاج، واللي المستخدم أكّد
+        /// عليه ممكن يطلع هو "المكلّف به بالفعل" لو كان أضاف المرحلة
+        /// المتأخرة الأول — وساعتها كان هيتسأل تاني على نفس الحاجة.
+        /// </summary>
+        private bool AlreadyConfirmed(AssignmentConflictDto conflict) =>
+            _confirmedAssignments.Contains(
+                (conflict.Attempted.ProductionStageId, conflict.Attempted.WorkerId)) ||
+            _confirmedAssignments.Contains(
+                (conflict.Existing.ProductionStageId, conflict.Existing.WorkerId));
+
+        /// <summary>
+        /// مربع التأكيد الموحّد لكل تعارضات التكليف — مكان واحد عشان
+        /// الرسالة والزراير تفضل واحدة سواء ظهرت عند الإضافة أو عند الحفظ.
+        /// الافتراضي "لأ" (الاختيار الآمن): Enter/Esc = إلغاء.
+        /// </summary>
+        private static bool ConfirmOverride(IReadOnlyList<AssignmentConflictDto> conflicts)
+        {
+            var question = string.Join("\n\n", conflicts.Select(c => c.ConfirmationQuestion));
+
+            return MessageBox.Show(
+                question + "\n\n(عامل واحد المفروض ميشتغلش على أكتر من مرحلة في نفس الوقت)",
+                "تأكيد تكليف إضافي",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.No) == MessageBoxResult.Yes;
         }
 
         [RelayCommand]
@@ -341,11 +475,25 @@ namespace WorkforceManager.UI.ViewModels
             try
             {
                 FlowSaveResultDto result;
-                using (var scope = _scopeFactory.CreateScope())
+
+                // مرحلة 1: محاولة الحفظ من غير تخطي. لو فيه تعارض تكليف
+                // الخدمة بترفض **قبل أي كتابة** وبتبعت تفاصيله.
+                try
                 {
-                    var flowService = scope.ServiceProvider.GetRequiredService<ProductionFlowService>();
-                    // الخدمة بتتحقق من كل حاجة تاني (مصدر الحقيقة الوحيد للقواعد) — يا كله يا مفيش
-                    result = await flowService.RecordFlowAsync(SelectedProduct.ProductId, entryDate, ranges, shares);
+                    result = await RecordFlowAsync(confirmOverride: false);
+                }
+                catch (AssignmentConfirmationRequiredException ex)
+                {
+                    // التعارضات اللي المستخدم أكّدها وهو بيضيف العامل مش
+                    // بيتسأل عنها تاني — اللي جديد بس (مثلاً حد تاني سجّل
+                    // نفس العامل في نفس اللحظة) هو اللي بيتعرض
+                    var unconfirmed = ex.Conflicts.Where(c => !AlreadyConfirmed(c)).ToList();
+
+                    if (unconfirmed.Count > 0 && !ConfirmOverride(unconfirmed))
+                        return; // إلغاء: مفيش أي سجل اتكتب ومفيش بيانات اتغيّرت
+
+                    // مرحلة 2: نفس الطلب بموافقة صريحة — الخدمة بتعيد التحقق وتحفظ
+                    result = await RecordFlowAsync(confirmOverride: true);
                 }
 
                 // ملخص واضح لكل اللي حصل: سجلات + يوميات كل عامل + الحضور التلقائي
@@ -368,7 +516,19 @@ namespace WorkforceManager.UI.ViewModels
             catch (InvalidOperationException ex)
             {
                 // رسائل التحقق العربية الواضحة من الخدمة بتوصل للمستخدم زي ما هي
+                // (AssignmentConfirmationRequiredException اتمسك فوق، فمبيوصلش هنا)
                 MessageBox.Show(ex.Message, "راجع بيانات الرحلة", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            // نداء واحد للخدمة بنفس المدخلات — الفرق بين المحاولة والتأكيد
+            // هو المعامل ده بس، فمفيش أي احتمال إن الطلبين يختلفوا
+            async Task<FlowSaveResultDto> RecordFlowAsync(bool confirmOverride)
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var flowService = scope.ServiceProvider.GetRequiredService<ProductionFlowService>();
+                // الخدمة بتتحقق من كل حاجة تاني (مصدر الحقيقة الوحيد للقواعد) — يا كله يا مفيش
+                return await flowService.RecordFlowAsync(
+                    SelectedProduct!.ProductId, entryDate, ranges, shares, confirmOverride);
             }
         }
     }
@@ -385,9 +545,10 @@ namespace WorkforceManager.UI.ViewModels
     /// </summary>
     public partial class FlowStageRow : ObservableObject
     {
-        private readonly Action<FlowStageRow> _onAddWorker;
+        // غير متزامن لأن إضافة عامل بقت بتتحقق من تكليفاته المحفوظة في اليوم
+        private readonly Func<FlowStageRow, Task> _onAddWorker;
 
-        public FlowStageRow(Action<FlowStageRow> onAddWorker) => _onAddWorker = onAddWorker;
+        public FlowStageRow(Func<FlowStageRow, Task> onAddWorker) => _onAddWorker = onAddWorker;
 
         public int StageId { get; init; }
         public int DisplayOrder { get; init; }
@@ -413,8 +574,9 @@ namespace WorkforceManager.UI.ViewModels
 
         public ObservableCollection<FlowShareEntry> AssignedWorkers { get; } = new();
 
+        // الاسم المولّد للأمر بيفضل AddWorkerCommand (الـ Toolkit بيشيل لاحقة Async) — الـ XAML ما اتغيرش
         [RelayCommand]
-        private void AddWorker() => _onAddWorker(this);
+        private Task AddWorkerAsync() => _onAddWorker(this);
     }
 
     /// <summary>

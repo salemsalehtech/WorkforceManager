@@ -97,7 +97,6 @@ namespace WorkforceManager.Business.Services
                     {
                         WorkerId = g.Key,
                         WorkerName = worker.FullName,
-                        EmployeeCode = worker.EmployeeCode,
                         IsHourly = worker.IsHourly,
                         TotalPieces = g.Sum(r => r.PieceCount),
                         TotalWorkdays = g.Sum(r => r.WorkdaysCompleted) + wh.Sum(h => h.WorkdaysCredited)
@@ -114,7 +113,6 @@ namespace WorkforceManager.Business.Services
                 {
                     WorkerId = g.Key,
                     WorkerName = worker.FullName,
-                    EmployeeCode = worker.EmployeeCode,
                     IsHourly = worker.IsHourly,
                     TotalPieces = 0,
                     TotalWorkdays = g.Sum(h => h.WorkdaysCredited)
@@ -214,7 +212,6 @@ namespace WorkforceManager.Business.Services
             {
                 WorkerId = workerId,
                 WorkerName = worker.FullName,
-                EmployeeCode = worker.EmployeeCode,
                 IsHourly = worker.IsHourly,
                 TypeText = worker.IsHourly ? $"بالساعة ({worker.HourlyRole?.ToArabicName()})" : "إنتاج بالقطعة",
                 DailyWageEgp = worker.DailyWageEgp,

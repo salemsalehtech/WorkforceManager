@@ -20,9 +20,6 @@ namespace WorkforceManager.Core.Interfaces
         /// <summary>كل العمال النشطين بمهاراتهم — أساس شاشة العمال الرئيسية</summary>
         Task<IReadOnlyList<Worker>> GetActiveWithSkillsAsync();
 
-        /// <summary>هل الكود الوظيفي مستخدم بالفعل لعامل آخر؟ (لمنع تكرار الأكواد عند الإضافة/التعديل)</summary>
-        Task<bool> EmployeeCodeExistsAsync(string employeeCode, int? excludeWorkerId = null);
-
         /// <summary>العمال النشطون المؤهلون لمرحلة معينة (أساس شاشة الإدخال السريع لليوميات)</summary>
         Task<IReadOnlyList<Worker>> GetQualifiedForStageAsync(int productionStageId);
 

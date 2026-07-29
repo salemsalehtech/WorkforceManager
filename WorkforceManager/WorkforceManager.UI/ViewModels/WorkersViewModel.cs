@@ -107,16 +107,14 @@ namespace WorkforceManager.UI.ViewModels
                 }
 
                 // ضم الموقوفين لو المستخدم طلب كده (بيظهروا بعلامة مميزة) —
-                // مع تطبيق نفس كلمة البحث عليهم (بالاسم أو الكود) عشان
+                // مع تطبيق نفس كلمة البحث عليهم (بالاسم) عشان
                 // البحث ميرجعش موقوفين مالهمش علاقة بالكلمة المكتوبة
                 if (ShowInactive)
                 {
                     var inactive = await workerRepo.FindAsync(w => !w.IsActive);
                     workers.AddRange(inactive
                         .Where(i => workers.All(w => w.Id != i.Id))
-                        .Where(i => query.Length == 0
-                            || i.FullName.Contains(query)
-                            || (i.EmployeeCode?.Contains(query) ?? false)));
+                        .Where(i => query.Length == 0 || i.FullName.Contains(query)));
                 }
 
                 Workers.Clear();
@@ -127,7 +125,6 @@ namespace WorkforceManager.UI.ViewModels
                     {
                         WorkerId = w.Id,
                         FullName = w.FullName,
-                        EmployeeCode = w.EmployeeCode ?? "—",
                         IsActive = w.IsActive,
                         PresentDays = wk?.PresentDays ?? 0,
                         AbsentWithPermissionDays = wk?.AbsentWithPermissionDays ?? 0,
@@ -183,7 +180,6 @@ namespace WorkforceManager.UI.ViewModels
             {
                 WorkerId = worker.Id,
                 FullName = worker.FullName,
-                EmployeeCode = worker.EmployeeCode ?? "—",
                 PhoneNumber = worker.PhoneNumber ?? "—",
                 HireDateText = worker.HireDate?.ToString("yyyy/MM/dd") ?? "—",
                 SkillsNotes = worker.SkillsNotes ?? "",
@@ -231,7 +227,7 @@ namespace WorkforceManager.UI.ViewModels
                 using var scope = _scopeFactory.CreateScope();
                 var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
                 await mgmt.CreateWorkerAsync(
-                    dialog.WorkerName, dialog.EmployeeCode, dialog.PhoneNumber,
+                    dialog.WorkerName, dialog.PhoneNumber,
                     dialog.HireDate, dialog.SkillsNotes, dialog.HourlyRole, dialog.DailyWageEgp);
                 await LoadAsync();
             }
@@ -252,7 +248,6 @@ namespace WorkforceManager.UI.ViewModels
                 Title = "تعديل بيانات عامل"
             };
             dialog.LoadWorker(Detail.FullName,
-                Detail.EmployeeCode == "—" ? null : Detail.EmployeeCode,
                 Detail.PhoneNumber == "—" ? null : Detail.PhoneNumber,
                 Detail.HireDateText == "—" ? null : DateTime.Parse(Detail.HireDateText),
                 Detail.SkillsNotes, Detail.HourlyRole, Detail.DailyWageEgp);
@@ -264,7 +259,7 @@ namespace WorkforceManager.UI.ViewModels
                 using var scope = _scopeFactory.CreateScope();
                 var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
                 await mgmt.UpdateWorkerAsync(
-                    SelectedWorker.WorkerId, dialog.WorkerName, dialog.EmployeeCode,
+                    SelectedWorker.WorkerId, dialog.WorkerName,
                     dialog.PhoneNumber, dialog.HireDate, dialog.SkillsNotes, dialog.HourlyRole, dialog.DailyWageEgp);
                 await LoadAsync();
             }
@@ -332,7 +327,6 @@ namespace WorkforceManager.UI.ViewModels
     {
         public int WorkerId { get; init; }
         public string FullName { get; init; } = "";
-        public string EmployeeCode { get; init; } = "";
         public bool IsActive { get; init; }
         public int PresentDays { get; init; }
         public int AbsentWithPermissionDays { get; init; }
@@ -350,7 +344,6 @@ namespace WorkforceManager.UI.ViewModels
     {
         public int WorkerId { get; init; }
         public string FullName { get; init; } = "";
-        public string EmployeeCode { get; init; } = "";
         public string PhoneNumber { get; init; } = "";
         public string HireDateText { get; init; } = "";
         public string SkillsNotes { get; init; } = "";

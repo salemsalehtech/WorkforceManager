@@ -1,3 +1,4 @@
+using WorkforceManager.Business.DTOs;
 using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
@@ -16,13 +17,19 @@ namespace WorkforceManager.Business.Services
     {
         private readonly IAttendanceRepository _attendanceRepo;
         private readonly IDailyProductionRepository _productionRepo;
+        private readonly AttendanceAutomationService _automation;
+        private readonly IUnitOfWork _unitOfWork;
 
         public AttendanceService(
             IAttendanceRepository attendanceRepo,
-            IDailyProductionRepository productionRepo)
+            IDailyProductionRepository productionRepo,
+            AttendanceAutomationService automation,
+            IUnitOfWork unitOfWork)
         {
             _attendanceRepo = attendanceRepo;
             _productionRepo = productionRepo;
+            _automation = automation;
+            _unitOfWork = unitOfWork;
         }
 
         /// <summary>
@@ -44,7 +51,11 @@ namespace WorkforceManager.Business.Services
                         "ميصحش يتسجل غايب في نفس اليوم. لو فعلاً كان غايب، امسح إنتاجه الأول من تبويب \"سجلات اليوم\".");
             }
 
+            // الحالة + جزاء الغياب التلقائي لازم يتحفظوا كوحدة واحدة
+            await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
+
             var existing = await _attendanceRepo.GetByWorkerAndDateAsync(workerId, date);
+            Attendance record;
 
             if (existing is not null)
             {
@@ -53,22 +64,31 @@ namespace WorkforceManager.Business.Services
                 existing.CheckOutTime = status == AttendanceStatus.Present ? checkOut : null;
                 existing.Notes = notes;
                 _attendanceRepo.Update(existing);
-                await _attendanceRepo.SaveChangesAsync();
-                return existing;
+                record = existing;
+            }
+            else
+            {
+                record = new Attendance
+                {
+                    WorkerId = workerId,
+                    Date = date.Date,
+                    Status = status,
+                    CheckInTime = status == AttendanceStatus.Present ? checkIn : null,
+                    CheckOutTime = status == AttendanceStatus.Present ? checkOut : null,
+                    Notes = notes
+                };
+                await _attendanceRepo.AddAsync(record);
             }
 
-            var record = new Attendance
-            {
-                WorkerId = workerId,
-                Date = date.Date,
-                Status = status,
-                CheckInTime = status == AttendanceStatus.Present ? checkIn : null,
-                CheckOutTime = status == AttendanceStatus.Present ? checkOut : null,
-                Notes = notes
-            };
-
-            await _attendanceRepo.AddAsync(record);
             await _attendanceRepo.SaveChangesAsync();
+
+            // نفس مصالحة الجزاءات بتاعة الحفظ الجماعي (نفس الدالة، مش نسخة تانية)
+            await _automation.ReconcileAbsencePenaltiesAsync(
+                date,
+                new Dictionary<int, AttendanceStatus> { [workerId] = status },
+                new[] { workerId });
+
+            await transaction.CommitAsync();
             return record;
         }
 
@@ -81,27 +101,36 @@ namespace WorkforceManager.Business.Services
         /// الدفعة كلها بتترفض برسالة بتسمّي العمال — يا كله سليم يا مفيش.
         /// بيرجع عدد العمال اللي اتسجلوا/اتحدّثوا.
         /// </summary>
-        public async Task<int> RecordAttendanceBatchAsync(
+        public async Task<AttendanceSaveResultDto> RecordAttendanceBatchAsync(
             DateTime date, IEnumerable<(int WorkerId, AttendanceStatus Status)> entries)
         {
             var entryList = entries.ToList();
-            if (entryList.Count == 0) return 0;
+            if (entryList.Count == 0)
+                return new AttendanceSaveResultDto();
 
-            // قاعدة الحماية: مفيش غياب لعامل له إنتاج في نفس اليوم
-            var producersById = (await _productionRepo.GetByDateAsync(date))
+            // قاعدة الحماية: مفيش غياب لعامل له شغل مسجل في نفس اليوم.
+            // "له شغل" بيتحدد من مكان واحد (AttendanceAutomationService) عشان
+            // يشمل العمال بالساعة كمان، مش بس اللي ليهم إنتاج على مراحل.
+            var workersWithWork = await _automation.GetWorkersWithLoggedWorkAsync(date);
+            var namesById = (await _productionRepo.GetByDateAsync(date))
                 .GroupBy(r => r.WorkerId)
                 .ToDictionary(g => g.Key, g => g.First().Worker.FullName);
 
             var conflicts = entryList
-                .Where(e => e.Status != AttendanceStatus.Present && producersById.ContainsKey(e.WorkerId))
-                .Select(e => producersById[e.WorkerId])
+                .Where(e => e.Status != AttendanceStatus.Present && workersWithWork.Contains(e.WorkerId))
+                .Select(e => namesById.TryGetValue(e.WorkerId, out var name) ? name : $"#{e.WorkerId}")
                 .ToList();
 
             if (conflicts.Count > 0)
                 throw new InvalidOperationException(
-                    $"مينفعش تسجيل غياب لعمال لهم إنتاج مسجل في {date:yyyy/MM/dd}:\n" +
+                    $"مينفعش تسجيل غياب لعمال لهم شغل مسجل في {date:yyyy/MM/dd}:\n" +
                     $"{string.Join("، ", conflicts)}\n\n" +
-                    "لو فعلاً كانوا غايبين، امسح إنتاجهم الأول من تبويب \"سجلات اليوم\" — ومفيش أي حالة اتحفظت من الدفعة دي.");
+                    "لو فعلاً كانوا غايبين، امسح شغلهم الأول من تبويب \"سجلات اليوم\" — ومفيش أي حالة اتحفظت من الدفعة دي.");
+
+            // الحضور + الجزاءات التلقائية في معاملة واحدة: يا الاتنين يا ولا واحد.
+            // القفل بيتاخد من أول لحظة فمفيش نسختين يحفظوا نفس اليوم في نفس الوقت
+            // ويطلعوا جزاءين لنفس الغياب.
+            await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
 
             // كل سجلات اليوم الموجودة مرة واحدة، مفهرسة بالعامل للوصول السريع
             var existingByWorker = (await _attendanceRepo.GetByDateAsync(date))
@@ -129,7 +158,23 @@ namespace WorkforceManager.Business.Services
             }
 
             await _attendanceRepo.SaveChangesAsync(); // حفظة واحدة لكل التعديلات
-            return entryList.Count;
+
+            // مصالحة جزاءات الغياب على العمال اللي الدفعة دي لمستهم بس
+            var statusesByWorker = entryList
+                .GroupBy(e => e.WorkerId)
+                .ToDictionary(g => g.Key, g => g.Last().Status);
+
+            var (created, removed) = await _automation.ReconcileAbsencePenaltiesAsync(
+                date, statusesByWorker, statusesByWorker.Keys.ToList());
+
+            await transaction.CommitAsync();
+
+            return new AttendanceSaveResultDto
+            {
+                SavedCount = entryList.Count,
+                AutoPenaltiesCreated = created,
+                AutoPenaltiesRemoved = removed
+            };
         }
     }
 }

@@ -480,7 +480,7 @@ namespace WorkforceManager.UI.ViewModels
 
             Workers.Clear();
             foreach (var w in workers.OrderBy(w => w.FullName))
-                Workers.Add(new WorkerPickItem { Id = w.Id, Display = w.DisplayName });
+                Workers.Add(new WorkerPickItem { Id = w.Id, Display = w.FullName });
         }
 
         private async Task LoadWorkerReportAsync()
@@ -508,7 +508,7 @@ namespace WorkforceManager.UI.ViewModels
 
             var days = (WorkerTo.Date - WorkerFrom.Date).Days + 1;
             WorkerReportHeader =
-                $"{report.WorkerName} ({report.EmployeeCode ?? "—"}) — {report.TypeText}   |   " +
+                $"{report.WorkerName} — {report.TypeText}   |   " +
                 $"من {report.From:yyyy/MM/dd} إلى {report.To:yyyy/MM/dd} ({days} يوم)";
             WorkerProductionText =
                 $"إجمالي القطع: {report.TotalPieces:N0}   |   يوميات منتجة: {report.ProducedWorkdays:0.##}   |   " +
@@ -715,7 +715,6 @@ namespace WorkforceManager.UI.ViewModels
     {
         public int Rank { get; private init; }
         public string WorkerName { get; private init; } = "";
-        public string EmployeeCode { get; private init; } = "";
         public string TypeText { get; private init; } = "";
         public int DaysWorked { get; private init; }
         public decimal NetWorkdays { get; private init; }
@@ -728,7 +727,6 @@ namespace WorkforceManager.UI.ViewModels
         {
             Rank = rank,
             WorkerName = dto.WorkerName,
-            EmployeeCode = dto.EmployeeCode ?? "—",
             TypeText = dto.IsHourly ? "بالساعة" : "إنتاج",
             DaysWorked = dto.DaysWorked,
             NetWorkdays = dto.NetWorkdays,
@@ -745,7 +743,6 @@ namespace WorkforceManager.UI.ViewModels
         public int Rank { get; private init; }
         public string BestMark { get; private init; } = "";
         public string WorkerName { get; private init; } = "";
-        public string EmployeeCode { get; private init; } = "";
         public decimal ProducedWorkdays { get; private init; }
         public int TotalPieces { get; private init; }
         public int PresentDays { get; private init; }
@@ -769,7 +766,6 @@ namespace WorkforceManager.UI.ViewModels
             Rank = rank,
             BestMark = dto.IsBestWorkerOfWeek ? "⭐" : "",
             WorkerName = dto.WorkerName,
-            EmployeeCode = dto.EmployeeCode ?? "—",
             ProducedWorkdays = dto.ProducedWorkdays,
             TotalPieces = dto.TotalPieces,
             PresentDays = dto.PresentDays,
@@ -817,7 +813,6 @@ namespace WorkforceManager.UI.ViewModels
     {
         public int Rank { get; private init; }
         public string WorkerName { get; private init; } = "";
-        public string EmployeeCode { get; private init; } = "";
         public string TypeText { get; private init; } = "";
         public int TotalPieces { get; private init; }
         public decimal TotalWorkdays { get; private init; }
@@ -826,7 +821,6 @@ namespace WorkforceManager.UI.ViewModels
         {
             Rank = rank,
             WorkerName = dto.WorkerName,
-            EmployeeCode = dto.EmployeeCode ?? "—",
             TypeText = dto.IsHourly ? "بالساعة" : "إنتاج",
             TotalPieces = dto.TotalPieces,
             TotalWorkdays = dto.TotalWorkdays

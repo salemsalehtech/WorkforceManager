@@ -43,7 +43,7 @@ namespace WorkforceManager.UI.ViewModels
             return new PayslipData
             {
                 WorkerName = r.WorkerName,
-                WorkerSubtitle = $"{(string.IsNullOrWhiteSpace(r.EmployeeCode) ? "" : $"كود: {r.EmployeeCode}   |   ")}{r.TypeText}",
+                WorkerSubtitle = r.TypeText,
                 PeriodText = $"عن الفترة من {r.From:yyyy/MM/dd} إلى {r.To:yyyy/MM/dd}  ({days} يوم)",
 
                 ShowPieces = !r.IsHourly && r.TotalPieces > 0,

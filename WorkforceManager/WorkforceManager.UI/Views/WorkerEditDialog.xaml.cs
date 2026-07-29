@@ -7,8 +7,8 @@ namespace WorkforceManager.UI.Views
 {
     /// <summary>
     /// نافذة إضافة/تعديل عامل. بتتحقق من الاسم بس (الإجباري الوحيد) —
-    /// التحقق الأعمق (زي تفرد الكود الوظيفي) مسؤولية WorkerManagementService
-    /// عشان القاعدة تتطبق من أي مكان مش من الشاشة دي بس.
+    /// أي تحقق أعمق مسؤولية WorkerManagementService عشان القاعدة تتطبق
+    /// من أي مكان مش من الشاشة دي بس.
     /// </summary>
     public partial class WorkerEditDialog : Window
     {
@@ -36,7 +36,6 @@ namespace WorkforceManager.UI.Views
         // ------- القيم اللي الشاشة الأم بتقرأها بعد الحفظ -------
 
         public string WorkerName => NameBox.Text.Trim();
-        public string? EmployeeCode => string.IsNullOrWhiteSpace(CodeBox.Text) ? null : CodeBox.Text.Trim();
         public string? PhoneNumber => string.IsNullOrWhiteSpace(PhoneBox.Text) ? null : PhoneBox.Text.Trim();
         public DateTime? HireDate => HireDatePicker.SelectedDate;
         public string? SkillsNotes => string.IsNullOrWhiteSpace(NotesBox.Text) ? null : NotesBox.Text.Trim();
@@ -47,11 +46,10 @@ namespace WorkforceManager.UI.Views
             decimal.TryParse(WageBox.Text.Trim(), out var w) ? w : 0m;
 
         /// <summary>تعبئة الفورم ببيانات عامل موجود (وضع التعديل)</summary>
-        public void LoadWorker(string fullName, string? code, string? phone, DateTime? hireDate,
+        public void LoadWorker(string fullName, string? phone, DateTime? hireDate,
             string? notes, HourlyRoleEnum? hourlyRole, decimal dailyWageEgp)
         {
             NameBox.Text = fullName;
-            CodeBox.Text = code ?? "";
             PhoneBox.Text = phone ?? "";
             HireDatePicker.SelectedDate = hireDate;
             NotesBox.Text = notes ?? "";

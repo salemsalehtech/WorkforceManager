@@ -9,7 +9,6 @@ namespace WorkforceManager.Business.DTOs
     {
         public int WorkerId { get; init; }
         public string WorkerName { get; init; } = string.Empty;
-        public string? EmployeeCode { get; init; }
         public bool IsHourly { get; init; }
 
         /// <summary>سعر اليومية بالجنيه (الحالي)</summary>

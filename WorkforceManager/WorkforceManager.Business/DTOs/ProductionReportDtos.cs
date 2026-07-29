@@ -18,7 +18,6 @@ namespace WorkforceManager.Business.DTOs
     {
         public int WorkerId { get; init; }
         public string WorkerName { get; init; } = string.Empty;
-        public string? EmployeeCode { get; init; }
         public bool IsHourly { get; init; }
         public int TotalPieces { get; init; }
         public decimal TotalWorkdays { get; init; }
@@ -70,7 +69,6 @@ namespace WorkforceManager.Business.DTOs
     {
         public int WorkerId { get; init; }
         public string WorkerName { get; init; } = string.Empty;
-        public string? EmployeeCode { get; init; }
         public bool IsHourly { get; init; }
         public string TypeText { get; init; } = string.Empty;
         public decimal DailyWageEgp { get; init; }

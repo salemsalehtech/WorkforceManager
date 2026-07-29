@@ -34,7 +34,7 @@ namespace WorkforceManager.Business.Services
             sheet.RightToLeft = true; // الشيت كله يمين-لشمال زي البرنامج
 
             // ---------- صف العنوان (مدموج فوق الجدول) ----------
-            sheet.Range(1, 1, 1, 14).Merge();
+            sheet.Range(1, 1, 1, 13).Merge();
             var title = sheet.Cell(1, 1);
             title.Value = $"كشف أسبوع العمل: من الخميس {weekStart:yyyy/MM/dd} إلى الأربعاء {weekEnd:yyyy/MM/dd}";
             title.Style.Font.SetBold().Font.SetFontSize(14);
@@ -44,7 +44,7 @@ namespace WorkforceManager.Business.Services
             // ---------- صف العناوين ----------
             string[] headers =
             {
-                "الترتيب", "اسم العامل", "الكود",
+                "الترتيب", "اسم العامل",
                 "اليوميات المنتجة", "إجمالي القطع",
                 "حضور", "غياب بإذن", "غياب بدون إذن",
                 "خصم الغياب", "خصم الجزاءات", "صافي اليوميات",
@@ -68,61 +68,60 @@ namespace WorkforceManager.Business.Services
 
                 sheet.Cell(row, 1).Value = i + 1;
                 sheet.Cell(row, 2).Value = s.IsBestWorkerOfWeek ? $"⭐ {s.WorkerName}" : s.WorkerName;
-                sheet.Cell(row, 3).Value = s.EmployeeCode ?? "—";
-                sheet.Cell(row, 4).Value = s.ProducedWorkdays;
-                sheet.Cell(row, 5).Value = s.TotalPieces;
-                sheet.Cell(row, 6).Value = s.PresentDays;
-                sheet.Cell(row, 7).Value = s.AbsentWithPermissionDays;
-                sheet.Cell(row, 8).Value = s.AbsentWithoutPermissionDays;
-                sheet.Cell(row, 9).Value = s.AbsenceDeduction;
-                sheet.Cell(row, 10).Value = s.PenaltyDeduction;
-                sheet.Cell(row, 11).Value = s.NetWorkdays;
-                sheet.Cell(row, 12).Value = s.DailyWageEgp;
-                sheet.Cell(row, 13).Value = s.NetWageEgp;
-                sheet.Cell(row, 14).Value = string.Join("، ",
+                sheet.Cell(row, 3).Value = s.ProducedWorkdays;
+                sheet.Cell(row, 4).Value = s.TotalPieces;
+                sheet.Cell(row, 5).Value = s.PresentDays;
+                sheet.Cell(row, 6).Value = s.AbsentWithPermissionDays;
+                sheet.Cell(row, 7).Value = s.AbsentWithoutPermissionDays;
+                sheet.Cell(row, 8).Value = s.AbsenceDeduction;
+                sheet.Cell(row, 9).Value = s.PenaltyDeduction;
+                sheet.Cell(row, 10).Value = s.NetWorkdays;
+                sheet.Cell(row, 11).Value = s.DailyWageEgp;
+                sheet.Cell(row, 12).Value = s.NetWageEgp;
+                sheet.Cell(row, 13).Value = string.Join("، ",
                     s.Penalties.Select(p => $"{p.Reason} ({p.DeductionName})"));
 
                 // الصافي بالخط العريض، وبالأحمر لو سالب (عامل عليه خصومات أكتر من إنتاجه)
-                var netCell = sheet.Cell(row, 11);
+                var netCell = sheet.Cell(row, 10);
                 netCell.Style.Font.SetBold();
                 if (s.NetWorkdays < 0)
                     netCell.Style.Font.SetFontColor(XLColor.Red);
 
                 // عمود الأجر بالخط العريض بلون أخضر — أهم رقم في الكشف
-                var wageCell = sheet.Cell(row, 13);
+                var wageCell = sheet.Cell(row, 12);
                 wageCell.Style.Font.SetBold().Font.SetFontColor(XLColor.FromHtml("#0B6E4F"));
                 wageCell.Style.NumberFormat.Format = "#,##0 \"ج\"";
 
                 // تظليل: أحسن عامل أصفر فاتح، والصفوف الزوجية رمادي خفيف (سهولة القراءة)
                 if (s.IsBestWorkerOfWeek)
-                    sheet.Range(row, 1, row, 14).Style.Fill.SetBackgroundColor(BestRowColor);
+                    sheet.Range(row, 1, row, 13).Style.Fill.SetBackgroundColor(BestRowColor);
                 else if (i % 2 == 1)
-                    sheet.Range(row, 1, row, 14).Style.Fill.SetBackgroundColor(StripeColor);
+                    sheet.Range(row, 1, row, 13).Style.Fill.SetBackgroundColor(StripeColor);
             }
 
             // ---------- صف الإجمالي (مجموع الأجور — الأهم للمحاسبة) ----------
             var totalRow = summaries.Count + 3;
             sheet.Cell(totalRow, 2).Value = "الإجمالي";
-            sheet.Cell(totalRow, 13).Value = summaries.Sum(s => s.NetWageEgp);
-            sheet.Cell(totalRow, 13).Style.NumberFormat.Format = "#,##0 \"ج\"";
-            sheet.Range(totalRow, 1, totalRow, 14).Style.Font.SetBold();
-            sheet.Range(totalRow, 1, totalRow, 14).Style.Fill.SetBackgroundColor(XLColor.FromHtml("#E8EDF7"));
+            sheet.Cell(totalRow, 12).Value = summaries.Sum(s => s.NetWageEgp);
+            sheet.Cell(totalRow, 12).Style.NumberFormat.Format = "#,##0 \"ج\"";
+            sheet.Range(totalRow, 1, totalRow, 13).Style.Font.SetBold();
+            sheet.Range(totalRow, 1, totalRow, 13).Style.Fill.SetBackgroundColor(XLColor.FromHtml("#E8EDF7"));
 
             // ---------- تنسيق عام ----------
             var lastRow = totalRow;
-            var table = sheet.Range(2, 1, lastRow, 14);
+            var table = sheet.Range(2, 1, lastRow, 13);
             table.Style.Border.SetOutsideBorder(XLBorderStyleValues.Medium);
             table.Style.Border.SetInsideBorder(XLBorderStyleValues.Thin);
             table.Style.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
 
             // الأعمدة الرقمية في النص، والأسماء والجزاءات على اليمين
             sheet.Range(3, 1, lastRow, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-            sheet.Range(3, 3, lastRow, 13).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            sheet.Range(3, 3, lastRow, 12).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
             sheet.SheetView.FreezeRows(2); // العنوان والهيدر ثابتين مع التمرير
             sheet.Columns().AdjustToContents();
             sheet.Column(2).Width = Math.Max(sheet.Column(2).Width, 28);  // عمود الاسم مش بيتزنق
-            sheet.Column(14).Width = Math.Max(sheet.Column(14).Width, 30); // عمود الجزاءات كذلك
+            sheet.Column(13).Width = Math.Max(sheet.Column(13).Width, 30); // عمود الجزاءات كذلك
 
             workbook.SaveAs(filePath);
         }
@@ -141,7 +140,7 @@ namespace WorkforceManager.Business.Services
             var sheet = workbook.Worksheets.Add("كشف الأجور");
             sheet.RightToLeft = true;
 
-            const int cols = 10;
+            const int cols = 9;
             sheet.Range(1, 1, 1, cols).Merge();
             var title = sheet.Cell(1, 1);
             title.Value = $"كشف أجور الفترة: من {payroll.From:yyyy/MM/dd} إلى {payroll.To:yyyy/MM/dd}";
@@ -151,7 +150,7 @@ namespace WorkforceManager.Business.Services
 
             string[] headers =
             {
-                "الترتيب", "اسم العامل", "الكود", "النوع",
+                "الترتيب", "اسم العامل", "النوع",
                 "أيام العمل", "صافي اليوميات", "سعر اليومية", "حافز", "سلفة", "الأجر بالجنيه"
             };
             for (var c = 0; c < headers.Length; c++)
@@ -170,19 +169,18 @@ namespace WorkforceManager.Business.Services
                 var row = i + 3;
                 sheet.Cell(row, 1).Value = i + 1;
                 sheet.Cell(row, 2).Value = w.WorkerName;
-                sheet.Cell(row, 3).Value = w.EmployeeCode ?? "—";
-                sheet.Cell(row, 4).Value = w.IsHourly ? "بالساعة" : "إنتاج";
-                sheet.Cell(row, 5).Value = w.DaysWorked;
-                sheet.Cell(row, 6).Value = w.NetWorkdays;
-                sheet.Cell(row, 7).Value = w.DailyWageEgp;
-                sheet.Cell(row, 8).Value = w.BonusEgp;
-                sheet.Cell(row, 9).Value = w.AdvanceEgp;
-                sheet.Cell(row, 10).Value = w.NetWageEgp;
+                sheet.Cell(row, 3).Value = w.IsHourly ? "بالساعة" : "إنتاج";
+                sheet.Cell(row, 4).Value = w.DaysWorked;
+                sheet.Cell(row, 5).Value = w.NetWorkdays;
+                sheet.Cell(row, 6).Value = w.DailyWageEgp;
+                sheet.Cell(row, 7).Value = w.BonusEgp;
+                sheet.Cell(row, 8).Value = w.AdvanceEgp;
+                sheet.Cell(row, 9).Value = w.NetWageEgp;
 
-                if (w.BonusEgp > 0) sheet.Cell(row, 8).Style.Font.SetFontColor(XLColor.FromHtml("#0B6E4F"));
-                if (w.AdvanceEgp > 0) sheet.Cell(row, 9).Style.Font.SetFontColor(XLColor.FromHtml("#B00020"));
+                if (w.BonusEgp > 0) sheet.Cell(row, 7).Style.Font.SetFontColor(XLColor.FromHtml("#0B6E4F"));
+                if (w.AdvanceEgp > 0) sheet.Cell(row, 8).Style.Font.SetFontColor(XLColor.FromHtml("#B00020"));
 
-                var wageCell = sheet.Cell(row, 10);
+                var wageCell = sheet.Cell(row, 9);
                 wageCell.Style.Font.SetBold().Font.SetFontColor(XLColor.FromHtml("#0B6E4F"));
                 wageCell.Style.NumberFormat.Format = "#,##0 \"ج\"";
 
@@ -193,10 +191,10 @@ namespace WorkforceManager.Business.Services
             // صف الإجمالي
             var totalRow = payroll.Workers.Count + 3;
             sheet.Cell(totalRow, 2).Value = "الإجمالي";
-            sheet.Cell(totalRow, 8).Value = payroll.Workers.Sum(w => w.BonusEgp);
-            sheet.Cell(totalRow, 9).Value = payroll.Workers.Sum(w => w.AdvanceEgp);
-            sheet.Cell(totalRow, 10).Value = payroll.TotalWageEgp;
-            sheet.Cell(totalRow, 10).Style.NumberFormat.Format = "#,##0 \"ج\"";
+            sheet.Cell(totalRow, 7).Value = payroll.Workers.Sum(w => w.BonusEgp);
+            sheet.Cell(totalRow, 8).Value = payroll.Workers.Sum(w => w.AdvanceEgp);
+            sheet.Cell(totalRow, 9).Value = payroll.TotalWageEgp;
+            sheet.Cell(totalRow, 9).Style.NumberFormat.Format = "#,##0 \"ج\"";
             sheet.Range(totalRow, 1, totalRow, cols).Style.Font.SetBold();
             sheet.Range(totalRow, 1, totalRow, cols).Style.Fill.SetBackgroundColor(XLColor.FromHtml("#E8EDF7"));
 
@@ -247,21 +245,20 @@ namespace WorkforceManager.Business.Services
             // ---- ورقة: بالعامل ----
             var s2 = workbook.Worksheets.Add("بالعامل");
             s2.RightToLeft = true;
-            WriteHeaders(s2, 1, "الترتيب", "اسم العامل", "الكود", "النوع", "القطع", "اليوميات");
+            WriteHeaders(s2, 1, "الترتيب", "اسم العامل", "النوع", "القطع", "اليوميات");
             r = 2;
             for (var i = 0; i < report.ByWorker.Count; i++)
             {
                 var w = report.ByWorker[i];
                 s2.Cell(r, 1).Value = i + 1;
                 s2.Cell(r, 2).Value = w.WorkerName;
-                s2.Cell(r, 3).Value = w.EmployeeCode ?? "—";
-                s2.Cell(r, 4).Value = w.IsHourly ? "بالساعة" : "إنتاج";
-                s2.Cell(r, 5).Value = w.TotalPieces;
-                s2.Cell(r, 6).Value = w.TotalWorkdays;
-                if (i % 2 == 1) s2.Range(r, 1, r, 6).Style.Fill.SetBackgroundColor(StripeColor);
+                s2.Cell(r, 3).Value = w.IsHourly ? "بالساعة" : "إنتاج";
+                s2.Cell(r, 4).Value = w.TotalPieces;
+                s2.Cell(r, 5).Value = w.TotalWorkdays;
+                if (i % 2 == 1) s2.Range(r, 1, r, 5).Style.Fill.SetBackgroundColor(StripeColor);
                 r++;
             }
-            FinishSheet(s2, 1, r - 1, 6);
+            FinishSheet(s2, 1, r - 1, 5);
 
             workbook.SaveAs(filePath);
         }
@@ -274,7 +271,7 @@ namespace WorkforceManager.Business.Services
             sheet.RightToLeft = true;
 
             sheet.Range(1, 1, 1, 4).Merge();
-            sheet.Cell(1, 1).Value = $"تقرير العامل: {report.WorkerName} ({report.EmployeeCode ?? "—"})";
+            sheet.Cell(1, 1).Value = $"تقرير العامل: {report.WorkerName}";
             sheet.Cell(1, 1).Style.Font.SetBold().Font.SetFontSize(14);
             sheet.Cell(1, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
             sheet.Range(2, 1, 2, 4).Merge();

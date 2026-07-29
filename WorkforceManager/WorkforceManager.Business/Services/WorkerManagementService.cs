@@ -24,11 +24,14 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
-        /// يضيف عامل جديد. الاسم إجباري، والكود الوظيفي (لو اتكتب) لازم
-        /// يكون فريد — منع تكرار الأكواد بيمنع لخبطة كبيرة في التقارير.
+        /// يضيف عامل جديد. الاسم هو المطلوب الوحيد.
+        ///
+        /// مفيش كود وظيفي: العامل الجديد بيتسجل بـ <c>EmployeeCode = null</c>
+        /// عن قصد. الكود بقى بيانات داخلية للتهيئة الأولى بس (بيربط
+        /// مهارات العمال المزروعين)، والمستخدم لا بيشوفه ولا بيكتبه.
         /// </summary>
         public async Task<Worker> CreateWorkerAsync(
-            string fullName, string? employeeCode = null, string? phoneNumber = null,
+            string fullName, string? phoneNumber = null,
             DateTime? hireDate = null, string? skillsNotes = null, HourlyRole? hourlyRole = null,
             decimal dailyWageEgp = 0)
         {
@@ -37,14 +40,9 @@ namespace WorkforceManager.Business.Services
             if (dailyWageEgp < 0)
                 throw new ArgumentException("سعر اليومية لا يصح يكون سالبًا", nameof(dailyWageEgp));
 
-            if (!string.IsNullOrWhiteSpace(employeeCode) &&
-                await _workerRepo.EmployeeCodeExistsAsync(employeeCode))
-                throw new InvalidOperationException($"الكود الوظيفي '{employeeCode.Trim()}' مستخدم بالفعل لعامل آخر");
-
             var worker = new Worker
             {
                 FullName = fullName.Trim(),
-                EmployeeCode = string.IsNullOrWhiteSpace(employeeCode) ? null : employeeCode.Trim(),
                 PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim(),
                 HireDate = hireDate,
                 SkillsNotes = string.IsNullOrWhiteSpace(skillsNotes) ? null : skillsNotes.Trim(),
@@ -57,9 +55,16 @@ namespace WorkforceManager.Business.Services
             return worker;
         }
 
-        /// <summary>يعدّل البيانات الأساسية لعامل موجود (نفس قواعد التحقق بتاعة الإضافة)</summary>
+        /// <summary>
+        /// يعدّل البيانات الأساسية لعامل موجود (نفس قواعد التحقق بتاعة الإضافة).
+        ///
+        /// <c>EmployeeCode</c> مش بيتلمس هنا **عن قصد**: هو مفتاح ربط
+        /// المهارات وقت التهيئة، ولو التعديل مسحه (وده اللي كان بيحصل لما
+        /// كان جاي من فورم مالوش خانة كود) العامل كان هيخسر ارتباط
+        /// مهاراته في أي إعادة تهيئة.
+        /// </summary>
         public async Task<Worker> UpdateWorkerAsync(
-            int workerId, string fullName, string? employeeCode = null,
+            int workerId, string fullName,
             string? phoneNumber = null, DateTime? hireDate = null, string? skillsNotes = null,
             HourlyRole? hourlyRole = null, decimal dailyWageEgp = 0)
         {
@@ -71,13 +76,7 @@ namespace WorkforceManager.Business.Services
             var worker = await _workerRepo.GetByIdAsync(workerId)
                 ?? throw new InvalidOperationException("العامل المحدد غير موجود");
 
-            // التحقق من تفرد الكود مع استثناء العامل نفسه (عشان حفظ التعديل من غير تغيير الكود ميترفضش)
-            if (!string.IsNullOrWhiteSpace(employeeCode) &&
-                await _workerRepo.EmployeeCodeExistsAsync(employeeCode, excludeWorkerId: workerId))
-                throw new InvalidOperationException($"الكود الوظيفي '{employeeCode.Trim()}' مستخدم بالفعل لعامل آخر");
-
             worker.FullName = fullName.Trim();
-            worker.EmployeeCode = string.IsNullOrWhiteSpace(employeeCode) ? null : employeeCode.Trim();
             worker.PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
             worker.HireDate = hireDate;
             worker.SkillsNotes = string.IsNullOrWhiteSpace(skillsNotes) ? null : skillsNotes.Trim();

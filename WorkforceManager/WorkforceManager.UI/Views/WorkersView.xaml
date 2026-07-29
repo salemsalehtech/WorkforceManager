@@ -87,7 +87,6 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="اسم العامل" Binding="{Binding FullName}" Width="*" MinWidth="150" />
-                    <DataGridTextColumn Header="الكود" Binding="{Binding EmployeeCode}" Width="66" />
                     <DataGridTextColumn Header="حضور" Binding="{Binding PresentDays}" Width="66" />
                     <DataGridTextColumn Header="بإذن" Binding="{Binding AbsentWithPermissionDays}" Width="54">
                         <DataGridTextColumn.HeaderStyle>
@@ -167,8 +166,7 @@
                             <TextBlock Text="{Binding FullName}" Style="{StaticResource HeadingText}"
                                        TextWrapping="Wrap" />
                             <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,4">
-                                <Run Text="الكود: " /><Run Text="{Binding EmployeeCode, Mode=OneWay}" />
-                                <Run Text="   تليفون: " /><Run Text="{Binding PhoneNumber, Mode=OneWay}" />
+                                <Run Text="تليفون: " /><Run Text="{Binding PhoneNumber, Mode=OneWay}" />
                                 <Run Text="   التحق: " /><Run Text="{Binding HireDateText, Mode=OneWay}" />
                             </TextBlock>
 

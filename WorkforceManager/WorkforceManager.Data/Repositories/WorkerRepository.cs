@@ -61,13 +61,6 @@ namespace WorkforceManager.Data.Repositories
                 .ToListAsync();
         }
 
-        public async Task<bool> EmployeeCodeExistsAsync(string employeeCode, int? excludeWorkerId = null)
-        {
-            var code = employeeCode.Trim();
-            return await DbSet.AnyAsync(w =>
-                w.EmployeeCode == code && (excludeWorkerId == null || w.Id != excludeWorkerId));
-        }
-
         public async Task<IReadOnlyList<Worker>> GetQualifiedForStageAsync(int productionStageId)
         {
             return await DbSet

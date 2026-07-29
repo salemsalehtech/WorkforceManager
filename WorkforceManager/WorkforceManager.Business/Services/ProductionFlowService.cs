@@ -28,17 +28,23 @@ namespace WorkforceManager.Business.Services
         private readonly IWorkerRepository _workerRepo;
         private readonly IDailyProductionRepository _productionRepo;
         private readonly IAttendanceRepository _attendanceRepo;
+        private readonly WorkerAssignmentGuard _assignmentGuard;
+        private readonly IUnitOfWork _unitOfWork;
 
         public ProductionFlowService(
             IProductRepository productRepo,
             IWorkerRepository workerRepo,
             IDailyProductionRepository productionRepo,
-            IAttendanceRepository attendanceRepo)
+            IAttendanceRepository attendanceRepo,
+            WorkerAssignmentGuard assignmentGuard,
+            IUnitOfWork unitOfWork)
         {
             _productRepo = productRepo;
             _workerRepo = workerRepo;
             _productionRepo = productionRepo;
             _attendanceRepo = attendanceRepo;
+            _assignmentGuard = assignmentGuard;
+            _unitOfWork = unitOfWork;
         }
 
         /// <summary>
@@ -46,10 +52,19 @@ namespace WorkforceManager.Business.Services
         /// برسالة عربية واضحة لو فيه أي خطأ في المدخلات — ومفيش أي حاجة
         /// بتتحفظ إلا لو الرحلة كلها سليمة.
         /// </summary>
+        /// <param name="confirmOverride">
+        /// المستخدم شاف تحذير "العامل مكلّف بمنتج/مرحلة تانية النهارده"
+        /// ووافق صراحة. بيخص النداء ده بس — ومبيسمحش بالتكرار الحرفي
+        /// (نفس العامل ونفس المرحلة ونفس اليوم) اللي بيفضل ممنوع.
+        /// من غيره، أول تعارض بيرمي
+        /// <see cref="AssignmentConfirmationRequiredException"/> **قبل**
+        /// أي كتابة، والواجهة بتسأل المستخدم وتعيد النداء بـ true.
+        /// </param>
         public async Task<FlowSaveResultDto> RecordFlowAsync(
             int productId, DateTime date,
             IReadOnlyList<FlowRangeDto> ranges,
-            IReadOnlyList<FlowShareDto> shares)
+            IReadOnlyList<FlowShareDto> shares,
+            bool confirmOverride = false)
         {
             if (ranges.Count == 0)
                 throw new InvalidOperationException("سجّل نطاق إنتاج واحد على الأقل (من مرحلة إلى مرحلة بعدد قطع)");
@@ -150,41 +165,67 @@ namespace WorkforceManager.Business.Services
                         $"مرحلة \"{stage.StageName}\": مجموع توزيع العمال ({sum}) لا يساوي إنتاج المرحلة ({piecesPerStage[i]})");
             }
 
-            // ---------- 4) إنشاء سجلات الإنتاج (Snapshot للكوتة زي أي تسجيل) ----------
             var stageById = orderedStages.ToDictionary(s => s.Id);
-            foreach (var share in shares)
+            int attendanceMarked;
+
+            // ---------- 4) قاعدة التكليف + الكتابة، الاتنين جوه معاملة واحدة ----------
+            // القفل بيتاخد من أول لحظة، فالتحقق بيتم على بيانات مش ممكن
+            // نسخة تانية من البرنامج تغيّرها قبل ما نخلّص كتابة (منع سباق)
+            await using (var transaction = await _unitOfWork.BeginWriteTransactionAsync())
             {
-                var stage = stageById[share.ProductionStageId];
-                await _productionRepo.AddAsync(new DailyProduction
+                var requestedAssignments = shares
+                    .Select(share => new WorkerAssignmentDto
+                    {
+                        WorkerId = share.WorkerId,
+                        WorkerName = workersById[share.WorkerId].FullName,
+                        ProductId = product.Id,
+                        ProductName = product.Name,
+                        ProductionStageId = share.ProductionStageId,
+                        StageName = stageById[share.ProductionStageId].StageName
+                    })
+                    .ToList();
+
+                // القاعدة المشتركة (المصدر الوحيد) — بترمي قبل أي كتابة،
+                // والمعاملة بتترجع تلقائيًا بالـ Dispose فمفيش أثر خالص
+                var assignmentCheck = await _assignmentGuard.CheckAsync(date, requestedAssignments);
+                WorkerAssignmentGuard.EnsureAllowed(assignmentCheck, confirmOverride);
+
+                // ---------- إنشاء سجلات الإنتاج (Snapshot للكوتة زي أي تسجيل) ----------
+                foreach (var share in shares)
                 {
-                    WorkerId = share.WorkerId,
-                    ProductionStageId = share.ProductionStageId,
-                    Date = date.Date,
-                    PieceCount = share.PieceCount,
-                    PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday
-                });
-            }
+                    var stage = stageById[share.ProductionStageId];
+                    await _productionRepo.AddAsync(new DailyProduction
+                    {
+                        WorkerId = share.WorkerId,
+                        ProductionStageId = share.ProductionStageId,
+                        Date = date.Date,
+                        PieceCount = share.PieceCount,
+                        PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday
+                    });
+                }
 
-            // ---------- 5) حضور تلقائي لمن شارك ومالوش سجل حضور في اليوم ----------
-            var existingAttendance = (await _attendanceRepo.GetByDateAsync(date))
-                .Select(a => a.WorkerId)
-                .ToHashSet();
+                // ---------- 5) حضور تلقائي لمن شارك ومالوش سجل حضور في اليوم ----------
+                var existingAttendance = (await _attendanceRepo.GetByDateAsync(date))
+                    .Select(a => a.WorkerId)
+                    .ToHashSet();
 
-            var participatingWorkers = shares.Select(s => s.WorkerId).Distinct().ToList();
-            var attendanceMarked = 0;
-            foreach (var workerId in participatingWorkers.Where(id => !existingAttendance.Contains(id)))
-            {
-                await _attendanceRepo.AddAsync(new Attendance
+                var participatingWorkers = shares.Select(s => s.WorkerId).Distinct().ToList();
+                attendanceMarked = 0;
+                foreach (var workerId in participatingWorkers.Where(id => !existingAttendance.Contains(id)))
                 {
-                    WorkerId = workerId,
-                    Date = date.Date,
-                    Status = AttendanceStatus.Present
-                });
-                attendanceMarked++;
-            }
+                    await _attendanceRepo.AddAsync(new Attendance
+                    {
+                        WorkerId = workerId,
+                        Date = date.Date,
+                        Status = AttendanceStatus.Present
+                    });
+                    attendanceMarked++;
+                }
 
-            // حفظة واحدة لكل حاجة (الريبوهات بتشارك نفس الـ DbContext في نفس الـ Scope)
-            await _productionRepo.SaveChangesAsync();
+                // حفظة واحدة لكل حاجة (الريبوهات بتشارك نفس الـ DbContext في نفس الـ Scope)
+                await _productionRepo.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
 
             // ---------- 6) بناء ملخص النتيجة (لرسالة النجاح) ----------
             var workerTotals = shares
