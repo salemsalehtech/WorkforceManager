@@ -49,6 +49,20 @@
   <ItemGroup>
     <!-- الأيقونة كـ Resource عشان تتستخدم كأيقونة النافذة (شريط المهام) كمان -->
     <Resource Include="Assets\app.ico" />
+    <!--
+      خط الواجهة (Tajawal) مدموج جوه الـ exe كـ Resource مش متثبت على الجهاز —
+      البرنامج محمول ولازم يطلع بنفس الشكل على أي ويندوز من غير تثبيت خطوط.
+      خمس أوزان ثابتة (مش variable font) عن قصد: WPF بيدعم الأوزان الثابتة صح،
+      أما المتغيرة فبيرسم منها الوزن الافتراضي بس ويزوّر الباقي (synthetic bold)
+      وشكله وحش. الأوزان دي بتغطي كل ما تستخدمه الشاشات:
+      Light=300 / Regular=400 / Medium=500 / Bold=700 / ExtraBold=800.
+      الإجمالي ~300 كيلو، والترخيص OFL (نسخته في Fonts\OFL.txt).
+    -->
+    <Resource Include="Fonts\*.ttf" />
+    <!-- نص الترخيص بيتشحن جنب البرنامج (شرط الـ OFL) مش جوه الـ exe -->
+    <Content Include="Fonts\OFL.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>
