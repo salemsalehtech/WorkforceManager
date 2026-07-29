@@ -33,6 +33,9 @@
             <SolidColorBrush x:Key="CardBgBrush" Color="#FFFFFF" />
             <SolidColorBrush x:Key="CardBorderBrush" Color="#E4E9F2" />
             <SolidColorBrush x:Key="SubtleBgBrush" Color="#EEF2F9" />
+            <!-- خلفية بطاقة فرعية هادية جوه بطاقة أساسية (مربعات المراحل/التوزيع) -->
+            <SolidColorBrush x:Key="SoftPanelBgBrush" Color="#FAFBFD" />
+            <SolidColorBrush x:Key="SoftPanelBorderBrush" Color="#E2E7F0" />
             <!-- النصوص -->
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#1D2733" />
             <SolidColorBrush x:Key="TextMutedBrush" Color="#6B7686" />
@@ -41,6 +44,7 @@
             <SolidColorBrush x:Key="SuccessBgBrush" Color="#E8F2EC" />
             <SolidColorBrush x:Key="DangerBrush" Color="#B00020" />
             <SolidColorBrush x:Key="DangerBgBrush" Color="#FDF0F2" />
+            <SolidColorBrush x:Key="DangerBorderBrush" Color="#E5C9C9" />
             <SolidColorBrush x:Key="WarnBrush" Color="#B7791F" />
             <SolidColorBrush x:Key="WarnBgBrush" Color="#FFF7E8" />
             <!-- تفاعل الجداول والشرائح -->
@@ -49,15 +53,127 @@
             <SolidColorBrush x:Key="ChipBgBrush" Color="#E8EDF7" />
             <SolidColorBrush x:Key="GridLineBrush" Color="#EEF1F6" />
 
+            <!-- ــــــــــ محاذاة ألوان MaterialDesign مع هوية البراند ــــــــــ -->
+            <!-- البروباتي BundledTheme.PrimaryColor بياخد ألوان Material اسمية بس (مش Hex حر)،
+                 فبدل ما نستخدم Indigo الافتراضي اللي مالوش علاقة بالكحلي بتاعنا، بنعيد تعريف
+                 الفرش الأساسية اللي بتستخدمها كل عناصر التحكم الافتراضية (TextBox/ComboBox/
+                 DatePicker/CheckBox) بعد الدمج مباشرة — الأولوية في WPF لعناصر الـ
+                 ResourceDictionary المباشرة على اللي جايه من MergedDictionaries، فالتعريف ده
+                 بيغلب لون MaterialDesign الافتراضي في كل مكان تلقائيًا -->
+            <SolidColorBrush x:Key="PrimaryHueLightBrush" Color="#4A6DA6" />
+            <SolidColorBrush x:Key="PrimaryHueLightForegroundBrush" Color="White" />
+            <SolidColorBrush x:Key="PrimaryHueMidBrush" Color="#1F3864" />
+            <SolidColorBrush x:Key="PrimaryHueMidForegroundBrush" Color="White" />
+            <SolidColorBrush x:Key="PrimaryHueDarkBrush" Color="#152A4E" />
+            <SolidColorBrush x:Key="PrimaryHueDarkForegroundBrush" Color="White" />
+            <SolidColorBrush x:Key="SecondaryHueLightBrush" Color="#F7C578" />
+            <SolidColorBrush x:Key="SecondaryHueLightForegroundBrush" Color="#1D2733" />
+            <SolidColorBrush x:Key="SecondaryHueMidBrush" Color="#F2A93B" />
+            <SolidColorBrush x:Key="SecondaryHueMidForegroundBrush" Color="#1D2733" />
+            <SolidColorBrush x:Key="SecondaryHueDarkBrush" Color="#C98A20" />
+            <SolidColorBrush x:Key="SecondaryHueDarkForegroundBrush" Color="White" />
+
+            <!-- ══════════════════════════════════════════════════
+                 الخطوط (Typography)
+                 ══════════════════════════════════════════════════ -->
+            <!--
+              خط الواجهة: Tajawal — خط هندسي حديث مصمم للعربي والإنجليزي مع بعض،
+              فالأرقام والكلمات الإنجليزية (GRS، W031) بتتناسق مع العربي في نفس السطر
+              بدل ما الويندوز يستبدل خط تاني للعربي زي ما كان بيحصل مع Segoe UI.
+              الخط مدموج في الـ exe (شوف Fonts في ملف المشروع) فمش محتاج تثبيت.
+
+              الاحتياطي بعد الفاصلة مهم: لو الـ Resource فشل لأي سبب، الواجهة
+              بترجع لخط النظام بدل ما تطلع بخط افتراضي وحش.
+            -->
+            <FontFamily x:Key="AppFont">pack://application:,,,/Fonts/#Tajawal, Segoe UI, Tahoma</FontFamily>
+
+            <!-- سلّم أحجام موحّد — بدل أرقام متناثرة في كل شاشة.
+                 كل درجة ليها وزن ولون وتباعد أسطر مناسب لدورها -->
+
+            <!-- عنوان الشاشة الكبير (شاشة الدخول، رأس القسيمة) -->
+            <Style x:Key="DisplayText" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
+                <Setter Property="FontSize" Value="26" />
+                <Setter Property="FontWeight" Value="ExtraBold" />
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                <Setter Property="LineHeight" Value="36" />
+            </Style>
+
+            <!-- عنوان رئيسي داخل الشاشة (اسم العامل/المنتج في لوحة التفاصيل) -->
+            <Style x:Key="HeadingText" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
+                <Setter Property="FontSize" Value="18" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="Foreground" Value="{StaticResource BrandBrush}" />
+                <Setter Property="LineHeight" Value="26" />
+            </Style>
+
+            <!-- عنوان قسم داخل بطاقة -->
+            <Style x:Key="SectionTitle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="FontSize" Value="14.5" />
+                <Setter Property="Foreground" Value="{StaticResource BrandBrush}" />
+            </Style>
+
+            <!-- تسمية حقل إدخال -->
+            <Style x:Key="FieldLabel" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                <Setter Property="Margin" Value="0,0,0,5" />
+            </Style>
+
+            <!-- نص شرح/تلميح تحت الحقول — أخف وزن وأهدى لون عشان ميزاحمش المحتوى -->
+            <Style x:Key="HintText" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
+                <Setter Property="FontSize" Value="11.5" />
+                <Setter Property="FontWeight" Value="Light" />
+                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="LineHeight" Value="18" />
+            </Style>
+
+            <!-- رقم بارز (إحصائية/مبلغ) — الأرقام في Tajawal بعرض ثابت فبتتصف تحت بعض -->
+            <Style x:Key="MetricText" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
+                <Setter Property="FontSize" Value="20" />
+                <Setter Property="FontWeight" Value="Bold" />
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            </Style>
+
             <!-- ــــــــــ الإطار العام للنوافذ ــــــــــ -->
             <Style TargetType="{x:Type Window}">
                 <Setter Property="FlowDirection" Value="RightToLeft" />
-                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
                 <Setter Property="FontSize" Value="14" />
                 <Setter Property="Background" Value="{StaticResource PageBgBrush}" />
+                <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+                <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
+            </Style>
+
+            <!--
+              النوافذ في المشروع بتحدد FontFamily على نفسها (لأن نمط Window
+              الضمني مبيوصلش للأنواع المشتقة زي MainWindow)، والـ UserControl
+              مش بيرث من نمط الـ Window أصلاً — فبنحط نمط ضمني للنوعين دول
+              كمان عشان الخط يوصل لكل شاشة من غير تكرار في كل ملف
+            -->
+            <Style TargetType="{x:Type UserControl}">
+                <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
+                <Setter Property="TextOptions.TextFormattingMode" Value="Ideal" />
+            </Style>
+
+            <!-- النصوص العادية اللي مش ماخدة نمط من فوق -->
+            <Style TargetType="{x:Type TextBlock}">
+                <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
             </Style>
 
             <!-- ــــــــــ البطاقات ــــــــــ -->
+            <!-- ظل ناعم موحّد — إحساس بارتفاع البطاقة عن خلفية الصفحة من غير ما يزعج العين -->
+            <DropShadowEffect x:Key="CardShadow" Color="#1F3864" Direction="270" ShadowDepth="1.5"
+                              BlurRadius="16" Opacity="0.08" />
+
             <!-- بطاقة محتوى بيضاء بحواف ناعمة — الوحدة الأساسية لأي لوحة في الشاشات -->
             <Style x:Key="Card" TargetType="Border">
                 <Setter Property="Background" Value="{StaticResource CardBgBrush}" />
@@ -65,6 +181,7 @@
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="CornerRadius" Value="12" />
                 <Setter Property="Padding" Value="14" />
+                <Setter Property="Effect" Value="{StaticResource CardShadow}" />
             </Style>
 
             <!-- شريط أدوات أعلى الشاشة (بحث/أزرار) -->
@@ -73,33 +190,201 @@
                 <Setter Property="Margin" Value="0,0,0,10" />
             </Style>
 
-            <!-- ــــــــــ الأزرار ــــــــــ -->
-            <!-- الأساس المشترك: حواف دائرية + تفاعل ناعم عند المرور والضغط -->
+            <!-- ══════════════════════════════════════════════════
+                 الأزرار
+                 ══════════════════════════════════════════════════ -->
+            <!--
+              منحنى تسارع موحّد لكل الحركات — البداية سريعة والنهاية بتهدى،
+              وده اللي بيدي الإحساس "الطبيعي" بدل الحركة الخطية الميكانيكية
+            -->
+            <CubicEase x:Key="EaseOut" EasingMode="EaseOut" />
+
+            <!--
+              الزر الأساسي: 5 طبقات فوق بعض جوه Grid واحد —
+                1) Shade  : خلفية اللون الأساسي + الظل اللي بيكبر عند المرور
+                2) Sheen  : تدرّج شفاف (فاتح من فوق/غامق من تحت) بيدي إحساس بالحجم
+                3) Glow   : طبقة بيضا بتزيد شفافيتها عند المرور = تفتيح ناعم
+                4) Pulse  : دايرة بتتمدد وتتلاشى عند الضغط (إحساس اللمسة/الـ ripple)
+                5) المحتوى
+
+              كل الحركات على ScaleTransform وOpacity — دول أرخص حاجة في WPF
+              (بيتنفذوا على مستوى الـ composition من غير إعادة رسم للـ layout)
+            -->
             <Style x:Key="BaseActionButton" TargetType="Button">
                 <Setter Property="Foreground" Value="White" />
                 <Setter Property="FontWeight" Value="Bold" />
                 <Setter Property="FontSize" Value="13.5" />
-                <Setter Property="Padding" Value="16,9" />
+                <Setter Property="Padding" Value="18,10" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+                <!-- الإطار المنقّط الافتراضي وحش؛ بنعمل حلقة تركيز خاصة بينا تحت -->
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="9" Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
+                            <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5">
+                                <Grid.RenderTransform>
+                                    <!-- TransformGroup عشان نقدر نكبّر ونرفع في نفس الوقت -->
+                                    <TransformGroup>
+                                        <ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1" />
+                                        <TranslateTransform x:Name="RootLift" Y="0" />
+                                    </TransformGroup>
+                                </Grid.RenderTransform>
+
+                                <!-- 1) اللون الأساسي + الظل -->
+                                <Border x:Name="Shade" CornerRadius="10"
+                                        Background="{TemplateBinding Background}">
+                                    <Border.Effect>
+                                        <DropShadowEffect x:Name="Shadow" Color="#0F2144" Direction="270"
+                                                          ShadowDepth="2" BlurRadius="9" Opacity="0.28" />
+                                    </Border.Effect>
+                                </Border>
+
+                                <!-- 2) تدرّج الحجم -->
+                                <Border CornerRadius="10" IsHitTestVisible="False">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#2BFFFFFF" Offset="0" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.5" />
+                                            <GradientStop Color="#18000000" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+
+                                <!-- 3) تفتيح المرور -->
+                                <Border x:Name="Glow" CornerRadius="10" Background="White"
+                                        Opacity="0" IsHitTestVisible="False" />
+
+                                <!-- 4) نبضة الضغط -->
+                                <Border x:Name="Pulse" CornerRadius="10" Background="White"
+                                        Opacity="0" IsHitTestVisible="False"
+                                        RenderTransformOrigin="0.5,0.5">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform x:Name="PulseScale" ScaleX="0.75" ScaleY="0.75" />
+                                    </Border.RenderTransform>
+                                </Border>
+
+                                <!-- حلقة التركيز بالكيبورد (Tab) — مهمة للوصولية -->
+                                <Border x:Name="FocusRing" CornerRadius="13" Margin="-3"
+                                        BorderBrush="{StaticResource AccentBrush}" BorderThickness="2"
+                                        Opacity="0" IsHitTestVisible="False" />
+
+                                <!-- 5) المحتوى -->
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Grid>
+
                             <ControlTemplate.Triggers>
+                                <!-- المرور: يفتح لون + يكبر شوية + يرتفع + ظله يوسع -->
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Opacity" Value="0.88" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Glow" Storyboard.TargetProperty="Opacity"
+                                                                 To="0.16" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="1.025" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="1.025" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootLift" Storyboard.TargetProperty="Y"
+                                                                 To="-1.5" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Shadow" Storyboard.TargetProperty="BlurRadius"
+                                                                 To="18" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Shadow" Storyboard.TargetProperty="ShadowDepth"
+                                                                 To="5" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Shadow" Storyboard.TargetProperty="Opacity"
+                                                                 To="0.36" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Glow" Storyboard.TargetProperty="Opacity"
+                                                                 To="0" Duration="0:0:0.20"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="1" Duration="0:0:0.20"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="1" Duration="0:0:0.20"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootLift" Storyboard.TargetProperty="Y"
+                                                                 To="0" Duration="0:0:0.20"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Shadow" Storyboard.TargetProperty="BlurRadius"
+                                                                 To="9" Duration="0:0:0.20"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Shadow" Storyboard.TargetProperty="ShadowDepth"
+                                                                 To="2" Duration="0:0:0.20"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Shadow" Storyboard.TargetProperty="Opacity"
+                                                                 To="0.28" Duration="0:0:0.20"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
+
+                                <!-- الضغط: الزر بينضغط جوه + نبضة بتتمدد وتختفي -->
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Bd" Property="Opacity" Value="0.75" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="0.97" Duration="0:0:0.09"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="0.97" Duration="0:0:0.09"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootLift" Storyboard.TargetProperty="Y"
+                                                                 To="0" Duration="0:0:0.09" />
+                                                <!-- النبضة: تظهر فجأة وتتلاشى وهي بتكبر -->
+                                                <DoubleAnimation Storyboard.TargetName="PulseScale" Storyboard.TargetProperty="ScaleX"
+                                                                 From="0.75" To="1" Duration="0:0:0.38"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="PulseScale" Storyboard.TargetProperty="ScaleY"
+                                                                 From="0.75" To="1" Duration="0:0:0.38"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Pulse" Storyboard.TargetProperty="Opacity"
+                                                                 From="0.30" To="0" Duration="0:0:0.38"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="1" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="1" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
+
+                                <!-- تركيز الكيبورد: حلقة كهرمانية حوالين الزر -->
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="FocusRing" Property="Opacity" Value="0.9" />
+                                </Trigger>
+
+                                <!-- معطّل: باهت + بلا ظل + المؤشر عادي -->
                                 <Trigger Property="IsEnabled" Value="False">
-                                    <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                                    <Setter TargetName="Root" Property="Opacity" Value="0.42" />
+                                    <Setter TargetName="Shade" Property="Effect" Value="{x:Null}" />
+                                    <Setter Property="Cursor" Value="Arrow" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -122,26 +407,133 @@
                 <Setter Property="Background" Value="{StaticResource DangerBrush}" />
             </Style>
 
-            <!-- زر هادي بإطار — أفعال ثانوية (تعديل، تنقل بين أسابيع...) -->
+            <!--
+              زر هادي بإطار — أفعال ثانوية (تعديل، تنقل بين أسابيع...)
+              نفس لغة التفاعل بتاعة الزر الأساسي بس أخف: الإطار بيتلون بلون
+              البراند عند المرور والخلفية بتتظلل، من غير ظل قوي عشان يفضل ثانوي
+            -->
             <Style x:Key="GhostButton" TargetType="Button">
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
                 <Setter Property="FontSize" Value="13" />
-                <Setter Property="Padding" Value="12,7" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="Padding" Value="14,8" />
                 <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="Bd" Background="{StaticResource CardBgBrush}"
-                                    BorderBrush="#D5DCE8" BorderThickness="1"
-                                    CornerRadius="9" Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
+                            <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5">
+                                <Grid.RenderTransform>
+                                    <TransformGroup>
+                                        <ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1" />
+                                        <TranslateTransform x:Name="RootLift" Y="0" />
+                                    </TransformGroup>
+                                </Grid.RenderTransform>
+
+                                <Border x:Name="Bd" Background="{StaticResource CardBgBrush}"
+                                        BorderBrush="#D5DCE8" BorderThickness="1.4"
+                                        CornerRadius="10" />
+
+                                <!-- نبضة الضغط (نفس فكرة الزر الأساسي بس بلون البراند) -->
+                                <Border x:Name="Pulse" CornerRadius="10" Opacity="0"
+                                        Background="{StaticResource BrandBrush}" IsHitTestVisible="False"
+                                        RenderTransformOrigin="0.5,0.5">
+                                    <Border.RenderTransform>
+                                        <ScaleTransform x:Name="PulseScale" ScaleX="0.75" ScaleY="0.75" />
+                                    </Border.RenderTransform>
+                                </Border>
+
+                                <Border x:Name="FocusRing" CornerRadius="13" Margin="-3"
+                                        BorderBrush="{StaticResource AccentBrush}" BorderThickness="2"
+                                        Opacity="0" IsHitTestVisible="False" />
+
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
+                            </Grid>
+
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBgBrush}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrandBrush}" />
+                                    <Setter Property="Foreground" Value="{StaticResource BrandBrush}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="1.03" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="1.03" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootLift" Storyboard.TargetProperty="Y"
+                                                                 To="-1" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="1" Duration="0:0:0.20"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="1" Duration="0:0:0.20"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootLift" Storyboard.TargetProperty="Y"
+                                                                 To="0" Duration="0:0:0.20"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
+
                                 <Trigger Property="IsPressed" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectionBgBrush}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="0.97" Duration="0:0:0.09"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="0.97" Duration="0:0:0.09"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="PulseScale" Storyboard.TargetProperty="ScaleX"
+                                                                 From="0.75" To="1" Duration="0:0:0.38"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="PulseScale" Storyboard.TargetProperty="ScaleY"
+                                                                 From="0.75" To="1" Duration="0:0:0.38"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Pulse" Storyboard.TargetProperty="Opacity"
+                                                                 From="0.14" To="0" Duration="0:0:0.38"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="1" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="1" Duration="0:0:0.16"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
+                                </Trigger>
+
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="FocusRing" Property="Opacity" Value="0.9" />
+                                </Trigger>
+
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Root" Property="Opacity" Value="0.45" />
+                                    <Setter Property="Cursor" Value="Arrow" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -149,22 +541,108 @@
                 </Setter>
             </Style>
 
-            <!-- زر أيقونة شفاف — ✕ و🗑 داخل الشرائح والجداول -->
+            <!--
+              زر أيقونة شفاف — الحذف والإغلاق داخل الشرائح والجداول.
+              فكرة اللون: خلفية المرور بتاخد نفس لون الأيقونة نفسها بشفافية خفيفة
+              (Background مربوط بـ Foreground + Opacity متحركة) — يعني زرار الحذف
+              الأحمر بيتظلل أحمر وزرار التعديل الكحلي بيتظلل كحلي تلقائيًا،
+              من غير ما نعمل نمط منفصل لكل حالة في كل شاشة.
+            -->
             <Style x:Key="IconButton" TargetType="Button">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Cursor" Value="Hand" />
-                <Setter Property="Padding" Value="5,2" />
+                <Setter Property="Padding" Value="6,3" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="Bd" Background="Transparent" CornerRadius="6"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
+                            <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5">
+                                <Grid.RenderTransform>
+                                    <ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1" />
+                                </Grid.RenderTransform>
+
+                                <!-- التظليل بلون الأيقونة نفسها -->
+                                <Border x:Name="Tint" CornerRadius="8" Opacity="0"
+                                        Background="{TemplateBinding Foreground}" />
+
+                                <Border x:Name="FocusRing" CornerRadius="10" Margin="-2"
+                                        BorderBrush="{StaticResource AccentBrush}" BorderThickness="1.6"
+                                        Opacity="0" IsHitTestVisible="False" />
+
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource DangerBgBrush}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Tint" Storyboard.TargetProperty="Opacity"
+                                                                 To="0.14" Duration="0:0:0.14"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="1.15" Duration="0:0:0.14"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="1.15" Duration="0:0:0.14"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Tint" Storyboard.TargetProperty="Opacity"
+                                                                 To="0" Duration="0:0:0.18"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="1" Duration="0:0:0.18"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="1" Duration="0:0:0.18"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
+                                </Trigger>
+
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Tint" Property="Opacity" Value="0.26" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="0.92" Duration="0:0:0.08"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="0.92" Duration="0:0:0.08"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                                 To="1.15" Duration="0:0:0.14"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                                 To="1.15" Duration="0:0:0.14"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
+                                </Trigger>
+
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="FocusRing" Property="Opacity" Value="0.9" />
+                                </Trigger>
+
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Root" Property="Opacity" Value="0.4" />
+                                    <Setter Property="Cursor" Value="Arrow" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -172,18 +650,7 @@
                 </Setter>
             </Style>
 
-            <!-- ــــــــــ النصوص ــــــــــ -->
-            <Style x:Key="SectionTitle" TargetType="TextBlock">
-                <Setter Property="FontWeight" Value="Bold" />
-                <Setter Property="FontSize" Value="14.5" />
-                <Setter Property="Foreground" Value="{StaticResource BrandBrush}" />
-            </Style>
-
-            <Style x:Key="HintText" TargetType="TextBlock">
-                <Setter Property="FontSize" Value="11.5" />
-                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
-                <Setter Property="TextWrapping" Value="Wrap" />
-            </Style>
+            <!-- (أنماط النصوص كلها فوق مع سلّم الخطوط) -->
 
             <!-- ــــــــــ الجداول الحديثة ــــــــــ -->
             <Style x:Key="ModernGridHeader" TargetType="DataGridColumnHeader">
@@ -272,6 +739,150 @@
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
+            </Style>
+
+            <!-- ــــــــــ التبويبات الحديثة ــــــــــ -->
+            <!-- تبويب بشكل حبة: بيتحدد بخط كهرماني تحته، بدل الإطار الرمادي الافتراضي —
+                 نمط افتراضي (من غير x:Key) فبيطبّق نفسه تلقائيًا على أي TabControl في التطبيق -->
+            <Style TargetType="TabItem">
+                <Setter Property="Padding" Value="18,10" />
+                <Setter Property="Margin" Value="0,0,2,0" />
+                <Setter Property="FontSize" Value="13.5" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabItem">
+                            <Grid Background="Transparent" SnapsToDevicePixels="True">
+                                <Border x:Name="Bd" Background="Transparent" CornerRadius="10,10,0,0"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter ContentSource="Header" HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center" RecognizesAccessKey="True" />
+                                </Border>
+                                <!-- خط التحديد الكهرماني — بيظهر بس على التبويب المفتوح -->
+                                <Border x:Name="Indicator" Height="3" VerticalAlignment="Bottom" CornerRadius="2"
+                                        Background="{StaticResource AccentBrush}" Margin="16,0"
+                                        Visibility="Collapsed" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBgBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource BrandBrush}" />
+                                    <Setter TargetName="Indicator" Property="Visibility" Value="Visible" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- الحاوية: شريط تبويبات بخط سفلي هادي + مساحة محتوى بلا إطار صندوقي -->
+            <Style TargetType="TabControl">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabControl">
+                            <DockPanel>
+                                <Border DockPanel.Dock="Top" BorderBrush="{StaticResource CardBorderBrush}"
+                                        BorderThickness="0,0,0,1" Padding="0,0,0,0">
+                                    <TabPanel IsItemsHost="True" Margin="2,0" />
+                                </Border>
+                                <ContentPresenter x:Name="PART_SelectedContentHost"
+                                                  ContentSource="SelectedContent" Margin="0,10,0,0" />
+                            </DockPanel>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ــــــــــ عناصر الإدخال ــــــــــ -->
+            <!-- حقل نصي حديث: حواف دائرية + حدود هادية، وتتحول للون البراند عند التركيز
+                 بدل لون MaterialDesign الافتراضي — نمط افتراضي بيغطي كل TextBox في التطبيق -->
+            <Style TargetType="TextBox">
+                <Setter Property="Padding" Value="9,7" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Background" Value="{StaticResource CardBgBrush}" />
+                <Setter Property="BorderBrush" Value="#D5DCE8" />
+                <Setter Property="BorderThickness" Value="1.4" />
+                <Setter Property="CaretBrush" Value="{StaticResource BrandBrush}" />
+                <Setter Property="SelectionBrush" Value="{StaticResource SelectionBgBrush}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+                                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrandBrush}" />
+                                    <Setter TargetName="Bd" Property="BorderThickness" Value="1.8" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- نفس شكل الحقل النصي لخانة كلمة المرور -->
+            <Style TargetType="PasswordBox">
+                <Setter Property="Padding" Value="9,7" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Background" Value="{StaticResource CardBgBrush}" />
+                <Setter Property="BorderBrush" Value="#D5DCE8" />
+                <Setter Property="BorderThickness" Value="1.4" />
+                <Setter Property="CaretBrush" Value="{StaticResource BrandBrush}" />
+                <Setter Property="SelectionBrush" Value="{StaticResource SelectionBgBrush}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="PasswordBox">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+                                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrandBrush}" />
+                                    <Setter TargetName="Bd" Property="BorderThickness" Value="1.8" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.55" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- قوائم منسدلة وتاريخ وشيك بوكس: نكتفي بضبط حدودها ومسافاتها لتناسق بصري،
+                 من غير إعادة بناء القالب الداخلي (Popup/التقويم) تفاديًا لمخاطرة غير ضرورية -->
+            <Style TargetType="ComboBox">
+                <Setter Property="Padding" Value="8,6" />
+                <Setter Property="FontSize" Value="13.5" />
+                <Setter Property="Cursor" Value="Hand" />
+            </Style>
+
+            <Style TargetType="DatePicker">
+                <Setter Property="Padding" Value="8,6" />
+                <Setter Property="FontSize" Value="13.5" />
+            </Style>
+
+            <Style TargetType="CheckBox">
+                <Setter Property="FontSize" Value="13.5" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
             </Style>
         </ResourceDictionary>
     </Application.Resources>
