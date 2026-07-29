@@ -504,6 +504,42 @@
                 </Setter>
             </Style>
 
+            <!--
+                زرار فلترة سريع (الكل / بالقطعة / بالساعة / موقوفين).
+                RadioButton عشان الاختيار يبقى واحد بس، بس شكله شريحة —
+                المفعّل بلون البراند والباقي باهت.
+            -->
+            <Style x:Key="FilterChip" TargetType="RadioButton">
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Margin" Value="0,0,6,0" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Border x:Name="Bd" Background="{StaticResource CardBgBrush}"
+                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.4"
+                                    CornerRadius="15" Padding="14,7">
+                                <TextBlock x:Name="Txt" Text="{TemplateBinding Content}"
+                                           FontSize="12.5" FontWeight="Medium" VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextMutedBrush}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrandBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource BrandBrush}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrandBrush}" />
+                                    <Setter TargetName="Txt" Property="Foreground" Value="White" />
+                                    <Setter TargetName="Txt" Property="FontWeight" Value="Bold" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <!-- بطاقة عامل واحد في قائمة الحضور (بتعلى شوية مع الماوس) -->
             <Style x:Key="WorkerCard" TargetType="Border">
                 <Setter Property="Background" Value="{StaticResource CardBgBrush}" />
@@ -523,6 +559,93 @@
             <Style x:Key="SummaryStat" TargetType="StackPanel">
                 <Setter Property="Margin" Value="0,0,26,0" />
                 <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!--
+              عدّاد الملخص كزرار فلتر: بيفتح قسمه في القائمة اللي تحته.
+              اللون بيتحدد من برّه (Tag = لون القسم) عشان النمط الواحد يخدم
+              الأخضر والأحمر والأصفر من غير تكرار.
+
+              ثلاث حالات بصرية:
+                - عادي  : شفاف
+                - مرور  : خلفية رمادية خفيفة + يطلع لفوق شوية
+                - مفتوح : خلفية بلون القسم + خط سفلي بلون القسم (IsChecked)
+
+              ToggleButton مش Button عشان حالة "مفتوح" تتربط بـ IsChecked
+              مباشرة من الـ ViewModel من غير تحويلات.
+            -->
+            <Style x:Key="SummaryChip" TargetType="ToggleButton">
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Margin" Value="0,0,6,0" />
+                <Setter Property="Padding" Value="16,8" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5">
+                                <Grid.RenderTransform>
+                                    <TranslateTransform x:Name="Lift" Y="0" />
+                                </Grid.RenderTransform>
+
+                                <Border x:Name="Bd" CornerRadius="10" Background="Transparent" />
+
+                                <!-- تظليل بلون القسم — بيبان عند المرور وبيقوى لما يتفتح -->
+                                <Border x:Name="Tint" CornerRadius="10" Opacity="0"
+                                        Background="{TemplateBinding Tag}" IsHitTestVisible="False" />
+
+                                <!-- خط سفلي بلون القسم = علامة إن القسم ده مفتوح -->
+                                <Border x:Name="Bar" Height="3" CornerRadius="2" VerticalAlignment="Bottom"
+                                        Margin="14,0" Background="{TemplateBinding Tag}"
+                                        Opacity="0" IsHitTestVisible="False" />
+
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBgBrush}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="Y"
+                                                                 To="-2" Duration="0:0:0.14"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Tint" Storyboard.TargetProperty="Opacity"
+                                                                 To="0.10" Duration="0:0:0.14"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="Y"
+                                                                 To="0" Duration="0:0:0.18"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                                <DoubleAnimation Storyboard.TargetName="Tint" Storyboard.TargetProperty="Opacity"
+                                                                 To="0" Duration="0:0:0.18"
+                                                                 EasingFunction="{StaticResource EaseOut}" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
+                                </Trigger>
+
+                                <!-- القسم المفتوح: بيغلب حالة المرور -->
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Tint" Property="Opacity" Value="0.14" />
+                                    <Setter TargetName="Bar" Property="Opacity" Value="1" />
+                                    <Setter TargetName="Bd" Property="Background" Value="Transparent" />
+                                </Trigger>
+
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBgBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <Style x:Key="SummaryNumber" TargetType="TextBlock">

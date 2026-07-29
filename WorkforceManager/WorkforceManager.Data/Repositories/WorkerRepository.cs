@@ -61,6 +61,16 @@ namespace WorkforceManager.Data.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IReadOnlyList<Worker>> GetAllWithSkillsAsync()
+        {
+            return await DbSet
+                .Include(w => w.Skills)
+                    .ThenInclude(s => s.ProductionStage)
+                        .ThenInclude(ps => ps.Product)
+                .OrderBy(w => w.FullName)
+                .ToListAsync();
+        }
+
         public async Task<IReadOnlyList<Worker>> GetQualifiedForStageAsync(int productionStageId)
         {
             return await DbSet
