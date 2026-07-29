@@ -158,12 +158,42 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>كل سجلات الإنتاج المحفوظة في اليوم المختار — للمراجعة والتصحيح</summary>
         public ObservableCollection<DayRecordRow> DayRecords { get; } = new();
 
+        // ------- ملخص اليوم (فوق تبويب تسجيل الإنتاج) -------
+
+        /// <summary>إجمالي القطع المسجلة النهارده على كل المنتجات</summary>
+        [ObservableProperty]
+        private int _dayTotalPieces;
+
+        /// <summary>إجمالي اليوميات المحسوبة من الإنتاج المسجل</summary>
+        [ObservableProperty]
+        private decimal _dayTotalWorkdays;
+
+        /// <summary>عدد العمال اللي ليهم إنتاج مسجل النهارده</summary>
+        [ObservableProperty]
+        private int _dayWorkersCount;
+
+        /// <summary>عدد المنتجات اللي اتسجل عليها شغل النهارده</summary>
+        [ObservableProperty]
+        private int _dayProductsCount;
+
+        /// <summary>مفيش أي إنتاج مسجل لسه (بيخفي أرقام الملخص)</summary>
+        public bool DayHasNoProduction => DayTotalPieces == 0;
+
+        partial void OnDayTotalPiecesChanged(int value) => OnPropertyChanged(nameof(DayHasNoProduction));
+
         private async Task LoadDayRecordsAsync()
         {
             using var scope = _scopeFactory.CreateScope();
             var productionRepo = scope.ServiceProvider.GetRequiredService<IDailyProductionRepository>();
 
             var records = await productionRepo.GetByDateAsync(EntryDate);
+
+            // ملخص اليوم من نفس السجلات المحمّلة — من غير أي استعلام زيادة
+            DayTotalPieces = records.Sum(r => r.PieceCount);
+            DayTotalWorkdays = Math.Round(records.Sum(r => r.WorkdaysCompleted), 2);
+            DayWorkersCount = records.Select(r => r.WorkerId).Distinct().Count();
+            DayProductsCount = records.Select(r => r.ProductionStage.ProductId).Distinct().Count();
+
             DayRecords.Clear();
             foreach (var r in records.OrderBy(r => r.Worker.FullName).ThenBy(r => r.Id))
             {
@@ -248,22 +278,91 @@ namespace WorkforceManager.UI.ViewModels
 
         partial void OnAttendanceSearchChanged(string value) => ApplyAttendanceFilter();
 
+        /// <summary>
+        /// القسم المفتوح حاليًا من شريط الملخص. الفلتر ده بيشتغل مع البحث
+        /// مش بدله — تقدر تفتح "بدون إذن" وتدوّر باسم جواه.
+        /// </summary>
+        [ObservableProperty]
+        private AttendanceFilter _activeAttendanceFilter = AttendanceFilter.All;
+
+        partial void OnActiveAttendanceFilterChanged(AttendanceFilter value)
+        {
+            ApplyAttendanceFilter();
+            RefreshFilterFlags();
+        }
+
+        /// <summary>
+        /// الضغط على عدّاد في شريط الملخص بيفتح قسمه. الضغط على القسم
+        /// المفتوح تاني بيرجّع الكل — فالزرار نفسه بيفتح ويقفل.
+        /// </summary>
+        [RelayCommand]
+        private void SetAttendanceFilter(AttendanceFilter filter)
+        {
+            ActiveAttendanceFilter = ActiveAttendanceFilter == filter && filter != AttendanceFilter.All
+                ? AttendanceFilter.All
+                : filter;
+        }
+
         private void ApplyAttendanceFilter()
         {
             var query = AttendanceSearch?.Trim() ?? "";
 
-            var matches = string.IsNullOrEmpty(query)
-                ? AttendanceRows
-                : AttendanceRows.Where(r =>
-                    r.FullName.Contains(query, StringComparison.OrdinalIgnoreCase));
+            IEnumerable<AttendanceRow> matches = ActiveAttendanceFilter switch
+            {
+                AttendanceFilter.Present => AttendanceRows.Where(r => r.SelectedStatus == AttendanceStatus.Present),
+                AttendanceFilter.Excused => AttendanceRows.Where(r => r.SelectedStatus == AttendanceStatus.AbsentWithPermission),
+                AttendanceFilter.Unexcused => AttendanceRows.Where(r => r.SelectedStatus == AttendanceStatus.AbsentWithoutPermission),
+                AttendanceFilter.Unset => AttendanceRows.Where(r => r.SelectedStatus is null),
+                _ => AttendanceRows
+            };
+
+            if (!string.IsNullOrEmpty(query))
+                matches = matches.Where(r => r.FullName.Contains(query, StringComparison.OrdinalIgnoreCase));
 
             VisibleAttendanceRows.Clear();
             foreach (var row in matches) VisibleAttendanceRows.Add(row);
 
             OnPropertyChanged(nameof(NoAttendanceMatches));
+            OnPropertyChanged(nameof(EmptyStateText));
         }
 
         public bool NoAttendanceMatches => VisibleAttendanceRows.Count == 0 && AttendanceRows.Count > 0;
+
+        /// <summary>رسالة الفراغ بتفرّق بين "القسم فاضي" و"البحث ملقاش" عشان متلخبطش المستخدم</summary>
+        public string EmptyStateText
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(AttendanceSearch))
+                    return "مفيش عامل بالاسم ده في القسم ده";
+
+                return ActiveAttendanceFilter switch
+                {
+                    AttendanceFilter.Present => "مفيش حد متسجل حاضر لحد دلوقتي",
+                    AttendanceFilter.Excused => "مفيش حد غايب بإذن النهارده",
+                    AttendanceFilter.Unexcused => "مفيش حد غايب بدون إذن النهارده",
+                    AttendanceFilter.Unset => "تمام — كل العمال اتسجلت حالتهم",
+                    _ => "مفيش عمال في القائمة"
+                };
+            }
+        }
+
+        // ------- حالة كل زرار في شريط الملخص (عشان المفتوح يبان مميّز) -------
+
+        public bool IsFilterAll => ActiveAttendanceFilter == AttendanceFilter.All;
+        public bool IsFilterPresent => ActiveAttendanceFilter == AttendanceFilter.Present;
+        public bool IsFilterExcused => ActiveAttendanceFilter == AttendanceFilter.Excused;
+        public bool IsFilterUnexcused => ActiveAttendanceFilter == AttendanceFilter.Unexcused;
+        public bool IsFilterUnset => ActiveAttendanceFilter == AttendanceFilter.Unset;
+
+        private void RefreshFilterFlags()
+        {
+            OnPropertyChanged(nameof(IsFilterAll));
+            OnPropertyChanged(nameof(IsFilterPresent));
+            OnPropertyChanged(nameof(IsFilterExcused));
+            OnPropertyChanged(nameof(IsFilterUnexcused));
+            OnPropertyChanged(nameof(IsFilterUnset));
+        }
 
         // ------- عدّادات الملخص اللي فوق القائمة -------
 
@@ -286,6 +385,12 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(UnsetCount));
             OnPropertyChanged(nameof(TotalWorkersCount));
             OnPropertyChanged(nameof(PendingPenaltyText));
+
+            // لو فيه قسم مفتوح، لازم القائمة تفضل متطابقة مع رقم العدّاد:
+            // عامل غيّرت حالته وهو في قسم "لسه مفيش" بيخرج من القسم فورًا،
+            // فالرقم واللي تحته دايمًا بيقولوا نفس الحاجة.
+            if (ActiveAttendanceFilter != AttendanceFilter.All)
+                ApplyAttendanceFilter();
         }
 
         private async Task LoadAttendanceAsync()
@@ -902,5 +1007,18 @@ namespace WorkforceManager.UI.ViewModels
         public string TypeColor { get; init; } = "#333333";
         public string AmountText { get; init; } = "";
         public string Note { get; init; } = "";
+    }
+
+    /// <summary>
+    /// أقسام شريط ملخص الحضور. كل عدّاد في الشريط بيفتح القسم بتاعه،
+    /// و<see cref="AttendanceFilter.All"/> معناها الشريط مقفول والكل ظاهر.
+    /// </summary>
+    public enum AttendanceFilter
+    {
+        All,
+        Present,
+        Excused,
+        Unexcused,
+        Unset
     }
 }

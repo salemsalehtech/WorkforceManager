@@ -35,19 +35,63 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <!-- شريط إضافة منتج تاني للشغل عليه -->
-                    <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
+                    <!-- ملخص اللي اتسجل النهارده + إضافة منتج تاني -->
+                    <Border Grid.Row="0" Style="{StaticResource Card}" Padding="18,12" Margin="0,0,0,10">
                         <DockPanel>
                             <Button DockPanel.Dock="Left" Command="{Binding AddFlowSessionCommand}"
-                                    Style="{StaticResource SuccessButton}">
+                                    Style="{StaticResource SuccessButton}" VerticalAlignment="Center" Padding="16,9">
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" VerticalAlignment="Center" />
-                                    <TextBlock Text="إضافة منتج للعمل عليه" Margin="6,0,0,0" />
+                                    <TextBlock Text="إضافة منتج" Margin="6,0,0,0" />
                                 </StackPanel>
                             </Button>
-                            <TextBlock Text="ممكن تشتغل على أكتر من منتج في نفس اليوم — كل منتج برحلته الكاملة (مراحل وعمال ونطاقات) وحفظه المستقل"
-                                       Foreground="{StaticResource TextMutedBrush}" FontSize="12" VerticalAlignment="Center" Margin="14,0,0,0"
-                                       TextWrapping="Wrap" />
+
+                            <!-- رسالة لما لسه مفيش إنتاج مسجل في اليوم -->
+                            <TextBlock DockPanel.Dock="Right" Text="لسه مفيش إنتاج مسجل النهارده"
+                                       FontSize="12.5" VerticalAlignment="Center" Margin="18,0,0,0"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Visibility="{Binding DayHasNoProduction, Converter={StaticResource BoolToVis}}" />
+
+                            <!-- أرقام اليوم (بتظهر بس لما يكون فيه إنتاج) -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="18,0,0,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DayHasNoProduction}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <StackPanel Style="{StaticResource SummaryStat}">
+                                    <TextBlock Text="{Binding DayTotalPieces, StringFormat={}{0:N0}}"
+                                               Style="{StaticResource SummaryNumber}"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock Text="قطعة النهارده" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+
+                                <Border Style="{StaticResource SummaryDivider}" />
+
+                                <StackPanel Style="{StaticResource SummaryStat}">
+                                    <TextBlock Text="{Binding DayTotalWorkdays}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{StaticResource SuccessBrush}" />
+                                    <TextBlock Text="يومية" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+
+                                <StackPanel Style="{StaticResource SummaryStat}">
+                                    <TextBlock Text="{Binding DayWorkersCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{StaticResource BrandBrush}" />
+                                    <TextBlock Text="عامل" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+
+                                <StackPanel Style="{StaticResource SummaryStat}">
+                                    <TextBlock Text="{Binding DayProductsCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                    <TextBlock Text="منتج" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </StackPanel>
                         </DockPanel>
                     </Border>
 
@@ -81,8 +125,60 @@
                                                         <TextBlock Text="إزالة المنتج" FontSize="12" Margin="4,0,0,0" />
                                                     </StackPanel>
                                                 </Button>
-                                                <TextBlock Text="وزّع عامل أو أكتر على كل مرحلة هتشتغل النهارده"
-                                                           Foreground="{StaticResource TextMutedBrush}" FontSize="12" VerticalAlignment="Center" Margin="14,0,0,0" />
+                                                <!-- تكرار توزيع آخر يوم شغل على المنتج ده -->
+                                                <Button DockPanel.Dock="Left" Margin="10,0,0,0"
+                                                        Style="{StaticResource GhostButton}" Padding="12,6"
+                                                        ToolTip="يجيب نفس العمال على نفس المراحل من آخر يوم اشتغل فيه المنتج ده (من غير الأعداد)"
+                                                        Command="{Binding RepeatLastDayCommand}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="ContentCopy" Width="14" Height="14" VerticalAlignment="Center" />
+                                                        <TextBlock Text="كرّر يوم فات" Margin="5,0,0,0" FontSize="12.5" />
+                                                    </StackPanel>
+                                                </Button>
+
+                                                <!-- عدّاد الجاهزية: كام مرحلة تمام من اللي داخلة النهارده -->
+                                                <Border DockPanel.Dock="Left" CornerRadius="8" Padding="10,5" Margin="10,0,0,0"
+                                                        VerticalAlignment="Center">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{StaticResource SubtleBgBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AllReady}" Value="True">
+                                                                    <Setter Property="Background" Value="{StaticResource SuccessBgBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Width="14" Height="14" VerticalAlignment="Center">
+                                                            <materialDesign:PackIcon.Style>
+                                                                <Style TargetType="materialDesign:PackIcon">
+                                                                    <Setter Property="Kind" Value="ProgressClock" />
+                                                                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding AllReady}" Value="True">
+                                                                            <Setter Property="Kind" Value="CheckCircle" />
+                                                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </materialDesign:PackIcon.Style>
+                                                        </materialDesign:PackIcon>
+                                                        <TextBlock Text="{Binding ReadinessText}" FontSize="12" FontWeight="Medium"
+                                                                   Margin="5,0,0,0" VerticalAlignment="Center">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding AllReady}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </Border>
                                             </DockPanel>
 
                                             <Grid Grid.Row="1">
@@ -133,8 +229,13 @@
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
                                                                 <Border Background="{StaticResource SoftPanelBgBrush}" BorderBrush="{StaticResource SoftPanelBorderBrush}" BorderThickness="1"
-                                                                        CornerRadius="8" Padding="10,8" Margin="0,0,4,6">
-                                                                    <StackPanel>
+                                                                        CornerRadius="8" Padding="0" Margin="0,0,4,6">
+                                                                  <DockPanel>
+                                                                    <!-- شريط حالة المرحلة: لون واحد بيقول جاهزة/ناقصة من بعيد -->
+                                                                    <Border DockPanel.Dock="Left" Width="5" CornerRadius="3,0,0,3"
+                                                                            Background="{Binding StateColor}" />
+
+                                                                    <StackPanel Margin="10,8">
                                                                         <!-- رأس البطاقة: رقم الترتيب + الاسم + الكوتة + إنتاج المرحلة المحسوب -->
                                                                         <DockPanel>
                                                                             <Border DockPanel.Dock="Left" Background="{StaticResource BrandBrush}" CornerRadius="12"
@@ -165,6 +266,12 @@
                                                                                        VerticalAlignment="Center" Margin="10,0,0,0" />
                                                                             <TextBlock Text="{Binding AlreadyText}" Foreground="{StaticResource WarnBrush}" FontSize="11.5"
                                                                                        VerticalAlignment="Center" Margin="10,0,0,0" />
+
+                                                                            <!-- حالة المرحلة بالنص (جاهزة / محتاجة عمال / التوزيع مش مظبوط) -->
+                                                                            <TextBlock Text="{Binding StateText}" FontSize="11.5" FontWeight="SemiBold"
+                                                                                       Foreground="{Binding StateColor}"
+                                                                                       VerticalAlignment="Center" Margin="10,0,0,0"
+                                                                                       Visibility="{Binding HasState, Converter={StaticResource BoolToVis}}" />
                                                                         </DockPanel>
 
                                                                         <!-- العمال المتوزعين على المرحلة (Chips بنصيب كل واحد) -->
@@ -209,9 +316,39 @@
                                                                                     </Style.Triggers>
                                                                                 </Style>
                                                                             </StackPanel.Style>
-                                                                            <ComboBox ItemsSource="{Binding QualifiedWorkers}"
+                                                                            <!-- بحث في المؤهلين: القايمة ممكن تكون 20 عامل -->
+                                                                            <Border Background="{StaticResource CardBgBrush}"
+                                                                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.2"
+                                                                                    CornerRadius="6" Padding="7,3" Width="130" Margin="0,0,6,0">
+                                                                                <Grid>
+                                                                                    <DockPanel>
+                                                                                        <materialDesign:PackIcon DockPanel.Dock="Left" Kind="Magnify"
+                                                                                                                Width="13" Height="13" VerticalAlignment="Center"
+                                                                                                                Foreground="{StaticResource TextMutedBrush}" />
+                                                                                        <TextBox Text="{Binding WorkerSearch, UpdateSourceTrigger=PropertyChanged}"
+                                                                                                 Margin="5,0,0,0" BorderThickness="0" FontSize="12"
+                                                                                                 VerticalAlignment="Center" Background="Transparent" />
+                                                                                    </DockPanel>
+                                                                                    <TextBlock Text="دوّر" Margin="22,0,0,0" IsHitTestVisible="False"
+                                                                                               VerticalAlignment="Center" FontSize="12"
+                                                                                               Foreground="{StaticResource TextMutedBrush}">
+                                                                                        <TextBlock.Style>
+                                                                                            <Style TargetType="TextBlock">
+                                                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                                                <Style.Triggers>
+                                                                                                    <DataTrigger Binding="{Binding WorkerSearch}" Value="">
+                                                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                                                    </DataTrigger>
+                                                                                                </Style.Triggers>
+                                                                                            </Style>
+                                                                                        </TextBlock.Style>
+                                                                                    </TextBlock>
+                                                                                </Grid>
+                                                                            </Border>
+
+                                                                            <ComboBox ItemsSource="{Binding VisibleWorkers}"
                                                                                       SelectedItem="{Binding SelectedWorkerToAdd}"
-                                                                                      DisplayMemberPath="Name" Width="180" FontSize="12.5" />
+                                                                                      DisplayMemberPath="Name" Width="170" FontSize="12.5" />
                                                                             <!-- أمر الإضافة على البطاقة نفسها (callback للرحلة) -->
                                                                             <Button Margin="6,0,0,0" FontSize="12.5"
                                                                                     Style="{StaticResource GhostButton}" Padding="10,4"
@@ -238,6 +375,7 @@
                                                                             </TextBlock.Style>
                                                                         </TextBlock>
                                                                     </StackPanel>
+                                                                  </DockPanel>
                                                                 </Border>
                                                             </DataTemplate>
                                                         </ItemsControl.ItemTemplate>
@@ -429,38 +567,78 @@
 
                     <!-- ===== شريط الملخص: حالة اليوم كلها بنظرة واحدة ===== -->
                     <Border Grid.Row="0" Style="{StaticResource Card}" Padding="18,14" Margin="0,0,0,10">
+                        <!--
+                          كل عدّاد زرار بيفتح قسمه في القائمة اللي تحت.
+                          Tag = لون القسم (النمط بياخد منه التظليل والخط السفلي)،
+                          وIsChecked مربوط بحالة الفلتر في الـ ViewModel فالمفتوح بيبان.
+                        -->
                         <StackPanel Orientation="Horizontal">
-                            <StackPanel Style="{StaticResource SummaryStat}">
-                                <TextBlock Text="{Binding TotalWorkersCount}" Style="{StaticResource SummaryNumber}"
-                                           Foreground="{StaticResource TextPrimaryBrush}" />
-                                <TextBlock Text="إجمالي العمال" Style="{StaticResource SummaryLabel}" />
-                            </StackPanel>
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{StaticResource BrandBrush}"
+                                          IsChecked="{Binding IsFilterAll, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.All}"
+                                          ToolTip="عرض كل العمال">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding TotalWorkersCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock Text="إجمالي العمال" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
 
-                            <Border Style="{StaticResource SummaryDivider}" />
+                            <Border Style="{StaticResource SummaryDivider}" Margin="6,4,12,4" />
 
-                            <StackPanel Style="{StaticResource SummaryStat}">
-                                <TextBlock Text="{Binding PresentCount}" Style="{StaticResource SummaryNumber}"
-                                           Foreground="{StaticResource SuccessBrush}" />
-                                <TextBlock Text="حاضر" Style="{StaticResource SummaryLabel}" />
-                            </StackPanel>
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{StaticResource SuccessBrush}"
+                                          IsChecked="{Binding IsFilterPresent, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.Present}"
+                                          ToolTip="عرض الحاضرين بس">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding PresentCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{StaticResource SuccessBrush}" />
+                                    <TextBlock Text="حاضر" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
 
-                            <StackPanel Style="{StaticResource SummaryStat}">
-                                <TextBlock Text="{Binding ExcusedCount}" Style="{StaticResource SummaryNumber}"
-                                           Foreground="{StaticResource WarnBrush}" />
-                                <TextBlock Text="غياب بإذن" Style="{StaticResource SummaryLabel}" />
-                            </StackPanel>
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{StaticResource WarnBrush}"
+                                          IsChecked="{Binding IsFilterExcused, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.Excused}"
+                                          ToolTip="عرض الغايبين بإذن بس">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding ExcusedCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{StaticResource WarnBrush}" />
+                                    <TextBlock Text="غياب بإذن" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
 
-                            <StackPanel Style="{StaticResource SummaryStat}">
-                                <TextBlock Text="{Binding UnexcusedCount}" Style="{StaticResource SummaryNumber}"
-                                           Foreground="{StaticResource DangerBrush}" />
-                                <TextBlock Text="بدون إذن" Style="{StaticResource SummaryLabel}" />
-                            </StackPanel>
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{StaticResource DangerBrush}"
+                                          IsChecked="{Binding IsFilterUnexcused, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.Unexcused}"
+                                          ToolTip="عرض الغايبين بدون إذن بس">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding UnexcusedCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{StaticResource DangerBrush}" />
+                                    <TextBlock Text="بدون إذن" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
 
-                            <StackPanel Style="{StaticResource SummaryStat}">
-                                <TextBlock Text="{Binding UnsetCount}" Style="{StaticResource SummaryNumber}"
-                                           Foreground="{StaticResource TextMutedBrush}" />
-                                <TextBlock Text="لسه مفيش" Style="{StaticResource SummaryLabel}" />
-                            </StackPanel>
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{StaticResource TextMutedBrush}"
+                                          IsChecked="{Binding IsFilterUnset, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.Unset}"
+                                          ToolTip="عرض اللي لسه محصلش تسجيل — اقفلهم واحد واحد">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding UnsetCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                    <TextBlock Text="لسه مفيش" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
 
                             <!-- تحذير الجزاءات المتوقعة: بيظهر بس لما يكون فيه غياب بدون إذن -->
                             <Border Background="{StaticResource DangerBgBrush}" CornerRadius="10"
@@ -547,7 +725,7 @@
                                 <materialDesign:PackIcon Kind="AccountSearchOutline" Width="46" Height="46"
                                                         HorizontalAlignment="Center"
                                                         Foreground="{StaticResource TextMutedBrush}" />
-                                <TextBlock Text="مفيش عامل بالاسم ده" Margin="0,10,0,0" FontSize="14"
+                                <TextBlock Text="{Binding EmptyStateText}" Margin="0,10,0,0" FontSize="14"
                                            HorizontalAlignment="Center"
                                            Foreground="{StaticResource TextMutedBrush}" />
                             </StackPanel>

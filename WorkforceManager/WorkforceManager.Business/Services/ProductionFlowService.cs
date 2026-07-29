@@ -48,6 +48,55 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
+        /// بيدوّر على آخر يوم اتسجل فيه إنتاج على المنتج ده **قبل** اليوم
+        /// المحدد، وبيرجّع توزيع العمال على المراحل زي ما كان.
+        ///
+        /// الغرض: الشغل اليومي في المصنع بيتكرر — نفس المنتج ونفس الطاقم
+        /// تقريبًا كل يوم، والفرق بيبقى في الأعداد بس. الزرار اللي بيستخدم
+        /// الدالة دي بيوفّر إعادة توزيع عشرات العمال بالإيد كل صباح.
+        ///
+        /// بيرجّع null لو مفيش أي إنتاج على المنتج في فترة البحث.
+        /// </summary>
+        /// <param name="lookbackDays">
+        /// أقصى رجوع للخلف. محدود عشان مانحمّلش تاريخ المنتج كله —
+        /// لو المنتج مااشتغلش من شهرين يبقى التكرار مالوش معنى أصلاً.
+        /// </param>
+        public async Task<LastFlowDto?> GetLastFlowAsync(int productId, DateTime before, int lookbackDays = 60)
+        {
+            var product = await _productRepo.GetWithStagesAsync(productId);
+            if (product is null) return null;
+
+            var stageIds = product.Stages.Select(s => s.Id).ToHashSet();
+            if (stageIds.Count == 0) return null;
+
+            var from = before.Date.AddDays(-lookbackDays);
+            var to = before.Date.AddDays(-1); // قبل اليوم المحدد، مش هو نفسه
+
+            var records = (await _productionRepo.GetByRangeAsync(from, to))
+                .Where(r => stageIds.Contains(r.ProductionStageId))
+                .ToList();
+
+            if (records.Count == 0) return null;
+
+            // آخر يوم فيه شغل على المنتج ده
+            var lastDate = records.Max(r => r.Date.Date);
+
+            var assignments = records
+                .Where(r => r.Date.Date == lastDate)
+                // نفس العامل ممكن يكون له أكتر من سجل على نفس المرحلة — مرة واحدة تكفي
+                .GroupBy(r => (r.ProductionStageId, r.WorkerId))
+                .Select(g => new FlowAssignmentDto
+                {
+                    ProductionStageId = g.Key.ProductionStageId,
+                    WorkerId = g.Key.WorkerId,
+                    WorkerName = g.First().Worker?.FullName ?? string.Empty
+                })
+                .ToList();
+
+            return new LastFlowDto { Date = lastDate, Assignments = assignments };
+        }
+
+        /// <summary>
         /// يسجل رحلة إنتاج كاملة ليوم واحد على منتج واحد. بيرمي استثناء
         /// برسالة عربية واضحة لو فيه أي خطأ في المدخلات — ومفيش أي حاجة
         /// بتتحفظ إلا لو الرحلة كلها سليمة.

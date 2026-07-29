@@ -56,4 +56,27 @@ namespace WorkforceManager.Business.DTOs
         public int TotalPieces { get; init; }
         public decimal TotalWorkdays { get; init; }
     }
+
+    /// <summary>
+    /// توزيع عمال آخر يوم اتسجل فيه إنتاج على منتج معين — أساس زرار
+    /// "كرّر إدخال يوم فات". بيرجّع مين اشتغل على كل مرحلة **من غير
+    /// أعداد القطع** عن قصد: الأعداد بتختلف كل يوم، ونسخها بيخاطر إن
+    /// المستخدم يحفظ رقم إمبارح من غير ما ياخد باله.
+    /// </summary>
+    public class LastFlowDto
+    {
+        /// <summary>اليوم اللي التوزيع ده اتاخد منه (بيتعرض للمستخدم قبل ما يأكد)</summary>
+        public DateTime Date { get; init; }
+
+        /// <summary>أزواج (مرحلة، عامل) زي ما كانت في اليوم ده</summary>
+        public List<FlowAssignmentDto> Assignments { get; init; } = new();
+    }
+
+    /// <summary>عامل واحد كان متوزع على مرحلة واحدة (من غير عدد قطع)</summary>
+    public class FlowAssignmentDto
+    {
+        public int ProductionStageId { get; init; }
+        public int WorkerId { get; init; }
+        public string WorkerName { get; init; } = string.Empty;
+    }
 }

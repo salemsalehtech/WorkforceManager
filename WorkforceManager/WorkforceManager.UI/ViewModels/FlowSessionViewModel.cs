@@ -131,7 +131,7 @@ namespace WorkforceManager.UI.ViewModels
                 foreach (var stage in product.Stages)
                 {
                     alreadyByStage.TryGetValue(stage.StageId, out var already);
-                    FlowStages.Add(new FlowStageRow(AddWorkerToStageAsync)
+                    var row = new FlowStageRow(AddWorkerToStageAsync)
                     {
                         StageId = stage.StageId,
                         DisplayOrder = stage.DisplayOrder,
@@ -141,7 +141,10 @@ namespace WorkforceManager.UI.ViewModels
                             .Select(ws => new WorkerPick(ws.WorkerId, ws.Worker.FullName))
                             .ToList(),
                         AlreadyText = already > 0 ? $"مسجل اليوم: {already}" : ""
-                    });
+                    };
+
+                    row.ApplyWorkerFilter(); // القايمة تبدأ كاملة قبل أي بحث
+                    FlowStages.Add(row);
                 }
 
                 // نطاق افتراضي جاهز: من أول مرحلة لآخر مرحلة — لو اليوم كله
@@ -285,9 +288,112 @@ namespace WorkforceManager.UI.ViewModels
             }
 
             FlowWarning = string.Join("\n", warnings.Distinct());
+
+            // تلوين البطاقات وعدّاد الجاهزية بيتحدّثوا مع أي تغيير
+            foreach (var row in FlowStages) row.RefreshState();
+            RefreshReadiness();
+        }
+
+        // ------- عدّاد جاهزية الرحلة -------
+
+        /// <summary>عدد المراحل الداخلة في الرحلة النهارده (عليها إنتاج)</summary>
+        public int StagesInFlowCount => FlowStages.Count(s => s.ComputedPieces > 0);
+
+        /// <summary>منها كام مرحلة جاهزة فعلاً للحفظ</summary>
+        public int ReadyStagesCount => FlowStages.Count(s => s.IsReady);
+
+        /// <summary>"7 من 11 مرحلة جاهزة" — بيظهر فوق البطاقات</summary>
+        public string ReadinessText => StagesInFlowCount == 0
+            ? "اكتب عدد القطع في النطاق عشان المراحل تشتغل"
+            : $"{ReadyStagesCount} من {StagesInFlowCount} مرحلة جاهزة";
+
+        /// <summary>كل المراحل الداخلة في الرحلة جاهزة؟ (بيلوّن العدّاد أخضر)</summary>
+        public bool AllReady => StagesInFlowCount > 0 && ReadyStagesCount == StagesInFlowCount;
+
+        private void RefreshReadiness()
+        {
+            OnPropertyChanged(nameof(StagesInFlowCount));
+            OnPropertyChanged(nameof(ReadyStagesCount));
+            OnPropertyChanged(nameof(ReadinessText));
+            OnPropertyChanged(nameof(AllReady));
         }
 
         // ------- أوامر الرحلة -------
+
+        /// <summary>
+        /// بيجيب توزيع عمال آخر يوم اشتغل فيه المنتج ده وبيحطه زي ما هو.
+        ///
+        /// **الأعداد مش بتتنسخ** عن قصد (قرار متفق عليه): العمال بيتحطوا
+        /// على مراحلهم، والمستخدم بيكتب قطع النهارده. نسخ أرقام إمبارح
+        /// كان بيخاطر إن رقم قديم يتحفظ من غير ما حد ياخد باله.
+        /// </summary>
+        [RelayCommand]
+        private async Task RepeatLastDayAsync()
+        {
+            if (SelectedProduct is not { } product)
+            {
+                MessageBox.Show("اختار المنتج الأول", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            LastFlowDto? last;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var flowService = scope.ServiceProvider.GetRequiredService<ProductionFlowService>();
+                last = await flowService.GetLastFlowAsync(product.ProductId, _getEntryDate());
+            }
+
+            if (last is null || last.Assignments.Count == 0)
+            {
+                MessageBox.Show(
+                    $"مفيش إنتاج متسجل على \"{product.Name}\" في آخر شهرين — مفيش حاجة تتكرر.",
+                    "مفيش يوم سابق", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // العمال اللي لسه مؤهلين فعلاً (ممكن مهارة اتشالت أو عامل اتوقف)
+            var stageById = FlowStages.ToDictionary(s => s.StageId);
+            var applicable = last.Assignments
+                .Where(a => stageById.ContainsKey(a.ProductionStageId))
+                .Where(a => stageById[a.ProductionStageId].QualifiedWorkers.Any(w => w.WorkerId == a.WorkerId))
+                .ToList();
+
+            var skipped = last.Assignments.Count - applicable.Count;
+
+            var confirmMessage =
+                $"هيتحط توزيع يوم {last.Date:yyyy/MM/dd} على \"{product.Name}\":\n" +
+                $"  • {applicable.Count} عامل على مراحلهم\n" +
+                (skipped > 0 ? $"  • {skipped} اتخطوا (مبقوش مؤهلين أو اتوقفوا)\n" : "") +
+                "\nالأعداد مش هتتنسخ — هتكتبها انت.\n" +
+                "التوزيع الحالي على الشاشة هيتمسح.";
+
+            if (MessageBox.Show(confirmMessage, "تكرار يوم سابق",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+                return;
+
+            _suppressCallbacks = true;
+            try
+            {
+                // البداية من صفحة نظيفة عشان مايبقاش فيه خلط بين القديم والجديد
+                foreach (var row in FlowStages) row.AssignedWorkers.Clear();
+                _confirmedAssignments.Clear();
+
+                foreach (var assignment in applicable)
+                {
+                    var stage = stageById[assignment.ProductionStageId];
+                    if (stage.AssignedWorkers.Any(s => s.WorkerId == assignment.WorkerId)) continue;
+
+                    stage.AssignedWorkers.Add(new FlowShareEntry(
+                        stage, assignment.WorkerId, assignment.WorkerName, OnSharesEdited, RemoveWorkerShare));
+                }
+            }
+            finally
+            {
+                _suppressCallbacks = false;
+            }
+
+            RecomputeFlow();
+        }
 
         [RelayCommand]
         private void AddRange()
@@ -538,6 +644,25 @@ namespace WorkforceManager.UI.ViewModels
     /// <summary>عامل مؤهل في قائمة اختيار عمال المرحلة</summary>
     public record WorkerPick(int WorkerId, string Name);
 
+    /// <summary>حالة مرحلة في رحلة الإنتاج — بتحدد لون البطاقة ورسالتها</summary>
+    public enum FlowStageState
+    {
+        /// <summary>مش داخلة في أي نطاق النهارده (مفيش عليها إنتاج)</summary>
+        NotToday,
+
+        /// <summary>عليها إنتاج وعمالها مظبوطين — جاهزة للحفظ</summary>
+        Ready,
+
+        /// <summary>عليها إنتاج بس مفيش عمال متوزعين</summary>
+        NeedsWorkers,
+
+        /// <summary>مجموع توزيع العمال مش مساوي إنتاج المرحلة</summary>
+        Mismatch,
+
+        /// <summary>عليها عمال بس مش داخلة في أي نطاق (الحفظ هيرفضها)</summary>
+        WorkersWithoutPieces
+    }
+
     /// <summary>
     /// بطاقة مرحلة واحدة في رحلة الإنتاج: بياناتها + عمالها المؤهلين +
     /// العمال المتوزعين عليها بأنصبتهم + إنتاجها المحسوب من النطاقات.
@@ -560,6 +685,91 @@ namespace WorkforceManager.UI.ViewModels
         public bool HasNoQualified => QualifiedWorkers.Count == 0;
 
         public string QuotaText => $"الكوتة: {Quota}";
+
+        // ------- بحث في قايمة العمال المؤهلين -------
+
+        /// <summary>
+        /// نص البحث في قايمة عمال المرحلة. المرحلة ممكن يكون ليها ٢٠ عامل
+        /// مؤهل، والنزول فيهم بالماوس كل مرة بطيء.
+        /// </summary>
+        [ObservableProperty]
+        private string _workerSearch = string.Empty;
+
+        partial void OnWorkerSearchChanged(string value) => ApplyWorkerFilter();
+
+        /// <summary>العمال المعروضين في القايمة دلوقتي (بعد البحث)</summary>
+        public ObservableCollection<WorkerPick> VisibleWorkers { get; } = new();
+
+        /// <summary>بيتنادى بعد بناء الصف عشان القايمة تبدأ كاملة</summary>
+        public void ApplyWorkerFilter()
+        {
+            var query = WorkerSearch?.Trim() ?? "";
+
+            var matches = query.Length == 0
+                ? QualifiedWorkers
+                : QualifiedWorkers.Where(w => w.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
+
+            VisibleWorkers.Clear();
+            foreach (var w in matches) VisibleWorkers.Add(w);
+        }
+
+        // ------- حالة المرحلة (لون وعلامة على البطاقة) -------
+
+        /// <summary>مجموع اللي اتوزع على عمال المرحلة دلوقتي</summary>
+        public int AssignedSum =>
+            AssignedWorkers.Sum(s => int.TryParse(s.SharePieces?.Trim(), out var p) && p > 0 ? p : 0);
+
+        /// <summary>
+        /// حالة المرحلة دلوقتي — دي اللي بتلوّن البطاقة وبتخلي المستخدم
+        /// يعرف بنظرة واحدة مين ناقص من غير ما يقرا كل بطاقة.
+        /// </summary>
+        public FlowStageState State
+        {
+            get
+            {
+                if (ComputedPieces == 0)
+                    return AssignedWorkers.Count > 0 ? FlowStageState.WorkersWithoutPieces : FlowStageState.NotToday;
+
+                if (AssignedWorkers.Count == 0) return FlowStageState.NeedsWorkers;
+
+                return AssignedSum == ComputedPieces ? FlowStageState.Ready : FlowStageState.Mismatch;
+            }
+        }
+
+        public bool IsReady => State == FlowStageState.Ready;
+
+        /// <summary>لون الشريط الجانبي للبطاقة حسب الحالة</summary>
+        public string StateColor => State switch
+        {
+            FlowStageState.Ready => "#0B6E4F",              // أخضر: تمام
+            FlowStageState.NeedsWorkers => "#B7791F",       // أصفر: عليها إنتاج ومحتاجة عمال
+            FlowStageState.Mismatch => "#B00020",           // أحمر: التوزيع مش مساوي الإنتاج
+            FlowStageState.WorkersWithoutPieces => "#B7791F",
+            _ => "#DDE3ED"                                   // رمادي باهت: مش داخلة النهارده
+        };
+
+        /// <summary>الرسالة القصيرة اللي بتظهر على البطاقة</summary>
+        public string StateText => State switch
+        {
+            FlowStageState.Ready => "جاهزة",
+            FlowStageState.NeedsWorkers => "محتاجة عمال",
+            FlowStageState.Mismatch => $"التوزيع {AssignedSum} ≠ {ComputedPieces}",
+            FlowStageState.WorkersWithoutPieces => "عليها عمال من غير إنتاج",
+            _ => ""
+        };
+
+        public bool HasState => State != FlowStageState.NotToday;
+
+        /// <summary>بيتنادى من الرحلة بعد أي إعادة حساب عشان البطاقة تتلوّن من جديد</summary>
+        public void RefreshState()
+        {
+            OnPropertyChanged(nameof(State));
+            OnPropertyChanged(nameof(IsReady));
+            OnPropertyChanged(nameof(StateColor));
+            OnPropertyChanged(nameof(StateText));
+            OnPropertyChanged(nameof(HasState));
+            OnPropertyChanged(nameof(AssignedSum));
+        }
 
         /// <summary>تنبيه لو فيه إنتاج متسجل بالفعل على المرحلة في نفس اليوم</summary>
         [ObservableProperty]
