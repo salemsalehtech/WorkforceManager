@@ -96,9 +96,27 @@ Core  <----------------------- UI
 - **WorkforceManager.UI** — WPF, MVVM (CommunityToolkit.Mvvm) + MaterialDesignThemes. `App.xaml.cs` wires
   up DI via `Microsoft.Extensions.Hosting`'s `Host` (`AppHost`) — this is the single place new
   repositories/services/views get registered. `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) is
-  implemented: workers grid with current-week stats, unified name/skill search, profile panel with skills
-  management and weekly history, add/edit/soft-delete. `DailyEntryView` is implemented: one shared date +
-  3 tabs — production-flow entry (one or MORE products per day: each product gets its own
+  implemented as a **card list** (same `WorkerCard` style as the attendance screen), not a grid: summary
+  bar (active / hourly / inactive / best-of-week + a "needs attention" button that filters to problem
+  workers), instant search, `FilterChip` quick filters (الكل / بالقطعة / بالساعة / موقوفين), and a sort
+  dropdown. The whole worker list is loaded once via `IWorkerRepository.GetAllWithSkillsAsync()` and
+  search/filter/sort run **in memory** (`ApplyFilters`) — that is why search is per-keystroke with no
+  DB round-trip; `WorkerRow.SkillsSearchText` pre-joins skills + notes so skill search stays a single
+  string match. Each card flags `HasNoWage` (worker would earn 0 EGP on the payroll) and `HasNoSkills`
+  (piece-rate worker with no skill links never appears in a production flow) — both surfaced together as
+  `NeedsAttention`. The profile panel adds bulk skill assignment: `IsAddingSkills` opens a searchable,
+  multi-select stage list (`VisibleStageOptions`, already-owned stages filtered out) and
+  `AddSelectedSkillsCommand` assigns them all at once. `RefreshRowsKeepingSelectionAsync` reloads the
+  list without losing the open profile. Also add/edit/soft-delete. `DailyEntryView` is implemented: one shared date +
+  3 tabs — production-flow entry, topped by a day summary bar (pieces / workdays / workers / products,
+  derived from the records `LoadDayRecordsAsync` already loads — no extra query). Each stage card carries
+  a colour bar and label driven by `FlowStageRow.State` (`FlowStageState`: Ready / NeedsWorkers /
+  Mismatch / WorkersWithoutPieces / NotToday) so an 11-stage product reads at a glance instead of card by
+  card, and the session header shows `ReadinessText` ("7 من 11 مرحلة جاهزة"). `RefreshState` /
+  `RefreshReadiness` are driven from `RecomputeTotals`, so anything touching pieces or shares repaints
+  both. Every stage's worker picker has its own search box (`WorkerSearch` → `VisibleWorkers`) since a
+  stage can have ~20 qualified workers. "كرّر يوم فات" is `RepeatLastDayAsync` (see `GetLastFlowAsync`).
+  One or MORE products per day: each product gets its own
   `FlowSessionViewModel` card — stages as ordered cards, qualified-only workers per stage with equal
   auto-split + manual override, stage ranges "from stage X to Y: N pieces", live per-worker workdays
   preview, independent save; "add product" button appends sessions; row-level commands live on the row
@@ -126,9 +144,20 @@ Core  <----------------------- UI
   (اليوم/الأسبوع/الشهر) + a free from/to custom range (any span works, e.g. day 1→20), all served by
   `ProductionReportService.GetGeneralReportAsync(from,to)`/`GetWorkerReportAsync(workerId,from,to)`
   (completed pieces = last-stage-per-product, same rule as the chart) with Excel export via
-  `WeeklyReportExcelService.ExportGeneralReport`/`ExportWorkerReport`. `ProductsView` is implemented: products list with
-  search/inactive filter, stages panel per product with quota management (`ProductManagementService` —
-  stage names unique per product, quota edits only affect future entries thanks to the snapshot).
+  `WeeklyReportExcelService.ExportGeneralReport`/`ExportWorkerReport`. `ProductsView` is implemented with the same card language as the workers/attendance screens: summary bar
+  (active products / total stages / total + a "needs attention" button), instant search (product or stage
+  name), `FilterChip` filters (النشط / الكل / موقوف), and product cards showing stage count and
+  `TotalQuota`. The right panel renders the product as a **production line** — one card per stage with its
+  position number, quota, and **how many workers are qualified for it**, plus ▲▼ buttons that reorder the
+  line. Reordering goes through `ProductManagementService.MoveStageAsync(stageId, moveUp)`, which swaps
+  with the neighbour and then **renumbers the whole line from 1** (healing gaps/duplicates left by older
+  edits); it returns false at the ends instead of throwing. Order is not cosmetic — production ranges
+  ("from stage X to Y") are resolved by line position, so `StageOrderTests` covers both the swap itself
+  and the fact that a range which was valid before a move becomes invalid after it. Warnings surface the
+  two states that silently block production: a product with no active stages, and an active stage with
+  **zero qualified workers** (the flow screen only offers qualified workers, so such a stage can never be
+  filled). Stage names stay unique per product, and quota edits only affect future entries thanks to the
+  snapshot.
   All four sidebar screens are implemented. Navigation uses `Checked` (not `Click`) on the sidebar
   radios — handlers guard against the initial `Checked` that fires during `InitializeComponent` before
   `MainContent` exists. `App.xaml` holds the design system: brand brushes (BrandBrush/AccentBrush/
@@ -144,6 +173,14 @@ Core  <----------------------- UI
 
 - `Product` 1—* `ProductionStage` (cascade delete): each stage carries its own `PiecesPerWorkday` ("كوتة
   اليومية") — the same stage name can repeat across products with an independent quota/price each.
+  `Product.ImageData` (nullable BLOB) holds an optional product photo **inside the DB on purpose** — the
+  backup only copies the `.db` file, so images kept as loose files would be lost on restore or when
+  moving to another machine. Always write it through `ProductManagementService.SetProductImageAsync`
+  (kept separate from `UpdateProductAsync` so renaming a product neither resends nor accidentally clears
+  the photo), and always prepare the bytes with `ProductImageHelper.LoadForStorage` (UI layer), which
+  downscales to 256px and re-encodes as JPEG using WPF's own imaging — no new package, and the stored
+  blob stays tens of KB instead of megabytes multiplied across every daily backup. In the UI the photo
+  occupies the **same 44×44 slot as the initials circle**, so products without one cost no extra space.
 - `Worker` *—* `ProductionStage` via `WorkerSkill` (join entity, unique per worker+stage): which stages a
   worker is qualified to perform.
 - `DailyProduction`: one entry = pieces produced by one worker on one stage on one date. Snapshots
@@ -216,6 +253,14 @@ Core  <----------------------- UI
   save path is two-phase (attempt → `AssignmentConfirmationRequiredException` → dialog → re-send with
   `confirmOverride: true`). `_confirmedAssignments` only prevents asking twice about the same pair the
   user just confirmed — it is cleared on reload/date change and is not a "remember my choice".
+- `ProductionFlowService.GetLastFlowAsync(productId, before, lookbackDays = 60)` powers the "كرّر يوم فات"
+  button: it finds the most recent day **before** the given date that had production on that product and
+  returns the (stage, worker) pairs. It deliberately returns **no piece counts** — piece counts change
+  daily and copying yesterday's numbers risks saving a stale figure unnoticed; the user re-types them.
+  The UI re-checks each returned worker is still qualified and still active before placing them, reports
+  how many were skipped, and confirms before wiping the current on-screen distribution. Assignments
+  placed this way still go through `WorkerAssignmentGuard` at save time — the button bypasses only the
+  fast add-time check, never the authoritative one.
 - `ProductionFlowService.RecordFlowAsync` is the main production-entry path: takes stage ranges
   ("from stage X to Y produced N pieces" — every stage in a range gets N) + per-stage worker shares.
   Validates everything (ranges in line order, no overlaps, share sums == stage pieces, workers must be
