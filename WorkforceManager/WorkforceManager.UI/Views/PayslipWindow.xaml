@@ -1,20 +1,26 @@
 <Window x:Class="WorkforceManager.UI.Views.PayslipWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="قسيمة أجر" Height="720" Width="640"
         WindowStartupLocation="CenterOwner"
-        FlowDirection="RightToLeft" FontFamily="Segoe UI"
+        FlowDirection="RightToLeft" FontFamily="{StaticResource AppFont}"
         Background="{StaticResource PageBgBrush}">
 
     <DockPanel Margin="0">
         <!-- شريط الأدوات (مش بيتطبع) -->
         <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}" Padding="14,10">
             <DockPanel LastChildFill="False">
-                <Button DockPanel.Dock="Left" Content="🖨 طباعة" Click="Print_Click"
-                        Style="{StaticResource SuccessButton}" />
+                <Button DockPanel.Dock="Left" Click="Print_Click"
+                        Style="{StaticResource SuccessButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="PrinterOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                        <TextBlock Text="طباعة" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Button>
                 <Button DockPanel.Dock="Left" Content="إغلاق" Click="Close_Click"
                         Style="{StaticResource GhostButton}" Foreground="White" Margin="8,0,0,0" />
-                <TextBlock DockPanel.Dock="Right" Text="معاينة قبل الطباعة" Foreground="#B9C8E2"
+                <TextBlock DockPanel.Dock="Right" Text="معاينة قبل الطباعة" Foreground="#C9D6EC"
                            VerticalAlignment="Center" FontSize="12.5" />
             </DockPanel>
         </Border>
