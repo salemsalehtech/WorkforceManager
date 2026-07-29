@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d"
              d:DesignHeight="650" d:DesignWidth="1100">
 
@@ -17,17 +18,25 @@
         <!-- شريط الأدوات: بحث موحّد + إظهار الموقوفين + زرار الإضافة -->
         <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
             <DockPanel>
-                <Button DockPanel.Dock="Left" Content="＋ إضافة عامل جديد"
-                        Command="{Binding AddWorkerCommand}"
-                        Style="{StaticResource PrimaryButton}" />
+                <Button DockPanel.Dock="Left" Command="{Binding AddWorkerCommand}"
+                        Style="{StaticResource PrimaryButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" VerticalAlignment="Center" />
+                        <TextBlock Text="إضافة عامل جديد" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Button>
 
                 <CheckBox DockPanel.Dock="Left" Content="إظهار الموقوفين"
                           IsChecked="{Binding ShowInactive}"
                           VerticalAlignment="Center" Margin="16,0" />
 
-                <Button DockPanel.Dock="Right" Content="🔍 بحث"
-                        Command="{Binding SearchCommand}"
-                        Style="{StaticResource GhostButton}" Margin="8,0,0,0" />
+                <Button DockPanel.Dock="Right" Command="{Binding SearchCommand}"
+                        Style="{StaticResource GhostButton}" Margin="8,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Magnify" Width="15" Height="15" VerticalAlignment="Center" />
+                        <TextBlock Text="بحث" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Button>
 
                 <!-- البحث الموحّد: بالاسم أو بالمهارة/المرحلة — Enter بينفذ البحث مباشرة -->
                 <TextBox VerticalAlignment="Center" Padding="8,6" FontSize="14"
@@ -41,12 +50,12 @@
 
         <!-- عنوان الأسبوع الحالي -->
         <TextBlock Grid.Row="1" Text="{Binding WeekTitle}"
-                   FontSize="13" Foreground="#555" Margin="4,0,4,6" />
+                   FontSize="13" Foreground="{StaticResource TextMutedBrush}" Margin="4,0,4,6" />
 
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="400" />
+                <ColumnDefinition Width="*" MinWidth="520" />
+                <ColumnDefinition Width="360" />
             </Grid.ColumnDefinitions>
 
             <!-- جدول العمال بإحصائيات الأسبوع الحالي -->
@@ -56,23 +65,66 @@
                       Style="{StaticResource ModernDataGrid}"
                       AutoGenerateColumns="False" IsReadOnly="True"
                       SelectionMode="Single">
+                <!--
+                  عرض الأعمدة: اسم العامل هو أهم عمود في الشاشة فمداه * بحد أدنى
+                  يمنعه إنه يتقلّص لحرفين لما الأعمدة الرقمية تاخد المساحة.
+                  أعمدة الأرقام اتضبطت على عرض محتواها الفعلي (أرقام صغيرة زي 0
+                  و1.5) والعناوين اتقصّرت مع ToolTip بالنص الكامل — الفرق ده
+                  بيرجّع للاسم مساحة كافية يظهر كامل.
+                -->
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="⭐" Binding="{Binding BestMark}" Width="36" />
-                    <DataGridTextColumn Header="اسم العامل" Binding="{Binding FullName}" Width="*" />
-                    <DataGridTextColumn Header="الكود" Binding="{Binding EmployeeCode}" Width="70" />
-                    <DataGridTextColumn Header="حضور" Binding="{Binding PresentDays}" Width="60" />
-                    <DataGridTextColumn Header="غياب بإذن" Binding="{Binding AbsentWithPermissionDays}" Width="80" />
-                    <DataGridTextColumn Header="غياب بدون إذن" Binding="{Binding AbsentWithoutPermissionDays}" Width="100" />
-                    <DataGridTextColumn Header="خصم جزاءات" Binding="{Binding PenaltyDeduction}" Width="90" />
-                    <DataGridTextColumn Header="صافي اليوميات" Binding="{Binding NetWorkdays}" Width="100" />
-                    <DataGridTextColumn Header="الحالة" Binding="{Binding StatusText}" Width="70" />
+                    <!-- عمود نجمة أفضل عامل: العنوان أيقونة فيكتور مش إيموچي —
+                         خط الواجهة مفيهوش رموز إيموچي فكان بيرسمها نجمة باهتة -->
+                    <DataGridTemplateColumn Width="42">
+                        <DataGridTemplateColumn.Header>
+                            <materialDesign:PackIcon Kind="Star" Width="15" Height="15"
+                                                     Foreground="{StaticResource AccentBrush}" />
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding BestMark}" VerticalAlignment="Center" Margin="8,0" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="اسم العامل" Binding="{Binding FullName}" Width="*" MinWidth="150" />
+                    <DataGridTextColumn Header="الكود" Binding="{Binding EmployeeCode}" Width="66" />
+                    <DataGridTextColumn Header="حضور" Binding="{Binding PresentDays}" Width="66" />
+                    <DataGridTextColumn Header="بإذن" Binding="{Binding AbsentWithPermissionDays}" Width="54">
+                        <DataGridTextColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ModernGridHeader}">
+                                <Setter Property="ToolTip" Value="غياب بإذن" />
+                            </Style>
+                        </DataGridTextColumn.HeaderStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="بدون إذن" Binding="{Binding AbsentWithoutPermissionDays}" Width="72">
+                        <DataGridTextColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ModernGridHeader}">
+                                <Setter Property="ToolTip" Value="غياب بدون إذن" />
+                            </Style>
+                        </DataGridTextColumn.HeaderStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="جزاءات" Binding="{Binding PenaltyDeduction}" Width="64">
+                        <DataGridTextColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ModernGridHeader}">
+                                <Setter Property="ToolTip" Value="خصم جزاءات" />
+                            </Style>
+                        </DataGridTextColumn.HeaderStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="الصافي" Binding="{Binding NetWorkdays}" Width="64">
+                        <DataGridTextColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource ModernGridHeader}">
+                                <Setter Property="ToolTip" Value="صافي اليوميات" />
+                            </Style>
+                        </DataGridTextColumn.HeaderStyle>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="الحالة" Binding="{Binding StatusText}" Width="72" />
                 </DataGrid.Columns>
                 <!-- تمييز الصف حسب الحالة: الموقوف رمادي باهت (مبني على النمط الموحد) -->
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow" BasedOn="{StaticResource ModernGridRow}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                <Setter Property="Foreground" Value="#999" />
+                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                                 <Setter Property="FontStyle" Value="Italic" />
                             </DataTrigger>
                         </Style.Triggers>
@@ -87,7 +139,7 @@
                     <!-- رسالة لما مفيش عامل محدد -->
                     <TextBlock Text="اختار عامل من الجدول لعرض ملفه الكامل"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="#999" FontSize="14">
+                               Foreground="{StaticResource TextMutedBrush}" FontSize="14">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -112,9 +164,9 @@
                         </ScrollViewer.Style>
                         <StackPanel>
                             <!-- رأس البروفايل + أزرار الإدارة -->
-                            <TextBlock Text="{Binding FullName}" FontSize="18" FontWeight="Bold" Foreground="#1F3864"
+                            <TextBlock Text="{Binding FullName}" Style="{StaticResource HeadingText}"
                                        TextWrapping="Wrap" />
-                            <TextBlock FontSize="12" Foreground="#666" Margin="0,2,0,4">
+                            <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,4">
                                 <Run Text="الكود: " /><Run Text="{Binding EmployeeCode, Mode=OneWay}" />
                                 <Run Text="   تليفون: " /><Run Text="{Binding PhoneNumber, Mode=OneWay}" />
                                 <Run Text="   التحق: " /><Run Text="{Binding HireDateText, Mode=OneWay}" />
@@ -139,24 +191,45 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
-                                <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource WarnBrush}">
-                                    <Run Text="⏱ " /><Run Text="{Binding HourlyRoleText, Mode=OneWay}" /><Run Text=" — بيتحاسب بالساعة" />
-                                </TextBlock>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ClockOutline" Width="14" Height="14" VerticalAlignment="Center" />
+                                    <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource WarnBrush}" Margin="4,0,0,0">
+                                        <Run Text="{Binding HourlyRoleText, Mode=OneWay}" /><Run Text=" — بيتحاسب بالساعة" />
+                                    </TextBlock>
+                                </StackPanel>
                             </Border>
 
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                <Button Content="✏ تعديل"
-                                        Command="{Binding DataContext.EditWorkerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                        Style="{StaticResource GhostButton}" Margin="0,0,6,0" />
+                                <Button Command="{Binding DataContext.EditWorkerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        Style="{StaticResource GhostButton}" Margin="0,0,6,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="PencilOutline" Width="14" Height="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="تعديل" Margin="5,0,0,0" />
+                                    </StackPanel>
+                                </Button>
                                 <Button Command="{Binding DataContext.ToggleActiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                                            <Setter Property="Content" Value="🗑 إيقاف العامل" />
-                                            <Setter Property="Foreground" Value="#B00020" />
+                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                            <Setter Property="Content">
+                                                <Setter.Value>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="AccountOff" Width="14" Height="14" VerticalAlignment="Center" />
+                                                        <TextBlock Text="إيقاف العامل" Margin="5,0,0,0" />
+                                                    </StackPanel>
+                                                </Setter.Value>
+                                            </Setter>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                                    <Setter Property="Content" Value="↩ إعادة تفعيل" />
-                                                    <Setter Property="Foreground" Value="#0B6E4F" />
+                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                    <Setter Property="Content">
+                                                        <Setter.Value>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Kind="Restore" Width="14" Height="14" VerticalAlignment="Center" />
+                                                                <TextBlock Text="إعادة تفعيل" Margin="5,0,0,0" />
+                                                            </StackPanel>
+                                                        </Setter.Value>
+                                                    </Setter>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
@@ -172,10 +245,12 @@
                                         <Border Background="{StaticResource ChipBgBrush}" CornerRadius="7" Padding="7,4" Margin="0,2">
                                             <DockPanel>
                                                 <!-- زرار شيل المهارة -->
-                                                <Button DockPanel.Dock="Left" Content="✕" FontSize="10" Foreground="#B00020"
+                                                <Button DockPanel.Dock="Left" Foreground="{StaticResource DangerBrush}"
                                                         Style="{StaticResource IconButton}"
                                                         Command="{Binding DataContext.RemoveSkillCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}" />
+                                                        CommandParameter="{Binding}">
+                                                    <materialDesign:PackIcon Kind="Close" Width="11" Height="11" />
+                                                </Button>
                                                 <TextBlock Text="{Binding Display}" FontSize="12" TextWrapping="Wrap" />
                                             </DockPanel>
                                         </Border>
@@ -185,8 +260,13 @@
 
                             <!-- إضافة مهارة جديدة -->
                             <DockPanel Margin="0,6,0,10">
-                                <Button DockPanel.Dock="Left" Content="＋ إضافة" Style="{StaticResource GhostButton}"
-                                        Command="{Binding DataContext.AddSkillCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}"
+                                        Command="{Binding DataContext.AddSkillCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Plus" Width="14" Height="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="إضافة" Margin="4,0,0,0" />
+                                    </StackPanel>
+                                </Button>
                                 <ComboBox ItemsSource="{Binding StageOptions}"
                                           SelectedItem="{Binding SelectedStageOption}"
                                           DisplayMemberPath="Display" Margin="0,0,6,0" FontSize="12" />
@@ -204,7 +284,7 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock Text="{Binding SkillsNotes}" FontSize="12" Foreground="#555"
+                            <TextBlock Text="{Binding SkillsNotes}" FontSize="12" Foreground="{StaticResource TextMutedBrush}"
                                        TextWrapping="Wrap" Margin="0,0,0,10">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -222,17 +302,17 @@
                             <ItemsControl ItemsSource="{Binding WeeklyHistory}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="0,6">
+                                        <Border BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,0,0,1" Padding="0,6">
                                             <StackPanel>
                                                 <TextBlock FontSize="12.5" FontWeight="SemiBold">
                                                     <Run Text="{Binding BestMark, Mode=OneWay}" />
                                                     <Run Text="{Binding WeekTitle, Mode=OneWay}" />
                                                 </TextBlock>
-                                                <TextBlock FontSize="12" Foreground="#444" Margin="0,2,0,0">
+                                                <TextBlock FontSize="12" Foreground="{StaticResource TextMutedBrush}" Margin="0,2,0,0">
                                                     <Run Text="أنتج: " /><Run Text="{Binding Produced, Mode=OneWay}" FontWeight="Bold" />
-                                                    <Run Text="   خصم غياب: " /><Run Text="{Binding AbsenceDeduction, Mode=OneWay}" Foreground="#B00020" />
-                                                    <Run Text="   خصم جزاءات: " /><Run Text="{Binding PenaltyDeduction, Mode=OneWay}" Foreground="#B00020" />
-                                                    <Run Text="   الصافي: " /><Run Text="{Binding Net, Mode=OneWay}" FontWeight="Bold" Foreground="#1F3864" />
+                                                    <Run Text="   خصم غياب: " /><Run Text="{Binding AbsenceDeduction, Mode=OneWay}" Foreground="{StaticResource DangerBrush}" />
+                                                    <Run Text="   خصم جزاءات: " /><Run Text="{Binding PenaltyDeduction, Mode=OneWay}" Foreground="{StaticResource DangerBrush}" />
+                                                    <Run Text="   الصافي: " /><Run Text="{Binding Net, Mode=OneWay}" FontWeight="Bold" Foreground="{StaticResource BrandBrush}" />
                                                 </TextBlock>
                                                 <!-- أجر الأسبوع بالجنيه (لو ليه سعر يومية) -->
                                                 <TextBlock FontSize="12.5" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}" Margin="0,2,0,0">
@@ -248,7 +328,7 @@
                                                     <Run Text="💵 الأجر: " /><Run Text="{Binding WageText, Mode=OneWay}" />
                                                 </TextBlock>
                                                 <!-- تفاصيل الإنتاج (لو فيه) -->
-                                                <TextBlock FontSize="11" Foreground="#777" TextWrapping="Wrap"
+                                                <TextBlock FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"
                                                            Text="{Binding BreakdownText}">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
@@ -261,7 +341,7 @@
                                                     </TextBlock.Style>
                                                 </TextBlock>
                                                 <!-- الجزاءات بأسبابها (لو فيه) -->
-                                                <TextBlock FontSize="11" Foreground="#B00020" TextWrapping="Wrap">
+                                                <TextBlock FontSize="11" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Style.Triggers>

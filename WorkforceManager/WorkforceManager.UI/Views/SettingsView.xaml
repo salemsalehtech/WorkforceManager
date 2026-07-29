@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d"
              d:DesignHeight="650" d:DesignWidth="1100">
 
@@ -13,7 +14,11 @@
             <!-- النسخ المحلي -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,12">
                 <StackPanel>
-                    <TextBlock Text="🗄 النسخ الاحتياطي المحلي" Style="{StaticResource SectionTitle}" />
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="DatabaseOutline" Width="18" Height="18"
+                                                  Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="النسخ الاحتياطي المحلي" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                    </StackPanel>
                     <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10"
                                Text="نسخة تلقائية بتتاخد كل يوم أول ما البرنامج يفتح، والنسخ الأقدم من 30 يوم بتتمسح لوحدها." />
                     <TextBlock Text="{Binding LocalFolderText}" FontSize="12.5"
@@ -21,10 +26,19 @@
                     <TextBlock Text="{Binding LocalStatusText}" FontSize="13" FontWeight="SemiBold"
                                Foreground="{StaticResource SuccessBrush}" Margin="0,4,0,10" />
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="💾 خد نسخة دلوقتي" Command="{Binding BackupNowCommand}"
-                                Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
-                        <Button Content="📂 فتح مجلد النسخ" Command="{Binding OpenLocalFolderCommand}"
-                                Style="{StaticResource GhostButton}" />
+                        <Button Command="{Binding BackupNowCommand}"
+                                Style="{StaticResource PrimaryButton}" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ContentSaveOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="خد نسخة دلوقتي" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding OpenLocalFolderCommand}" Style="{StaticResource GhostButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="FolderOpenOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="فتح مجلد النسخ" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -32,7 +46,11 @@
             <!-- النسخ الخارجي -->
             <Border Style="{StaticResource Card}" Margin="0,0,0,12">
                 <StackPanel>
-                    <TextBlock Text="🛡 النسخ الخارجي (فلاشة / قرص تاني)" Style="{StaticResource SectionTitle}" />
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ShieldCheckOutline" Width="18" Height="18"
+                                                  Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="النسخ الخارجي (فلاشة / قرص تاني)" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                    </StackPanel>
                     <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10"
                                Text="أهم حماية لبياناتك: النسخة المحلية على نفس الهارد — لو الهارد نفسه باظ بتضيع معاه. المجلد الخارجي بياخد نسخة تانية تلقائيًا كل يوم." />
                     <TextBlock Text="{Binding ExternalFolderText}" FontSize="12.5" FontWeight="SemiBold"
@@ -40,8 +58,13 @@
                     <TextBlock Text="{Binding ExternalStatusText}" FontSize="12.5"
                                Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,4,0,10" />
                     <StackPanel Orientation="Horizontal">
-                        <Button Content="📁 اختيار المجلد الخارجي" Command="{Binding ChooseExternalFolderCommand}"
-                                Style="{StaticResource SuccessButton}" Margin="0,0,8,0" />
+                        <Button Command="{Binding ChooseExternalFolderCommand}"
+                                Style="{StaticResource SuccessButton}" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="FolderOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="اختيار المجلد الخارجي" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
                         <Button Content="إيقاف النسخ الخارجي" Command="{Binding DisableExternalCommand}"
                                 Foreground="{StaticResource DangerBrush}">
                             <Button.Style>
@@ -61,11 +84,20 @@
             <!-- الاسترجاع -->
             <Border Style="{StaticResource Card}">
                 <StackPanel>
-                    <TextBlock Text="⏪ استرجاع نسخة احتياطية" Style="{StaticResource SectionTitle}" />
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="History" Width="18" Height="18"
+                                                  Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="استرجاع نسخة احتياطية" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                    </StackPanel>
                     <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10"
                                Text="لو حصلت مشكلة كبيرة في البيانات، تقدر ترجع لأي نسخة سابقة. البيانات الحالية بتتستبدل — وبناخد نسخة أمان منها الأول تلقائيًا، والبرنامج بيعيد تشغيل نفسه بعد الاسترجاع." />
-                    <Button Content="⏪ استرجاع من نسخة..." Command="{Binding RestoreBackupCommand}"
-                            Style="{StaticResource DangerButton}" HorizontalAlignment="Right" />
+                    <Button Command="{Binding RestoreBackupCommand}"
+                            Style="{StaticResource DangerButton}" HorizontalAlignment="Right">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Restore" Width="15" Height="15" VerticalAlignment="Center" />
+                            <TextBlock Text="استرجاع من نسخة..." Margin="6,0,0,0" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Border>
 

@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d"
              d:DesignHeight="650" d:DesignWidth="1100">
 
@@ -16,9 +17,13 @@
         <!-- شريط الأدوات -->
         <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
             <DockPanel>
-                <Button DockPanel.Dock="Left" Content="＋ إضافة منتج جديد"
-                        Command="{Binding AddProductCommand}"
-                        Style="{StaticResource PrimaryButton}" />
+                <Button DockPanel.Dock="Left" Command="{Binding AddProductCommand}"
+                        Style="{StaticResource PrimaryButton}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" VerticalAlignment="Center" />
+                        <TextBlock Text="إضافة منتج جديد" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Button>
 
                 <CheckBox DockPanel.Dock="Left" Content="إظهار الموقوف"
                           IsChecked="{Binding ShowInactive}"
@@ -54,7 +59,7 @@
                     <Style TargetType="DataGridRow" BasedOn="{StaticResource ModernGridRow}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                <Setter Property="Foreground" Value="#999" />
+                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                                 <Setter Property="FontStyle" Value="Italic" />
                             </DataTrigger>
                         </Style.Triggers>
@@ -69,7 +74,7 @@
                     <!-- رسالة لما مفيش منتج محدد -->
                     <TextBlock Text="اختار منتج من القائمة لعرض مراحله"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="#999" FontSize="14">
+                               Foreground="{StaticResource TextMutedBrush}" FontSize="14">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -100,30 +105,53 @@
 
                         <!-- رأس المنتج + أزرار الإدارة -->
                         <StackPanel Grid.Row="0">
-                            <TextBlock Text="{Binding SelectedProduct.Name}" FontSize="17" FontWeight="Bold"
-                                       Foreground="#1F3864" TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding SelectedProduct.Description}" FontSize="12" Foreground="#666"
+                            <TextBlock Text="{Binding SelectedProduct.Name}" Style="{StaticResource HeadingText}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding SelectedProduct.Description}" FontSize="12" Foreground="{StaticResource TextMutedBrush}"
                                        TextWrapping="Wrap" Margin="0,2,0,0" />
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,10">
-                                <Button Content="✏ تعديل" Command="{Binding EditProductCommand}"
-                                        Style="{StaticResource GhostButton}" Margin="0,0,6,0" />
+                                <Button Command="{Binding EditProductCommand}"
+                                        Style="{StaticResource GhostButton}" Margin="0,0,6,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="PencilOutline" Width="14" Height="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="تعديل" Margin="5,0,0,0" />
+                                    </StackPanel>
+                                </Button>
                                 <Button Margin="0,0,6,0"
                                         Command="{Binding ToggleProductActiveCommand}">
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                                            <Setter Property="Content" Value="🗑 إيقاف المنتج" />
-                                            <Setter Property="Foreground" Value="#B00020" />
+                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                            <Setter Property="Content">
+                                                <Setter.Value>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="PackageVariantRemove" Width="14" Height="14" VerticalAlignment="Center" />
+                                                        <TextBlock Text="إيقاف المنتج" Margin="5,0,0,0" />
+                                                    </StackPanel>
+                                                </Setter.Value>
+                                            </Setter>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding SelectedProduct.IsActive}" Value="False">
-                                                    <Setter Property="Content" Value="↩ إعادة تفعيل" />
-                                                    <Setter Property="Foreground" Value="#0B6E4F" />
+                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                    <Setter Property="Content">
+                                                        <Setter.Value>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Kind="Restore" Width="14" Height="14" VerticalAlignment="Center" />
+                                                                <TextBlock Text="إعادة تفعيل" Margin="5,0,0,0" />
+                                                            </StackPanel>
+                                                        </Setter.Value>
+                                                    </Setter>
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </Button.Style>
                                 </Button>
-                                <Button Content="＋ إضافة مرحلة" Command="{Binding AddStageCommand}"
-                                        Style="{StaticResource SuccessButton}" />
+                                <Button Command="{Binding AddStageCommand}" Style="{StaticResource SuccessButton}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Plus" Width="15" Height="15" VerticalAlignment="Center" />
+                                        <TextBlock Text="إضافة مرحلة" Margin="5,0,0,0" />
+                                    </StackPanel>
+                                </Button>
                             </StackPanel>
                         </StackPanel>
 
@@ -146,20 +174,29 @@
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal">
-                                                <Button Content="✏" FontSize="12" Margin="0,0,4,0"
+                                                <Button Margin="0,0,4,0"
                                                         Style="{StaticResource IconButton}" ToolTip="تعديل المرحلة"
                                                         Command="{Binding DataContext.EditStageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}" />
-                                                <Button FontSize="12"
-                                                        Command="{Binding DataContext.ToggleStageActiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <materialDesign:PackIcon Kind="PencilOutline" Width="13" Height="13" />
+                                                </Button>
+                                                <Button Command="{Binding DataContext.ToggleStageActiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}">
                                                     <Button.Style>
                                                         <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
-                                                            <Setter Property="Content" Value="🗑" />
+                                                            <Setter Property="Content">
+                                                                <Setter.Value>
+                                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
+                                                                </Setter.Value>
+                                                            </Setter>
                                                             <Setter Property="ToolTip" Value="إيقاف المرحلة" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                                                    <Setter Property="Content" Value="↩" />
+                                                                    <Setter Property="Content">
+                                                                        <Setter.Value>
+                                                                            <materialDesign:PackIcon Kind="Restore" Width="13" Height="13" />
+                                                                        </Setter.Value>
+                                                                    </Setter>
                                                                     <Setter Property="ToolTip" Value="إعادة تفعيل" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
@@ -176,7 +213,7 @@
                                 <Style TargetType="DataGridRow" BasedOn="{StaticResource ModernGridRow}">
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                            <Setter Property="Foreground" Value="#999" />
+                                            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                                             <Setter Property="FontStyle" Value="Italic" />
                                         </DataTrigger>
                                     </Style.Triggers>

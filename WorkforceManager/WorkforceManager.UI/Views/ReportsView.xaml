@@ -3,11 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d"
              d:DesignHeight="650" d:DesignWidth="1100">
 
     <!-- شاشة التقارير: تبويبين — تقييم اليوم + كشف الأسبوع (مع تصدير Excel) -->
-    <TabControl BorderThickness="1" BorderBrush="#DDD">
+    <TabControl>
 
         <!-- ============ تبويب تقييم اليوم ============ -->
         <TabItem Header="  تقييم اليوم  ">
@@ -68,17 +69,31 @@
                 <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                            <Button Content="◀ الأسبوع السابق" Command="{Binding PreviousWeekCommand}"
-                                    Style="{StaticResource GhostButton}" Margin="0,0,6,0" />
+                            <Button Command="{Binding PreviousWeekCommand}"
+                                    Style="{StaticResource GhostButton}" Margin="0,0,6,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ChevronLeft" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Text="الأسبوع السابق" Margin="2,0,0,0" />
+                                </StackPanel>
+                            </Button>
                             <Button Content="الأسبوع الحالي" Command="{Binding CurrentWeekCommand}"
                                     Style="{StaticResource GhostButton}" Margin="0,0,6,0" />
-                            <Button Content="الأسبوع التالي ▶" Command="{Binding NextWeekCommand}"
-                                    Style="{StaticResource GhostButton}" />
+                            <Button Command="{Binding NextWeekCommand}"
+                                    Style="{StaticResource GhostButton}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="الأسبوع التالي" Margin="0,0,2,0" />
+                                    <materialDesign:PackIcon Kind="ChevronRight" Width="16" Height="16" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
 
-                        <Button DockPanel.Dock="Left" Content="📊 تصدير Excel"
-                                Command="{Binding ExportWeekCommand}"
-                                Style="{StaticResource SuccessButton}" Margin="16,0,0,0" />
+                        <Button DockPanel.Dock="Left" Command="{Binding ExportWeekCommand}"
+                                Style="{StaticResource SuccessButton}" Margin="16,0,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="MicrosoftExcel" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="تصدير Excel" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="16,0,0,0">
                             <TextBlock Text="{Binding WeekTitle}" FontWeight="Bold" Foreground="{StaticResource BrandBrush}"
@@ -135,16 +150,16 @@
                 <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,10,0,0" MinHeight="70"
                         DataContext="{Binding SelectedWeeklyRow}">
                     <StackPanel>
-                        <TextBlock FontWeight="Bold" Foreground="#1F3864">
+                        <TextBlock FontWeight="Bold" Foreground="{StaticResource BrandBrush}">
                             <Run Text="{Binding BestMark, Mode=OneWay}" />
                             <Run Text="{Binding WorkerName, Mode=OneWay}" />
                             <Run Text=" — تفاصيل الأسبوع" />
                         </TextBlock>
-                        <TextBlock FontSize="12.5" Foreground="#444" TextWrapping="Wrap" Margin="0,4,0,0">
+                        <TextBlock FontSize="12.5" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0">
                             <Run Text="الإنتاج: " FontWeight="SemiBold" />
                             <Run Text="{Binding BreakdownText, Mode=OneWay}" />
                         </TextBlock>
-                        <TextBlock FontSize="12.5" Foreground="#B00020" TextWrapping="Wrap" Margin="0,3,0,0">
+                        <TextBlock FontSize="12.5" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Margin="0,3,0,0">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Style.Triggers>
@@ -163,7 +178,13 @@
         </TabItem>
 
         <!-- ============ تبويب رسم إنتاج المنتجات ============ -->
-        <TabItem Header="  إنتاج المنتجات 📈  ">
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ChartLine" Width="16" Height="16" VerticalAlignment="Center" />
+                    <TextBlock Text="إنتاج المنتجات" Margin="6,0,0,0" />
+                </StackPanel>
+            </TabItem.Header>
             <Grid Margin="10">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -274,7 +295,13 @@
         </TabItem>
 
         <!-- ============ تبويب كشف الأجور (فترة مخصصة/شهري) ============ -->
-        <TabItem Header="  كشف الأجور 💵  ">
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="CashMultiple" Width="16" Height="16" VerticalAlignment="Center" />
+                    <TextBlock Text="كشف الأجور" Margin="6,0,0,0" />
+                </StackPanel>
+            </TabItem.Header>
             <Grid Margin="10">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -293,10 +320,20 @@
                                    VerticalAlignment="Center" Margin="0,0,6,0" />
                         <DatePicker DockPanel.Dock="Left" SelectedDate="{Binding PayrollTo}" Width="150"
                                     VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <Button DockPanel.Dock="Left" Content="🔄 عرض" Command="{Binding RefreshPayrollCommand}"
-                                Style="{StaticResource GhostButton}" Margin="0,0,8,0" />
-                        <Button DockPanel.Dock="Left" Content="📊 تصدير Excel" Command="{Binding ExportPayrollCommand}"
-                                Style="{StaticResource SuccessButton}" />
+                        <Button DockPanel.Dock="Left" Command="{Binding RefreshPayrollCommand}"
+                                Style="{StaticResource GhostButton}" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Refresh" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="عرض" Margin="5,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                        <Button DockPanel.Dock="Left" Command="{Binding ExportPayrollCommand}"
+                                Style="{StaticResource SuccessButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="MicrosoftExcel" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="تصدير Excel" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
                         <TextBlock Text="{Binding PayrollTotalText}" HorizontalAlignment="Left"
                                    Foreground="{StaticResource BrandBrush}" FontWeight="SemiBold"
                                    VerticalAlignment="Center" Margin="16,0,0,0" TextWrapping="Wrap" />
@@ -371,7 +408,13 @@
         </TabItem>
 
         <!-- ============ تبويب التقرير العام للإنتاج ============ -->
-        <TabItem Header="  تقرير الإنتاج 📋  ">
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ClipboardTextOutline" Width="16" Height="16" VerticalAlignment="Center" />
+                    <TextBlock Text="تقرير الإنتاج" Margin="6,0,0,0" />
+                </StackPanel>
+            </TabItem.Header>
             <Grid Margin="10">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -392,10 +435,20 @@
                         <DatePicker DockPanel.Dock="Left" SelectedDate="{Binding GeneralFrom}" Width="140" VerticalAlignment="Center" Margin="0,0,10,0" />
                         <TextBlock DockPanel.Dock="Left" Text="إلى:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <DatePicker DockPanel.Dock="Left" SelectedDate="{Binding GeneralTo}" Width="140" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <Button DockPanel.Dock="Left" Content="🔄 عرض" Command="{Binding RefreshGeneralCommand}"
-                                Style="{StaticResource GhostButton}" Margin="0,0,8,0" />
-                        <Button DockPanel.Dock="Left" Content="📊 تصدير Excel" Command="{Binding ExportGeneralCommand}"
-                                Style="{StaticResource SuccessButton}" />
+                        <Button DockPanel.Dock="Left" Command="{Binding RefreshGeneralCommand}"
+                                Style="{StaticResource GhostButton}" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Refresh" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="عرض" Margin="5,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                        <Button DockPanel.Dock="Left" Command="{Binding ExportGeneralCommand}"
+                                Style="{StaticResource SuccessButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="MicrosoftExcel" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="تصدير Excel" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
                     </DockPanel>
                 </Border>
 
@@ -453,7 +506,13 @@
         </TabItem>
 
         <!-- ============ تبويب تقرير عامل معيّن ============ -->
-        <TabItem Header="  تقرير عامل 👤  ">
+        <TabItem>
+            <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="AccountOutline" Width="16" Height="16" VerticalAlignment="Center" />
+                    <TextBlock Text="تقرير عامل" Margin="6,0,0,0" />
+                </StackPanel>
+            </TabItem.Header>
             <Grid Margin="10">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -477,12 +536,27 @@
                         <DatePicker DockPanel.Dock="Left" SelectedDate="{Binding WorkerFrom}" Width="130" VerticalAlignment="Center" Margin="0,0,10,0" />
                         <TextBlock DockPanel.Dock="Left" Text="إلى:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0" />
                         <DatePicker DockPanel.Dock="Left" SelectedDate="{Binding WorkerTo}" Width="130" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <Button DockPanel.Dock="Left" Content="🔄 عرض" Command="{Binding RefreshWorkerCommand}"
-                                Style="{StaticResource GhostButton}" Margin="0,0,8,0" />
-                        <Button DockPanel.Dock="Left" Content="🖨 قسيمة أجر" Command="{Binding PrintPayslipCommand}"
-                                Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" />
-                        <Button DockPanel.Dock="Left" Content="📊 تصدير Excel" Command="{Binding ExportWorkerCommand}"
-                                Style="{StaticResource SuccessButton}" />
+                        <Button DockPanel.Dock="Left" Command="{Binding RefreshWorkerCommand}"
+                                Style="{StaticResource GhostButton}" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Refresh" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="عرض" Margin="5,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                        <Button DockPanel.Dock="Left" Command="{Binding PrintPayslipCommand}"
+                                Style="{StaticResource PrimaryButton}" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="PrinterOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="قسيمة أجر" Margin="5,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                        <Button DockPanel.Dock="Left" Command="{Binding ExportWorkerCommand}"
+                                Style="{StaticResource SuccessButton}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="MicrosoftExcel" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="تصدير Excel" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
                     </DockPanel>
                 </Border>
 
@@ -491,7 +565,7 @@
                     <StackPanel>
                         <TextBlock Text="{Binding WorkerReportHeader}" FontWeight="Bold" FontSize="14"
                                    Foreground="{StaticResource BrandBrush}" TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding WorkerProductionText}" FontSize="12.5" Foreground="#444"
+                        <TextBlock Text="{Binding WorkerProductionText}" FontSize="12.5" Foreground="{StaticResource TextMutedBrush}"
                                    TextWrapping="Wrap" Margin="0,5,0,0" Visibility="{Binding HasWorkerReport, Converter={StaticResource BoolToVis}}" />
                         <TextBlock Text="{Binding WorkerWageText}" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{StaticResource SuccessBrush}" TextWrapping="Wrap" Margin="0,4,0,0"
