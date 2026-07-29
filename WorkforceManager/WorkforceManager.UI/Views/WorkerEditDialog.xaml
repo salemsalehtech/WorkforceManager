@@ -1,50 +1,73 @@
 <Window x:Class="WorkforceManager.UI.Views.WorkerEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="إضافة عامل جديد"
-        Width="440" SizeToContent="Height"
+        Width="460" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize" ShowInTaskbar="False"
-        FlowDirection="RightToLeft" FontSize="14" FontFamily="Segoe UI">
+        FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
 
-    <!-- نافذة إضافة/تعديل عامل: نفس الفورم للحالتين، بيتملى مسبقًا في حالة التعديل -->
-    <StackPanel Margin="20">
-        <TextBlock Text="اسم العامل (إجباري)" FontWeight="Bold" Margin="0,0,0,4" />
-        <TextBox x:Name="NameBox" Padding="8,6" Margin="0,0,0,12" />
+    <!-- نافذة إضافة/تعديل عامل: نفس الفورم للحالتين، بيتملى مسبقًا في حالة التعديل —
+         بطاقة عائمة بلا إطار نظام زي شاشة الدخول، بشريط علوي بلون البراند -->
+    <Border CornerRadius="18" Background="White">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
+        </Border.Effect>
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
+                    CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Foreground="White"
+                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
+                            ToolTip="إغلاق">
+                        <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
+                    </Button>
+                    <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                               Foreground="White" FontSize="15.5" FontWeight="Bold" />
+                </DockPanel>
+            </Border>
 
-        <TextBlock Text="الكود الوظيفي" FontWeight="Bold" Margin="0,0,0,4" />
-        <TextBox x:Name="CodeBox" Padding="8,6" Margin="0,0,0,12" />
+            <StackPanel Margin="24,20,24,22">
+                <TextBlock Text="اسم العامل (إجباري)" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="NameBox" Margin="0,0,0,12" />
 
-        <TextBlock Text="رقم التليفون" FontWeight="Bold" Margin="0,0,0,4" />
-        <TextBox x:Name="PhoneBox" Padding="8,6" Margin="0,0,0,12" />
+                <TextBlock Text="الكود الوظيفي" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="CodeBox" Margin="0,0,0,12" />
 
-        <TextBlock Text="تاريخ الالتحاق" FontWeight="Bold" Margin="0,0,0,4" />
-        <DatePicker x:Name="HireDatePicker" Margin="0,0,0,12" />
+                <TextBlock Text="رقم التليفون" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="PhoneBox" Margin="0,0,0,12" />
 
-        <TextBlock Text="سعر اليومية بالجنيه" FontWeight="Bold" Margin="0,0,0,4" />
-        <TextBox x:Name="WageBox" Padding="8,6" Margin="0,0,0,4" />
-        <TextBlock Text="الأجر = صافي اليوميات × السعر ده. سيبه 0 لحد ما تحدد سعر العامل."
-                   Style="{StaticResource HintText}" Margin="0,0,0,12" />
+                <TextBlock Text="تاريخ الالتحاق" Style="{StaticResource FieldLabel}" />
+                <DatePicker x:Name="HireDatePicker" Margin="0,0,0,12" />
 
-        <TextBlock Text="نوع الحساب" FontWeight="Bold" Margin="0,0,0,4" />
-        <ComboBox x:Name="HourlyRoleBox" Padding="8,6" Margin="0,0,0,4"
-                  DisplayMemberPath="Display" SelectedValuePath="Role" />
-        <TextBlock Text="عامل الإنتاج بيتحاسب بالقطعة (من مهاراته). العامل بالساعة (رص/جودة/تدريب) بيتحاسب بالساعات ويظهر في تبويب منفصل."
-                   Style="{StaticResource HintText}" Margin="0,0,0,14" />
+                <TextBlock Text="سعر اليومية بالجنيه" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="WageBox" Margin="0,0,0,4" />
+                <TextBlock Text="الأجر = صافي اليوميات × السعر ده. سيبه 0 لحد ما تحدد سعر العامل."
+                           Style="{StaticResource HintText}" Margin="0,0,0,12" />
 
-        <TextBlock Text="ملاحظات المهارات (اختياري)" FontWeight="Bold" Margin="0,0,0,4" />
-        <TextBox x:Name="NotesBox" Padding="8,6" Margin="0,0,0,16"
-                 TextWrapping="Wrap" AcceptsReturn="True" Height="70"
-                 VerticalScrollBarVisibility="Auto" />
+                <TextBlock Text="نوع الحساب" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="HourlyRoleBox" Margin="0,0,0,4"
+                          DisplayMemberPath="Display" SelectedValuePath="Role" />
+                <TextBlock Text="عامل الإنتاج بيتحاسب بالقطعة (من مهاراته). العامل بالساعة (رص/جودة/تدريب) بيتحاسب بالساعات ويظهر في تبويب منفصل."
+                           Style="{StaticResource HintText}" Margin="0,0,0,14" />
 
-        <!-- رسالة الخطأ (بتظهر لو الاسم فاضي مثلاً) -->
-        <TextBlock x:Name="ErrorText" Foreground="#B00020" FontSize="12"
-                   Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
+                <TextBlock Text="ملاحظات المهارات (اختياري)" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="NotesBox" Margin="0,0,0,16"
+                         TextWrapping="Wrap" AcceptsReturn="True" Height="70"
+                         VerticalScrollBarVisibility="Auto" />
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-            <Button Content="حفظ" Click="Save_Click" IsDefault="True"
-                    Style="{StaticResource PrimaryButton}" Padding="26,9" Margin="0,0,8,0" />
-            <Button Content="إلغاء" IsCancel="True" Style="{StaticResource GhostButton}" Padding="26,9" />
-        </StackPanel>
-    </StackPanel>
+                <!-- رسالة الخطأ (بتظهر لو الاسم فاضي مثلاً) -->
+                <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerBrush}" FontSize="12"
+                           Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Content="حفظ" Click="Save_Click" IsDefault="True"
+                            Style="{StaticResource PrimaryButton}" Padding="26,9" Margin="0,0,8,0" />
+                    <Button Content="إلغاء" IsCancel="True" Style="{StaticResource GhostButton}" Padding="26,9" />
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+    </Border>
 </Window>

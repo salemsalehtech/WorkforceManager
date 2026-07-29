@@ -1,33 +1,56 @@
 <Window x:Class="WorkforceManager.UI.Views.StageEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="إضافة مرحلة جديدة"
-        Width="440" SizeToContent="Height"
+        Width="460" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize" ShowInTaskbar="False"
-        FlowDirection="RightToLeft" FontSize="14" FontFamily="Segoe UI">
+        FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
 
-    <!-- نافذة إضافة/تعديل مرحلة تصنيع بكوتة يوميتها -->
-    <StackPanel Margin="20">
-        <TextBlock Text="اسم المرحلة (إجباري)" FontWeight="Bold" Margin="0,0,0,4" />
-        <TextBox x:Name="NameBox" Padding="8,6" Margin="0,0,0,12" />
+    <!-- نافذة إضافة/تعديل مرحلة تصنيع بكوتة يوميتها — بطاقة عائمة بلا إطار نظام
+         زي شاشة الدخول، بشريط علوي بلون البراند -->
+    <Border CornerRadius="18" Background="White">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
+        </Border.Effect>
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
+                    CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Foreground="White"
+                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
+                            ToolTip="إغلاق">
+                        <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
+                    </Button>
+                    <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                               Foreground="White" FontSize="15.5" FontWeight="Bold" />
+                </DockPanel>
+            </Border>
 
-        <TextBlock Text="كوتة اليومية: عدد القطع اللي بتساوي يومية عمل كاملة (إجباري)" FontWeight="Bold" Margin="0,0,0,4" />
-        <TextBox x:Name="QuotaBox" Padding="8,6" Margin="0,0,0,4" />
-        <!-- تنبيه مهم: تعديل الكوتة مش بيأثر على السجلات القديمة (محمية بالـ Snapshot) -->
-        <TextBlock Text="ملحوظة: تعديل الكوتة يسري على التسجيلات الجديدة فقط — الحسابات القديمة محفوظة زي ما كانت."
-                   FontSize="11.5" Foreground="#B7791F" TextWrapping="Wrap" Margin="0,0,0,12" />
+            <StackPanel Margin="24,20,24,22">
+                <TextBlock Text="اسم المرحلة (إجباري)" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="NameBox" Margin="0,0,0,12" />
 
-        <TextBlock Text="الترتيب داخل خط الإنتاج (اختياري — بياخد آخر ترتيب تلقائيًا)" FontWeight="Bold" Margin="0,0,0,4" />
-        <TextBox x:Name="SortOrderBox" Padding="8,6" Margin="0,0,0,16" />
+                <TextBlock Text="كوتة اليومية: عدد القطع اللي بتساوي يومية عمل كاملة (إجباري)" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="QuotaBox" Margin="0,0,0,4" />
+                <!-- تنبيه مهم: تعديل الكوتة مش بيأثر على السجلات القديمة (محمية بالـ Snapshot) -->
+                <TextBlock Text="ملحوظة: تعديل الكوتة يسري على التسجيلات الجديدة فقط — الحسابات القديمة محفوظة زي ما كانت."
+                           FontSize="11.5" Foreground="{StaticResource WarnBrush}" TextWrapping="Wrap" Margin="0,0,0,12" />
 
-        <TextBlock x:Name="ErrorText" Foreground="#B00020" FontSize="12"
-                   Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
+                <TextBlock Text="الترتيب داخل خط الإنتاج (اختياري — بياخد آخر ترتيب تلقائيًا)" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="SortOrderBox" Margin="0,0,0,16" />
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-            <Button Content="حفظ" Click="Save_Click" IsDefault="True"
-                    Style="{StaticResource PrimaryButton}" Padding="26,9" Margin="0,0,8,0" />
-            <Button Content="إلغاء" IsCancel="True" Style="{StaticResource GhostButton}" Padding="26,9" />
-        </StackPanel>
-    </StackPanel>
+                <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerBrush}" FontSize="12"
+                           Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Content="حفظ" Click="Save_Click" IsDefault="True"
+                            Style="{StaticResource PrimaryButton}" Padding="26,9" Margin="0,0,8,0" />
+                    <Button Content="إلغاء" IsCancel="True" Style="{StaticResource GhostButton}" Padding="26,9" />
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+    </Border>
 </Window>

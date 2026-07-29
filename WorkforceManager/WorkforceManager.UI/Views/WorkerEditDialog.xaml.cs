@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 // alias صريح للـ enum عشان اسم الخاصية HourlyRole في الكلاس ميحجبش النوع
 using HourlyRoleEnum = WorkforceManager.Core.Enums.HourlyRole;
 
@@ -80,6 +81,13 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
+        }
+
+        /// <summary>النافذة بلا إطار نظام — السحب من الشريط العلوي</summary>
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState == MouseButtonState.Pressed)
+                DragMove();
         }
     }
 }

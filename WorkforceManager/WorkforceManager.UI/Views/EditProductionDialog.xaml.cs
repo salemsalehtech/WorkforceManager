@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 
 namespace WorkforceManager.UI.Views
 {
@@ -36,6 +37,13 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
+        }
+
+        /// <summary>النافذة بلا إطار نظام — السحب من الشريط العلوي</summary>
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState == MouseButtonState.Pressed)
+                DragMove();
         }
     }
 }

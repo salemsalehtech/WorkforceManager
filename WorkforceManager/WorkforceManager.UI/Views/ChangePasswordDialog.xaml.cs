@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.Services;
 
@@ -55,6 +56,13 @@ namespace WorkforceManager.UI.Views
         {
             ErrorText.Text = message;
             ErrorText.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>النافذة بلا إطار نظام — السحب من الشريط العلوي</summary>
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState == MouseButtonState.Pressed)
+                DragMove();
         }
     }
 }
