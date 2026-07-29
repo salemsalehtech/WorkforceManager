@@ -62,6 +62,25 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
+        /// يحدّد صورة المنتج أو يشيلها (<paramref name="imageData"/> = null).
+        ///
+        /// منفصلة عن <see cref="UpdateProductAsync"/> عن قصد: تعديل اسم
+        /// المنتج مالوش لازمة يبعت الصورة كلها معاه في كل مرة، ولا يمسحها
+        /// بالغلط لو المتصل نسي يبعتها.
+        /// </summary>
+        public async Task<Product> SetProductImageAsync(int productId, byte[]? imageData)
+        {
+            var product = await _productRepo.GetByIdAsync(productId)
+                ?? throw new InvalidOperationException("المنتج المحدد غير موجود");
+
+            product.ImageData = imageData is { Length: > 0 } ? imageData : null;
+
+            _productRepo.Update(product);
+            await _productRepo.SaveChangesAsync();
+            return product;
+        }
+
+        /// <summary>
         /// إيقاف منتج (توقف إنتاجه): بيختفي هو ومراحله من شاشة التسجيل،
         /// وكل سجلاته التاريخية بتفضل محفوظة ومحسوبة في التقارير القديمة.
         /// </summary>
@@ -151,6 +170,40 @@ namespace WorkforceManager.Business.Services
             _stageRepo.Update(stage);
             await _stageRepo.SaveChangesAsync();
             return stage;
+        }
+
+        /// <summary>
+        /// يحرّك مرحلة خطوة لفوق أو لتحت في خط الإنتاج (بيبدّل ترتيبها مع
+        /// جارتها). الترتيب مش شكلي: نطاقات الإنتاج ("من مرحلة كذا لمرحلة
+        /// كذا") بتتحسب بترتيب المراحل، فالترتيب الغلط بيغيّر معنى النطاق.
+        ///
+        /// بيرجّع false لو المرحلة أصلاً في أول أو آخر الخط (مفيش حركة ممكنة).
+        /// </summary>
+        public async Task<bool> MoveStageAsync(int stageId, bool moveUp)
+        {
+            var stage = await _stageRepo.GetByIdAsync(stageId)
+                ?? throw new InvalidOperationException("المرحلة المحددة غير موجودة");
+
+            // كل مراحل المنتج بترتيب الخط (نفس ترتيب شاشة التسجيل بالظبط)
+            var siblings = (await _stageRepo.FindAsync(s => s.ProductId == stage.ProductId))
+                .OrderBy(s => s.SortOrder).ThenBy(s => s.Id)
+                .ToList();
+
+            var index = siblings.FindIndex(s => s.Id == stageId);
+            var targetIndex = moveUp ? index - 1 : index + 1;
+            if (targetIndex < 0 || targetIndex >= siblings.Count) return false;
+
+            // إعادة ترقيم الكل من 1 بعد التبديل — بيصلّح أي ترتيب متكرر أو
+            // فيه فجوات جاي من بيانات قديمة، وبيضمن ترتيب نظيف دايمًا
+            (siblings[index], siblings[targetIndex]) = (siblings[targetIndex], siblings[index]);
+            for (var i = 0; i < siblings.Count; i++)
+            {
+                siblings[i].SortOrder = i + 1;
+                _stageRepo.Update(siblings[i]);
+            }
+
+            await _stageRepo.SaveChangesAsync();
+            return true;
         }
 
         /// <summary>إيقاف مرحلة (بتختفي من شاشة التسجيل، وسجلاتها التاريخية محفوظة)</summary>

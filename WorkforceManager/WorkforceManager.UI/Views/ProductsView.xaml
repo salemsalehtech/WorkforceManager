@@ -7,65 +7,298 @@
              mc:Ignorable="d"
              d:DesignHeight="650" d:DesignWidth="1100">
 
-    <!-- شاشة المنتجات: شريط أدوات فوق + قائمة المنتجات + لوحة مراحل المنتج المحدد -->
-    <Grid>
+    <!-- شاشة المنتجات: ملخص + بحث وفلاتر + بطاقات المنتجات + خط إنتاج المنتج المحدد -->
+    <Grid Margin="14,10,14,10">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- شريط الأدوات -->
-        <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
+        <!-- ===== شريط الملخص ===== -->
+        <Border Grid.Row="0" Style="{StaticResource Card}" Padding="18,14" Margin="0,0,0,10">
             <DockPanel>
                 <Button DockPanel.Dock="Left" Command="{Binding AddProductCommand}"
-                        Style="{StaticResource PrimaryButton}">
+                        Style="{StaticResource PrimaryButton}" VerticalAlignment="Center" Padding="18,10">
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" VerticalAlignment="Center" />
-                        <TextBlock Text="إضافة منتج جديد" Margin="6,0,0,0" />
+                        <materialDesign:PackIcon Kind="PackageVariantClosedPlus" Width="17" Height="17" VerticalAlignment="Center" />
+                        <TextBlock Text="إضافة منتج" Margin="7,0,0,0" />
                     </StackPanel>
                 </Button>
 
-                <CheckBox DockPanel.Dock="Left" Content="إظهار الموقوف"
-                          IsChecked="{Binding ShowInactive}"
-                          VerticalAlignment="Center" Margin="16,0" />
+                <!-- تنبيه المنتجات اللي فيها مشكلة -->
+                <Button DockPanel.Dock="Right" Command="{Binding ShowNeedsAttentionCommand}"
+                        VerticalAlignment="Center" Margin="16,0,0,0"
+                        ToolTip="اعرض المنتجات دي بس">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                            <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NeedsAttentionCount}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="AlertOutline" Width="16" Height="16" VerticalAlignment="Center" />
+                        <TextBlock Margin="6,0,0,0" VerticalAlignment="Center">
+                            <Run Text="{Binding NeedsAttentionCount, Mode=OneWay}" FontWeight="Bold" /><Run Text=" منتج فيه مشكلة" />
+                        </TextBlock>
+                    </StackPanel>
+                </Button>
 
-                <!-- البحث الفوري: باسم المنتج أو كوده أو اسم أي مرحلة فيه -->
-                <TextBox VerticalAlignment="Center" Padding="8,6" FontSize="14"
-                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="24,0,0,0">
+                    <StackPanel Style="{StaticResource SummaryStat}">
+                        <TextBlock Text="{Binding ActiveProducts}" Style="{StaticResource SummaryNumber}"
+                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="منتج نشط" Style="{StaticResource SummaryLabel}" />
+                    </StackPanel>
+
+                    <Border Style="{StaticResource SummaryDivider}" />
+
+                    <StackPanel Style="{StaticResource SummaryStat}">
+                        <TextBlock Text="{Binding TotalStages}" Style="{StaticResource SummaryNumber}"
+                                   Foreground="{StaticResource BrandBrush}" />
+                        <TextBlock Text="إجمالي المراحل" Style="{StaticResource SummaryLabel}" />
+                    </StackPanel>
+
+                    <StackPanel Style="{StaticResource SummaryStat}">
+                        <TextBlock Text="{Binding TotalProducts}" Style="{StaticResource SummaryNumber}"
+                                   Foreground="{StaticResource TextMutedBrush}" />
+                        <TextBlock Text="الإجمالي" Style="{StaticResource SummaryLabel}" />
+                    </StackPanel>
+                </StackPanel>
             </DockPanel>
         </Border>
 
-        <Grid Grid.Row="1">
+        <!-- ===== البحث + الفلاتر ===== -->
+        <Grid Grid.Row="1" Margin="2,0,2,8">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="290" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="480" />
             </Grid.ColumnDefinitions>
 
-            <!-- قائمة المنتجات -->
-            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="6">
-            <DataGrid ItemsSource="{Binding Products}"
-                      SelectedItem="{Binding SelectedProduct}"
-                      Style="{StaticResource ModernDataGrid}"
-                      AutoGenerateColumns="False" IsReadOnly="True"
-                      SelectionMode="Single">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="اسم المنتج" Binding="{Binding Name}" Width="*" />
-                    <DataGridTextColumn Header="الكود" Binding="{Binding ProductCode}" Width="80" />
-                    <DataGridTextColumn Header="المراحل" Binding="{Binding StagesCountText}" Width="90" />
-                    <DataGridTextColumn Header="الحالة" Binding="{Binding StatusText}" Width="70" />
-                </DataGrid.Columns>
-                <!-- المنتج الموقوف بيظهر باهت بخط مائل (مبني على النمط الموحد) -->
-                <DataGrid.RowStyle>
-                    <Style TargetType="DataGridRow" BasedOn="{StaticResource ModernGridRow}">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
-                                <Setter Property="FontStyle" Value="Italic" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </DataGrid.RowStyle>
-            </DataGrid>
+            <Border Grid.Column="0" Background="{StaticResource CardBgBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.4"
+                    CornerRadius="10" Padding="12,7">
+                <Grid>
+                    <DockPanel>
+                        <materialDesign:PackIcon DockPanel.Dock="Left" Kind="Magnify" Width="17" Height="17"
+                                                VerticalAlignment="Center"
+                                                Foreground="{StaticResource TextMutedBrush}" />
+                        <Button DockPanel.Dock="Right" Command="{Binding ClearSearchCommand}" ToolTip="مسح البحث">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SearchText}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <materialDesign:PackIcon Kind="Close" Width="13" Height="13" />
+                        </Button>
+                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 Margin="8,0" BorderThickness="0" VerticalAlignment="Center"
+                                 FontSize="13" Background="Transparent" />
+                    </DockPanel>
+                    <TextBlock Text="دوّر بالمنتج أو بالمرحلة…" Margin="30,0,0,0" IsHitTestVisible="False"
+                               VerticalAlignment="Center" FontSize="13"
+                               Foreground="{StaticResource TextMutedBrush}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SearchText}" Value="">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Border>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                <RadioButton Content="النشط" Style="{StaticResource FilterChip}"
+                             IsChecked="{Binding IsFilterActive, Mode=OneWay}"
+                             Command="{Binding SetFilterCommand}" CommandParameter="active" />
+                <RadioButton Content="الكل" Style="{StaticResource FilterChip}"
+                             IsChecked="{Binding IsFilterAll, Mode=OneWay}"
+                             Command="{Binding SetFilterCommand}" CommandParameter="all" />
+                <RadioButton Content="موقوف" Style="{StaticResource FilterChip}"
+                             IsChecked="{Binding IsFilterInactive, Mode=OneWay}"
+                             Command="{Binding SetFilterCommand}" CommandParameter="inactive" />
+            </StackPanel>
+
+            <TextBlock Grid.Column="2" Text="{Binding ResultsText}" FontSize="12.5" FontWeight="SemiBold"
+                       VerticalAlignment="Center" Margin="14,0,0,0"
+                       Foreground="{StaticResource TextPrimaryBrush}" />
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="380" />
+                <ColumnDefinition Width="500" />
+            </Grid.ColumnDefinitions>
+
+            <!-- قائمة المنتجات: بطاقة لكل منتج -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="10">
+                <Grid>
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding NoResults}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <materialDesign:PackIcon Kind="PackageVariantClosed" Width="46" Height="46"
+                                                HorizontalAlignment="Center"
+                                                Foreground="{StaticResource TextMutedBrush}" />
+                        <TextBlock Text="مفيش منتج بالمواصفات دي" Margin="0,10,0,0" FontSize="14"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{StaticResource TextMutedBrush}" />
+                    </StackPanel>
+
+                    <ListBox ItemsSource="{Binding Products}"
+                             SelectedItem="{Binding SelectedProduct}"
+                             Background="Transparent" BorderThickness="0"
+                             HorizontalContentAlignment="Stretch"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0,0,0,7" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="SelectionRing" CornerRadius="13" Margin="-2"
+                                                    BorderThickness="2" BorderBrush="Transparent">
+                                                <ContentPresenter Margin="2" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="SelectionRing" Property="BorderBrush"
+                                                            Value="{StaticResource BrandBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource WorkerCard}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- الصورة أو الحروف الأولى — نفس المربع بالظبط،
+                                             فالمنتج اللي مالوش صورة مبيسيبش فراغ -->
+                                        <Border Grid.Column="0" Width="44" Height="44" CornerRadius="12"
+                                                Background="{StaticResource SubtleBgBrush}"
+                                                VerticalAlignment="Center" Margin="0,0,14,0">
+                                            <Grid>
+                                                <TextBlock Text="{Binding Initials}" FontSize="15.5" FontWeight="Bold"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource BrandBrush}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding HasImage}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+
+                                                <Image Source="{Binding Image}" Stretch="UniformToFill"
+                                                       Visibility="{Binding HasImage, Converter={StaticResource BoolToVis}}">
+                                                    <Image.Clip>
+                                                        <RectangleGeometry Rect="0,0,44,44" RadiusX="11" RadiusY="11" />
+                                                    </Image.Clip>
+                                                </Image>
+                                            </Grid>
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}" FontSize="14.5" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                                           VerticalAlignment="Center" TextWrapping="Wrap" />
+                                                <Border Background="{StaticResource DangerBgBrush}" CornerRadius="7"
+                                                        Padding="8,2" Margin="9,0,0,0" VerticalAlignment="Center">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="موقوف" FontSize="11" FontWeight="Medium"
+                                                               Foreground="{StaticResource DangerBrush}" />
+                                                </Border>
+                                            </StackPanel>
+
+                                            <TextBlock Text="{Binding Description}" FontSize="11.5" Margin="0,3,0,0"
+                                                       TextWrapping="Wrap" MaxHeight="32"
+                                                       Foreground="{StaticResource TextMutedBrush}" />
+
+                                            <!-- تنبيه المنتج -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,5,0,0"
+                                                        Visibility="{Binding NeedsAttention, Converter={StaticResource BoolToVis}}">
+                                                <materialDesign:PackIcon Kind="AlertOutline" Width="13" Height="13"
+                                                                        VerticalAlignment="Center"
+                                                                        Foreground="{StaticResource WarnBrush}" />
+                                                <TextBlock Text="{Binding AttentionText}" FontSize="11.5" Margin="4,0,0,0"
+                                                           VerticalAlignment="Center" FontWeight="Medium"
+                                                           Foreground="{StaticResource WarnBrush}" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                                                    Margin="14,0,0,0">
+                                            <StackPanel Margin="0,0,16,0">
+                                                <TextBlock Text="{Binding ActiveStagesCount}" FontSize="17" FontWeight="Bold"
+                                                           HorizontalAlignment="Center"
+                                                           Foreground="{StaticResource BrandBrush}" />
+                                                <TextBlock Text="مرحلة" FontSize="10.5" HorizontalAlignment="Center"
+                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding TotalQuota}" FontSize="17" FontWeight="Bold"
+                                                           HorizontalAlignment="Center"
+                                                           Foreground="{StaticResource SuccessBrush}" />
+                                                <TextBlock Text="إجمالي الكوتة" FontSize="10.5" HorizontalAlignment="Center"
+                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
             </Border>
 
             <!-- لوحة مراحل المنتج المحدد -->
@@ -105,10 +338,27 @@
 
                         <!-- رأس المنتج + أزرار الإدارة -->
                         <StackPanel Grid.Row="0">
-                            <TextBlock Text="{Binding SelectedProduct.Name}" Style="{StaticResource HeadingText}"
-                                       TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding SelectedProduct.Description}" FontSize="12" Foreground="{StaticResource TextMutedBrush}"
-                                       TextWrapping="Wrap" Margin="0,2,0,0" />
+                            <DockPanel>
+                                <!-- صورة المنتج أكبر شوية هنا (بتظهر بس لو موجودة) -->
+                                <Border DockPanel.Dock="Left" Width="64" Height="64" CornerRadius="14"
+                                        Background="{StaticResource SubtleBgBrush}" Margin="0,0,14,0"
+                                        VerticalAlignment="Top"
+                                        Visibility="{Binding SelectedProduct.HasImage, Converter={StaticResource BoolToVis}}">
+                                    <Image Source="{Binding SelectedProduct.Image}" Stretch="UniformToFill">
+                                        <Image.Clip>
+                                            <RectangleGeometry Rect="0,0,64,64" RadiusX="13" RadiusY="13" />
+                                        </Image.Clip>
+                                    </Image>
+                                </Border>
+
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SelectedProduct.Name}" Style="{StaticResource HeadingText}"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding SelectedProduct.Description}" FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               TextWrapping="Wrap" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </DockPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,10">
                                 <Button Command="{Binding EditProductCommand}"
                                         Style="{StaticResource GhostButton}" Margin="0,0,6,0">
@@ -155,71 +405,187 @@
                             </StackPanel>
                         </StackPanel>
 
-                        <TextBlock Grid.Row="1" Text="مراحل التصنيع (بكوتة اليومية لكل مرحلة)"
-                                   FontWeight="Bold" Margin="0,0,0,4" />
+                        <DockPanel Grid.Row="1" Margin="0,0,0,6">
+                            <TextBlock Text="خط الإنتاج" FontWeight="Bold" VerticalAlignment="Center" />
+                            <TextBlock Text="الترتيب مهم — نطاقات التسجيل بتتحسب بيه" FontSize="11"
+                                       VerticalAlignment="Center" Margin="10,0,0,0"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                        </DockPanel>
 
-                        <!-- جدول المراحل -->
-                        <DataGrid Grid.Row="2"
-                                  ItemsSource="{Binding Stages}"
-                                  Style="{StaticResource ModernDataGrid}"
-                                  AutoGenerateColumns="False" IsReadOnly="True"
-                                  SelectionMode="Single">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="#" Binding="{Binding SortOrder}" Width="40" />
-                                <DataGridTextColumn Header="المرحلة" Binding="{Binding StageName}" Width="*" />
-                                <DataGridTextColumn Header="كوتة اليومية" Binding="{Binding PiecesPerWorkday}" Width="95" />
-                                <DataGridTextColumn Header="الحالة" Binding="{Binding StatusText}" Width="65" />
-                                <!-- أزرار تعديل/إيقاف لكل مرحلة -->
-                                <DataGridTemplateColumn Header="" Width="110">
-                                    <DataGridTemplateColumn.CellTemplate>
+                        <!-- خط الإنتاج: مرحلة تحت التانية بترتيبها الفعلي -->
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <!-- رسالة لما المنتج لسه من غير مراحل -->
+                                <Border Background="{StaticResource WarnBgBrush}" CornerRadius="10" Padding="14,12">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Stages.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="AlertOutline" Width="18" Height="18"
+                                                                VerticalAlignment="Center"
+                                                                Foreground="{StaticResource WarnBrush}" />
+                                        <TextBlock Text="المنتج ده لسه من غير مراحل — ضيف مرحلة عشان ينفع يتسجل عليه إنتاج"
+                                                   FontSize="12.5" Margin="8,0,0,0" TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource WarnBrush}" />
+                                    </StackPanel>
+                                </Border>
+
+                                <ItemsControl ItemsSource="{Binding Stages}">
+                                    <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <StackPanel Orientation="Horizontal">
-                                                <Button Margin="0,0,4,0"
-                                                        Style="{StaticResource IconButton}" ToolTip="تعديل المرحلة"
-                                                        Command="{Binding DataContext.EditStageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}">
-                                                    <materialDesign:PackIcon Kind="PencilOutline" Width="13" Height="13" />
-                                                </Button>
-                                                <Button Command="{Binding DataContext.ToggleStageActiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}">
-                                                    <Button.Style>
-                                                        <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
-                                                            <Setter Property="Content">
-                                                                <Setter.Value>
-                                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                            <Setter Property="ToolTip" Value="إيقاف المرحلة" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                            <Border Style="{StaticResource WorkerCard}" Margin="0,0,0,6" Padding="12,10">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- أزرار ترتيب المرحلة في الخط -->
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                        <Button Style="{StaticResource IconButton}" Padding="3"
+                                                                ToolTip="تحريك لفوق في الخط"
+                                                                Command="{Binding DataContext.MoveStageUpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}">
+                                                            <materialDesign:PackIcon Kind="ChevronUp" Width="15" Height="15" />
+                                                        </Button>
+                                                        <Button Style="{StaticResource IconButton}" Padding="3"
+                                                                ToolTip="تحريك لتحت في الخط"
+                                                                Command="{Binding DataContext.MoveStageDownCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}">
+                                                            <materialDesign:PackIcon Kind="ChevronDown" Width="15" Height="15" />
+                                                        </Button>
+                                                    </StackPanel>
+
+                                                    <!-- رقم المرحلة في الخط -->
+                                                    <Border Grid.Column="1" Width="32" Height="32" CornerRadius="16"
+                                                            Background="{StaticResource BrandBrush}"
+                                                            VerticalAlignment="Center" Margin="0,0,12,0">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Background" Value="{StaticResource BrandBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                                        <Setter Property="Background" Value="{StaticResource TextMutedBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <TextBlock Text="{Binding DisplayOrder}" FontSize="13.5" FontWeight="Bold"
+                                                                   Foreground="White"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+
+                                                    <!-- اسم المرحلة + الكوتة + العمال المؤهلين -->
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="{Binding StageName}" FontSize="13.5" FontWeight="SemiBold"
+                                                                       VerticalAlignment="Center" TextWrapping="Wrap"
+                                                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                                            <Border Background="{StaticResource DangerBgBrush}" CornerRadius="6"
+                                                                    Padding="7,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                <Border.Style>
+                                                                    <Style TargetType="Border">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Border.Style>
+                                                                <TextBlock Text="موقوفة" FontSize="10.5" FontWeight="Medium"
+                                                                           Foreground="{StaticResource DangerBrush}" />
+                                                            </Border>
+                                                        </StackPanel>
+
+                                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                            <materialDesign:PackIcon Kind="Speedometer" Width="13" Height="13"
+                                                                                    VerticalAlignment="Center"
+                                                                                    Foreground="{StaticResource TextMutedBrush}" />
+                                                            <TextBlock Text="{Binding QuotaText}" FontSize="11.5" Margin="4,0,14,0"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{StaticResource TextMutedBrush}" />
+
+                                                            <!-- عدد المؤهلين: بيتلون تحذير لو صفر -->
+                                                            <materialDesign:PackIcon Kind="AccountGroupOutline" Width="13" Height="13"
+                                                                                    VerticalAlignment="Center">
+                                                                <materialDesign:PackIcon.Style>
+                                                                    <Style TargetType="materialDesign:PackIcon">
+                                                                        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding HasNoQualifiedWorkers}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </materialDesign:PackIcon.Style>
+                                                            </materialDesign:PackIcon>
+                                                            <TextBlock Text="{Binding WorkersText}" FontSize="11.5" Margin="4,0,0,0"
+                                                                       VerticalAlignment="Center">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding HasNoQualifiedWorkers}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
+                                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                    </StackPanel>
+
+                                                    <!-- تعديل / إيقاف -->
+                                                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Button Margin="0,0,4,0"
+                                                                Style="{StaticResource IconButton}" ToolTip="تعديل المرحلة"
+                                                                Command="{Binding DataContext.EditStageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}">
+                                                            <materialDesign:PackIcon Kind="PencilOutline" Width="14" Height="14" />
+                                                        </Button>
+                                                        <Button Command="{Binding DataContext.ToggleStageActiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}">
+                                                            <Button.Style>
+                                                                <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
                                                                     <Setter Property="Content">
                                                                         <Setter.Value>
-                                                                            <materialDesign:PackIcon Kind="Restore" Width="13" Height="13" />
+                                                                            <materialDesign:PackIcon Kind="PauseCircleOutline" Width="14" Height="14" />
                                                                         </Setter.Value>
                                                                     </Setter>
-                                                                    <Setter Property="ToolTip" Value="إعادة تفعيل" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Button.Style>
-                                                </Button>
-                                            </StackPanel>
+                                                                    <Setter Property="ToolTip" Value="إيقاف المرحلة" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                                            <Setter Property="Content">
+                                                                                <Setter.Value>
+                                                                                    <materialDesign:PackIcon Kind="Restore" Width="14" Height="14" />
+                                                                                </Setter.Value>
+                                                                            </Setter>
+                                                                            <Setter Property="ToolTip" Value="إعادة تفعيل" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Button.Style>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
                                         </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                            <!-- المرحلة الموقوفة باهتة بخط مائل (مبنية على النمط الموحد) -->
-                            <DataGrid.RowStyle>
-                                <Style TargetType="DataGridRow" BasedOn="{StaticResource ModernGridRow}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
-                                            <Setter Property="FontStyle" Value="Italic" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </DataGrid.RowStyle>
-                        </DataGrid>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
                     </Grid>
                 </Grid>
             </Border>

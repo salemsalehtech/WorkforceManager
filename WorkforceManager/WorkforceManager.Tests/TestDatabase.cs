@@ -64,6 +64,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<AttendanceAutomationService>();
             services.AddScoped<AttendanceService>();
             services.AddScoped<HourlyWorkdayService>();
+            services.AddScoped<ProductManagementService>();
 
             _provider = services.BuildServiceProvider();
 
