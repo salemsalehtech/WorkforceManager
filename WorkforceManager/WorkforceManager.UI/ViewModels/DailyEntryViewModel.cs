@@ -7,6 +7,7 @@ using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
+using WorkforceManager.UI.Views;
 
 namespace WorkforceManager.UI.ViewModels
 {
@@ -90,6 +91,7 @@ namespace WorkforceManager.UI.ViewModels
             await LoadAttendanceAsync();
             await LoadPenaltiesAsync();
             await LoadAdjustmentsAsync();
+            await LoadClosureStateAsync();
         }
 
         private async Task ReloadForDateAsync()
@@ -102,6 +104,7 @@ namespace WorkforceManager.UI.ViewModels
             await LoadAttendanceAsync();
             await LoadPenaltiesAsync();
             await LoadAdjustmentsAsync();
+            await LoadClosureStateAsync();
         }
 
         /// <summary>بعد حفظ أي رحلة: الحضور التلقائي وسجلات اليوم بيظهروا فورًا</summary>
@@ -109,6 +112,79 @@ namespace WorkforceManager.UI.ViewModels
         {
             await LoadAttendanceAsync();
             await LoadDayRecordsAsync();
+            await LoadClosureStateAsync();
+        }
+
+        // ======================= إقفال إنتاج اليوم =======================
+
+        /// <summary>اليوم ده مقفول؟ (بيقفل التسجيل ويقلب الزرار لـ "فتح اليوم")</summary>
+        [ObservableProperty]
+        private bool _isDayClosed;
+
+        /// <summary>ملخص الواقف — بيظهر جنب الزرار عشان المستخدم يعرف قبل ما يدوس</summary>
+        [ObservableProperty]
+        private string _carriedSummary = "";
+
+        public bool HasCarriedWork => CarriedSummary.Length > 0;
+
+        partial void OnCarriedSummaryChanged(string value) => OnPropertyChanged(nameof(HasCarriedWork));
+
+        private async Task LoadClosureStateAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var closure = scope.ServiceProvider.GetRequiredService<DayClosureService>();
+            var batches = scope.ServiceProvider.GetRequiredService<ProductionBatchService>();
+
+            IsDayClosed = await closure.IsClosedAsync(EntryDate);
+
+            var parked = await batches.GetAllParkedAsync(EntryDate);
+            CarriedSummary = parked.Count == 0
+                ? ""
+                : $"{parked.Sum(l => l.Quantity):N0} قطعة واقفة في {parked.Count} دفعة";
+        }
+
+        /// <summary>
+        /// يقفل اليوم بعد مراجعة الواقف، أو يفتحه تاني لو كان مقفول.
+        /// الترحيل نفسه تلقائي — الزرار ده بيخلي المستخدم يشوف ويوافق.
+        /// </summary>
+        [RelayCommand]
+        private async Task ToggleDayClosureAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<DayClosureService>();
+
+            try
+            {
+                if (IsDayClosed)
+                {
+                    var confirm = MessageBox.Show(
+                        $"فتح إنتاج يوم {EntryDate:yyyy/MM/dd} تاني؟\nهيرجع ينفع يتسجل عليه إنتاج ويتعدّل.",
+                        "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                    if (confirm != MessageBoxResult.Yes) return;
+
+                    await service.ReopenAsync(EntryDate);
+                    await LoadClosureStateAsync();
+                    return;
+                }
+
+                var preview = await service.PreviewAsync(EntryDate);
+                var dialog = new DayClosureDialog(preview) { Owner = Application.Current.MainWindow };
+                if (dialog.ShowDialog() != true) return;
+
+                await service.CloseAsync(EntryDate);
+                await LoadClosureStateAsync();
+
+                MessageBox.Show(
+                    $"اتقفل إنتاج يوم {EntryDate:yyyy/MM/dd}.\n" +
+                    (preview.CarriedPieces > 0
+                        ? $"{preview.CarriedPieces:N0} قطعة اتّرحّلت — هتلاقيها جاهزة في قايمة \"القطع دي جاية منين؟\" بكرة."
+                        : "مفيش شغل واقف."),
+                    "تم القفل", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         // ======================= قسم رحلات الإنتاج (منتج أو أكتر في اليوم) =======================

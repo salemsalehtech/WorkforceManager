@@ -4,7 +4,7 @@ using System.Windows.Input;
 namespace WorkforceManager.UI.Views
 {
     /// <summary>
-    /// نافذة إضافة/تعديل مرحلة تصنيع. بتتحقق من الاسم والكوتة (رقم موجب)
+    /// نافذة إضافة/تعديل مرحلة تصنيع. بتتحقق من الاسم واليومية (رقم موجب)
     /// قبل الإغلاق — قواعد التفرد داخل المنتج مسؤولية ProductManagementService.
     /// </summary>
     public partial class StageEditDialog : Window
@@ -19,7 +19,7 @@ namespace WorkforceManager.UI.Views
 
         public string StageName => NameBox.Text.Trim();
 
-        /// <summary>الكوتة بتتحقق في Save_Click فمضمون إنها رقم موجب هنا</summary>
+        /// <summary>اليومية بتتحقق في Save_Click فمضمون إنها رقم موجب هنا</summary>
         public int PiecesPerWorkday => int.Parse(QuotaBox.Text.Trim());
 
         /// <summary>null = ترتيب تلقائي (آخر ترتيب + 1)</summary>
@@ -45,7 +45,7 @@ namespace WorkforceManager.UI.Views
 
             if (!int.TryParse(QuotaBox.Text.Trim(), out var quota) || quota <= 0)
             {
-                ShowError("كوتة اليومية لازم تكون رقم صحيح موجب (مثال: 5000)");
+                ShowError("اليومية لازم تكون رقم صحيح موجب (مثال: 5000)");
                 QuotaBox.Focus();
                 return;
             }

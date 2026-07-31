@@ -32,9 +32,19 @@ namespace WorkforceManager.Tests
         public const int ProductRingId = 1;   // "دبلة" — مرحلتين
         public const int ProductChainId = 2;  // "سلسلة" — مرحلة واحدة
 
+        /// <summary>
+        /// "شنطة" — 3 مراحل. لازم يكون فيه منتج بأكتر من مرحلتين عشان نختبر
+        /// دفعة واقفة في **نص** الخط (لا أول ولا آخر) — دي الحالة اللي كل
+        /// منطق الترحيل قايم عليها.
+        /// </summary>
+        public const int ProductBagId = 3;
+
         public const int RingStage1Id = 1;    // دبلة / تشكيل
         public const int RingStage2Id = 2;    // دبلة / تلميع
         public const int ChainStage1Id = 3;   // سلسلة / لحام
+        public const int BagStage1Id = 4;     // شنطة / قص
+        public const int BagStage2Id = 5;     // شنطة / خياطة
+        public const int BagStage3Id = 6;     // شنطة / تشطيب
 
         public TestDatabase()
         {
@@ -55,10 +65,15 @@ namespace WorkforceManager.Tests
             services.AddScoped<IPenaltyRepository, PenaltyRepository>();
             services.AddScoped<IHourlyWorkLogRepository, HourlyWorkLogRepository>();
             services.AddScoped<IGenericRepository<ProductionStage>, GenericRepository<ProductionStage>>();
+            services.AddScoped<IProductionBatchRepository, ProductionBatchRepository>();
+            services.AddScoped<IProductionDayClosureRepository, ProductionDayClosureRepository>();
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
             services.AddScoped<WorkerAssignmentGuard>();
+            services.AddScoped<ProductionBatchService>();
             services.AddScoped<ProductionFlowService>();
+            services.AddScoped<DayClosureService>();
+            services.AddScoped<DailyProductionReportService>();
             services.AddScoped<WorkdayCalculationService>();
             services.AddScoped<PenaltyService>();
             services.AddScoped<AttendanceAutomationService>();
@@ -91,6 +106,44 @@ namespace WorkforceManager.Tests
             return await action(GetService<TService>(scope));
         }
 
+        /// <summary>
+        /// بيحضّر دفعة واقفة عند مرحلة معينة **من غير أي سجلات إنتاج**.
+        ///
+        /// قاعدة الدفعات بترفض أي نطاق بيبدأ من نص الخط من غير دفعة يكمّلها.
+        /// الاختبارات اللي موضوعها حاجة تانية (قاعدة التكليف، الحضور التلقائي)
+        /// بتسجل على مرحلة من نص الخط، فمحتاجة الدفعة دي تكون موجودة.
+        /// بنكتبها في القاعدة مباشرة عشان عدّ سجلات الإنتاج في الاختبار
+        /// يفضل زي ما هو.
+        ///
+        /// بيرجّع null لو المرحلة هي أول الخط (مفيش داعي لدفعة).
+        /// </summary>
+        public async Task<int?> ParkBatchBeforeAsync(int productId, int stageId, int quantity = 1000)
+        {
+            using var scope = CreateScope();
+            var db = GetService<AppDbContext>(scope);
+
+            var line = await db.ProductionStages
+                .Where(s => s.ProductId == productId && s.IsActive)
+                .OrderBy(s => s.SortOrder).ThenBy(s => s.Id)
+                .ToListAsync();
+
+            var index = line.FindIndex(s => s.Id == stageId);
+            if (index <= 0) return null; // أول الخط أو مرحلة مش موجودة
+
+            var batch = new ProductionBatch
+            {
+                ProductId = productId,
+                StartedDate = Today.Date,
+                Quantity = quantity,
+                LastCompletedStageId = line[index - 1].Id,
+                Status = BatchStatus.Open
+            };
+
+            db.ProductionBatches.Add(batch);
+            await db.SaveChangesAsync();
+            return batch.Id;
+        }
+
         /// <summary>كل سجلات الإنتاج في اليوم — للتأكد من اللي اتحفظ فعلاً</summary>
         public async Task<List<DailyProduction>> GetProductionAsync()
         {
@@ -106,7 +159,8 @@ namespace WorkforceManager.Tests
         {
             db.Products.AddRange(
                 new Product { Id = ProductRingId, Name = "دبلة", IsActive = true },
-                new Product { Id = ProductChainId, Name = "سلسلة", IsActive = true });
+                new Product { Id = ProductChainId, Name = "سلسلة", IsActive = true },
+                new Product { Id = ProductBagId, Name = "شنطة", IsActive = true });
 
             db.ProductionStages.AddRange(
                 new ProductionStage
@@ -123,6 +177,21 @@ namespace WorkforceManager.Tests
                 {
                     Id = ChainStage1Id, ProductId = ProductChainId, StageName = "لحام",
                     SortOrder = 1, PiecesPerWorkday = 10, IsActive = true
+                },
+                new ProductionStage
+                {
+                    Id = BagStage1Id, ProductId = ProductBagId, StageName = "قص",
+                    SortOrder = 1, PiecesPerWorkday = 10, IsActive = true
+                },
+                new ProductionStage
+                {
+                    Id = BagStage2Id, ProductId = ProductBagId, StageName = "خياطة",
+                    SortOrder = 2, PiecesPerWorkday = 10, IsActive = true
+                },
+                new ProductionStage
+                {
+                    Id = BagStage3Id, ProductId = ProductBagId, StageName = "تشطيب",
+                    SortOrder = 3, PiecesPerWorkday = 10, IsActive = true
                 });
 
             db.Workers.AddRange(
@@ -137,7 +206,11 @@ namespace WorkforceManager.Tests
 
             // كل عامل مؤهل لكل المراحل — التأهيل مش موضوع الاختبارات دي،
             // ولازم يعدّي عشان نوصل لقاعدة التكليف اللي بنختبرها
-            var stageIds = new[] { RingStage1Id, RingStage2Id, ChainStage1Id };
+            var stageIds = new[]
+            {
+                RingStage1Id, RingStage2Id, ChainStage1Id,
+                BagStage1Id, BagStage2Id, BagStage3Id
+            };
             var workerIds = new[] { WorkerAhmedId, WorkerSaidId };
 
             db.WorkerSkills.AddRange(

@@ -30,22 +30,30 @@ namespace WorkforceManager.Core.Models
         [Required]
         public DateTime Date { get; set; } = DateTime.Today;
 
+        /// <summary>
+        /// الدفعة اللي السجل ده حرّكها في الخط. nullable لأن السجلات
+        /// المتسجلة قبل نظام الدفعات مالهاش دفعة — بتفضل زي ما هي وبتدخل
+        /// في الأجور عادي، بس مش بتظهر في تقرير الواقف/المكتمل.
+        /// </summary>
+        [ForeignKey(nameof(ProductionBatch))]
+        public int? ProductionBatchId { get; set; }
+
         [Required]
         [Range(1, int.MaxValue, ErrorMessage = "عدد القطع يجب أن يكون رقمًا موجبًا")]
         public int PieceCount { get; set; }
 
         /// <summary>
-        /// كوتة اليومية وقت التسجيل (Snapshot). تُنسخ من
+        /// اليومية وقت التسجيل (Snapshot). تُنسخ من
         /// ProductionStage.PiecesPerWorkday عند الإدخال، بدل الاعتماد
-        /// المباشر على الكوتة الحالية في جدول المراحل. السبب: لو غيّر
-        /// مدير القسم الكوتة بعدين، السجلات القديمة المحسوبة تفضل
+        /// المباشر على اليومية الحالية في جدول المراحل. السبب: لو غيّر
+        /// مدير القسم اليومية بعدين، السجلات القديمة المحسوبة تفضل
         /// صحيحة ومحفوظة زي ما كانت وقت التنفيذ الفعلي.
         /// </summary>
         public int PiecesPerWorkdayAtEntry { get; set; }
 
         /// <summary>
         /// عدد "اليوميات" التي أنجزها العامل في هذا السجل = عدد القطع
-        /// ÷ كوتة اليومية. رقم عشري لأنه ممكن يعمل يومية ونص مثلاً
+        /// ÷ اليومية. رقم عشري لأنه ممكن يعمل يومية ونص مثلاً
         /// (Computed Property، غير مخزّن كعمود منفصل لتفادي عدم التطابق).
         /// </summary>
         [NotMapped]
@@ -62,5 +70,6 @@ namespace WorkforceManager.Core.Models
 
         public virtual Worker Worker { get; set; } = null!;
         public virtual ProductionStage ProductionStage { get; set; } = null!;
+        public virtual ProductionBatch? ProductionBatch { get; set; }
     }
 }

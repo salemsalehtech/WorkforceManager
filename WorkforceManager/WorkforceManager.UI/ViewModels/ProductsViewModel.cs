@@ -12,9 +12,9 @@ namespace WorkforceManager.UI.ViewModels
 {
     /// <summary>
     /// عقل شاشة المنتجات والمراحل: قائمة المنتجات (مع بحث وإظهار
-    /// الموقوف)، ولوحة تفاصيل بتعرض مراحل المنتج المحدد بكوتاتها،
+    /// الموقوف)، ولوحة تفاصيل بتعرض مراحل المنتج المحدد بيومياتها،
     /// مع كل عمليات الإدارة: إضافة/تعديل/إيقاف منتج أو مرحلة.
-    /// تعديل الكوتة بيسري على التسجيلات الجديدة فقط — القديم محمي
+    /// تعديل اليومية بيسري على التسجيلات الجديدة فقط — القديم محمي
     /// بالـ Snapshot، والرسائل في الشاشة بتوضح ده للمستخدم.
     /// </summary>
     public partial class ProductsViewModel : ObservableObject
@@ -427,9 +427,6 @@ namespace WorkforceManager.UI.ViewModels
                     : $"{parts[0][0]}{parts[1][0]}";
             }
         }
-
-        /// <summary>إجمالي كوتة الخط: مجموع كوتات المراحل النشطة (مؤشر سرعة الخط)</summary>
-        public int TotalQuota => Stages.Where(s => s.IsActive).Sum(s => s.PiecesPerWorkday);
 
         // ------- التنبيهات -------
 

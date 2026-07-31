@@ -12,7 +12,7 @@ namespace WorkforceManager.Core.Models
     ///
     /// اليوميات المحسوبة بتتخزن (Snapshot) وقت التسجيل — عشان لو قواعد
     /// الحساب اتغيرت بعدين، السجلات القديمة تفضل زي ما كانت وقت الشغل
-    /// الفعلي (نفس مبدأ كوتة اليومية في DailyProduction).
+    /// الفعلي (نفس مبدأ اليومية في DailyProduction).
     /// </summary>
     [Index(nameof(WorkerId), nameof(Date), IsUnique = true)] // سجل واحد لكل عامل في اليوم
     [Index(nameof(Date))] // لاستعلامات اليوم/الأسبوع

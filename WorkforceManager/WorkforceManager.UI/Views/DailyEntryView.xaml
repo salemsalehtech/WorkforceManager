@@ -15,14 +15,84 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- اختيار اليوم (مشترك لكل التبويبات) -->
+        <!-- اختيار اليوم (مشترك لكل التبويبات) + قفل إنتاج اليوم -->
         <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
-            <StackPanel Orientation="Horizontal">
-                <materialDesign:PackIcon Kind="CalendarBlankOutline" Width="17" Height="17"
-                                         Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <DatePicker SelectedDate="{Binding EntryDate}" Width="160" VerticalAlignment="Center" />
-            </StackPanel>
+            <DockPanel>
+                <!-- زرار القفل: بيقلب لـ "فتح اليوم" لما اليوم يبقى مقفول -->
+                <Button DockPanel.Dock="Left" Padding="14,7"
+                        Command="{Binding ToggleDayClosureCommand}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDayClosed}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource WarnBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Width="16" Height="16" VerticalAlignment="Center">
+                            <materialDesign:PackIcon.Style>
+                                <Style TargetType="materialDesign:PackIcon">
+                                    <Setter Property="Kind" Value="LockOutline" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDayClosed}" Value="True">
+                                            <Setter Property="Kind" Value="LockOpenVariantOutline" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </materialDesign:PackIcon.Style>
+                        </materialDesign:PackIcon>
+                        <TextBlock Margin="6,0,0,0" FontSize="13">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="قفل إنتاج اليوم" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDayClosed}" Value="True">
+                                            <Setter Property="Text" Value="فتح اليوم تاني" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Button>
+
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="CalendarBlankOutline" Width="17" Height="17"
+                                             Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <DatePicker SelectedDate="{Binding EntryDate}" Width="160" VerticalAlignment="Center" />
+
+                    <!-- اليوم مقفول: التسجيل موقوف -->
+                    <Border Background="{StaticResource DangerBgBrush}" CornerRadius="6" Padding="9,4"
+                            Margin="10,0,0,0" VerticalAlignment="Center"
+                            Visibility="{Binding IsDayClosed, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="LockOutline" Width="13" Height="13"
+                                                    VerticalAlignment="Center"
+                                                    Foreground="{StaticResource DangerBrush}" />
+                            <TextBlock Text="اليوم مقفول — مفيش تسجيل إنتاج جديد" FontSize="11.5" Margin="4,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource DangerBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- فيه شغل واقف هيترحّل -->
+                    <Border Background="{StaticResource WarnBgBrush}" CornerRadius="6" Padding="9,4"
+                            Margin="10,0,0,0" VerticalAlignment="Center"
+                            Visibility="{Binding HasCarriedWork, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="PackageVariantClosed" Width="13" Height="13"
+                                                    VerticalAlignment="Center"
+                                                    Foreground="{StaticResource WarnBrush}" />
+                            <TextBlock Text="{Binding CarriedSummary}" FontSize="11.5" Margin="4,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource WarnBrush}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </DockPanel>
         </Border>
 
         <TabControl Grid.Row="1">
@@ -181,6 +251,25 @@
                                                 </Border>
                                             </DockPanel>
 
+                                            <!-- شغل واقف من أيام فاتت — أول حاجة المستخدم لازم يشوفها -->
+                                            <Border DockPanel.Dock="Top" Background="{StaticResource WarnBgBrush}"
+                                                    BorderBrush="{StaticResource WarnBrush}" BorderThickness="1.2"
+                                                    CornerRadius="8" Padding="10,7" Margin="0,0,0,8"
+                                                    Visibility="{Binding HasOpenBatches, Converter={StaticResource BoolToVis}}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="PackageVariantClosed" Width="16" Height="16"
+                                                                            VerticalAlignment="Center"
+                                                                            Foreground="{StaticResource WarnBrush}" />
+                                                    <TextBlock Text="{Binding OpenBatchesText}" FontSize="12" FontWeight="Medium"
+                                                               Margin="6,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center"
+                                                               Foreground="{StaticResource WarnBrush}" />
+                                                    <TextBlock Text="— اختارها من قايمة &quot;القطع دي جاية منين؟&quot; عشان تكمّلها"
+                                                               FontSize="11.5" Margin="5,0,0,0" TextWrapping="Wrap"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{StaticResource TextMutedBrush}" />
+                                                </StackPanel>
+                                            </Border>
+
                                             <Grid Grid.Row="1">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
@@ -236,7 +325,7 @@
                                                                             Background="{Binding StateColor}" />
 
                                                                     <StackPanel Margin="10,8">
-                                                                        <!-- رأس البطاقة: رقم الترتيب + الاسم + الكوتة + إنتاج المرحلة المحسوب -->
+                                                                        <!-- رأس البطاقة: رقم الترتيب + الاسم + اليومية + إنتاج المرحلة المحسوب -->
                                                                         <DockPanel>
                                                                             <Border DockPanel.Dock="Left" Background="{StaticResource BrandBrush}" CornerRadius="12"
                                                                                     Width="24" Height="24" VerticalAlignment="Center">
@@ -305,8 +394,9 @@
                                                                             </ItemsControl.ItemTemplate>
                                                                         </ItemsControl>
 
-                                                                        <!-- إضافة عامل للمرحلة (المؤهلين بس) -->
-                                                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                                        <!-- إضافة عامل للمرحلة (المؤهلين بس): خانة بحث واحدة والاقتراحات
+                                                                             بتنزل تحتيها مع أول حرف. الاختيار بالسهمين + Enter من غير ماوس. -->
+                                                                        <StackPanel x:Name="WorkerPickerRoot" Margin="0,4,0,0">
                                                                             <StackPanel.Style>
                                                                                 <Style TargetType="StackPanel">
                                                                                     <Style.Triggers>
@@ -316,48 +406,94 @@
                                                                                     </Style.Triggers>
                                                                                 </Style>
                                                                             </StackPanel.Style>
-                                                                            <!-- بحث في المؤهلين: القايمة ممكن تكون 20 عامل -->
-                                                                            <Border Background="{StaticResource CardBgBrush}"
-                                                                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.2"
-                                                                                    CornerRadius="6" Padding="7,3" Width="130" Margin="0,0,6,0">
-                                                                                <Grid>
-                                                                                    <DockPanel>
-                                                                                        <materialDesign:PackIcon DockPanel.Dock="Left" Kind="Magnify"
-                                                                                                                Width="13" Height="13" VerticalAlignment="Center"
-                                                                                                                Foreground="{StaticResource TextMutedBrush}" />
-                                                                                        <TextBox Text="{Binding WorkerSearch, UpdateSourceTrigger=PropertyChanged}"
-                                                                                                 Margin="5,0,0,0" BorderThickness="0" FontSize="12"
-                                                                                                 VerticalAlignment="Center" Background="Transparent" />
-                                                                                    </DockPanel>
-                                                                                    <TextBlock Text="دوّر" Margin="22,0,0,0" IsHitTestVisible="False"
-                                                                                               VerticalAlignment="Center" FontSize="12"
-                                                                                               Foreground="{StaticResource TextMutedBrush}">
-                                                                                        <TextBlock.Style>
-                                                                                            <Style TargetType="TextBlock">
-                                                                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                                                                <Style.Triggers>
-                                                                                                    <DataTrigger Binding="{Binding WorkerSearch}" Value="">
-                                                                                                        <Setter Property="Visibility" Value="Visible" />
-                                                                                                    </DataTrigger>
-                                                                                                </Style.Triggers>
-                                                                                            </Style>
-                                                                                        </TextBlock.Style>
-                                                                                    </TextBlock>
-                                                                                </Grid>
+
+                                                                            <StackPanel Orientation="Horizontal">
+                                                                                <Border Background="{StaticResource CardBgBrush}"
+                                                                                        BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.2"
+                                                                                        CornerRadius="6" Padding="7,4" Width="240" Margin="0,0,6,0">
+                                                                                    <Grid>
+                                                                                        <DockPanel>
+                                                                                            <materialDesign:PackIcon DockPanel.Dock="Left" Kind="Magnify"
+                                                                                                                    Width="13" Height="13" VerticalAlignment="Center"
+                                                                                                                    Foreground="{StaticResource TextMutedBrush}" />
+                                                                                            <TextBox Text="{Binding WorkerSearch, UpdateSourceTrigger=PropertyChanged}"
+                                                                                                     Margin="5,0,0,0" BorderThickness="0" FontSize="12.5"
+                                                                                                     VerticalAlignment="Center" Background="Transparent"
+                                                                                                     ToolTip="اكتب أول حروف اسم العامل — الأسهم ▲▼ للاختيار وEnter للإضافة"
+                                                                                                     PreviewKeyDown="WorkerSearch_PreviewKeyDown" />
+                                                                                        </DockPanel>
+                                                                                        <TextBlock Text="البحث" Margin="22,0,0,0" IsHitTestVisible="False"
+                                                                                                   VerticalAlignment="Center" FontSize="12.5"
+                                                                                                   Foreground="{StaticResource TextMutedBrush}">
+                                                                                            <TextBlock.Style>
+                                                                                                <Style TargetType="TextBlock">
+                                                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                                                    <Style.Triggers>
+                                                                                                        <DataTrigger Binding="{Binding WorkerSearch}" Value="">
+                                                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                                                        </DataTrigger>
+                                                                                                    </Style.Triggers>
+                                                                                                </Style>
+                                                                                            </TextBlock.Style>
+                                                                                        </TextBlock>
+                                                                                    </Grid>
+                                                                                </Border>
+
+                                                                                <!-- أمر الإضافة على البطاقة نفسها (callback للرحلة) -->
+                                                                                <Button FontSize="12.5"
+                                                                                        Style="{StaticResource GhostButton}" Padding="10,4"
+                                                                                        Command="{Binding AddWorkerCommand}">
+                                                                                    <StackPanel Orientation="Horizontal">
+                                                                                        <materialDesign:PackIcon Kind="Plus" Width="13" Height="13" VerticalAlignment="Center" />
+                                                                                        <TextBlock Text="عامل" Margin="4,0,0,0" />
+                                                                                    </StackPanel>
+                                                                                </Button>
+                                                                            </StackPanel>
+
+                                                                            <!-- الاقتراحات: بتظهر بس والفوكس جوه الخانة، فالبطاقة مبتفضلش
+                                                                                 مفرودة بقايمة ٢٠ عامل وانت مش بتدوّر أصلاً -->
+                                                                            <Border Width="240" HorizontalAlignment="Left" Margin="0,3,0,0"
+                                                                                    Background="White" CornerRadius="6"
+                                                                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.2">
+                                                                                <Border.Style>
+                                                                                    <Style TargetType="Border">
+                                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                                        <Style.Triggers>
+                                                                                            <MultiDataTrigger>
+                                                                                                <MultiDataTrigger.Conditions>
+                                                                                                    <Condition Binding="{Binding IsKeyboardFocusWithin, ElementName=WorkerPickerRoot}" Value="True" />
+                                                                                                    <Condition Binding="{Binding HasSuggestions}" Value="True" />
+                                                                                                </MultiDataTrigger.Conditions>
+                                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                                            </MultiDataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </Border.Style>
+                                                                                <ListBox ItemsSource="{Binding VisibleWorkers}"
+                                                                                         SelectedItem="{Binding SelectedWorkerToAdd}"
+                                                                                         DisplayMemberPath="Name"
+                                                                                         MaxHeight="150" FontSize="12.5"
+                                                                                         BorderThickness="0" Background="Transparent"
+                                                                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                                                         SelectionChanged="Suggestions_SelectionChanged"
+                                                                                         PreviewMouseLeftButtonUp="Suggestions_Click" />
                                                                             </Border>
 
-                                                                            <ComboBox ItemsSource="{Binding VisibleWorkers}"
-                                                                                      SelectedItem="{Binding SelectedWorkerToAdd}"
-                                                                                      DisplayMemberPath="Name" Width="170" FontSize="12.5" />
-                                                                            <!-- أمر الإضافة على البطاقة نفسها (callback للرحلة) -->
-                                                                            <Button Margin="6,0,0,0" FontSize="12.5"
-                                                                                    Style="{StaticResource GhostButton}" Padding="10,4"
-                                                                                    Command="{Binding AddWorkerCommand}">
-                                                                                <StackPanel Orientation="Horizontal">
-                                                                                    <materialDesign:PackIcon Kind="Plus" Width="13" Height="13" VerticalAlignment="Center" />
-                                                                                    <TextBlock Text="عامل" Margin="4,0,0,0" />
-                                                                                </StackPanel>
-                                                                            </Button>
+                                                                            <!-- كتب اسم مش موجود: يعرف علطول بدل ما يستنى قايمة متظهرش -->
+                                                                            <TextBlock Text="مفيش عامل مؤهل بالاسم ده"
+                                                                                       FontSize="11.5" Margin="2,3,0,0"
+                                                                                       Foreground="{StaticResource WarnBrush}">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding HasNoMatch}" Value="True">
+                                                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
                                                                         </StackPanel>
 
                                                                         <!-- مفيش مؤهلين: المرحلة محتاجة ربط مهارات الأول (قرار: المؤهلين بس إجباري) -->
@@ -399,10 +535,39 @@
                                                                     <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
                                                                             CornerRadius="6" Padding="8,6" Margin="0,0,0,6">
                                                                         <StackPanel>
+                                                                            <!-- ===== مصدر القطع — بيفضل ظاهر دايمًا ===== -->
+                                                                            <StackPanel Margin="0,0,0,6">
+                                                                                <TextBlock Text="القطع دي جاية منين؟" FontSize="12" FontWeight="Bold"
+                                                                                           Foreground="{StaticResource BrandBrush}" Margin="0,0,0,3" />
+                                                                                <ComboBox ItemsSource="{Binding SourceChoices}"
+                                                                                          SelectedItem="{Binding SelectedSource}"
+                                                                                          DisplayMemberPath="Text"
+                                                                                          FontSize="11.5" />
+                                                                                <TextBlock Text="{Binding BatchHintText}" FontSize="11" TextWrapping="Wrap"
+                                                                                           Margin="2,3,0,0"
+                                                                                           Foreground="{StaticResource TextMutedBrush}" />
+
+                                                                                <!-- الرصيد الافتتاحي ثغرة مقصودة — لازم تبان -->
+                                                                                <Border Background="{StaticResource WarnBgBrush}" CornerRadius="6"
+                                                                                        Padding="8,5" Margin="0,4,0,0"
+                                                                                        Visibility="{Binding IsOpeningBalanceWarningVisible, Converter={StaticResource BoolToVis}}">
+                                                                                    <StackPanel Orientation="Horizontal">
+                                                                                        <materialDesign:PackIcon Kind="AlertOutline" Width="13" Height="13"
+                                                                                                                VerticalAlignment="Top"
+                                                                                                                Foreground="{StaticResource WarnBrush}" />
+                                                                                        <TextBlock Text="النظام مش هيتحقق إن القطع دي عدّت المراحل السابقة فعلاً — استخدمها بس لو انت متأكد."
+                                                                                                   FontSize="10.5" TextWrapping="Wrap" Margin="5,0,0,0"
+                                                                                                   Foreground="{StaticResource WarnBrush}" />
+                                                                                    </StackPanel>
+                                                                                </Border>
+                                                                            </StackPanel>
+
                                                                             <StackPanel Orientation="Horizontal">
                                                                                 <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" />
+                                                                                <!-- تكميل دفعة: البداية مفروضة (المرحلة اللي واقفة عندها) -->
                                                                                 <ComboBox ItemsSource="{Binding StageOptions}" SelectedItem="{Binding FromStage}"
-                                                                                          DisplayMemberPath="Display" Width="120" FontSize="12" />
+                                                                                          DisplayMemberPath="Display" Width="120" FontSize="12"
+                                                                                          IsEnabled="{Binding IsStartStageEditable}" />
                                                                                 <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" />
                                                                                 <ComboBox ItemsSource="{Binding StageOptions}" SelectedItem="{Binding ToStage}"
                                                                                           DisplayMemberPath="Display" Width="120" FontSize="12" />
@@ -525,7 +690,7 @@
                                     <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="*" />
                                     <DataGridTextColumn Header="المنتج / المرحلة" Binding="{Binding StageDisplay}" Width="*" />
                                     <DataGridTextColumn Header="القطع" Binding="{Binding PieceCount}" Width="90" />
-                                    <DataGridTextColumn Header="كوتة وقتها" Binding="{Binding QuotaAtEntry}" Width="90" />
+                                    <DataGridTextColumn Header="يومية وقتها" Binding="{Binding QuotaAtEntry}" Width="90" />
                                     <DataGridTextColumn Header="اليوميات" Binding="{Binding Workdays}" Width="80" />
                                     <DataGridTemplateColumn Header="" Width="120">
                                         <DataGridTemplateColumn.CellTemplate>

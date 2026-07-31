@@ -5,8 +5,8 @@ namespace WorkforceManager.Business.Services
 {
     /// <summary>
     /// مسؤولة عن كل عمليات "الكتابة" على المنتجات ومراحلها: إضافة/تعديل
-    /// منتج، إيقافه (Soft Delete)، وإدارة مراحله وكوتاتها.
-    /// نقطة مهمة جدًا: تعديل كوتة مرحلة بيسري على التسجيلات الجديدة فقط —
+    /// منتج، إيقافه (Soft Delete)، وإدارة مراحله ويومياتها.
+    /// نقطة مهمة جدًا: تعديل يومية مرحلة بيسري على التسجيلات الجديدة فقط —
     /// السجلات القديمة محمية بالـ Snapshot (PiecesPerWorkdayAtEntry)
     /// المتسجل وقت الإدخال، فالحسابات التاريخية عمرها ما بتتأثر.
     /// </summary>
@@ -108,8 +108,8 @@ namespace WorkforceManager.Business.Services
         // ======================= المراحل =======================
 
         /// <summary>
-        /// يضيف مرحلة جديدة لمنتج بكوتة يوميتها. اسم المرحلة ميتكررش
-        /// جوه نفس المنتج (لكن عادي يتكرر في منتجات تانية بكوتة مختلفة —
+        /// يضيف مرحلة جديدة لمنتج بيوميتها. اسم المرحلة ميتكررش
+        /// جوه نفس المنتج (لكن عادي يتكرر في منتجات تانية بيومية مختلفة —
         /// دي قاعدة أساسية في النظام). لو الترتيب مش متحدد بياخد آخر ترتيب + 1.
         /// </summary>
         public async Task<ProductionStage> AddStageAsync(
@@ -118,7 +118,7 @@ namespace WorkforceManager.Business.Services
             if (string.IsNullOrWhiteSpace(stageName))
                 throw new ArgumentException("اسم المرحلة مطلوب", nameof(stageName));
             if (piecesPerWorkday <= 0)
-                throw new ArgumentException("كوتة اليومية يجب أن تكون رقمًا موجبًا أكبر من صفر", nameof(piecesPerWorkday));
+                throw new ArgumentException("اليومية يجب أن تكون رقمًا موجبًا أكبر من صفر", nameof(piecesPerWorkday));
 
             var product = await _productRepo.GetWithStagesAsync(productId)
                 ?? throw new InvalidOperationException("المنتج المحدد غير موجود");
@@ -141,7 +141,7 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
-        /// يعدّل مرحلة (الاسم / الكوتة / الترتيب). تغيير الكوتة بيسري على
+        /// يعدّل مرحلة (الاسم / اليومية / الترتيب). تغيير اليومية بيسري على
         /// التسجيلات الجديدة فقط — القديم محمي بالـ Snapshot.
         /// </summary>
         public async Task<ProductionStage> UpdateStageAsync(
@@ -150,7 +150,7 @@ namespace WorkforceManager.Business.Services
             if (string.IsNullOrWhiteSpace(stageName))
                 throw new ArgumentException("اسم المرحلة مطلوب", nameof(stageName));
             if (piecesPerWorkday <= 0)
-                throw new ArgumentException("كوتة اليومية يجب أن تكون رقمًا موجبًا أكبر من صفر", nameof(piecesPerWorkday));
+                throw new ArgumentException("اليومية يجب أن تكون رقمًا موجبًا أكبر من صفر", nameof(piecesPerWorkday));
 
             var stage = await _stageRepo.GetByIdAsync(stageId)
                 ?? throw new InvalidOperationException("المرحلة المحددة غير موجودة");

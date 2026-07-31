@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
+using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
 using System.Linq;
 
@@ -85,6 +86,19 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>نطاقات الإنتاج: "من مرحلة إلى مرحلة: عدد قطع"</summary>
         public ObservableCollection<FlowRangeRow> FlowRanges { get; } = new();
 
+        /// <summary>
+        /// القطع الواقفة في خط المنتج ده من أيام فاتت. النطاق اللي بيبدأ من
+        /// نص الخط لازم يختار واحدة منها — ده اللي بيمنع إن قطع تظهر من
+        /// العدم أو تتحسب مرتين.
+        /// </summary>
+        public IReadOnlyList<OpenBatchDto> OpenBatches { get; private set; } = Array.Empty<OpenBatchDto>();
+
+        public bool HasOpenBatches => OpenBatches.Count > 0;
+
+        public string OpenBatchesText => OpenBatches.Count == 0
+            ? ""
+            : $"{OpenBatches.Sum(b => b.Quantity)} قطعة واقفة في {OpenBatches.Count} دفعة من أيام فاتت";
+
         /// <summary>معاينة يوميات كل عامل قبل الحفظ (بتتحدث لحظيًا)</summary>
         public ObservableCollection<FlowWorkerTotalDto> FlowPreview { get; } = new();
 
@@ -116,6 +130,14 @@ namespace WorkforceManager.UI.ViewModels
                 using var scope = _scopeFactory.CreateScope();
                 var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
                 var productionRepo = scope.ServiceProvider.GetRequiredService<IDailyProductionRepository>();
+                var batchService = scope.ServiceProvider.GetRequiredService<ProductionBatchService>();
+
+                // القطع الواقفة من أيام فاتت — دي اللي المستخدم بيختار منها
+                // لما يكون بيكمّل شغل مش بيبدأ من الأول
+                OpenBatches = await batchService.GetOpenBatchesAsync(product.ProductId, _getEntryDate());
+                OnPropertyChanged(nameof(OpenBatches));
+                OnPropertyChanged(nameof(HasOpenBatches));
+                OnPropertyChanged(nameof(OpenBatchesText));
 
                 // المؤهلين لكل مراحل المنتج باستعلام واحد
                 var skillsByStage = (await workerRepo.GetSkillsForProductAsync(product.ProductId))
@@ -149,7 +171,7 @@ namespace WorkforceManager.UI.ViewModels
 
                 // نطاق افتراضي جاهز: من أول مرحلة لآخر مرحلة — لو اليوم كله
                 // بنفس العدد يبقى المستخدم يكتب رقم واحد بس ويحفظ
-                FlowRanges.Add(new FlowRangeRow(product.Stages, OnStructureEdited, RemoveRange)
+                FlowRanges.Add(new FlowRangeRow(product.Stages, OpenBatches, OnStructureEdited, RemoveRange)
                 {
                     FromStage = product.Stages.First(),
                     ToStage = product.Stages.Last()
@@ -385,6 +407,7 @@ namespace WorkforceManager.UI.ViewModels
 
                     stage.AssignedWorkers.Add(new FlowShareEntry(
                         stage, assignment.WorkerId, assignment.WorkerName, OnSharesEdited, RemoveWorkerShare));
+                    stage.ApplyWorkerFilter(); // اللي اتحمّل من المحفوظ يختفي من الاقتراحات
                 }
             }
             finally
@@ -399,7 +422,7 @@ namespace WorkforceManager.UI.ViewModels
         private void AddRange()
         {
             if (SelectedProduct is null) return;
-            FlowRanges.Add(new FlowRangeRow(SelectedProduct.Stages, OnStructureEdited, RemoveRange));
+            FlowRanges.Add(new FlowRangeRow(SelectedProduct.Stages, OpenBatches, OnStructureEdited, RemoveRange));
         }
 
         /// <summary>بيتنادى من زرار الحذف اللي على سطر النطاق نفسه</summary>
@@ -449,14 +472,14 @@ namespace WorkforceManager.UI.ViewModels
                     $"العامل \"{pick.Name}\" مسجل بالفعل على مرحلة \"{stage.StageName}\" النهارده.\n" +
                     "لو عايز تعدّل عدد قطعه، استخدم تبويب \"سجلات اليوم\".",
                     "مسجل بالفعل", MessageBoxButton.OK, MessageBoxImage.Information);
-                stage.SelectedWorkerToAdd = null;
+                stage.ResetWorkerPicker();
                 return;
             }
 
             // تعارض: مكلّف بمرحلة/منتج تاني — تأكيد صريح، والافتراضي "لأ"
             if (check.RequiresConfirmation && !ConfirmOverride(check.Conflicts))
             {
-                stage.SelectedWorkerToAdd = null;
+                stage.ResetWorkerPicker();
                 return; // إلغاء: مفيش أي تغيير لا على الشاشة ولا في البيانات
             }
 
@@ -465,7 +488,7 @@ namespace WorkforceManager.UI.ViewModels
 
             stage.AssignedWorkers.Add(
                 new FlowShareEntry(stage, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare));
-            stage.SelectedWorkerToAdd = null;
+            stage.ResetWorkerPicker();
             RecomputeFlow(); // إعادة التوزيع المتساوي بعد إضافة عامل
         }
 
@@ -473,6 +496,7 @@ namespace WorkforceManager.UI.ViewModels
         private void RemoveWorkerShare(FlowShareEntry share)
         {
             share.Parent.AssignedWorkers.Remove(share);
+            share.Parent.ApplyWorkerFilter(); // رجّعه لقايمة الاقتراحات تاني
             // الموافقة كانت على التكليف ده بالذات — بيشيلها معاه عشان لو
             // اتضاف تاني يتسأل من جديد (مفيش "افتكر اختياري")
             _confirmedAssignments.Remove((share.Parent.StageId, share.WorkerId));
@@ -558,8 +582,12 @@ namespace WorkforceManager.UI.ViewModels
             var ranges = FlowRanges
                 .Where(r => r.FromStage is not null && r.ToStage is not null &&
                             int.TryParse(r.PiecesText?.Trim(), out var p) && p > 0)
-                .Select(r => new FlowRangeDto
+                .Select(r => new BatchRangeDto
                 {
+                    // مصدر القطع: دفعة واقفة، رصيد افتتاحي، ولا إنتاج جديد
+                    // (الاتنين فاضيين = بيبدأ من أول الخط)
+                    BatchId = r.SelectedBatch?.BatchId,
+                    IsOpeningBalance = r.IsOpeningBalance,
                     FromStageId = r.FromStage!.StageId,
                     ToStageId = r.ToStage!.StageId,
                     PieceCount = int.Parse(r.PiecesText!.Trim())
@@ -609,9 +637,20 @@ namespace WorkforceManager.UI.ViewModels
                     ? $"\n\n✔ اتسجل حضور تلقائي لـ {result.AttendanceMarkedCount} عامل"
                     : "";
 
+                // إيه اللي خلص الخط وإيه اللي هيترحّل — أهم سطر للمستخدم
+                // قبل ما يقفل يومه
+                var batchLines = string.Join("\n", result.BatchMovements.Select(m => m.IsCompleted
+                    ? $"  ✔ {m.Pieces} قطعة خلصت الخط كامل"
+                    : $"  ⏳ {m.Pieces} قطعة واقفة عند \"{m.StoppedAtStageName}\""));
+
+                var leftBehind = result.BatchMovements.Where(m => m.WasSplit).ToList();
+                var splitLines = leftBehind.Count == 0 ? "" : "\n" + string.Join("\n", leftBehind.Select(m =>
+                    $"  ⏳ {m.LeftBehindPieces} قطعة فضلت واقفة مكانها"));
+
                 MessageBox.Show(
                     $"تم حفظ رحلة إنتاج \"{SelectedProduct.Name}\" بتاريخ {entryDate:yyyy/MM/dd}\n" +
                     $"({result.RecordsCount} سجل على {result.StagesCovered} مراحل)\n\n" +
+                    $"حالة الإنتاج:\n{batchLines}{splitLines}\n\n" +
                     $"يوميات العمال:\n{totalsLines}{attendanceLine}",
                     "تم الحفظ", MessageBoxButton.OK, MessageBoxImage.Information);
 
@@ -643,6 +682,40 @@ namespace WorkforceManager.UI.ViewModels
 
     /// <summary>عامل مؤهل في قائمة اختيار عمال المرحلة</summary>
     public record WorkerPick(int WorkerId, string Name);
+
+    /// <summary>
+    /// اختيار في قايمة "القطع دي جاية منين؟". القايمة بتفضل ظاهرة دايمًا
+    /// بالتلات اختيارات — من غير كده المستخدم اللي بيسجل من نص الخط بيتقاله
+    /// "اختار دفعة" وهو مش شايف أي قايمة يختار منها.
+    /// </summary>
+    public class BatchSourceChoice
+    {
+        /// <summary>الدفعة الواقفة (null للإنتاج الجديد والرصيد الافتتاحي)</summary>
+        public OpenBatchDto? Batch { get; init; }
+
+        public bool IsNewProduction { get; init; }
+        public bool IsOpeningBalance { get; init; }
+
+        public string Text { get; init; } = "";
+
+        public static BatchSourceChoice NewProduction() => new()
+        {
+            IsNewProduction = true,
+            Text = "🆕 إنتاج جديد — من أول الخط"
+        };
+
+        public static BatchSourceChoice ForBatch(OpenBatchDto batch) => new()
+        {
+            Batch = batch,
+            Text = "⏳ " + batch.PickerText
+        };
+
+        public static BatchSourceChoice OpeningBalance() => new()
+        {
+            IsOpeningBalance = true,
+            Text = "📦 رصيد افتتاحي — القطع عدّت المراحل السابقة قبل كده"
+        };
+    }
 
     /// <summary>حالة مرحلة في رحلة الإنتاج — بتحدد لون البطاقة ورسالتها</summary>
     public enum FlowStageState
@@ -684,7 +757,7 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>مفيش عمال مؤهلين للمرحلة دي — لازم تتربط المهارات الأول (قرار: المؤهلين بس)</summary>
         public bool HasNoQualified => QualifiedWorkers.Count == 0;
 
-        public string QuotaText => $"الكوتة: {Quota}";
+        public string QuotaText => $"اليومية: {Quota}";
 
         // ------- بحث في قايمة العمال المؤهلين -------
 
@@ -700,6 +773,12 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>العمال المعروضين في القايمة دلوقتي (بعد البحث)</summary>
         public ObservableCollection<WorkerPick> VisibleWorkers { get; } = new();
 
+        /// <summary>فيه اقتراحات تتعرض تحت خانة البحث؟</summary>
+        public bool HasSuggestions => VisibleWorkers.Count > 0;
+
+        /// <summary>المستخدم كتب حاجة ومفيش ولا عامل مطابق — لازم يعرف بدل ما يستنى</summary>
+        public bool HasNoMatch => WorkerSearch.Trim().Length > 0 && VisibleWorkers.Count == 0;
+
         /// <summary>بيتنادى بعد بناء الصف عشان القايمة تبدأ كاملة</summary>
         public void ApplyWorkerFilter()
         {
@@ -707,10 +786,54 @@ namespace WorkforceManager.UI.ViewModels
 
             var matches = query.Length == 0
                 ? QualifiedWorkers
-                : QualifiedWorkers.Where(w => w.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
+                : QualifiedWorkers.Where(w => ArabicSearch.Contains(w.Name, query));
 
+            // اللي اتضاف للمرحلة خلاص مبيظهرش تاني — إضافته مرة تانية بترجع
+            // من غير ما يحصل حاجة، فوجوده في القايمة كان بيوهم إن فيه مشكلة
             VisibleWorkers.Clear();
-            foreach (var w in matches) VisibleWorkers.Add(w);
+            foreach (var w in matches.Where(w => AssignedWorkers.All(a => a.WorkerId != w.WorkerId)))
+                VisibleWorkers.Add(w);
+
+            OnPropertyChanged(nameof(HasSuggestions));
+            OnPropertyChanged(nameof(HasNoMatch));
+        }
+
+        /// <summary>
+        /// تحريك الاختيار في قايمة الاقتراحات بالسهمين من غير ما المستخدم
+        /// يسيب خانة البحث. أول ضغطة (ومفيش اختيار) بتاخد أول/آخر عنصر.
+        /// </summary>
+        public void MoveSuggestion(int delta)
+        {
+            if (VisibleWorkers.Count == 0) return;
+
+            var current = SelectedWorkerToAdd is null ? -1 : VisibleWorkers.IndexOf(SelectedWorkerToAdd);
+
+            SelectedWorkerToAdd = current < 0
+                ? VisibleWorkers[delta > 0 ? 0 : VisibleWorkers.Count - 1]
+                : VisibleWorkers[Math.Clamp(current + delta, 0, VisibleWorkers.Count - 1)];
+        }
+
+        /// <summary>
+        /// Enter من غير ما المستخدم ينزل بالسهم: لو النتيجة واحدة بس خدها
+        /// علطول. أكتر من واحدة من غير اختيار = مفيش إضافة (نتفادى إضافة الغلط).
+        /// </summary>
+        public bool TryPickSuggestion()
+        {
+            if (SelectedWorkerToAdd is not null) return true;
+            if (VisibleWorkers.Count != 1) return false;
+
+            SelectedWorkerToAdd = VisibleWorkers[0];
+            return true;
+        }
+
+        /// <summary>تفضية خانة البحث بعد إضافة عامل — الخانة تبقى جاهزة للي بعده</summary>
+        public void ResetWorkerPicker()
+        {
+            SelectedWorkerToAdd = null;
+            WorkerSearch = string.Empty;
+            // لو النص كان فاضي أصلاً الـ setter مش بيشغّل الفلترة، والقايمة
+            // محتاجة تتحدّث برضه عشان اللي اتضاف يختفي منها
+            ApplyWorkerFilter();
         }
 
         // ------- حالة المرحلة (لون وعلامة على البطاقة) -------
@@ -831,15 +954,25 @@ namespace WorkforceManager.UI.ViewModels
         private readonly Action _onEdited;
         private readonly Action<FlowRangeRow> _onRemove;
 
-        public FlowRangeRow(List<StageEntryOption> stageOptions, Action onEdited, Action<FlowRangeRow> onRemove)
+        public FlowRangeRow(
+            List<StageEntryOption> stageOptions,
+            IReadOnlyList<OpenBatchDto> openBatches,
+            Action onEdited,
+            Action<FlowRangeRow> onRemove)
         {
             StageOptions = stageOptions;
+            OpenBatches = openBatches;
             _onEdited = onEdited;
             _onRemove = onRemove;
+
+            RebuildSourceChoices();
         }
 
         /// <summary>مراحل المنتج بالترتيب — نفس القائمة لقايمتي "من" و"إلى"</summary>
         public List<StageEntryOption> StageOptions { get; }
+
+        /// <summary>القطع الواقفة من أيام فاتت على المنتج ده</summary>
+        public IReadOnlyList<OpenBatchDto> OpenBatches { get; }
 
         [ObservableProperty]
         private StageEntryOption? _fromStage;
@@ -850,9 +983,87 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private string _piecesText = "";
 
+        /// <summary>
+        /// مصدر القطع: إنتاج جديد، دفعة واقفة، ولا رصيد افتتاحي.
+        /// القايمة دي بتظهر **دايمًا** — من غيرها المستخدم اللي بيسجل نطاق
+        /// من نص الخط بيتقاله "اختار دفعة" وهو مش شايف ولا قايمة.
+        /// </summary>
+        public ObservableCollection<BatchSourceChoice> SourceChoices { get; } = new();
+
+        [ObservableProperty]
+        private BatchSourceChoice? _selectedSource;
+
+        /// <summary>الدفعة الواقفة المختارة (null = إنتاج جديد أو رصيد افتتاحي)</summary>
+        public OpenBatchDto? SelectedBatch => SelectedSource?.Batch;
+
+        /// <summary>المستخدم قال إن القطع دي عدّت المراحل السابقة برّه النظام</summary>
+        public bool IsOpeningBalance => SelectedSource?.IsOpeningBalance ?? false;
+
         partial void OnFromStageChanged(StageEntryOption? value) => _onEdited();
         partial void OnToStageChanged(StageEntryOption? value) => _onEdited();
         partial void OnPiecesTextChanged(string value) => _onEdited();
+
+        partial void OnSelectedSourceChanged(BatchSourceChoice? value)
+        {
+            if (value?.Batch is { } batch)
+            {
+                // البداية مفروضة: الدفعة واقفة عند مرحلة واحدة بالظبط
+                FromStage = StageOptions.FirstOrDefault(s => s.StageId == batch.NextStageId);
+                if (PiecesText.Trim().Length == 0) PiecesText = batch.Quantity.ToString();
+            }
+            else if (value is { IsNewProduction: true })
+            {
+                // إنتاج جديد بيبدأ من أول الخط دايمًا
+                FromStage = StageOptions.FirstOrDefault();
+            }
+
+            OnPropertyChanged(nameof(SelectedBatch));
+            OnPropertyChanged(nameof(IsOpeningBalance));
+            OnPropertyChanged(nameof(IsContinuingBatch));
+            OnPropertyChanged(nameof(IsStartStageEditable));
+            OnPropertyChanged(nameof(BatchHintText));
+            OnPropertyChanged(nameof(IsOpeningBalanceWarningVisible));
+            _onEdited();
+        }
+
+        /// <summary>بيكمّل دفعة واقفة (مش إنتاج جديد) — بيقفل قايمة "من"</summary>
+        public bool IsContinuingBatch => SelectedBatch is not null;
+
+        /// <summary>
+        /// مرحلة البداية بتتقفل وقت تكميل دفعة: الدفعة واقفة عند مرحلة واحدة
+        /// بالظبط، وأي بداية تانية الخدمة هترفضها. الرصيد الافتتاحي بالعكس —
+        /// المستخدم هو اللي بيحدد دخلت الخط عند فين.
+        /// </summary>
+        public bool IsStartStageEditable => SelectedBatch is null;
+
+        /// <summary>الرصيد الافتتاحي بيفتح ثغرة مقصودة — لازم يبان إنه اختيار مش الوضع الطبيعي</summary>
+        public bool IsOpeningBalanceWarningVisible => IsOpeningBalance;
+
+        public string BatchHintText => SelectedSource switch
+        {
+            { Batch: { } b } =>
+                $"بتكمّل {b.Quantity} قطعة واقفة من {b.DaysWaiting} يوم عند \"{b.NextStageName}\" — " +
+                "تقدر تكتب عدد أقل وتسيب الباقي واقف",
+            { IsOpeningBalance: true } =>
+                "هتتفتح دفعة جديدة عند المرحلة اللي هتختارها في \"من\" — " +
+                "استخدمها للشغل اللي كان واقف في الخط قبل ما النظام يمسك الدفعات",
+            _ => "إنتاج جديد — بيبدأ من أول مرحلة في الخط"
+        };
+
+        /// <summary>بيبني اختيارات المصدر: إنتاج جديد + كل دفعة واقفة + رصيد افتتاحي</summary>
+        public void RebuildSourceChoices()
+        {
+            var previous = SelectedSource;
+
+            SourceChoices.Clear();
+            SourceChoices.Add(BatchSourceChoice.NewProduction());
+            foreach (var batch in OpenBatches) SourceChoices.Add(BatchSourceChoice.ForBatch(batch));
+            SourceChoices.Add(BatchSourceChoice.OpeningBalance());
+
+            SelectedSource = previous?.Batch is { } old
+                ? SourceChoices.FirstOrDefault(c => c.Batch?.BatchId == old.BatchId) ?? SourceChoices[0]
+                : SourceChoices[0];
+        }
 
         [RelayCommand]
         private void Remove() => _onRemove(this);

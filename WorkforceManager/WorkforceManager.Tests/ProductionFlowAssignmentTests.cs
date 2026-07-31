@@ -17,15 +17,29 @@ namespace WorkforceManager.Tests
 
         // ---------------- أدوات مساعدة ----------------
 
-        private Task<FlowSaveResultDto> RecordAsync(
-            int productId, int stageId, int workerId, int pieces = 10, bool confirmOverride = false) =>
-            _db.InScopeAsync<ProductionFlowService, FlowSaveResultDto>(service =>
+        private async Task<FlowSaveResultDto> RecordAsync(
+            int productId, int stageId, int workerId, int pieces = 10, bool confirmOverride = false)
+        {
+            // الاختبارات دي عن قاعدة تكليف العمال. تسجيل على مرحلة من نص الخط
+            // بيحتاج دفعة واقفة يكمّلها (قاعدة الدفعات) — بنجهّزها ونعدّي،
+            // من غير ما تضيف سجلات إنتاج تلخبط العدّ
+            var batchId = await _db.ParkBatchBeforeAsync(productId, stageId);
+
+            return await _db.InScopeAsync<ProductionFlowService, FlowSaveResultDto>(service =>
                 service.RecordFlowAsync(
                     productId,
                     TestDatabase.Today,
-                    new[] { new FlowRangeDto { FromStageId = stageId, ToStageId = stageId, PieceCount = pieces } },
+                    new[]
+                    {
+                        new BatchRangeDto
+                        {
+                            BatchId = batchId,
+                            FromStageId = stageId, ToStageId = stageId, PieceCount = pieces
+                        }
+                    },
                     new[] { new FlowShareDto { ProductionStageId = stageId, WorkerId = workerId, PieceCount = pieces } },
                     confirmOverride));
+        }
 
         /// <summary>تسجيل أولي ناجح: أحمد على "دبلة / تشكيل" — نقطة البداية لأغلب الاختبارات</summary>
         private Task<FlowSaveResultDto> RecordAhmedOnRingShapingAsync() =>
@@ -253,7 +267,7 @@ namespace WorkforceManager.Tests
                     // نطاق واحد بيغطي المرحلتين (زي "من مرحلة 1 إلى مرحلة 11")
                     new[]
                     {
-                        new FlowRangeDto
+                        new BatchRangeDto
                         {
                             FromStageId = TestDatabase.RingStage1Id,
                             ToStageId = TestDatabase.RingStage2Id,

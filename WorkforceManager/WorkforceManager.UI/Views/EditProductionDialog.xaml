@@ -9,7 +9,7 @@
         ResizeMode="NoResize" ShowInTaskbar="False"
         FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
 
-    <!-- تصحيح عدد قطع سجل محفوظ بالغلط — الكوتة المحفوظة وقت التسجيل بتفضل زي ما هي —
+    <!-- تصحيح عدد قطع سجل محفوظ بالغلط — اليومية المحفوظة وقت التسجيل بتفضل زي ما هي —
          بطاقة عائمة بلا إطار نظام زي شاشة الدخول، بشريط علوي بلون البراند -->
     <Border CornerRadius="18" Background="White">
         <Border.Effect>
@@ -40,7 +40,7 @@
 
                 <TextBlock Text="عدد القطع الصحيح" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="PiecesBox" Margin="0,0,0,6" FontSize="15" />
-                <TextBlock Text="اليوميات هتتعاد حسابها تلقائيًا بنفس كوتة وقت التسجيل"
+                <TextBlock Text="اليوميات هتتعاد حسابها تلقائيًا بنفس يومية وقت التسجيل"
                            Style="{StaticResource HintText}" Margin="0,0,0,14" />
 
                 <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerBrush}" FontSize="12"

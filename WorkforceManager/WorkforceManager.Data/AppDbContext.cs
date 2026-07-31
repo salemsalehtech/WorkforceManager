@@ -22,6 +22,8 @@ namespace WorkforceManager.Data
         public DbSet<AppUser> AppUsers => Set<AppUser>();
         public DbSet<HourlyWorkLog> HourlyWorkLogs => Set<HourlyWorkLog>();
         public DbSet<WageAdjustment> WageAdjustments => Set<WageAdjustment>();
+        public DbSet<ProductionBatch> ProductionBatches => Set<ProductionBatch>();
+        public DbSet<ProductionDayClosure> ProductionDayClosures => Set<ProductionDayClosure>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -64,6 +66,36 @@ namespace WorkforceManager.Data
                 .WithMany(s => s.ProductionRecords)
                 .HasForeignKey(dp => dp.ProductionStageId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // ---------- ProductionBatch: دفعة قطع بتمشي في خط منتج ----------
+            modelBuilder.Entity<ProductionBatch>()
+                .HasOne(b => b.Product)
+                .WithMany()
+                .HasForeignKey(b => b.ProductId)
+                .OnDelete(DeleteBehavior.Restrict); // دفعة تاريخية بتمنع حذف منتجها (المنتجات بتتوقف مبتتحذفش)
+
+            modelBuilder.Entity<ProductionBatch>()
+                .HasOne(b => b.LastCompletedStage)
+                .WithMany()
+                .HasForeignKey(b => b.LastCompletedStageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // القسمة (تكميل جزئي): الدفعة الجديدة بتفضل مشيرة للأصلية للتتبع.
+            // Restrict عشان حذف دفعة ميسيبش أولادها بمرجع مكسور
+            modelBuilder.Entity<ProductionBatch>()
+                .HasOne(b => b.SplitFromBatch)
+                .WithMany()
+                .HasForeignKey(b => b.SplitFromBatchId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // سجل الإنتاج بيشاور على الدفعة اللي حرّكها.
+            // SetNull مش Restrict: لو دفعة اتشالت يومًا ما، سجلات الإنتاج
+            // (وأجور العمال المبنية عليها) لازم تفضل — بتفقد الربط بس
+            modelBuilder.Entity<DailyProduction>()
+                .HasOne(dp => dp.ProductionBatch)
+                .WithMany(b => b.Productions)
+                .HasForeignKey(dp => dp.ProductionBatchId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             // ---------- Attendance: Worker (1-to-many) ----------
             modelBuilder.Entity<Attendance>()

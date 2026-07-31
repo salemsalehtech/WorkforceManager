@@ -146,8 +146,11 @@ Core  <----------------------- UI
   (completed pieces = last-stage-per-product, same rule as the chart) with Excel export via
   `WeeklyReportExcelService.ExportGeneralReport`/`ExportWorkerReport`. `ProductsView` is implemented with the same card language as the workers/attendance screens: summary bar
   (active products / total stages / total + a "needs attention" button), instant search (product or stage
-  name), `FilterChip` filters (النشط / الكل / موقوف), and product cards showing stage count and
-  `TotalQuota`. The right panel renders the product as a **production line** — one card per stage with its
+  name), `FilterChip` filters (النشط / الكل / موقوف), and product cards showing stage count only — a
+  `TotalQuota` stat (sum of every active stage's `PiecesPerWorkday`) was removed on purpose: summing
+  quotas across sequential stages measures nothing, since a piece passes through the stages in order
+  rather than in parallel, so the number just grew with stage count. Don't reintroduce it.
+  The right panel renders the product as a **production line** — one card per stage with its
   position number, quota, and **how many workers are qualified for it**, plus ▲▼ buttons that reorder the
   line. Reordering goes through `ProductManagementService.MoveStageAsync(stageId, moveUp)`, which swaps
   with the neighbour and then **renumbers the whole line from 1** (healing gaps/duplicates left by older
@@ -171,8 +174,9 @@ Core  <----------------------- UI
 
 ### Domain model relationships
 
-- `Product` 1—* `ProductionStage` (cascade delete): each stage carries its own `PiecesPerWorkday` ("كوتة
-  اليومية") — the same stage name can repeat across products with an independent quota/price each.
+- `Product` 1—* `ProductionStage` (cascade delete): each stage carries its own `PiecesPerWorkday`
+  ("اليومية" — the Arabic term shown in every UI surface; "كوتة" was retired) — the same stage name can
+  repeat across products with an independent quota/price each.
   `Product.ImageData` (nullable BLOB) holds an optional product photo **inside the DB on purpose** — the
   backup only copies the `.db` file, so images kept as loose files would be lost on restore or when
   moving to another machine. Always write it through `ProductManagementService.SetProductImageAsync`
@@ -228,8 +232,53 @@ Core  <----------------------- UI
 
 ### Business logic notes
 
+- **Production batches (`ProductionBatch` + `ProductionBatchService` — the ONLY place batch rules
+  live).** A batch is a quantity of pieces walking a product's line stage by stage; it usually does
+  NOT finish in one day. Before this existed the system recorded "stage 5 got 300 pieces today" with
+  no link between those 300 and the 300 finished tomorrow, so "is this product done?" was
+  unanswerable and multiple parked lots were indistinguishable.
+  - A range starting at line position 1 **opens** a batch; a range starting mid-line **must** name an
+    open batch (`BatchRangeDto.BatchId`) and must start exactly at that batch's next stage. This is
+    what makes it impossible for pieces to appear from nowhere or be counted twice — don't relax it.
+  - **Opening balance is the one sanctioned way past that rule** (`BatchRangeDto.IsOpeningBalance` →
+    `ProductionBatch.IsOpeningBalance`). It opens a batch *mid-line* with `LastCompletedStageId` set
+    to the stage before the entry point, for pieces whose earlier stages happened outside the system.
+    It exists because the feature shipped onto a database with months of history: every lot already
+    sitting in the line had no batch, so without this the app was unusable on day one. Keep it
+    explicit, flagged, and visible in the UI — the moment it becomes a silent fallback the "no pieces
+    from nowhere" guarantee is gone. Its early stages have no `DailyProduction` rows, so a
+    "stage 7 pieces == sum of stages 1..6" audit will not reconcile for these batches; the flag is
+    what explains that.
+  - The "القطع دي جاية منين؟" picker (`BatchSourceChoice`) is always visible with all three options.
+    It used to be hidden when no open batches existed, which produced a dead end: the save error told
+    the user to pick a batch while no picker and no batches were on screen.
+  - `LastCompletedStageId` stores a **stage id, not a position**: `MoveStageAsync` renumbers the whole
+    line, so a stored position would corrupt every open batch. Position is resolved from the stage at
+    read time via `ProductionBatchService.NextStage`.
+  - **Partial continuation splits**: continuing 60 of a 100-piece batch leaves 60 in the original
+    batch (keeping its identity and `StartedDate`) and moves 40 into a new batch with
+    `SplitFromBatchId` set, parked at the same stage. Sum of the parts always equals the original —
+    `Partial_continuation_splits_the_batch_and_conserves_the_total` guards that.
+  - Completion is credited to the day the batch **actually finished**, never backdated to
+    `StartedDate`. A printed report never changes retroactively; the finish day instead reports
+    `CompletedFromCarriedPieces` so the carried portion is visible.
+  - Wages are untouched by all of this: workers are paid per stage per the day they worked
+    (`DailyProduction` rows), so a carried batch pays yesterday's workers yesterday and today's today.
+  - Cancelling a batch (scrap) removes it from parked without counting as output, but **keeps** the
+    production rows — the workers did the work and get paid.
+- **Day closure** (`DayClosureService`): `PreviewAsync` shows every parked lot, `CloseAsync` writes a
+  `ProductionDayClosure` row and `RecordFlowAsync` then refuses that date. Carrying forward is not an
+  operation — an open batch stays open by itself; closing is the user *seeing and approving* it, which
+  gives the day final numbers. `ReopenAsync` undoes it (data-entry mistakes are normal).
+- `WorkdayCalculationService.Update/DeleteProductionAsync` **refuse** rows that belong to a batch
+  (`EnsureNotPartOfBatch`). Editing a row's pieces without correcting the batch desyncs quantity from
+  the line position and makes the completed/parked report lie silently. The intended correction path
+  is cancel the batch and re-record. This is a known sharp edge — a proper batch-correction flow is
+  not built yet.
 - `DailyProduction` rows are created only by `WorkdayCalculationService` (single/batch) or
-  `ProductionFlowService.RecordFlowAsync` — both snapshot the stage quota automatically.
+  `ProductionFlowService.RecordFlowAsync` — both snapshot the stage quota automatically. Only the
+  flow path links rows to a batch; rows predating batches keep `ProductionBatchId = null` and stay
+  out of the completed/parked report while still counting for wages.
 - **Worker-assignment rule** (`WorkerAssignmentGuard` in Business — the ONLY place this rule exists;
   never re-implement it in a controller/ViewModel). An "assignment" is a `DailyProduction` row, so
   "assigned" = has a row for that worker/stage/date. By default a worker holds one assignment per

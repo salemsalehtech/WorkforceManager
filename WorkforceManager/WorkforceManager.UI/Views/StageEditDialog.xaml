@@ -9,7 +9,7 @@
         ResizeMode="NoResize" ShowInTaskbar="False"
         FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
 
-    <!-- نافذة إضافة/تعديل مرحلة تصنيع بكوتة يوميتها — بطاقة عائمة بلا إطار نظام
+    <!-- نافذة إضافة/تعديل مرحلة تصنيع بيوميتها — بطاقة عائمة بلا إطار نظام
          زي شاشة الدخول، بشريط علوي بلون البراند -->
     <Border CornerRadius="18" Background="White">
         <Border.Effect>
@@ -33,10 +33,10 @@
                 <TextBlock Text="اسم المرحلة (إجباري)" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="NameBox" Margin="0,0,0,12" />
 
-                <TextBlock Text="كوتة اليومية: عدد القطع اللي بتساوي يومية عمل كاملة (إجباري)" Style="{StaticResource FieldLabel}" />
+                <TextBlock Text="اليومية: عدد القطع اللي بتساوي يومية عمل كاملة (إجباري)" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="QuotaBox" Margin="0,0,0,4" />
-                <!-- تنبيه مهم: تعديل الكوتة مش بيأثر على السجلات القديمة (محمية بالـ Snapshot) -->
-                <TextBlock Text="ملحوظة: تعديل الكوتة يسري على التسجيلات الجديدة فقط — الحسابات القديمة محفوظة زي ما كانت."
+                <!-- تنبيه مهم: تعديل اليومية مش بيأثر على السجلات القديمة (محمية بالـ Snapshot) -->
+                <TextBlock Text="ملحوظة: تعديل اليومية يسري على التسجيلات الجديدة فقط — الحسابات القديمة محفوظة زي ما كانت."
                            FontSize="11.5" Foreground="{StaticResource WarnBrush}" TextWrapping="Wrap" Margin="0,0,0,12" />
 
                 <TextBlock Text="الترتيب داخل خط الإنتاج (اختياري — بياخد آخر ترتيب تلقائيًا)" Style="{StaticResource FieldLabel}" />

@@ -33,6 +33,7 @@ namespace WorkforceManager.UI.ViewModels
         public async Task InitializeAsync()
         {
             await LoadDailyAsync();
+            await LoadOutputAsync();
             await LoadWeeklyAsync();
             await LoadChartAsync();
             await LoadPayrollAsync();
@@ -93,6 +94,53 @@ namespace WorkforceManager.UI.ViewModels
             DailySummaryText = producers.Count == 0
                 ? "لا يوجد إنتاج مسجّل في هذا اليوم"
                 : $"عدد المنتجين: {producers.Count} عامل   |   متوسط الفريق: {producers[0].TeamAverageWorkdays:0.##} يومية";
+        }
+
+        // ======================= تبويب إنتاج اليوم (الدفعات) =======================
+
+        [ObservableProperty]
+        private DateTime _outputDate = DateTime.Today;
+
+        partial void OnOutputDateChanged(DateTime value) => SafeAsync.Run(LoadOutputAsync);
+
+        /// <summary>منتجات فيها حركة في اليوم ده (مكتمل أو واقف)</summary>
+        public ObservableCollection<DailyProductReportDto> OutputProducts { get; } = new();
+
+        [ObservableProperty]
+        private string _outputCompletedText = "0";
+
+        [ObservableProperty]
+        private string _outputParkedText = "0";
+
+        [ObservableProperty]
+        private string _outputCarriedText = "0";
+
+        [ObservableProperty]
+        private bool _outputIsClosed;
+
+        [ObservableProperty]
+        private bool _outputIsEmpty = true;
+
+        /// <summary>
+        /// تقرير إنتاج اليوم بالدفعات: كام قطعة خلصت الخط، كام لسه واقفة
+        /// وعند أنهي مرحلة. ده الرقم اللي بيقول "المنتج ده مكتمل ولا لأ" —
+        /// تقرير القطع القديم بيعد الحركة على المراحل مش الإنتاج التام.
+        /// </summary>
+        private async Task LoadOutputAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<DailyProductionReportService>();
+
+            var report = await service.GetAsync(OutputDate);
+
+            OutputProducts.Clear();
+            foreach (var product in report.Products) OutputProducts.Add(product);
+
+            OutputCompletedText = report.TotalCompletedPieces.ToString("N0");
+            OutputParkedText = report.TotalParkedPieces.ToString("N0");
+            OutputCarriedText = report.TotalCarriedInPieces.ToString("N0");
+            OutputIsClosed = report.IsClosed;
+            OutputIsEmpty = report.Products.Count == 0;
         }
 
         // ======================= تبويب كشف الأسبوع =======================

@@ -1,0 +1,117 @@
+<Window x:Class="WorkforceManager.UI.Views.DayClosureDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="قفل إنتاج اليوم" Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
+
+    <!-- مراجعة الواقف قبل الترحيل — مفيش حاجة بتترحّل من غير ما المستخدم يشوفها -->
+    <Border CornerRadius="18" Background="White">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
+        </Border.Effect>
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
+                    CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Foreground="White"
+                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
+                            ToolTip="إغلاق">
+                        <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
+                    </Button>
+                    <StackPanel>
+                        <TextBlock Text="قفل إنتاج اليوم" Foreground="White" FontSize="15.5" FontWeight="Bold" />
+                        <TextBlock x:Name="DateText" Foreground="#CFE0FF" FontSize="12" Margin="0,2,0,0" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <StackPanel Margin="20,16,20,18">
+                <!-- ملخص اليوم -->
+                <UniformGrid Columns="2" Margin="0,0,0,12">
+                    <Border Background="{StaticResource SuccessBgBrush}" CornerRadius="10" Padding="12,10" Margin="0,0,5,0">
+                        <StackPanel>
+                            <TextBlock x:Name="CompletedText" FontSize="20" FontWeight="Bold"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{StaticResource SuccessBrush}" />
+                            <TextBlock Text="قطعة خلصت الخط النهارده" FontSize="11" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{StaticResource WarnBgBrush}" CornerRadius="10" Padding="12,10" Margin="5,0,0,0">
+                        <StackPanel>
+                            <TextBlock x:Name="CarriedText" FontSize="20" FontWeight="Bold"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{StaticResource WarnBrush}" />
+                            <TextBlock Text="قطعة هتترحّل لبكرة" FontSize="11" HorizontalAlignment="Center"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+
+                <TextBlock x:Name="CarriedHeader" Text="الشغل اللي هيترحّل" FontWeight="Bold" FontSize="13"
+                           Margin="0,0,0,6" />
+
+                <!-- الدفعات الواقفة، كل واحدة عند مرحلتها -->
+                <ScrollViewer x:Name="LotsScroller" MaxHeight="260" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="LotsList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
+                                        Padding="10,7" Margin="0,0,0,5">
+                                    <DockPanel>
+                                        <Border DockPanel.Dock="Left" Background="{StaticResource WarnBgBrush}"
+                                                CornerRadius="6" Padding="8,3" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Quantity}" FontSize="13.5" FontWeight="Bold"
+                                                       Foreground="{StaticResource WarnBrush}" />
+                                        </Border>
+                                        <StackPanel Margin="9,0,0,0" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding ProductName}" FontSize="12.5" FontWeight="Bold"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                                <TextBlock Text="←" FontSize="12" Margin="5,0"
+                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                                <TextBlock Text="{Binding NextStageName}" FontSize="12.5"
+                                                           Foreground="{StaticResource BrandBrush}" />
+                                            </StackPanel>
+                                            <TextBlock FontSize="10.5" Margin="0,2,0,0"
+                                                       Foreground="{StaticResource TextMutedBrush}">
+                                                <Run Text="واقفة من" /><Run Text="{Binding DaysWaiting, Mode=OneWay}" /><Run Text=" يوم — دخلت الخط" />
+                                                <Run Text="{Binding StartedDate, StringFormat=dd/MM, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- مفيش واقف خالص -->
+                <Border x:Name="NothingCarried" Background="{StaticResource SuccessBgBrush}" CornerRadius="8"
+                        Padding="12,10" Visibility="Collapsed">
+                    <TextBlock Text="مفيش شغل واقف — كل اللي اتسجل النهارده خلص الخط كامل"
+                               FontSize="12.5" TextWrapping="Wrap"
+                               Foreground="{StaticResource SuccessBrush}" />
+                </Border>
+
+                <TextBlock Text="بعد القفل مش هينفع يتسجل إنتاج جديد على اليوم ده (تقدر تفتحه تاني في أي وقت)."
+                           FontSize="11.5" TextWrapping="Wrap" Margin="0,12,0,0"
+                           Foreground="{StaticResource TextMutedBrush}" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,14,0,0">
+                    <Button Style="{StaticResource GhostButton}" Padding="16,8" IsCancel="True" Content="إلغاء" />
+                    <Button x:Name="ConfirmButton" Style="{StaticResource PrimaryButton}" Padding="16,8"
+                            Margin="8,0,0,0" IsDefault="True" Click="Confirm_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="LockCheck" Width="15" Height="15" VerticalAlignment="Center" />
+                            <TextBlock Text="أكّد وأقفل اليوم" Margin="6,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+    </Border>
+</Window>
