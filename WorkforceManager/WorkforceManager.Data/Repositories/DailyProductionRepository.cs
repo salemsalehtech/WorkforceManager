@@ -38,5 +38,22 @@ namespace WorkforceManager.Data.Repositories
                 .OrderBy(dp => dp.Date)
                 .ToListAsync();
         }
+
+        public Task<IReadOnlyDictionary<int, int>> GetStageTotalsOnAsync(DateTime date) =>
+            StageTotalsAsync(DbSet.Where(dp => dp.Date.Date == date.Date));
+
+        public Task<IReadOnlyDictionary<int, int>> GetStageTotalsUpToAsync(DateTime date) =>
+            StageTotalsAsync(DbSet.Where(dp => dp.Date.Date <= date.Date));
+
+        /// <summary>التجميع نفسه — بيتنفذ كـ GROUP BY في الداتابيز مش في الذاكرة</summary>
+        private static async Task<IReadOnlyDictionary<int, int>> StageTotalsAsync(IQueryable<DailyProduction> rows)
+        {
+            var totals = await rows
+                .GroupBy(dp => dp.ProductionStageId)
+                .Select(g => new { StageId = g.Key, Pieces = g.Sum(dp => dp.PieceCount) })
+                .ToListAsync();
+
+            return totals.ToDictionary(t => t.StageId, t => t.Pieces);
+        }
     }
 }

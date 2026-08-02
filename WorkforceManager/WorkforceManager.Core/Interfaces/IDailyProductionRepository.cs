@@ -12,5 +12,21 @@ namespace WorkforceManager.Core.Interfaces
 
         /// <summary>كل سجلات الإنتاج لكل العمال خلال فترة زمنية (للملخص والتقرير الأسبوعي المجمّع)</summary>
         Task<IReadOnlyList<DailyProduction>> GetByRangeAsync(DateTime from, DateTime to);
+
+        /// <summary>
+        /// مجموع القطع لكل مرحلة في يوم واحد — إنتاج اليوم على كل مرحلة.
+        /// المفتاح = ProductionStageId.
+        /// </summary>
+        Task<IReadOnlyDictionary<int, int>> GetStageTotalsOnAsync(DateTime date);
+
+        /// <summary>
+        /// مجموع القطع لكل مرحلة من أول التسجيل لحد اليوم ده (شامله).
+        ///
+        /// ده أساس حساب "الواقف": القطع المستنية قبل مرحلة معينة = إجمالي
+        /// اللي خلص المرحلة اللي قبلها ناقص إجمالي اللي خلص المرحلة نفسها.
+        /// التجميع بيتم في الداتابيز مش في الذاكرة — الأرقام دي بتتراكم
+        /// على مدار سنين والتحميل الكامل مش هيفضل عملي.
+        /// </summary>
+        Task<IReadOnlyDictionary<int, int>> GetStageTotalsUpToAsync(DateTime date);
     }
 }
