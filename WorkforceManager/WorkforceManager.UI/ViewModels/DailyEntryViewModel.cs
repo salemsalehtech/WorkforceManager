@@ -133,19 +133,19 @@ namespace WorkforceManager.UI.ViewModels
         {
             using var scope = _scopeFactory.CreateScope();
             var closure = scope.ServiceProvider.GetRequiredService<DayClosureService>();
-            var batches = scope.ServiceProvider.GetRequiredService<ProductionBatchService>();
+            var report = scope.ServiceProvider.GetRequiredService<DailyProductionReportService>();
 
             IsDayClosed = await closure.IsClosedAsync(EntryDate);
 
-            var parked = await batches.GetAllParkedAsync(EntryDate);
-            CarriedSummary = parked.Count == 0
+            var parked = await report.GetAllParkedAsync(EntryDate);
+            var pieces = parked.Sum(p => p.ParkedPieces);
+            CarriedSummary = pieces == 0
                 ? ""
-                : $"{parked.Sum(l => l.Quantity):N0} قطعة واقفة في {parked.Count} دفعة";
+                : $"{pieces:N0} قطعة مستنية في {parked.Count} منتج";
         }
 
         /// <summary>
-        /// يقفل اليوم بعد مراجعة الواقف، أو يفتحه تاني لو كان مقفول.
-        /// الترحيل نفسه تلقائي — الزرار ده بيخلي المستخدم يشوف ويوافق.
+        /// يقفل اليوم بعد مراجعة أرقامه، أو يفتحه تاني لو كان مقفول.
         /// </summary>
         [RelayCommand]
         private async Task ToggleDayClosureAsync()
@@ -176,9 +176,9 @@ namespace WorkforceManager.UI.ViewModels
 
                 MessageBox.Show(
                     $"اتقفل إنتاج يوم {EntryDate:yyyy/MM/dd}.\n" +
-                    (preview.CarriedPieces > 0
-                        ? $"{preview.CarriedPieces:N0} قطعة اتّرحّلت — هتلاقيها جاهزة في قايمة \"القطع دي جاية منين؟\" بكرة."
-                        : "مفيش شغل واقف."),
+                    (preview.ParkedPieces > 0
+                        ? $"{preview.ParkedPieces:N0} قطعة لسه مستنية في الخط — هتلاقي أرقامها على المراحل بكرة."
+                        : "مفيش شغل مستني في الخط."),
                     "تم القفل", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (InvalidOperationException ex)

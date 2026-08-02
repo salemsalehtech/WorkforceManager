@@ -251,22 +251,18 @@
                                                 </Border>
                                             </DockPanel>
 
-                                            <!-- شغل واقف من أيام فاتت — أول حاجة المستخدم لازم يشوفها -->
+                                            <!-- الشغل المستني في الخط — أول حاجة المستخدم لازم يشوفها -->
                                             <Border DockPanel.Dock="Top" Background="{StaticResource WarnBgBrush}"
                                                     BorderBrush="{StaticResource WarnBrush}" BorderThickness="1.2"
                                                     CornerRadius="8" Padding="10,7" Margin="0,0,0,8"
-                                                    Visibility="{Binding HasOpenBatches, Converter={StaticResource BoolToVis}}">
+                                                    Visibility="{Binding HasParkedPieces, Converter={StaticResource BoolToVis}}">
                                                 <StackPanel Orientation="Horizontal">
                                                     <materialDesign:PackIcon Kind="PackageVariantClosed" Width="16" Height="16"
                                                                             VerticalAlignment="Center"
                                                                             Foreground="{StaticResource WarnBrush}" />
-                                                    <TextBlock Text="{Binding OpenBatchesText}" FontSize="12" FontWeight="Medium"
+                                                    <TextBlock Text="{Binding ParkedPiecesText}" FontSize="12" FontWeight="Medium"
                                                                Margin="6,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center"
                                                                Foreground="{StaticResource WarnBrush}" />
-                                                    <TextBlock Text="— اختارها من قايمة &quot;القطع دي جاية منين؟&quot; عشان تكمّلها"
-                                                               FontSize="11.5" Margin="5,0,0,0" TextWrapping="Wrap"
-                                                               VerticalAlignment="Center"
-                                                               Foreground="{StaticResource TextMutedBrush}" />
                                                 </StackPanel>
                                             </Border>
 
@@ -353,6 +349,15 @@
                                                                                        VerticalAlignment="Center" Margin="8,0,0,0" />
                                                                             <TextBlock Text="{Binding QuotaText}" Foreground="{StaticResource TextMutedBrush}" FontSize="11.5"
                                                                                        VerticalAlignment="Center" Margin="10,0,0,0" />
+
+                                                                            <!-- القطع المستنية المرحلة دي — بتقول للمستخدم يحط عماله فين -->
+                                                                            <Border Background="{StaticResource WarnBgBrush}" CornerRadius="5" Padding="6,2"
+                                                                                    VerticalAlignment="Center" Margin="10,0,0,0"
+                                                                                    Visibility="{Binding HasWaitingPieces, Converter={StaticResource BoolToVis}}">
+                                                                                <TextBlock Text="{Binding WaitingText}" Foreground="{StaticResource WarnBrush}"
+                                                                                           FontSize="11.5" FontWeight="SemiBold" />
+                                                                            </Border>
+
                                                                             <TextBlock Text="{Binding AlreadyText}" Foreground="{StaticResource WarnBrush}" FontSize="11.5"
                                                                                        VerticalAlignment="Center" Margin="10,0,0,0" />
 
@@ -535,39 +540,10 @@
                                                                     <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
                                                                             CornerRadius="6" Padding="8,6" Margin="0,0,0,6">
                                                                         <StackPanel>
-                                                                            <!-- ===== مصدر القطع — بيفضل ظاهر دايمًا ===== -->
-                                                                            <StackPanel Margin="0,0,0,6">
-                                                                                <TextBlock Text="القطع دي جاية منين؟" FontSize="12" FontWeight="Bold"
-                                                                                           Foreground="{StaticResource BrandBrush}" Margin="0,0,0,3" />
-                                                                                <ComboBox ItemsSource="{Binding SourceChoices}"
-                                                                                          SelectedItem="{Binding SelectedSource}"
-                                                                                          DisplayMemberPath="Text"
-                                                                                          FontSize="11.5" />
-                                                                                <TextBlock Text="{Binding BatchHintText}" FontSize="11" TextWrapping="Wrap"
-                                                                                           Margin="2,3,0,0"
-                                                                                           Foreground="{StaticResource TextMutedBrush}" />
-
-                                                                                <!-- الرصيد الافتتاحي ثغرة مقصودة — لازم تبان -->
-                                                                                <Border Background="{StaticResource WarnBgBrush}" CornerRadius="6"
-                                                                                        Padding="8,5" Margin="0,4,0,0"
-                                                                                        Visibility="{Binding IsOpeningBalanceWarningVisible, Converter={StaticResource BoolToVis}}">
-                                                                                    <StackPanel Orientation="Horizontal">
-                                                                                        <materialDesign:PackIcon Kind="AlertOutline" Width="13" Height="13"
-                                                                                                                VerticalAlignment="Top"
-                                                                                                                Foreground="{StaticResource WarnBrush}" />
-                                                                                        <TextBlock Text="النظام مش هيتحقق إن القطع دي عدّت المراحل السابقة فعلاً — استخدمها بس لو انت متأكد."
-                                                                                                   FontSize="10.5" TextWrapping="Wrap" Margin="5,0,0,0"
-                                                                                                   Foreground="{StaticResource WarnBrush}" />
-                                                                                    </StackPanel>
-                                                                                </Border>
-                                                                            </StackPanel>
-
                                                                             <StackPanel Orientation="Horizontal">
                                                                                 <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" />
-                                                                                <!-- تكميل دفعة: البداية مفروضة (المرحلة اللي واقفة عندها) -->
                                                                                 <ComboBox ItemsSource="{Binding StageOptions}" SelectedItem="{Binding FromStage}"
-                                                                                          DisplayMemberPath="Display" Width="120" FontSize="12"
-                                                                                          IsEnabled="{Binding IsStartStageEditable}" />
+                                                                                          DisplayMemberPath="Display" Width="120" FontSize="12" />
                                                                                 <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" />
                                                                                 <ComboBox ItemsSource="{Binding StageOptions}" SelectedItem="{Binding ToStage}"
                                                                                           DisplayMemberPath="Display" Width="120" FontSize="12" />

@@ -20,20 +20,14 @@ namespace WorkforceManager.Tests
         private async Task<FlowSaveResultDto> RecordAsync(
             int productId, int stageId, int workerId, int pieces = 10, bool confirmOverride = false)
         {
-            // الاختبارات دي عن قاعدة تكليف العمال. تسجيل على مرحلة من نص الخط
-            // بيحتاج دفعة واقفة يكمّلها (قاعدة الدفعات) — بنجهّزها ونعدّي،
-            // من غير ما تضيف سجلات إنتاج تلخبط العدّ
-            var batchId = await _db.ParkBatchBeforeAsync(productId, stageId);
-
             return await _db.InScopeAsync<ProductionFlowService, FlowSaveResultDto>(service =>
                 service.RecordFlowAsync(
                     productId,
                     TestDatabase.Today,
                     new[]
                     {
-                        new BatchRangeDto
+                        new FlowRangeDto
                         {
-                            BatchId = batchId,
                             FromStageId = stageId, ToStageId = stageId, PieceCount = pieces
                         }
                     },
@@ -267,7 +261,7 @@ namespace WorkforceManager.Tests
                     // نطاق واحد بيغطي المرحلتين (زي "من مرحلة 1 إلى مرحلة 11")
                     new[]
                     {
-                        new BatchRangeDto
+                        new FlowRangeDto
                         {
                             FromStageId = TestDatabase.RingStage1Id,
                             ToStageId = TestDatabase.RingStage2Id,

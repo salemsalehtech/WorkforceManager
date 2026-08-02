@@ -65,12 +65,10 @@ namespace WorkforceManager.Tests
             services.AddScoped<IPenaltyRepository, PenaltyRepository>();
             services.AddScoped<IHourlyWorkLogRepository, HourlyWorkLogRepository>();
             services.AddScoped<IGenericRepository<ProductionStage>, GenericRepository<ProductionStage>>();
-            services.AddScoped<IProductionBatchRepository, ProductionBatchRepository>();
             services.AddScoped<IProductionDayClosureRepository, ProductionDayClosureRepository>();
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
             services.AddScoped<WorkerAssignmentGuard>();
-            services.AddScoped<ProductionBatchService>();
             services.AddScoped<ProductionFlowService>();
             services.AddScoped<DayClosureService>();
             services.AddScoped<DailyProductionReportService>();
@@ -104,44 +102,6 @@ namespace WorkforceManager.Tests
         {
             using var scope = CreateScope();
             return await action(GetService<TService>(scope));
-        }
-
-        /// <summary>
-        /// بيحضّر دفعة واقفة عند مرحلة معينة **من غير أي سجلات إنتاج**.
-        ///
-        /// قاعدة الدفعات بترفض أي نطاق بيبدأ من نص الخط من غير دفعة يكمّلها.
-        /// الاختبارات اللي موضوعها حاجة تانية (قاعدة التكليف، الحضور التلقائي)
-        /// بتسجل على مرحلة من نص الخط، فمحتاجة الدفعة دي تكون موجودة.
-        /// بنكتبها في القاعدة مباشرة عشان عدّ سجلات الإنتاج في الاختبار
-        /// يفضل زي ما هو.
-        ///
-        /// بيرجّع null لو المرحلة هي أول الخط (مفيش داعي لدفعة).
-        /// </summary>
-        public async Task<int?> ParkBatchBeforeAsync(int productId, int stageId, int quantity = 1000)
-        {
-            using var scope = CreateScope();
-            var db = GetService<AppDbContext>(scope);
-
-            var line = await db.ProductionStages
-                .Where(s => s.ProductId == productId && s.IsActive)
-                .OrderBy(s => s.SortOrder).ThenBy(s => s.Id)
-                .ToListAsync();
-
-            var index = line.FindIndex(s => s.Id == stageId);
-            if (index <= 0) return null; // أول الخط أو مرحلة مش موجودة
-
-            var batch = new ProductionBatch
-            {
-                ProductId = productId,
-                StartedDate = Today.Date,
-                Quantity = quantity,
-                LastCompletedStageId = line[index - 1].Id,
-                Status = BatchStatus.Open
-            };
-
-            db.ProductionBatches.Add(batch);
-            await db.SaveChangesAsync();
-            return batch.Id;
         }
 
         /// <summary>كل سجلات الإنتاج في اليوم — للتأكد من اللي اتحفظ فعلاً</summary>

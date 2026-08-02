@@ -48,20 +48,11 @@ namespace WorkforceManager.Business.DTOs
         /// <summary>إجمالي كل عامل شارك في الرحلة (قطعه ويومياته) — مرتب بالأعلى يوميات</summary>
         public List<FlowWorkerTotalDto> WorkerTotals { get; init; } = new();
 
-        /// <summary>
-        /// إيه اللي حصل لكل دفعة اتحركت: خلصت الخط، وقفت عند مرحلة، أو
-        /// اتقسمت. الرسالة بعد الحفظ بتتبني منها عشان المستخدم يعرف إيه
-        /// اللي هيترحّل لبكرة قبل ما يقفل اليوم.
-        /// </summary>
-        public List<BatchMovementDto> BatchMovements { get; init; } = new();
+        /// <summary>قطع خلصت آخر مرحلة في الحفظة دي = منتج تام</summary>
+        public int CompletedPieces { get; init; }
 
-        /// <summary>عدد الدفعات اللي خلصت الخط كله في الحفظة دي</summary>
-        public int CompletedBatches => BatchMovements.Count(m => m.IsCompleted);
-
-        /// <summary>قطع لسه واقفة من الحفظة دي (هتترحّل لبكرة)</summary>
-        public int StillOpenPieces => BatchMovements
-            .Where(m => !m.IsCompleted)
-            .Sum(m => m.Pieces) + BatchMovements.Sum(m => m.LeftBehindPieces);
+        /// <summary>قطع دخلت أول مرحلة في الحفظة دي</summary>
+        public int StartedPieces { get; init; }
     }
 
     /// <summary>إجمالي عامل واحد في رحلة الإنتاج (لملخص ما بعد الحفظ والمعاينة قبل الحفظ)</summary>

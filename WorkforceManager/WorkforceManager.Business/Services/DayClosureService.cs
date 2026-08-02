@@ -5,10 +5,13 @@ using WorkforceManager.Core.Models;
 namespace WorkforceManager.Business.Services
 {
     /// <summary>
-    /// إقفال إنتاج اليوم. الترحيل نفسه مش عملية — الدفعة المفتوحة بتفضل
-    /// مفتوحة لوحدها لحد ما حد يكمّلها. اللي بيحصل هنا إن المستخدم **بيشوف**
-    /// الواقف ويوافق عليه، فاليوم بياخد حالة نهائية ومبقاش ينفع يتسجل عليه
-    /// إنتاج جديد يغيّر أرقام تقرير اتطبع خلاص.
+    /// إقفال إنتاج اليوم: المستخدم **بيشوف** أرقام اليوم ويوافق عليها،
+    /// فاليوم بياخد حالة نهائية ومبقاش ينفع يتسجل عليه إنتاج جديد يغيّر
+    /// أرقام تقرير اتطبع خلاص.
+    ///
+    /// الواقف مش بيتحرّك ولا بيترحّل — هو أصلاً محسوب من سجلات الإنتاج،
+    /// فالقطع اللي معدّتش المرحلة الجاية بتفضل بانها واقفة لوحدها بكرة
+    /// وبعد بكرة لحد ما حد يشتغل عليها.
     ///
     /// الإقفال قابل للفتح تاني — الغلط في الإدخال وارد، وحبس المستخدم بره
     /// يومه مش حل.
@@ -16,19 +19,16 @@ namespace WorkforceManager.Business.Services
     public class DayClosureService
     {
         private readonly IProductionDayClosureRepository _closureRepo;
-        private readonly IProductionBatchRepository _batchRepo;
-        private readonly ProductionBatchService _batchService;
+        private readonly DailyProductionReportService _reportService;
         private readonly IUnitOfWork _unitOfWork;
 
         public DayClosureService(
             IProductionDayClosureRepository closureRepo,
-            IProductionBatchRepository batchRepo,
-            ProductionBatchService batchService,
+            DailyProductionReportService reportService,
             IUnitOfWork unitOfWork)
         {
             _closureRepo = closureRepo;
-            _batchRepo = batchRepo;
-            _batchService = batchService;
+            _reportService = reportService;
             _unitOfWork = unitOfWork;
         }
 
@@ -36,28 +36,30 @@ namespace WorkforceManager.Business.Services
         public Task<bool> IsClosedAsync(DateTime date) => _closureRepo.IsClosedAsync(date);
 
         /// <summary>
-        /// معاينة الإقفال: إيه اللي هيترحّل لبكرة وإيه اللي خلص النهارده.
-        /// دي اللي بتتعرض للمستخدم قبل ما يوافق — مفيش حاجة بتترحّل من غير
-        /// ما يشوفها.
+        /// معاينة الإقفال: خلص كام النهارده وكام لسه واقف وعند أنهي مرحلة.
+        /// دي اللي بتتعرض للمستخدم قبل ما يوافق — مفيش يوم بيتقفل من غير
+        /// ما يشوف أرقامه.
         /// </summary>
         public async Task<DayClosurePreviewDto> PreviewAsync(DateTime date)
         {
-            var parked = await _batchService.GetAllParkedAsync(date);
-            var completed = await _batchRepo.GetCompletedOnAsync(date);
+            var report = await _reportService.GetAsync(date);
+            var parked = await _reportService.GetAllParkedAsync(date);
 
             return new DayClosurePreviewDto
             {
                 Date = date.Date,
                 AlreadyClosed = await _closureRepo.IsClosedAsync(date),
-                CarriedLots = parked.ToList(),
-                CompletedPieces = completed.Sum(b => b.Quantity)
+                CompletedPieces = report.TotalCompletedPieces,
+                ParkedPieces = parked.Sum(p => p.ParkedPieces),
+                HasOverCounting = parked.Any(p => p.HasOverCounting),
+                ParkedByProduct = parked.Select(ToParkedProduct).ToList()
             };
         }
 
         /// <summary>
-        /// يقفل اليوم بعد موافقة المستخدم. بيخزّن لقطة من أعداد الواقف وقت
-        /// الإقفال عشان التقرير يعرف يقول "اليوم ده اتقفل وفيه كذا مرحّل"
-        /// حتى لو الدفعات اتحركت بعد كده.
+        /// يقفل اليوم بعد موافقة المستخدم. بيخزّن لقطة من أرقام اليوم عشان
+        /// التقرير يعرف يقول "اليوم ده اتقفل بالأرقام دي" حتى لو حد صحّح
+        /// سجل قديم بعد كده.
         /// </summary>
         public async Task<ProductionDayClosure> CloseAsync(DateTime date, string? notes = null)
         {
@@ -68,14 +70,14 @@ namespace WorkforceManager.Business.Services
             if (await _closureRepo.IsClosedAsync(date))
                 throw new InvalidOperationException($"إنتاج يوم {date:yyyy/MM/dd} مقفول بالفعل");
 
-            var parked = await _batchService.GetAllParkedAsync(date);
+            var preview = await PreviewAsync(date);
 
             var closure = new ProductionDayClosure
             {
                 Date = date.Date,
                 ClosedAt = DateTime.Now,
-                CarriedBatchCount = parked.Count,
-                CarriedPieces = parked.Sum(l => l.Quantity),
+                CompletedPieces = preview.CompletedPieces,
+                ParkedPieces = preview.ParkedPieces,
                 Notes = notes
             };
 
@@ -84,6 +86,22 @@ namespace WorkforceManager.Business.Services
             await transaction.CommitAsync();
 
             return closure;
+        }
+
+        /// <summary>أكتر مرحلة متكدّس عندها شغل — دي اللي محتاجة عمال بكرة</summary>
+        private static ParkedProductDto ToParkedProduct(DailyProductReportDto product)
+        {
+            var biggest = product.StageWip
+                .OrderByDescending(w => w.WaitingPieces)
+                .FirstOrDefault();
+
+            return new ParkedProductDto
+            {
+                ProductName = product.ProductName,
+                ParkedPieces = product.ParkedPieces,
+                BiggestQueueStage = biggest?.StageName ?? "—",
+                BiggestQueuePieces = biggest?.WaitingPieces ?? 0
+            };
         }
 
         /// <summary>يفتح يوم مقفول عشان يتعدّل (الغلط في الإدخال وارد)</summary>

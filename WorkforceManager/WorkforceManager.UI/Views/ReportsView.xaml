@@ -97,10 +97,10 @@
                     </Border>
                     <Border Style="{StaticResource Card}" Padding="14,11" Margin="4,0">
                         <StackPanel>
-                            <TextBlock Text="{Binding OutputCarriedText}" FontSize="24" FontWeight="Bold"
+                            <TextBlock Text="{Binding OutputStartedText}" FontSize="24" FontWeight="Bold"
                                        HorizontalAlignment="Center"
                                        Foreground="{StaticResource BrandBrush}" />
-                            <TextBlock Text="منها مرحّلة من أيام قبل كده" FontSize="11.5" HorizontalAlignment="Center"
+                            <TextBlock Text="قطعة دخلت الخط النهارده" FontSize="11.5" HorizontalAlignment="Center"
                                        Foreground="{StaticResource TextMutedBrush}" />
                         </StackPanel>
                     </Border>
@@ -109,7 +109,7 @@
                             <TextBlock Text="{Binding OutputParkedText}" FontSize="24" FontWeight="Bold"
                                        HorizontalAlignment="Center"
                                        Foreground="{StaticResource WarnBrush}" />
-                            <TextBlock Text="قطعة واقفة هتكمّل بكرة" FontSize="11.5" HorizontalAlignment="Center"
+                            <TextBlock Text="قطعة مستنية بين المراحل" FontSize="11.5" HorizontalAlignment="Center"
                                        Foreground="{StaticResource TextMutedBrush}" />
                         </StackPanel>
                     </Border>
@@ -147,39 +147,36 @@
                                                                Foreground="{StaticResource TextPrimaryBrush}" />
                                                     <TextBlock FontSize="11.5" Margin="0,2,0,0"
                                                                Foreground="{StaticResource TextMutedBrush}">
-                                                        <Run Text="بدأ وخلص النهارده:" />
-                                                        <Run Text="{Binding CompletedSameDayPieces, Mode=OneWay, StringFormat=N0}" FontWeight="Bold" />
-                                                        <Run Text="  •  مرحّل من قبل:" />
-                                                        <Run Text="{Binding CompletedFromCarriedPieces, Mode=OneWay, StringFormat=N0}" FontWeight="Bold" />
+                                                        <Run Text="دخل الخط النهارده:" />
+                                                        <Run Text="{Binding StartedPieces, Mode=OneWay, StringFormat=N0}" FontWeight="Bold" />
+                                                        <Run Text="  •  مستني في الخط:" />
+                                                        <Run Text="{Binding ParkedPieces, Mode=OneWay, StringFormat=N0}" FontWeight="Bold" />
                                                     </TextBlock>
                                                 </StackPanel>
                                             </DockPanel>
 
-                                            <!-- الواقف: سطر لكل كمية عند مرحلتها -->
+                                            <!-- الواقف: سطر لكل مرحلة والقطع المستنية عندها -->
                                             <StackPanel Margin="0,10,0,0"
-                                                        Visibility="{Binding HasParkedLots, Converter={StaticResource BoolToVis}}">
-                                                <TextBlock Text="واقف في الخط" FontSize="11.5" FontWeight="Bold"
+                                                        Visibility="{Binding HasParkedPieces, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock Text="مستني في الخط" FontSize="11.5" FontWeight="Bold"
                                                            Margin="0,0,0,5"
                                                            Foreground="{StaticResource WarnBrush}" />
-                                                <ItemsControl ItemsSource="{Binding ParkedLots}">
+                                                <ItemsControl ItemsSource="{Binding StageWip}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
                                                             <Border Background="{StaticResource WarnBgBrush}" CornerRadius="7"
                                                                     Padding="10,6" Margin="0,0,0,4">
                                                                 <DockPanel>
                                                                     <TextBlock DockPanel.Dock="Left"
-                                                                               Text="{Binding Quantity, StringFormat=N0}"
+                                                                               Text="{Binding WaitingPieces, StringFormat=N0}"
                                                                                FontSize="14" FontWeight="Bold"
                                                                                VerticalAlignment="Center"
                                                                                Foreground="{StaticResource WarnBrush}" />
                                                                     <TextBlock FontSize="12" Margin="8,0,0,0"
                                                                                VerticalAlignment="Center" TextWrapping="Wrap"
                                                                                Foreground="{StaticResource TextPrimaryBrush}">
-                                                                        <Run Text="قطعة واقفة عند" />
-                                                                        <Run Text="{Binding NextStageName, Mode=OneWay}" FontWeight="Bold" />
-                                                                        <Run Text="  —  من" />
-                                                                        <Run Text="{Binding DaysWaiting, Mode=OneWay}" />
-                                                                        <Run Text="يوم" />
+                                                                        <Run Text="قطعة مستنية مرحلة" />
+                                                                        <Run Text="{Binding StageName, Mode=OneWay}" FontWeight="Bold" />
                                                                     </TextBlock>
                                                                 </DockPanel>
                                                             </Border>
@@ -187,6 +184,26 @@
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
                                             </StackPanel>
+
+                                            <!-- مرحلة اتسجل عليها أكتر من اللي قبلها = غلط إدخال، مش واقف سالب -->
+                                            <ItemsControl ItemsSource="{Binding StageWip}" Margin="0,4,0,0">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Background="{StaticResource DangerBgBrush}" CornerRadius="7"
+                                                                Padding="10,6" Margin="0,0,0,4"
+                                                                Visibility="{Binding IsOverCounted, Converter={StaticResource BoolToVis}}">
+                                                            <TextBlock FontSize="11.5" TextWrapping="Wrap"
+                                                                       Foreground="{StaticResource DangerBrush}">
+                                                                <Run Text="⚠ مرحلة" />
+                                                                <Run Text="{Binding StageName, Mode=OneWay}" FontWeight="Bold" />
+                                                                <Run Text="اتسجل عليها" />
+                                                                <Run Text="{Binding OverCountedBy, Mode=OneWay, StringFormat=N0}" FontWeight="Bold" />
+                                                                <Run Text="قطعة أكتر من المرحلة اللي قبلها — راجع الأرقام" />
+                                                            </TextBlock>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>

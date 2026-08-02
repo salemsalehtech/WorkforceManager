@@ -29,7 +29,6 @@ namespace WorkforceManager.Business.Services
         private readonly IDailyProductionRepository _productionRepo;
         private readonly IAttendanceRepository _attendanceRepo;
         private readonly IProductionDayClosureRepository _closureRepo;
-        private readonly ProductionBatchService _batchService;
         private readonly WorkerAssignmentGuard _assignmentGuard;
         private readonly IUnitOfWork _unitOfWork;
 
@@ -39,7 +38,6 @@ namespace WorkforceManager.Business.Services
             IDailyProductionRepository productionRepo,
             IAttendanceRepository attendanceRepo,
             IProductionDayClosureRepository closureRepo,
-            ProductionBatchService batchService,
             WorkerAssignmentGuard assignmentGuard,
             IUnitOfWork unitOfWork)
         {
@@ -48,7 +46,6 @@ namespace WorkforceManager.Business.Services
             _productionRepo = productionRepo;
             _attendanceRepo = attendanceRepo;
             _closureRepo = closureRepo;
-            _batchService = batchService;
             _assignmentGuard = assignmentGuard;
             _unitOfWork = unitOfWork;
         }
@@ -117,7 +114,7 @@ namespace WorkforceManager.Business.Services
         /// </param>
         public async Task<FlowSaveResultDto> RecordFlowAsync(
             int productId, DateTime date,
-            IReadOnlyList<BatchRangeDto> ranges,
+            IReadOnlyList<FlowRangeDto> ranges,
             IReadOnlyList<FlowShareDto> shares,
             bool confirmOverride = false)
         {
@@ -126,8 +123,8 @@ namespace WorkforceManager.Business.Services
             if (shares.Count == 0)
                 throw new InvalidOperationException("وزّع العمال على المراحل الأول قبل الحفظ");
 
-            // يوم مقفول = المستخدم راجع أرقامه ووافق على ترحيل الواقف.
-            // فتح الباب لتسجيل جديد بعد كده بيخلي تقرير مطبوع يكدب
+            // يوم مقفول = المستخدم راجع أرقامه ووافق عليها. فتح الباب
+            // لتسجيل جديد بعد كده بيخلي تقرير مطبوع يكدب
             if (await _closureRepo.IsClosedAsync(date))
                 throw new InvalidOperationException(
                     $"إنتاج يوم {date:yyyy/MM/dd} مقفول — افتح اليوم تاني من شاشة التسجيل لو محتاج تعدّل");
@@ -151,14 +148,8 @@ namespace WorkforceManager.Business.Services
             // ---------- 2) حساب إنتاج كل مرحلة من النطاقات + منع التداخل ----------
             var piecesPerStage = new int[orderedStages.Count];
 
-            // كل مرحلة بتنتمي لنطاق واحد بالظبط (النطاقات مش بتتداخل)، والنطاق
-            // بينتمي لدفعة واحدة — فالخريطة دي بتوصّل كل سجل إنتاج بدفعته
-            var rangeIndexByStageId = new Dictionary<int, int>();
-
-            for (var r = 0; r < ranges.Count; r++)
+            foreach (var range in ranges)
             {
-                var range = ranges[r];
-
                 if (!indexByStageId.TryGetValue(range.FromStageId, out var fromIndex) ||
                     !indexByStageId.TryGetValue(range.ToStageId, out var toIndex))
                     throw new InvalidOperationException("نطاق إنتاج بيشاور على مرحلة مش من مراحل المنتج المحدد");
@@ -178,18 +169,8 @@ namespace WorkforceManager.Business.Services
                             $"المرحلة \"{orderedStages[i].StageName}\" واقعة في أكتر من نطاق — النطاقات ميصحش تتداخل");
 
                     piecesPerStage[i] = range.PieceCount;
-                    rangeIndexByStageId[orderedStages[i].Id] = r;
                 }
             }
-
-            // نطاقين في نفس الحفظة مينفعش يكمّلوا نفس الدفعة — التاني هيلاقيها
-            // اتحركت خلاص، والمجموع هيتعد مرتين
-            var duplicateBatch = ranges
-                .Where(r => r.BatchId is not null)
-                .GroupBy(r => r.BatchId!.Value)
-                .FirstOrDefault(g => g.Count() > 1);
-            if (duplicateBatch is not null)
-                throw new InvalidOperationException("نفس الدفعة متحطّة في أكتر من نطاق — اجمعهم في نطاق واحد");
 
             // ---------- 3) التحقق من توزيع العمال على المراحل ----------
             // المؤهلين لكل مراحل المنتج باستعلام واحد (القرار المتفق عليه: المؤهلين بس)
@@ -245,7 +226,6 @@ namespace WorkforceManager.Business.Services
 
             var stageById = orderedStages.ToDictionary(s => s.Id);
             int attendanceMarked;
-            var movements = new List<BatchMovementDto>();
 
             // ---------- 4) قاعدة التكليف + الكتابة، الاتنين جوه معاملة واحدة ----------
             // القفل بيتاخد من أول لحظة، فالتحقق بيتم على بيانات مش ممكن
@@ -269,13 +249,6 @@ namespace WorkforceManager.Business.Services
                 var assignmentCheck = await _assignmentGuard.CheckAsync(date, requestedAssignments);
                 WorkerAssignmentGuard.EnsureAllowed(assignmentCheck, confirmOverride);
 
-                // ---------- ربط كل نطاق بدفعته (جوه القفل) ----------
-                // التحقق لازم يتم تحت نفس قفل الكتابة: من غير كده نسختين من
-                // البرنامج ممكن يقروا نفس الدفعة الواقفة ويكمّلوها الاتنين
-                var batchPerRange = new ProductionBatch[ranges.Count];
-                for (var r = 0; r < ranges.Count; r++)
-                    batchPerRange[r] = await _batchService.ResolveForRangeAsync(product, ranges[r], date);
-
                 // ---------- إنشاء سجلات الإنتاج (Snapshot لليومية زي أي تسجيل) ----------
                 foreach (var share in shares)
                 {
@@ -286,17 +259,9 @@ namespace WorkforceManager.Business.Services
                         ProductionStageId = share.ProductionStageId,
                         Date = date.Date,
                         PieceCount = share.PieceCount,
-                        PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday,
-                        // بالـ navigation مش بالـ Id: الدفعة الجديدة لسه مالهاش
-                        // Id قبل الحفظ، وEF بيربط المفتاح لوحده وقت الإدراج
-                        ProductionBatch = batchPerRange[rangeIndexByStageId[share.ProductionStageId]]
+                        PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday
                     });
                 }
-
-                // ---------- تحريك الدفعات (قسمة لو التكميل جزئي، وقفل لو خلصت) ----------
-                for (var r = 0; r < ranges.Count; r++)
-                    movements.Add(await _batchService.AdvanceAsync(
-                        batchPerRange[r], product, ranges[r].ToStageId, ranges[r].PieceCount, date));
 
                 // ---------- 5) حضور تلقائي لمن شارك ومالوش سجل حضور في اليوم ----------
                 var existingAttendance = (await _attendanceRepo.GetByDateAsync(date))
@@ -345,7 +310,9 @@ namespace WorkforceManager.Business.Services
                 StagesCovered = piecesPerStage.Count(p => p > 0),
                 AttendanceMarkedCount = attendanceMarked,
                 WorkerTotals = workerTotals,
-                BatchMovements = movements
+                // خلص الخط = اتسجل عليه إنتاج على آخر مرحلة نشطة
+                CompletedPieces = piecesPerStage[^1],
+                StartedPieces = piecesPerStage[0]
             };
         }
     }

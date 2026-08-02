@@ -32,7 +32,7 @@ namespace WorkforceManager.Tests
                     TestDatabase.ProductRingId, TestDatabase.Today,
                     new[]
                     {
-                        new BatchRangeDto
+                        new FlowRangeDto
                         {
                             FromStageId = TestDatabase.RingStage1Id,
                             ToStageId = TestDatabase.RingStage1Id, PieceCount = 10

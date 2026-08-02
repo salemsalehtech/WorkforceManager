@@ -151,7 +151,7 @@ namespace WorkforceManager.Tests
                         TestDatabase.ProductRingId, TestDatabase.Today,
                         new[]
                         {
-                            new BatchRangeDto
+                            new FlowRangeDto
                             {
                                 FromStageId = TestDatabase.RingStage1Id, // تشكيل (بقت التانية)
                                 ToStageId = TestDatabase.RingStage2Id,   // تلميع (بقت الأولى)
@@ -181,7 +181,7 @@ namespace WorkforceManager.Tests
                     TestDatabase.ProductRingId, TestDatabase.Today,
                     new[]
                     {
-                        new BatchRangeDto
+                        new FlowRangeDto
                         {
                             FromStageId = TestDatabase.RingStage2Id, // تلميع
                             ToStageId = TestDatabase.RingStage1Id,   // تشكيل

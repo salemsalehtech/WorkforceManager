@@ -5,29 +5,35 @@ using WorkforceManager.Core.Models;
 namespace WorkforceManager.Business.Services
 {
     /// <summary>
-    /// تقرير الإنتاج اليومي بالدفعات: المنتج ده خلص منه كام النهارده، وكام
-    /// لسه واقف وعند أنهي مرحلة.
+    /// تقرير الإنتاج اليومي: المنتج ده طلع منه كام تام النهارده، وكام قطعة
+    /// لسه مستنية عند كل مرحلة.
     ///
-    /// الفرق عن تقرير الإنتاج القديم: القديم بيعد القطع اللي عدّت آخر مرحلة
-    /// في اليوم ده وخلاص. ده بيقول كمان **الشغل اللي تحت الإيد** — الرقم
-    /// اللي بيخلي مدير الإنتاج يعرف الخط واقف فين وبكرة هيبدأ منين.
+    /// **الرقمين دول محسوبين، مش مخزّنين.** مفيش جدول بيتتبّع القطع وهي
+    /// ماشية في الخط — كله بيتحسب من سجلات الإنتاج نفسها:
     ///
-    /// قاعدة الاحتساب المتفق عليها: القطعة بتتحسب إنتاج مكتمل **يوم ما
-    /// خلصت الخط فعلاً**، مش يوم ما بدأت. تقرير يوم قديم عمره ما بيتغير
-    /// بأثر رجعي — بس بيقول "منها كذا مرحّلة من قبل كده" عشان الصورة تبان.
+    ///   • التام النهارده  = إنتاج آخر مرحلة في الخط في اليوم ده
+    ///   • الواقف قبل مرحلة = إجمالي اللي خلص المرحلة اللي قبلها من أول
+    ///                        التسجيل، ناقص إجمالي اللي خلص المرحلة دي
+    ///
+    /// ليه كده: القطعة اللي عدّت المرحلة السادسة ومعدّتش السابعة هي بالتعريف
+    /// واقفة قبل السابعة. الطرح ده بيقول الحقيقة من غير ما المستخدم يجاوب
+    /// ولا سؤال زيادة عن "القطع دي جاية منين".
+    ///
+    /// المقابل: مفيش تتبّع لقطعة بعينها (بدأت إمتى، مشيت إزاي). ده قرار
+    /// مقصود — المصنع محتاج الإجماليات مش رحلة كل لوط.
     /// </summary>
     public class DailyProductionReportService
     {
-        private readonly IProductionBatchRepository _batchRepo;
+        private readonly IDailyProductionRepository _productionRepo;
         private readonly IProductionDayClosureRepository _closureRepo;
         private readonly IProductRepository _productRepo;
 
         public DailyProductionReportService(
-            IProductionBatchRepository batchRepo,
+            IDailyProductionRepository productionRepo,
             IProductionDayClosureRepository closureRepo,
             IProductRepository productRepo)
         {
-            _batchRepo = batchRepo;
+            _productionRepo = productionRepo;
             _closureRepo = closureRepo;
             _productRepo = productRepo;
         }
@@ -36,46 +42,18 @@ namespace WorkforceManager.Business.Services
         {
             var day = date.Date;
 
-            var completed = await _batchRepo.GetCompletedOnAsync(day);
-            var parked = await _batchRepo.GetOpenAsOfAsync(day);
+            var today = await _productionRepo.GetStageTotalsOnAsync(day);
+            var toDate = await _productionRepo.GetStageTotalsUpToAsync(day);
             var closure = await _closureRepo.GetByDateAsync(day);
-
             var products = await _productRepo.GetAllWithStagesAsync();
-            var lineByProduct = products.ToDictionary(
-                p => p.Id, p => ProductionBatchService.ActiveLine(p));
-            var nameById = products.ToDictionary(p => p.Id, p => p.Name);
 
-            // كل منتج فيه حركة النهارده (خلص منه حاجة أو واقف له حاجة)
-            var productIds = completed.Select(b => b.ProductId)
-                .Concat(parked.Select(b => b.ProductId))
-                .Distinct()
+            var rows = products
+                .Select(product => Describe(product, today, toDate))
+                .Where(row => row.HasActivity)
+                .OrderByDescending(row => row.CompletedPieces)
+                .ThenByDescending(row => row.ParkedPieces)
+                .ThenBy(row => row.ProductName)
                 .ToList();
-
-            var rows = new List<DailyProductReportDto>();
-            foreach (var productId in productIds)
-            {
-                if (!nameById.TryGetValue(productId, out var productName)) continue;
-                lineByProduct.TryGetValue(productId, out var line);
-                line ??= new List<ProductionStage>();
-
-                var productCompleted = completed.Where(b => b.ProductId == productId).ToList();
-                var productParked = parked.Where(b => b.ProductId == productId).ToList();
-
-                rows.Add(new DailyProductReportDto
-                {
-                    ProductId = productId,
-                    ProductName = productName,
-                    CompletedPieces = productCompleted.Sum(b => b.Quantity),
-                    // "مرحّلة" = بدأت في يوم أقدم وخلصت النهارده
-                    CompletedFromCarriedPieces = productCompleted
-                        .Where(b => b.WasCarriedOver)
-                        .Sum(b => b.Quantity),
-                    ParkedLots = productParked
-                        .Select(b => ToLot(b, line, day))
-                        .OrderBy(l => l.NextStageOrder)
-                        .ToList()
-                });
-            }
 
             return new DailyProductionReportDto
             {
@@ -83,28 +61,71 @@ namespace WorkforceManager.Business.Services
                 IsClosed = closure is not null,
                 ClosedAt = closure?.ClosedAt,
                 Products = rows
-                    .Where(r => r.HasActivity)
-                    .OrderByDescending(r => r.CompletedPieces)
-                    .ThenBy(r => r.ProductName)
-                    .ToList()
             };
         }
 
-        private static ParkedLotDto ToLot(ProductionBatch batch, List<ProductionStage> line, DateTime day)
+        /// <summary>الواقف في المصنع كله بنهاية يوم معين — لشاشة الإقفال</summary>
+        public async Task<IReadOnlyList<DailyProductReportDto>> GetAllParkedAsync(DateTime date)
         {
-            var next = ProductionBatchService.NextStage(batch, line);
-            var nextIndex = next is null ? -1 : line.FindIndex(s => s.Id == next.Id);
+            var day = date.Date;
+            var today = await _productionRepo.GetStageTotalsOnAsync(day);
+            var toDate = await _productionRepo.GetStageTotalsUpToAsync(day);
+            var products = await _productRepo.GetAllWithStagesAsync();
 
-            return new ParkedLotDto
+            return products
+                .Select(product => Describe(product, today, toDate))
+                .Where(row => row.ParkedPieces > 0 || row.HasOverCounting)
+                .OrderByDescending(row => row.ParkedPieces)
+                .ToList();
+        }
+
+        /// <summary>مراحل المنتج النشطة بترتيب الخط — مصدر الحقيقة لكل الحسابات هنا</summary>
+        public static List<ProductionStage> ActiveLine(Product product) =>
+            product.Stages
+                .Where(s => s.IsActive)
+                .OrderBy(s => s.SortOrder).ThenBy(s => s.Id)
+                .ToList();
+
+        private static DailyProductReportDto Describe(
+            Product product,
+            IReadOnlyDictionary<int, int> today,
+            IReadOnlyDictionary<int, int> toDate)
+        {
+            var line = ActiveLine(product);
+            if (line.Count == 0)
+                return new DailyProductReportDto { ProductId = product.Id, ProductName = product.Name };
+
+            int Today(ProductionStage s) => today.TryGetValue(s.Id, out var v) ? v : 0;
+            int ToDate(ProductionStage s) => toDate.TryGetValue(s.Id, out var v) ? v : 0;
+
+            // الواقف قبل كل مرحلة = اللي خلص اللي قبلها ناقص اللي خلصها هي.
+            // أول مرحلة مالهاش واقف — مفيش مرحلة قبلها القطع تستنى بعدها
+            var wip = new List<StageWipDto>();
+            for (var i = 1; i < line.Count; i++)
             {
-                BatchId = batch.Id,
-                Quantity = batch.Quantity,
-                // خط الإنتاج اتغيّر بعد ما الدفعة بدأت — بنقولها صريح بدل
-                // ما نخبّي دفعة ضايعة عن مدير الإنتاج
-                NextStageName = next?.StageName ?? "خط الإنتاج اتغيّر — راجع المراحل",
-                NextStageOrder = nextIndex + 1,
-                StartedDate = batch.StartedDate,
-                DaysWaiting = Math.Max(0, (int)(day - batch.StartedDate.Date).TotalDays)
+                var waiting = ToDate(line[i - 1]) - ToDate(line[i]);
+                if (waiting == 0) continue;
+
+                wip.Add(new StageWipDto
+                {
+                    StageId = line[i].Id,
+                    StageName = line[i].StageName,
+                    StageOrder = i + 1,
+                    // الرقم السالب معناه المرحلة اتسجل عليها أكتر من اللي
+                    // قبلها — مستحيل يحصل فعليًا، فبنصفّر الواقف وبنرفع علم
+                    WaitingPieces = Math.Max(0, waiting),
+                    IsOverCounted = waiting < 0,
+                    OverCountedBy = waiting < 0 ? -waiting : 0
+                });
+            }
+
+            return new DailyProductReportDto
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                CompletedPieces = Today(line[^1]),
+                StartedPieces = Today(line[0]),
+                StageWip = wip
             };
         }
     }

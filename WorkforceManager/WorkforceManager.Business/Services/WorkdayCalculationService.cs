@@ -164,8 +164,6 @@ namespace WorkforceManager.Business.Services
             var record = await _productionRepo.GetByIdAsync(recordId)
                 ?? throw new InvalidOperationException("سجل الإنتاج غير موجود");
 
-            EnsureNotPartOfBatch(record, "تعديل");
-
             record.PieceCount = newPieceCount;
             _productionRepo.Update(record);
             await _productionRepo.SaveChangesAsync();
@@ -181,29 +179,8 @@ namespace WorkforceManager.Business.Services
             var record = await _productionRepo.GetByIdAsync(recordId)
                 ?? throw new InvalidOperationException("سجل الإنتاج غير موجود");
 
-            EnsureNotPartOfBatch(record, "حذف");
-
             _productionRepo.Remove(record);
             await _productionRepo.SaveChangesAsync();
-        }
-
-        /// <summary>
-        /// سجل الإنتاج المربوط بدفعة مينفعش يتعدّل أو يتحذف من هنا.
-        ///
-        /// السبب: عدد قطع السجل جزء من كمية الدفعة وموقعها في الخط. تغييره
-        /// من غير ما الدفعة تتصحّح معاه بيخلي الاتنين مش متطابقين في صمت —
-        /// وساعتها تقرير "المكتمل والواقف" بيكدب من غير ما حد ياخد باله.
-        ///
-        /// التصحيح الصح للدفعة الغلط: إلغاؤها من شاشة الإنتاج (بتخرج من
-        /// الواقف والعمال بياخدوا أجرهم عادي) وإعادة التسجيل.
-        /// </summary>
-        private static void EnsureNotPartOfBatch(DailyProduction record, string action)
-        {
-            if (record.ProductionBatchId is null) return;
-
-            throw new InvalidOperationException(
-                $"مينفعش {action} السجل ده من هنا — هو جزء من دفعة إنتاج ماشية في الخط.\n" +
-                "لو التسجيل غلط، الغي الدفعة من شاشة تسجيل الإنتاج وسجّلها من جديد.");
         }
 
         /// <summary>إجمالي عدد اليوميات المنجزة لعامل معين في تاريخ معين (مجموع كل المراحل التي عمل عليها)</summary>

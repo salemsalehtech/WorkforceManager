@@ -30,14 +30,6 @@ namespace WorkforceManager.Core.Models
         [Required]
         public DateTime Date { get; set; } = DateTime.Today;
 
-        /// <summary>
-        /// الدفعة اللي السجل ده حرّكها في الخط. nullable لأن السجلات
-        /// المتسجلة قبل نظام الدفعات مالهاش دفعة — بتفضل زي ما هي وبتدخل
-        /// في الأجور عادي، بس مش بتظهر في تقرير الواقف/المكتمل.
-        /// </summary>
-        [ForeignKey(nameof(ProductionBatch))]
-        public int? ProductionBatchId { get; set; }
-
         [Required]
         [Range(1, int.MaxValue, ErrorMessage = "عدد القطع يجب أن يكون رقمًا موجبًا")]
         public int PieceCount { get; set; }
@@ -70,6 +62,5 @@ namespace WorkforceManager.Core.Models
 
         public virtual Worker Worker { get; set; } = null!;
         public virtual ProductionStage ProductionStage { get; set; } = null!;
-        public virtual ProductionBatch? ProductionBatch { get; set; }
     }
 }

@@ -113,7 +113,7 @@ namespace WorkforceManager.UI.ViewModels
         private string _outputParkedText = "0";
 
         [ObservableProperty]
-        private string _outputCarriedText = "0";
+        private string _outputStartedText = "0";
 
         [ObservableProperty]
         private bool _outputIsClosed;
@@ -122,9 +122,8 @@ namespace WorkforceManager.UI.ViewModels
         private bool _outputIsEmpty = true;
 
         /// <summary>
-        /// تقرير إنتاج اليوم بالدفعات: كام قطعة خلصت الخط، كام لسه واقفة
-        /// وعند أنهي مرحلة. ده الرقم اللي بيقول "المنتج ده مكتمل ولا لأ" —
-        /// تقرير القطع القديم بيعد الحركة على المراحل مش الإنتاج التام.
+        /// تقرير إنتاج اليوم: كام قطعة خلصت آخر مرحلة (= منتج تام)، وكام
+        /// لسه مستنية عند كل مرحلة. الرقمين محسوبين من سجلات الإنتاج نفسها.
         /// </summary>
         private async Task LoadOutputAsync()
         {
@@ -138,7 +137,7 @@ namespace WorkforceManager.UI.ViewModels
 
             OutputCompletedText = report.TotalCompletedPieces.ToString("N0");
             OutputParkedText = report.TotalParkedPieces.ToString("N0");
-            OutputCarriedText = report.TotalCarriedInPieces.ToString("N0");
+            OutputStartedText = report.Products.Sum(p => p.StartedPieces).ToString("N0");
             OutputIsClosed = report.IsClosed;
             OutputIsEmpty = report.Products.Count == 0;
         }

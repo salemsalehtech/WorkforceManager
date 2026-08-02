@@ -5,7 +5,7 @@ using WorkforceManager.Business.DTOs;
 namespace WorkforceManager.UI.Views
 {
     /// <summary>
-    /// مراجعة إقفال اليوم: بتعرض اللي خلص واللي هيترحّل لبكرة قبل ما
+    /// مراجعة إقفال اليوم: بتعرض اللي خلص واللي لسه مستني في الخط قبل ما
     /// المستخدم يوافق. الكود هنا شكلي بس — الإقفال نفسه في DayClosureService.
     /// </summary>
     public partial class DayClosureDialog : Window
@@ -16,14 +16,16 @@ namespace WorkforceManager.UI.Views
 
             DateText.Text = preview.Date.ToString("dddd yyyy/MM/dd");
             CompletedText.Text = preview.CompletedPieces.ToString("N0");
-            CarriedText.Text = preview.CarriedPieces.ToString("N0");
+            CarriedText.Text = preview.ParkedPieces.ToString("N0");
 
-            LotsList.ItemsSource = preview.CarriedLots;
+            LotsList.ItemsSource = preview.ParkedByProduct;
 
-            var hasCarried = preview.CarriedLots.Count > 0;
-            CarriedHeader.Visibility = hasCarried ? Visibility.Visible : Visibility.Collapsed;
-            LotsScroller.Visibility = hasCarried ? Visibility.Visible : Visibility.Collapsed;
-            NothingCarried.Visibility = hasCarried ? Visibility.Collapsed : Visibility.Visible;
+            var hasParked = preview.ParkedByProduct.Count > 0;
+            CarriedHeader.Visibility = hasParked ? Visibility.Visible : Visibility.Collapsed;
+            LotsScroller.Visibility = hasParked ? Visibility.Visible : Visibility.Collapsed;
+            NothingCarried.Visibility = hasParked ? Visibility.Collapsed : Visibility.Visible;
+
+            OverCountWarning.Visibility = preview.HasOverCounting ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void Confirm_Click(object sender, RoutedEventArgs e)
