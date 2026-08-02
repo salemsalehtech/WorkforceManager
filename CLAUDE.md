@@ -119,7 +119,11 @@ Core  <----------------------- UI
   One or MORE products per day: each product gets its own
   `FlowSessionViewModel` card — stages as ordered cards, qualified-only workers per stage with equal
   auto-split + manual override, stage ranges "from stage X to Y: N pieces", live per-worker workdays
-  preview, independent save; "add product" button appends sessions; row-level commands live on the row
+  preview, independent save. Each stage card also shows a "مستني: N" badge (`FlowStageRow.WaitingPieces`,
+  fed from `DailyProductionReportService`) — the number that tells the user which stages need workers
+  today. A range has no "where did these pieces come from?" picker: that question died with the batch
+  entity (see Business logic notes), so a range is just from-stage/to-stage/pieces.
+  "add product" button appends sessions; row-level commands live on the row
   view-models via callbacks, not RelativeSource), a "سجلات اليوم" correction tab (edit/delete saved
   production records), a **unified** attendance grid (upsert per worker/date) that replaced the
   separate "العمال بالساعة" tab — piece-rate and hourly workers in one list, status picked via inline
@@ -232,53 +236,42 @@ Core  <----------------------- UI
 
 ### Business logic notes
 
-- **Production batches (`ProductionBatch` + `ProductionBatchService` — the ONLY place batch rules
-  live).** A batch is a quantity of pieces walking a product's line stage by stage; it usually does
-  NOT finish in one day. Before this existed the system recorded "stage 5 got 300 pieces today" with
-  no link between those 300 and the 300 finished tomorrow, so "is this product done?" was
-  unanswerable and multiple parked lots were indistinguishable.
-  - A range starting at line position 1 **opens** a batch; a range starting mid-line **must** name an
-    open batch (`BatchRangeDto.BatchId`) and must start exactly at that batch's next stage. This is
-    what makes it impossible for pieces to appear from nowhere or be counted twice — don't relax it.
-  - **Opening balance is the one sanctioned way past that rule** (`BatchRangeDto.IsOpeningBalance` →
-    `ProductionBatch.IsOpeningBalance`). It opens a batch *mid-line* with `LastCompletedStageId` set
-    to the stage before the entry point, for pieces whose earlier stages happened outside the system.
-    It exists because the feature shipped onto a database with months of history: every lot already
-    sitting in the line had no batch, so without this the app was unusable on day one. Keep it
-    explicit, flagged, and visible in the UI — the moment it becomes a silent fallback the "no pieces
-    from nowhere" guarantee is gone. Its early stages have no `DailyProduction` rows, so a
-    "stage 7 pieces == sum of stages 1..6" audit will not reconcile for these batches; the flag is
-    what explains that.
-  - The "القطع دي جاية منين؟" picker (`BatchSourceChoice`) is always visible with all three options.
-    It used to be hidden when no open batches existed, which produced a dead end: the save error told
-    the user to pick a batch while no picker and no batches were on screen.
-  - `LastCompletedStageId` stores a **stage id, not a position**: `MoveStageAsync` renumbers the whole
-    line, so a stored position would corrupt every open batch. Position is resolved from the stage at
-    read time via `ProductionBatchService.NextStage`.
-  - **Partial continuation splits**: continuing 60 of a 100-piece batch leaves 60 in the original
-    batch (keeping its identity and `StartedDate`) and moves 40 into a new batch with
-    `SplitFromBatchId` set, parked at the same stage. Sum of the parts always equals the original —
-    `Partial_continuation_splits_the_batch_and_conserves_the_total` guards that.
-  - Completion is credited to the day the batch **actually finished**, never backdated to
-    `StartedDate`. A printed report never changes retroactively; the finish day instead reports
-    `CompletedFromCarriedPieces` so the carried portion is visible.
-  - Wages are untouched by all of this: workers are paid per stage per the day they worked
-    (`DailyProduction` rows), so a carried batch pays yesterday's workers yesterday and today's today.
-  - Cancelling a batch (scrap) removes it from parked without counting as output, but **keeps** the
-    production rows — the workers did the work and get paid.
-- **Day closure** (`DayClosureService`): `PreviewAsync` shows every parked lot, `CloseAsync` writes a
-  `ProductionDayClosure` row and `RecordFlowAsync` then refuses that date. Carrying forward is not an
-  operation — an open batch stays open by itself; closing is the user *seeing and approving* it, which
-  gives the day final numbers. `ReopenAsync` undoes it (data-entry mistakes are normal).
-- `WorkdayCalculationService.Update/DeleteProductionAsync` **refuse** rows that belong to a batch
-  (`EnsureNotPartOfBatch`). Editing a row's pieces without correcting the batch desyncs quantity from
-  the line position and makes the completed/parked report lie silently. The intended correction path
-  is cancel the batch and re-record. This is a known sharp edge — a proper batch-correction flow is
-  not built yet.
+- **Completed output and WIP are DERIVED, never stored** (`DailyProductionReportService` — the ONLY
+  place these two numbers are computed). There is no entity tracking pieces as they walk the line:
+  - **Completed today** = production recorded on the **last active stage** that day.
+  - **Waiting before stage `i`** = cumulative pieces through stage `i-1` (from the first record ever,
+    via `IDailyProductionRepository.GetStageTotalsUpToAsync`) minus cumulative through stage `i`.
+    A piece that cleared stage 6 and not stage 7 is *by definition* waiting before 7 — the subtraction
+    states that without the user answering any extra question. Total WIP for a product therefore
+    collapses to `cumulative(first stage) - cumulative(last stage)`.
+  - The aggregation runs as `GROUP BY` in SQLite, not in memory — these totals accumulate for years.
+  - **This replaced a `ProductionBatch` entity** (batch/split/carry-over/opening-balance, removed in
+    `RemoveProductionBatches`). That design asked the user "where did these pieces come from?" on every
+    mid-line range, and answering it wrong (choosing "opening balance" while a lot was parked at that
+    exact stage) minted pieces from nothing — 2000 stayed parked when only 1000 truly remained. The
+    subtraction cannot express that bug. **Do not reintroduce piece-level lot tracking** to answer
+    "how many are done / what's stuck where"; both fall out of the records already being entered.
+    The deliberate trade-off: no per-lot traceability (when a specific lot started, how it moved).
+  - A stage recorded **above** the stage before it is physically impossible, so it is surfaced as
+    `StageWipDto.IsOverCounted` + `OverCountedBy` rather than clamped away. Silently flooring WIP at
+    zero would hide the data-entry error that caused it. `WaitingPieces` is still floored at 0 so no
+    caller ever sees negative WIP.
+- **Ranges no longer carry any lot identity** (`FlowRangeDto`): from-stage, to-stage, piece count.
+  Ranges still may not overlap (a stage in two ranges is double-entry) and each covered stage still
+  needs worker shares summing exactly to its pieces. A range may start anywhere in the line — starting
+  mid-line needs no justification, because the pieces it consumes are implied by the arithmetic.
+- **Day closure** (`DayClosureService`): `PreviewAsync` shows completed + WIP per product (with the
+  most-congested stage, which is what tells the user where to put workers tomorrow), `CloseAsync`
+  writes a `ProductionDayClosure` row and `RecordFlowAsync` then refuses that date. Nothing is
+  "carried forward" — WIP is computed from all history, so unfinished pieces simply keep showing up
+  tomorrow. The stored `CompletedPieces`/`ParkedPieces` are a **snapshot the user approved**, not a
+  cache to recompute. `ReopenAsync` undoes it (data-entry mistakes are normal).
+- `WorkdayCalculationService.Update/DeleteProductionAsync` edit rows freely. They used to refuse rows
+  belonging to a batch because quantity and line position could desync; with numbers derived from the
+  rows themselves, correcting a row corrects every report that depends on it.
 - `DailyProduction` rows are created only by `WorkdayCalculationService` (single/batch) or
-  `ProductionFlowService.RecordFlowAsync` — both snapshot the stage quota automatically. Only the
-  flow path links rows to a batch; rows predating batches keep `ProductionBatchId = null` and stay
-  out of the completed/parked report while still counting for wages.
+  `ProductionFlowService.RecordFlowAsync` — both snapshot the stage quota automatically. Every row
+  counts for both wages and the output/WIP report; there is no second class of row.
 - **Worker-assignment rule** (`WorkerAssignmentGuard` in Business — the ONLY place this rule exists;
   never re-implement it in a controller/ViewModel). An "assignment" is a `DailyProduction` row, so
   "assigned" = has a row for that worker/stage/date. By default a worker holds one assignment per
