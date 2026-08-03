@@ -7,10 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.29" />
+    <!--
+      مرجع مباشر عشان يتخطى النسخة اللي مزوّد SQLite بيجرّها (2.1.6) واللي فيها
+      ثغرة عالية الخطورة (GHSA-2m69-gcr7-jv3q). ده محرّك SQLite الأصلي نفسه،
+      فالترقية بتوصل لكل المشاريع اللي بتعتمد على المشروع ده.
+      يتشال لما مزوّد EF Core يرفع النسخة عنده.
+    -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
     <!-- أداة تطوير بس (توليد Migrations) — مستبعدة من نسخة التوزيع، زي ما في مشروع UI -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8"
-                     Condition="'$(Configuration)' == 'Debug'">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.29" Condition="'$(Configuration)' == 'Debug'">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
