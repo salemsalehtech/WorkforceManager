@@ -81,7 +81,6 @@ namespace WorkforceManager.Business.Services
                     ?? wadj.First().Worker;
 
                 var producedWorkdays = wp.Sum(p => p.WorkdaysCompleted) + wh.Sum(h => h.WorkdaysCredited);
-                var absentWithoutPermission = wa.Count(a => a.Status == AttendanceStatus.AbsentWithoutPermission);
 
                 // عدد أيام العمل الفعلية = أيام فيها إنتاج أو شغل ساعة (بدون تكرار)
                 var workDays = wp.Select(p => p.Date.Date)

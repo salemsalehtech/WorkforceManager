@@ -49,8 +49,7 @@ namespace WorkforceManager.Core.Models
         /// (Computed Property، غير مخزّن كعمود منفصل لتفادي عدم التطابق).
         /// </summary>
         [NotMapped]
-        public decimal WorkdaysCompleted =>
-            PiecesPerWorkdayAtEntry == 0 ? 0 : Math.Round((decimal)PieceCount / PiecesPerWorkdayAtEntry, 2);
+        public decimal WorkdaysCompleted => WorkdayMath.FromPieces(PieceCount, PiecesPerWorkdayAtEntry);
 
         /// <summary>ملاحظات اختيارية (مثال: قطع بها عيوب، تأخير، ...إلخ)</summary>
         [MaxLength(300)]

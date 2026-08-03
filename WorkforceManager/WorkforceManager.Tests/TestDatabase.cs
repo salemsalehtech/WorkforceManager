@@ -39,12 +39,22 @@ namespace WorkforceManager.Tests
         /// </summary>
         public const int ProductBagId = 3;
 
+        /// <summary>
+        /// "تلاتات" — 3 مراحل كوتة كل واحدة 3 قطع. موجود عشان اختبارات
+        /// التقريب: كل الكوتات التانية 10 والقسمة عليها بتطلع تامة، فقاعدة
+        /// تقريب اليوميات مكانش ينفع تتختبر من غيره.
+        /// </summary>
+        public const int ProductThirdsId = 4;
+
         public const int RingStage1Id = 1;    // دبلة / تشكيل
         public const int RingStage2Id = 2;    // دبلة / تلميع
         public const int ChainStage1Id = 3;   // سلسلة / لحام
         public const int BagStage1Id = 4;     // شنطة / قص
         public const int BagStage2Id = 5;     // شنطة / خياطة
         public const int BagStage3Id = 6;     // شنطة / تشطيب
+        public const int ThirdsStage1Id = 7;  // تلاتات / تلت
+        public const int ThirdsStage2Id = 8;  // تلاتات / تلت تاني
+        public const int ThirdsStage3Id = 9;  // تلاتات / تلت تالت
 
         public TestDatabase()
         {
@@ -64,6 +74,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<IAttendanceRepository, AttendanceRepository>();
             services.AddScoped<IPenaltyRepository, PenaltyRepository>();
             services.AddScoped<IHourlyWorkLogRepository, HourlyWorkLogRepository>();
+            services.AddScoped<IWageAdjustmentRepository, WageAdjustmentRepository>();
             services.AddScoped<IGenericRepository<ProductionStage>, GenericRepository<ProductionStage>>();
             services.AddScoped<IProductionDayClosureRepository, ProductionDayClosureRepository>();
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
@@ -77,6 +88,8 @@ namespace WorkforceManager.Tests
             services.AddScoped<AttendanceAutomationService>();
             services.AddScoped<AttendanceService>();
             services.AddScoped<HourlyWorkdayService>();
+            services.AddScoped<WeeklySummaryService>();
+            services.AddScoped<PayrollService>();
             services.AddScoped<ProductManagementService>();
 
             _provider = services.BuildServiceProvider();
@@ -120,7 +133,8 @@ namespace WorkforceManager.Tests
             db.Products.AddRange(
                 new Product { Id = ProductRingId, Name = "دبلة", IsActive = true },
                 new Product { Id = ProductChainId, Name = "سلسلة", IsActive = true },
-                new Product { Id = ProductBagId, Name = "شنطة", IsActive = true });
+                new Product { Id = ProductBagId, Name = "شنطة", IsActive = true },
+                new Product { Id = ProductThirdsId, Name = "تلاتات", IsActive = true });
 
             db.ProductionStages.AddRange(
                 new ProductionStage
@@ -152,6 +166,24 @@ namespace WorkforceManager.Tests
                 {
                     Id = BagStage3Id, ProductId = ProductBagId, StageName = "تشطيب",
                     SortOrder = 3, PiecesPerWorkday = 10, IsActive = true
+                },
+                // كوتة 3 عن قصد: 1 ÷ 3 = 0.3333... فالتقريب بيبان.
+                // كل الكوتات التانية 10، و1 ÷ 10 بيطلع رقم تام، فأي غلط
+                // في قاعدة التقريب كان بيعدّي من غير ما تمسكه ولا اختبار
+                new ProductionStage
+                {
+                    Id = ThirdsStage1Id, ProductId = ProductThirdsId, StageName = "تلت",
+                    SortOrder = 1, PiecesPerWorkday = 3, IsActive = true
+                },
+                new ProductionStage
+                {
+                    Id = ThirdsStage2Id, ProductId = ProductThirdsId, StageName = "تلت تاني",
+                    SortOrder = 2, PiecesPerWorkday = 3, IsActive = true
+                },
+                new ProductionStage
+                {
+                    Id = ThirdsStage3Id, ProductId = ProductThirdsId, StageName = "تلت تالت",
+                    SortOrder = 3, PiecesPerWorkday = 3, IsActive = true
                 });
 
             db.Workers.AddRange(
@@ -169,7 +201,8 @@ namespace WorkforceManager.Tests
             var stageIds = new[]
             {
                 RingStage1Id, RingStage2Id, ChainStage1Id,
-                BagStage1Id, BagStage2Id, BagStage3Id
+                BagStage1Id, BagStage2Id, BagStage3Id,
+                ThirdsStage1Id, ThirdsStage2Id, ThirdsStage3Id
             };
             var workerIds = new[] { WorkerAhmedId, WorkerSaidId };
 
