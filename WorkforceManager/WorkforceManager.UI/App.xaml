@@ -26,7 +26,6 @@
             <!-- ــــــــــ لوحة الألوان ــــــــــ -->
             <!-- الهوية: كحلي عميق + لمسة كهرمانية للتمييز -->
             <SolidColorBrush x:Key="BrandBrush" Color="#1F3864" />
-            <SolidColorBrush x:Key="BrandDarkBrush" Color="#152A4E" />
             <SolidColorBrush x:Key="AccentBrush" Color="#F2A93B" />
             <!-- الخلفيات والبطاقات -->
             <SolidColorBrush x:Key="PageBgBrush" Color="#F4F6FB" />
@@ -136,13 +135,6 @@
             </Style>
 
             <!-- رقم بارز (إحصائية/مبلغ) — الأرقام في Tajawal بعرض ثابت فبتتصف تحت بعض -->
-            <Style x:Key="MetricText" TargetType="TextBlock">
-                <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
-                <Setter Property="FontSize" Value="20" />
-                <Setter Property="FontWeight" Value="Bold" />
-                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
-            </Style>
-
             <!-- ــــــــــ الإطار العام للنوافذ ــــــــــ -->
             <Style TargetType="{x:Type Window}">
                 <Setter Property="FlowDirection" Value="RightToLeft" />
