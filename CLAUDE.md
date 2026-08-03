@@ -269,7 +269,7 @@ Core  <----------------------- UI
 - `WorkdayCalculationService.Update/DeleteProductionAsync` edit rows freely. They used to refuse rows
   belonging to a batch because quantity and line position could desync; with numbers derived from the
   rows themselves, correcting a row corrects every report that depends on it.
-- `DailyProduction` rows are created only by `WorkdayCalculationService` (single/batch) or
+- `DailyProduction` rows are created only by `WorkdayCalculationService.RecordProductionAsync` or
   `ProductionFlowService.RecordFlowAsync` — both snapshot the stage quota automatically. Every row
   counts for both wages and the output/WIP report; there is no second class of row.
 - **Worker-assignment rule** (`WorkerAssignmentGuard` in Business — the ONLY place this rule exists;
@@ -330,11 +330,12 @@ Core  <----------------------- UI
   2.0. NON-cumulative (last period reached wins). `RecordHourlyWorkAsync` upserts + snapshots + auto-marks
   Present. `WeeklySummaryService` sums `HourlyWorkLog.WorkdaysCredited` into `ProducedWorkdays` so hourly
   days flow into net workdays / weekly sheet / pay exactly like piece production.
-- `AttendanceService.RecordAttendanceAsync` is an upsert (one record per worker/date). Recording an
-  absence for a worker who has **work logged** that day is REJECTED (single and batch — batch is
-  all-or-nothing, names the conflicting workers). Delete the work first if truly absent. "Has work
-  logged" comes from `AttendanceAutomationService.GetWorkersWithLoggedWorkAsync` — production rows OR
-  hourly logs, so hourly workers are covered too (they have no stage production by design).
+- `AttendanceService.RecordAttendanceBatchAsync` is the **only** attendance write path — an upsert
+  (one record per worker/date) for the whole grid in a single save. Recording an absence for a worker
+  who has **work logged** that day is REJECTED, and the batch is all-or-nothing: it names every
+  conflicting worker and writes nothing. Delete the work first if truly absent. "Has work logged"
+  comes from `AttendanceAutomationService.GetWorkersWithLoggedWorkAsync` — production rows OR hourly
+  logs, so hourly workers are covered too (they have no stage production by design).
 - **Attendance automation** (`AttendanceAutomationService` — the only place these rules exist):
   - *Auto-Present*: on load, a worker with logged work is pre-selected as Present and the row shows why
     (`WorkNote`). A saved status always wins over the auto value.
