@@ -293,13 +293,12 @@ namespace WorkforceManager.Business.Services
                 {
                     WorkerName = workersById[g.Key].FullName,
                     TotalPieces = g.Sum(s => s.PieceCount),
-                    // حماية من القسمة على صفر (زي DailyProduction.WorkdaysCompleted) —
-                    // اليومية مفروض دايمًا > 0 بالتحقق، بس ده أمان لو البيانات اتبوّظت
-                    TotalWorkdays = Math.Round(g.Sum(s =>
-                    {
-                        var quota = stageById[s.ProductionStageId].PiecesPerWorkday;
-                        return quota == 0 ? 0m : (decimal)s.PieceCount / quota;
-                    }), 2)
+                    // نفس قاعدة WorkdayMath اللي السجل المحفوظ بيتحسب بيها:
+                    // كل سجل بيتقرّب لوحده وبعدين بنجمع. لو جمعنا الكسور
+                    // الكاملة وقرّبنا مرة واحدة، المعاينة هنا هتقول رقم
+                    // والكشف الأسبوعي هيقول رقم تاني لنفس اليوم
+                    TotalWorkdays = g.Sum(s => WorkdayMath.FromPieces(
+                        s.PieceCount, stageById[s.ProductionStageId].PiecesPerWorkday))
                 })
                 .OrderByDescending(t => t.TotalWorkdays)
                 .ToList();
