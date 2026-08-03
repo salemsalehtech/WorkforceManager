@@ -33,66 +33,6 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
-        /// يسجل حالة حضور عامل في يوم معين. لو فيه سجل موجود لنفس
-        /// العامل ونفس اليوم، بيتم تحديثه بدل ما يتكرر (upsert).
-        /// تسجيل غياب لعامل له إنتاج في نفس اليوم بيترفض برسالة واضحة.
-        /// </summary>
-        public async Task<Attendance> RecordAttendanceAsync(
-            int workerId, DateTime date, AttendanceStatus status,
-            TimeSpan? checkIn = null, TimeSpan? checkOut = null, string? notes = null)
-        {
-            if (status != AttendanceStatus.Present)
-            {
-                var dayProduction = await _productionRepo.GetByDateAsync(date);
-                var producer = dayProduction.FirstOrDefault(r => r.WorkerId == workerId);
-                if (producer is not null)
-                    throw new InvalidOperationException(
-                        $"العامل \"{producer.Worker.FullName}\" له إنتاج مسجل في {date:yyyy/MM/dd} — " +
-                        "ميصحش يتسجل غايب في نفس اليوم. لو فعلاً كان غايب، امسح إنتاجه الأول من تبويب \"سجلات اليوم\".");
-            }
-
-            // الحالة + جزاء الغياب التلقائي لازم يتحفظوا كوحدة واحدة
-            await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
-
-            var existing = await _attendanceRepo.GetByWorkerAndDateAsync(workerId, date);
-            Attendance record;
-
-            if (existing is not null)
-            {
-                existing.Status = status;
-                existing.CheckInTime = status == AttendanceStatus.Present ? checkIn : null;
-                existing.CheckOutTime = status == AttendanceStatus.Present ? checkOut : null;
-                existing.Notes = notes;
-                _attendanceRepo.Update(existing);
-                record = existing;
-            }
-            else
-            {
-                record = new Attendance
-                {
-                    WorkerId = workerId,
-                    Date = date.Date,
-                    Status = status,
-                    CheckInTime = status == AttendanceStatus.Present ? checkIn : null,
-                    CheckOutTime = status == AttendanceStatus.Present ? checkOut : null,
-                    Notes = notes
-                };
-                await _attendanceRepo.AddAsync(record);
-            }
-
-            await _attendanceRepo.SaveChangesAsync();
-
-            // نفس مصالحة الجزاءات بتاعة الحفظ الجماعي (نفس الدالة، مش نسخة تانية)
-            await _automation.ReconcileAbsencePenaltiesAsync(
-                date,
-                new Dictionary<int, AttendanceStatus> { [workerId] = status },
-                new[] { workerId });
-
-            await transaction.CommitAsync();
-            return record;
-        }
-
-        /// <summary>
         /// يسجل حضور مجموعة عمال في نفس اليوم دفعة واحدة (Upsert جماعي).
         /// أساس زر "حفظ الحضور" في شاشة التسجيل: بدل ما نعمل استعلام +
         /// حفظ منفصل لكل عامل (اللي بيبقى عشرات الرحلات لقاعدة البيانات)،

@@ -139,16 +139,6 @@ namespace WorkforceManager.Business.Services
             return record;
         }
 
-        /// <summary>يحذف سجل شغل بالساعة (تصحيح تسجيل غلط — حذف فعلي زي باقي التصحيحات)</summary>
-        public async Task DeleteHourlyWorkAsync(int recordId)
-        {
-            var record = await _hourlyRepo.GetByIdAsync(recordId)
-                ?? throw new InvalidOperationException("سجل الشغل بالساعة غير موجود");
-
-            _hourlyRepo.Remove(record);
-            await _hourlyRepo.SaveChangesAsync();
-        }
-
         /// <summary>كل سجلات الشغل بالساعة في يوم معين (لتبويب التسجيل)</summary>
         public Task<IReadOnlyList<HourlyWorkLog>> GetByDateAsync(DateTime date)
             => _hourlyRepo.GetByDateAsync(date);
