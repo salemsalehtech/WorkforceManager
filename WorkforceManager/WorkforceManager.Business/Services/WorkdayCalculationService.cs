@@ -1,4 +1,5 @@
 using WorkforceManager.Business.DTOs;
+using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 
@@ -17,6 +18,7 @@ namespace WorkforceManager.Business.Services
         private readonly IWorkerRepository _workerRepo;
         private readonly IProductRepository _productRepo;
         private readonly WorkerAssignmentGuard _assignmentGuard;
+        private readonly SoftDeleteService _softDelete;
         private readonly IUnitOfWork _unitOfWork;
 
         public WorkdayCalculationService(
@@ -25,6 +27,7 @@ namespace WorkforceManager.Business.Services
             IWorkerRepository workerRepo,
             IProductRepository productRepo,
             WorkerAssignmentGuard assignmentGuard,
+            SoftDeleteService softDelete,
             IUnitOfWork unitOfWork)
         {
             _productionRepo = productionRepo;
@@ -32,6 +35,7 @@ namespace WorkforceManager.Business.Services
             _workerRepo = workerRepo;
             _productRepo = productRepo;
             _assignmentGuard = assignmentGuard;
+            _softDelete = softDelete;
             _unitOfWork = unitOfWork;
         }
 
@@ -120,17 +124,39 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
-        /// يحذف سجل إنتاج اتسجل بالغلط — حذف فعلي (نفس قاعدة الجزاءات:
-        /// السجل الغلط ملوش قيمة تاريخية تستاهل الحفظ).
+        /// يشيل سجل إنتاج اتسجل بالغلط — **حذف ناعم** بكلمة سر وسبب.
+        ///
+        /// كان حذف فعلي قبل كده. اتغيّر لأن السجل ده أساس أجر عامل: لو
+        /// اتشال فعليًا، السؤال "الأجر نقص ليه الأسبوع ده؟" مبقاش ليه
+        /// إجابة في أي مكان — ولا حتى مين شاله ولا إمتى.
+        ///
+        /// السجل المشال بيختفي من كل الحسابات (فلتر عام على
+        /// DailyProduction) بس بيفضل موجود للمراجعة.
         /// </summary>
-        public async Task DeleteProductionAsync(int recordId)
+        public async Task<SoftDeleteResult> DeleteProductionAsync(
+            int recordId, string operationsPassword, string reason)
         {
             var record = await _productionRepo.GetByIdAsync(recordId)
                 ?? throw new InvalidOperationException("سجل الإنتاج غير موجود");
 
-            _productionRepo.Remove(record);
-            await _productionRepo.SaveChangesAsync();
-        }
+            var stage = await _stageRepo.GetByIdAsync(record.ProductionStageId);
+            var label = stage is null
+                ? $"سجل إنتاج #{record.Id}"
+                : $"{stage.StageName} — {record.PieceCount} قطعة";
 
+            return await _softDelete.DeleteAsync(
+                record,
+                new DeletionDescriptor
+                {
+                    Action = SensitiveAction.DeleteProduction,
+                    EventType = ActivityEventType.ProductionRecordDeleted,
+                    EntityType = nameof(DailyProduction),
+                    EntityId = record.Id,
+                    EntityName = label,
+                    Details = $"يوم {record.Date:yyyy/MM/dd} — {record.PieceCount} قطعة"
+                },
+                operationsPassword,
+                reason);
+        }
     }
 }

@@ -80,6 +80,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<IActivityEventRepository, ActivityEventRepository>();
             services.AddScoped<IWorkerSkillRepository, WorkerSkillRepository>();
             services.AddScoped<IGenericRepository<OperationsCredential>, GenericRepository<OperationsCredential>>();
+            services.AddScoped<IGenericRepository<WorkerSkill>, GenericRepository<WorkerSkill>>();
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
             services.AddScoped<WorkerAssignmentGuard>();
