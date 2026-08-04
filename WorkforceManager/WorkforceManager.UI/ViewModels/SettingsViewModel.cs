@@ -3,8 +3,11 @@ using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
+using WorkforceManager.Business.Services;
 using WorkforceManager.Data;
+using WorkforceManager.UI.Views;
 
 namespace WorkforceManager.UI.ViewModels
 {
@@ -17,6 +20,13 @@ namespace WorkforceManager.UI.ViewModels
     /// </summary>
     public partial class SettingsViewModel : ObservableObject
     {
+        private readonly IServiceScopeFactory _scopeFactory;
+
+        public SettingsViewModel(IServiceScopeFactory scopeFactory)
+        {
+            _scopeFactory = scopeFactory;
+        }
+
         // ------- معلومات معروضة -------
 
         [ObservableProperty]
@@ -34,6 +44,24 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>هل النسخ الخارجي مفعّل؟ (بيتحكم في ظهور زرار الإيقاف)</summary>
         [ObservableProperty]
         private bool _hasExternal;
+
+        // ------- كلمة سر العمليات -------
+
+        /// <summary>
+        /// فيه كلمة سر عمليات متسجّلة؟ من غيرها كل عمليات الحذف
+        /// والتعديلات المالية بتعدّي من غير أي تأكيد.
+        /// </summary>
+        [ObservableProperty]
+        private bool _hasOperationsPassword;
+
+        [ObservableProperty]
+        private string _operationsStatusText = "";
+
+        /// <summary>عنوان الزرار: "حطّ كلمة سر" أول مرة، "غيّر" بعد كده</summary>
+        public string OperationsButtonText => HasOperationsPassword ? "غيّر كلمة السر" : "حطّ كلمة سر";
+
+        partial void OnHasOperationsPasswordChanged(bool value) =>
+            OnPropertyChanged(nameof(OperationsButtonText));
 
         /// <summary>تحديث كل المعلومات المعروضة من الملفات والإعدادات الفعلية</summary>
         public void LoadInfo()
@@ -77,7 +105,55 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
+        /// <summary>
+        /// بيقرا حالة كلمة سر العمليات. منفصلة عن LoadInfo لأنها بتلمس
+        /// قاعدة البيانات (وLoadInfo بتقرا ملفات بس).
+        /// </summary>
+        public async Task LoadOperationsStateAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var gate = scope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+
+            HasOperationsPassword = await gate.IsConfiguredAsync();
+
+            OperationsStatusText = HasOperationsPassword
+                ? "مفعّلة ✔ — الحذف والتعديلات المالية بيطلبوا الكلمة دي"
+                : "⚠ مش متسجّلة — أي حد يقعد على الجهاز يقدر يحذف عمال وسجلات إنتاج ويعدّل الأجور من غير أي تأكيد.";
+        }
+
         // ------- الأوامر -------
+
+        /// <summary>
+        /// يحطّ كلمة سر العمليات أول مرة أو يغيّرها.
+        ///
+        /// التحقق من الكلمة القديمة بيتم في OperationsPasswordService مش
+        /// هنا — الشاشة بتجمع المدخلات بس.
+        /// </summary>
+        [RelayCommand]
+        private async Task SetOperationsPasswordAsync()
+        {
+            var input = OperationsPasswordDialog.Ask(
+                Application.Current.MainWindow, requiresCurrent: HasOperationsPassword);
+
+            if (input is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var gate = scope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+                await gate.SetPasswordAsync(input.CurrentPassword, input.NewPassword);
+
+                await LoadOperationsStateAsync();
+
+                MessageBox.Show(
+                    "كلمة سر العمليات اتسجّلت. من دلوقتي أي حذف أو تعديل مالي هيطلبها.",
+                    "تم", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
 
         [RelayCommand]
         private void OpenLocalFolder()

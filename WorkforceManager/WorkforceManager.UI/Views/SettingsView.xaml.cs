@@ -15,7 +15,11 @@ namespace WorkforceManager.UI.Views
             DataContext = viewModel;
 
             // تحديث المعلومات المعروضة أول ما الشاشة تظهر
-            Loaded += (_, _) => viewModel.LoadInfo();
+            Loaded += async (_, _) =>
+            {
+                viewModel.LoadInfo();                        // ملفات النسخ
+                await viewModel.LoadOperationsStateAsync();  // حالة كلمة السر (قاعدة بيانات)
+            };
         }
     }
 }

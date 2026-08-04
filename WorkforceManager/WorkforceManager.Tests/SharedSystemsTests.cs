@@ -137,6 +137,50 @@ namespace WorkforceManager.Tests
             Assert.True(result.PasswordNotConfigured);
         }
 
+        [Fact]
+        public async Task Setting_the_password_turns_the_gate_on()
+        {
+            // ده تدفق شاشة الإعدادات بالظبط: قبل التسجيل البوابة مفتوحة،
+            // وبعده بتمنع. من غير الخانة دي كل الحماية اللي اتبنت مقفولة
+            // من غير مفتاح.
+            using (var scope = _db.CreateScope())
+                Assert.False(await _db.GetService<OperationsPasswordService>(scope).IsConfiguredAsync());
+
+            await ConfigurePasswordAsync();
+
+            using var check = _db.CreateScope();
+            var gate = _db.GetService<OperationsPasswordService>(check);
+
+            Assert.True(await gate.IsConfiguredAsync());
+            Assert.False((await gate.VerifyAsync(SensitiveAction.DeleteWorker, WrongPassword)).IsAllowed);
+        }
+
+        [Fact]
+        public async Task Changing_the_password_requires_the_current_one()
+        {
+            await ConfigurePasswordAsync();
+
+            using var scope = _db.CreateScope();
+            var gate = _db.GetService<OperationsPasswordService>(scope);
+
+            // من غير الشرط ده، أي حد يقعد على الجهاز يغيّرها ويعدّي البوابة
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                gate.SetPasswordAsync(WrongPassword, "new-secret"));
+
+            // والقديمة لسه شغالة — المحاولة الفاشلة ماغيّرتش حاجة
+            Assert.True((await gate.VerifyAsync(SensitiveAction.DeleteWorker, OperationsPassword)).IsAllowed);
+        }
+
+        [Fact]
+        public async Task Password_shorter_than_the_minimum_is_refused()
+        {
+            using var scope = _db.CreateScope();
+            var gate = _db.GetService<OperationsPasswordService>(scope);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() => gate.SetPasswordAsync(null, "ab"));
+            Assert.False(await gate.IsConfiguredAsync());
+        }
+
         // ======================= نظام 2: الحذف الناعم =======================
 
         [Fact]
