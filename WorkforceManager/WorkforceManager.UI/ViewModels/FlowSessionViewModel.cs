@@ -7,6 +7,7 @@ using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
+using WorkforceManager.Core.Enums;
 using System.Linq;
 
 namespace WorkforceManager.UI.ViewModels
@@ -169,8 +170,17 @@ namespace WorkforceManager.UI.ViewModels
                         StageName = stage.StageName,
                         Quota = stage.PiecesPerWorkday,
                         WaitingPieces = waiting,
+                        // مرتبين بالتقييم — الأحسن على المرحلة دي الأول.
+                        // الترتيب من SkillRatingService عشان يفضل واحد في
+                        // كل الشاشات، مش ترتيب أبجدي في شاشة وتقييم في تانية
                         QualifiedWorkers = skillsByStage[stage.StageId]
-                            .Select(ws => new WorkerPick(ws.WorkerId, ws.Worker.FullName))
+                            .OrderByDescending(ws => ws.RatingValue)
+                            .ThenBy(ws => ws.Worker.FullName)
+                            .Select(ws => new WorkerPick(
+                                ws.WorkerId,
+                                ws.Worker.FullName,
+                                ws.RatingValue,
+                                ws.RatingSource))
                             .ToList(),
                         AlreadyText = already > 0 ? $"مسجل اليوم: {already}" : ""
                     };
@@ -683,8 +693,35 @@ namespace WorkforceManager.UI.ViewModels
 
     // ======================= نماذج عرض الرحلة =======================
 
-    /// <summary>عامل مؤهل في قائمة اختيار عمال المرحلة</summary>
-    public record WorkerPick(int WorkerId, string Name);
+    /// <summary>
+    /// عامل مؤهل في قائمة اختيار عمال المرحلة، ومعاه تقييمه عليها.
+    ///
+    /// التقييم بيتعرض جنب الاسم عشان اللي بيوزّع الشغل يعرف مين الأحسن
+    /// من غير ما يفتح شاشة تانية — والقايمة مرتبة بيه أصلاً.
+    /// </summary>
+    public record WorkerPick(
+        int WorkerId,
+        string Name,
+        decimal RatingValue = 1.0m,
+        SkillRatingSource RatingSource = SkillRatingSource.Manual)
+    {
+        /// <summary>النسبة كنص مئوي ("115%")</summary>
+        public string RatingText => $"{RatingValue * 100:0}%";
+
+        /// <summary>
+        /// شارة مصدر التقييم: النظام حسبه ولا حد حطّه.
+        /// من غيرها المستخدم بيشوف رقم ومش عارف يثق فيه قد إيه.
+        /// </summary>
+        public string RatingTooltip => RatingSource == SkillRatingSource.Auto
+            ? $"محسوب من إنتاجه الفعلي — {RatingText} من الكوتة"
+            : $"تقدير يدوي — {RatingText} من الكوتة";
+
+        /// <summary>بيعمل الكوتة وزيادة (بيتلوّن أخضر في القايمة)</summary>
+        public bool IsAboveQuota => RatingValue >= SkillRatingService.ExpertThreshold;
+
+        /// <summary>تحت الكوتة بوضوح (بيتلوّن أصفر)</summary>
+        public bool IsBelowQuota => RatingValue < SkillRatingService.ProficientThreshold;
+    }
 
     /// <summary>حالة مرحلة في رحلة الإنتاج — بتحدد لون البطاقة ورسالتها</summary>
     public enum FlowStageState
