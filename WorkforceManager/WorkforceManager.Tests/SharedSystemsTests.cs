@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 using WorkforceManager.Data;
 using Xunit;
@@ -325,6 +326,62 @@ namespace WorkforceManager.Tests
                 .SingleAsync(p => p.Id == TestDatabase.ProductBagId);
             Assert.False(product.IsDeleted);
             Assert.True(product.IsActive);
+        }
+
+        [Fact]
+        public async Task Deleted_worker_disappears_from_every_list_including_suspended()
+        {
+            // الباج اللي كان: الحذف بيعلّم العامل موقوف كمان، فكان بيقع في
+            // فلتر "الموقوفين" ويرجع بزرار "إعادة تفعيل" — يعني الحذف
+            // مالوش أي معنى
+            await ConfigurePasswordAsync();
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkerManagementService>(scope)
+                    .DeleteWorkerAsync(TestDatabase.WorkerAhmedId, OperationsPassword, "ساب الشغل");
+
+            using var check = _db.CreateScope();
+            var repo = _db.GetService<IWorkerRepository>(check);
+
+            var all = await repo.GetAllWithSkillsAsync();       // قايمة "الكل" (فيها الموقوفين)
+            var active = await repo.GetActiveWithSkillsAsync(); // قايمة النشطين
+
+            Assert.DoesNotContain(all, w => w.Id == TestDatabase.WorkerAhmedId);
+            Assert.DoesNotContain(active, w => w.Id == TestDatabase.WorkerAhmedId);
+        }
+
+        [Fact]
+        public async Task Deleted_product_disappears_from_every_list_including_suspended()
+        {
+            await ConfigurePasswordAsync();
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<ProductManagementService>(scope)
+                    .DeleteProductAsync(TestDatabase.ProductBagId, OperationsPassword, "وقف إنتاجه");
+
+            using var check = _db.CreateScope();
+            var repo = _db.GetService<IProductRepository>(check);
+
+            Assert.DoesNotContain(await repo.GetAllWithStagesAsync(), p => p.Id == TestDatabase.ProductBagId);
+            Assert.DoesNotContain(await repo.GetActiveWithStagesAsync(), p => p.Id == TestDatabase.ProductBagId);
+        }
+
+        [Fact]
+        public async Task Deleted_stage_disappears_from_its_product_line()
+        {
+            await ConfigurePasswordAsync();
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<ProductManagementService>(scope)
+                    .DeleteStageAsync(TestDatabase.BagStage2Id, OperationsPassword, "اتلغت من الخط");
+
+            using var check = _db.CreateScope();
+            var product = await _db.GetService<IProductRepository>(check)
+                .GetWithStagesAsync(TestDatabase.ProductBagId);
+
+            Assert.NotNull(product);
+            Assert.DoesNotContain(product!.Stages, s => s.Id == TestDatabase.BagStage2Id);
+            Assert.Equal(2, product.Stages.Count); // فضل مرحلتين من التلاتة
         }
 
         // ======================= نظام 3: سجل العمليات =======================
