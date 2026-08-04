@@ -463,6 +463,17 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
+
+                                <!-- الحذف غير الإيقاف: بيمر على كلمة سر العمليات وبيتسجّل -->
+                                <Button Command="{Binding DataContext.DeleteWorkerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        Style="{StaticResource GhostButton}" Margin="6,0,0,0"
+                                        Foreground="{StaticResource DangerBrush}"
+                                        ToolTip="شيل العامل من النظام نهائيًا — سجلاته التاريخية بتفضل محفوظة">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="DeleteOutline" Width="14" Height="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="حذف" Margin="5,0,0,0" />
+                                    </StackPanel>
+                                </Button>
                             </StackPanel>
 
                             <!-- ===== المهارات: كارت لكل منتج، بيتفتح على مراحل الخط ===== -->

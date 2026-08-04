@@ -53,6 +53,12 @@ namespace WorkforceManager.UI
             MainContent.Content = App.AppHost.Services.GetRequiredService<ReportsView>();
         }
 
+        private void NavActivityLog_Checked(object sender, RoutedEventArgs e)
+        {
+            if (MainContent is null) return;
+            MainContent.Content = App.AppHost.Services.GetRequiredService<ActivityLogView>();
+        }
+
         private void NavSettings_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;

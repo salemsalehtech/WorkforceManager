@@ -89,6 +89,8 @@ namespace WorkforceManager.UI
                     services.AddTransient<ViewModels.ReportsViewModel>();
                     services.AddTransient<Views.ProductsView>();
                     services.AddTransient<ViewModels.ProductsViewModel>();
+                    services.AddTransient<Views.ActivityLogView>();
+                    services.AddTransient<ViewModels.ActivityLogViewModel>();
                     services.AddTransient<Views.SettingsView>();
                     services.AddTransient<ViewModels.SettingsViewModel>();
                 })
