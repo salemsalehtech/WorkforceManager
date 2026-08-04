@@ -40,6 +40,9 @@ namespace WorkforceManager.UI
                     services.AddScoped<IHourlyWorkLogRepository, HourlyWorkLogRepository>();
                     services.AddScoped<IWageAdjustmentRepository, WageAdjustmentRepository>();
                     services.AddScoped<IProductionDayClosureRepository, ProductionDayClosureRepository>();
+                    services.AddScoped<IActivityEventRepository, ActivityEventRepository>();
+                    services.AddScoped<IWorkerSkillRepository, WorkerSkillRepository>();
+                    services.AddScoped<IGenericRepository<OperationsCredential>, GenericRepository<OperationsCredential>>();
                     services.AddScoped<IGenericRepository<ProductionStage>, GenericRepository<ProductionStage>>();
                     services.AddScoped<IGenericRepository<WorkerSkill>, GenericRepository<WorkerSkill>>();
                     services.AddScoped<IGenericRepository<AppUser>, GenericRepository<AppUser>>();
@@ -64,6 +67,13 @@ namespace WorkforceManager.UI
                     services.AddScoped<PayrollService>();
                     services.AddScoped<ProductionReportService>();
                     services.AddScoped<WageAdjustmentService>();
+                    // الهوية المشتركة: مصدر واحد لـ"مين عمل كده" — الحذف الناعم
+                    // وسجل العمليات الاتنين بيقروا منه
+                    services.AddSingleton<CurrentUserContext>();
+                    services.AddScoped<OperationsPasswordService>();
+                    services.AddScoped<ActivityLogService>();
+                    services.AddScoped<SoftDeleteService>();
+                    services.AddScoped<SkillRatingService>();
                     services.AddScoped<AuthService>();
                     // خدمة التصدير Singleton لأنها بدون حالة ولا بتلمس قاعدة البيانات
                     services.AddSingleton<WeeklyReportExcelService>();

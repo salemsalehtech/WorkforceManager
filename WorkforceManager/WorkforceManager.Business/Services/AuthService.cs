@@ -16,11 +16,6 @@ namespace WorkforceManager.Business.Services
         public const string DefaultUsername = "admin";
         public const string DefaultPassword = "admin";
 
-        /// <summary>عدد تكرارات التشفير — رقم عالي بيخلي تخمين كلمة المرور بطيء جدًا</summary>
-        private const int Pbkdf2Iterations = 100_000;
-        private const int SaltSize = 16;
-        private const int HashSize = 32;
-
         private readonly IGenericRepository<AppUser> _users;
 
         public AuthService(IGenericRepository<AppUser> users)
@@ -86,27 +81,12 @@ namespace WorkforceManager.Business.Services
             await _users.SaveChangesAsync();
         }
 
-        // ------- التشفير (PBKDF2-SHA256) -------
+        // التشفير كله في PasswordHasher — مشترك مع كلمة سر العمليات عشان
+        // ميحصلش إن واحدة تتقوّى والتانية تفضل ورا
+        private static (string Hash, string Salt) HashPassword(string password) =>
+            PasswordHasher.Hash(password);
 
-        /// <summary>يشفّر كلمة مرور بملح عشوائي جديد، ويرجع الاتنين Base64 للتخزين</summary>
-        private static (string Hash, string Salt) HashPassword(string password)
-        {
-            var saltBytes = RandomNumberGenerator.GetBytes(SaltSize);
-            var hashBytes = Rfc2898DeriveBytes.Pbkdf2(
-                password, saltBytes, Pbkdf2Iterations, HashAlgorithmName.SHA256, HashSize);
-
-            return (Convert.ToBase64String(hashBytes), Convert.ToBase64String(saltBytes));
-        }
-
-        /// <summary>يعيد حساب الـ Hash بنفس ملح المستخدم ويقارن بمقارنة ثابتة الوقت</summary>
-        private static bool VerifyPassword(string password, string storedHash, string storedSalt)
-        {
-            var saltBytes = Convert.FromBase64String(storedSalt);
-            var computed = Rfc2898DeriveBytes.Pbkdf2(
-                password, saltBytes, Pbkdf2Iterations, HashAlgorithmName.SHA256, HashSize);
-
-            // مقارنة ثابتة الوقت — بتمنع استنتاج كلمة المرور من زمن المقارنة
-            return CryptographicOperations.FixedTimeEquals(computed, Convert.FromBase64String(storedHash));
-        }
+        private static bool VerifyPassword(string password, string storedHash, string storedSalt) =>
+            PasswordHasher.Verify(password, storedHash, storedSalt);
     }
 }

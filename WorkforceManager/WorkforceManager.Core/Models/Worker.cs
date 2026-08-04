@@ -10,7 +10,7 @@ namespace WorkforceManager.Core.Models
     /// كل عامل مرتبط بمجموعة من المهارات (WorkerSkills) توضح المراحل
     /// التي يستطيع تنفيذها، ومرتبط بسجلات الإنتاج اليومي الخاصة به.
     /// </summary>
-    public class Worker
+    public class Worker : SoftDeletableEntity
     {
         [Key]
         public int Id { get; set; }

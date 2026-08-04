@@ -23,10 +23,32 @@ namespace WorkforceManager.Data
         public DbSet<HourlyWorkLog> HourlyWorkLogs => Set<HourlyWorkLog>();
         public DbSet<WageAdjustment> WageAdjustments => Set<WageAdjustment>();
         public DbSet<ProductionDayClosure> ProductionDayClosures => Set<ProductionDayClosure>();
+        public DbSet<ActivityEvent> ActivityEvents => Set<ActivityEvent>();
+        public DbSet<OperationsCredential> OperationsCredentials => Set<OperationsCredential>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // ---------- الحذف الناعم ----------
+            // الفلتر العام متحطّ على الكيانات **الطرفية** بس (اللي محدش
+            // بيشاور عليها): سجل الإنتاج ومهارة العامل.
+            //
+            // ومتحطّش عن قصد على Worker / Product / ProductionStage.
+            // السبب مهم: DailyProduction.Worker علاقة إجبارية، ولو العامل
+            // عليه فلتر فـ EF بيستبعد سجلات إنتاجه كمان في أي Include —
+            // يعني حذف عامل كان هيمسح تاريخ أجوره من كل التقارير، وده
+            // بالظبط اللي الحذف الناعم موجود عشان يمنعه.
+            //
+            // بدالها: إخفاء العامل/المنتج/المرحلة من القوايم بيتم بامتداد
+            // مشترك واحد (SoftDeleteQueryExtensions.ExcludeDeleted) —
+            // مكان واحد برضه، بس بيسيب الملاحة التاريخية شغالة.
+            modelBuilder.Entity<DailyProduction>().HasQueryFilter(d => !d.IsDeleted);
+
+            // مهارة عامل محذوف أو مرحلة محذوفة مالهاش أي معنى في أي شاشة،
+            // ومفيش سجل تاريخي بيشاور عليها — فالفلتر العام آمن هنا
+            modelBuilder.Entity<WorkerSkill>()
+                .HasQueryFilter(ws => !ws.Worker.IsDeleted && !ws.ProductionStage.IsDeleted);
 
             // ---------- Product -> ProductionStage (1-to-many) ----------
             modelBuilder.Entity<ProductionStage>()
