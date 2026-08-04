@@ -268,6 +268,65 @@ namespace WorkforceManager.Tests
             Assert.Contains("سبب", result.Message);
         }
 
+        [Fact]
+        public async Task Deleting_a_product_keeps_its_production_history()
+        {
+            await ConfigurePasswordAsync();
+            await RecordProductionAsync();
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<ProductManagementService>(scope)
+                    .DeleteProductAsync(TestDatabase.ProductBagId, OperationsPassword, "وقف إنتاجه خلاص");
+
+            using var check = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(check);
+
+            var product = await db.Products.AsNoTracking()
+                .SingleAsync(p => p.Id == TestDatabase.ProductBagId);
+            Assert.True(product.IsDeleted);
+            Assert.Equal("شنطة", product.DeletedName);
+            Assert.False(product.IsActive);
+
+            // سجل الإنتاج لسه بيوصل لمنتجه عبر المرحلة
+            var record = await db.DailyProductions
+                .Include(r => r.ProductionStage).ThenInclude(s => s.Product)
+                .AsNoTracking().SingleAsync();
+            Assert.Equal("شنطة", record.ProductionStage.Product.Name);
+        }
+
+        [Fact]
+        public async Task Deleting_a_stage_does_not_touch_recorded_wages()
+        {
+            await ConfigurePasswordAsync();
+            await RecordProductionAsync(pieces: 100);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<ProductManagementService>(scope)
+                    .DeleteStageAsync(TestDatabase.BagStage1Id, OperationsPassword, "المرحلة اتلغت من الخط");
+
+            // اليومية محفوظة كـ Snapshot على السجل، فحذف المرحلة مبيغيّرش أجر حد
+            var record = Assert.Single(await _db.GetProductionAsync());
+            Assert.Equal(10m, record.WorkdaysCompleted);
+        }
+
+        [Fact]
+        public async Task Deleting_a_product_without_the_password_is_blocked()
+        {
+            await ConfigurePasswordAsync();
+
+            using var scope = _db.CreateScope();
+            var result = await _db.GetService<ProductManagementService>(scope)
+                .DeleteProductAsync(TestDatabase.ProductBagId, WrongPassword, "تجربة");
+
+            Assert.False(result.IsDeleted);
+
+            var db = _db.GetService<AppDbContext>(scope);
+            var product = await db.Products.AsNoTracking()
+                .SingleAsync(p => p.Id == TestDatabase.ProductBagId);
+            Assert.False(product.IsDeleted);
+            Assert.True(product.IsActive);
+        }
+
         // ======================= نظام 3: سجل العمليات =======================
 
         [Fact]

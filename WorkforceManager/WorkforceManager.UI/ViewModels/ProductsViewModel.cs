@@ -290,6 +290,46 @@ namespace WorkforceManager.UI.ViewModels
             await LoadAsync();
         }
 
+        /// <summary>
+        /// يشيل المنتج نهائيًا — غير الإيقاف. بيمر على بوابة كلمة السر
+        /// وبيتسجّل في سجل العمليات، وسجلات إنتاجه القديمة بتفضل محفوظة.
+        /// </summary>
+        [RelayCommand]
+        private async Task DeleteProductAsync()
+        {
+            if (SelectedProduct is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var gate = scope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+
+                var input = SensitiveActionDialog.Ask(
+                    Application.Current.MainWindow,
+                    "حذف منتج",
+                    $"{SelectedProduct.Name} — هيختفي هو ومراحله من كل القوايم. سجلات الإنتاج القديمة عليه هتفضل محفوظة.",
+                    await gate.IsConfiguredAsync());
+
+                if (input is null) return;
+
+                var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
+                var result = await mgmt.DeleteProductAsync(
+                    SelectedProduct.ProductId, input.Password, input.Reason);
+
+                if (!result.IsDeleted)
+                {
+                    MessageBox.Show(result.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                await LoadAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "خطأ في الحذف", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
         // ------- إدارة المراحل -------
 
         [RelayCommand]
@@ -380,6 +420,42 @@ namespace WorkforceManager.UI.ViewModels
                 await mgmt.ReactivateStageAsync(stage.StageId);
 
             await LoadAsync();
+        }
+
+        /// <summary>يشيل مرحلة من الخط نهائيًا — بكلمة سر وسبب مسجّلين</summary>
+        [RelayCommand]
+        private async Task DeleteStageAsync(StageRow? stage)
+        {
+            if (stage is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var gate = scope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+
+                var input = SensitiveActionDialog.Ask(
+                    Application.Current.MainWindow,
+                    "حذف مرحلة",
+                    $"{stage.StageName} — هتختفي من الخط. سجلات الإنتاج عليها وأجور العمال هتفضل زي ما هي.",
+                    await gate.IsConfiguredAsync());
+
+                if (input is null) return;
+
+                var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
+                var result = await mgmt.DeleteStageAsync(stage.StageId, input.Password, input.Reason);
+
+                if (!result.IsDeleted)
+                {
+                    MessageBox.Show(result.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                await LoadAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "خطأ في الحذف", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
     }
 
