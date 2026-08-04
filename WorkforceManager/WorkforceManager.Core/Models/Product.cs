@@ -10,7 +10,7 @@ namespace WorkforceManager.Core.Models
     /// وكل مرحلة داخل هذا المنتج لها سعر مستقل حتى لو تكرر اسم
     /// نفس المرحلة في منتج آخر بسعر مختلف.
     /// </summary>
-    public class Product
+    public class Product : SoftDeletableEntity
     {
         [Key]
         public int Id { get; set; }

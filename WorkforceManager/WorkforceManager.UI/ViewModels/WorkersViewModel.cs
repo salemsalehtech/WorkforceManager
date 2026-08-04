@@ -536,6 +536,51 @@ namespace WorkforceManager.UI.ViewModels
         }
 
         /// <summary>
+        /// يشيل العامل من النظام نهائيًا — غير الإيقاف.
+        ///
+        /// الإيقاف مؤقت وله رجوع (إجازة/وقف شغل)، والحذف بيقول "مبقاش من
+        /// المصنع". الاتنين بيخفوه من القوايم، بس الحذف بيمر على بوابة
+        /// كلمة السر وبيتسجّل في سجل العمليات بمين شاله وليه.
+        ///
+        /// سجلاته التاريخية (إنتاج، أجور، حضور) بتفضل كلها زي ما هي.
+        /// </summary>
+        [RelayCommand]
+        private async Task DeleteWorkerAsync()
+        {
+            if (SelectedWorker is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var gate = scope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+
+                var input = SensitiveActionDialog.Ask(
+                    Application.Current.MainWindow,
+                    "حذف عامل",
+                    $"{SelectedWorker.FullName} — هيختفي من كل القوايم. سجلات إنتاجه وأجوره القديمة هتفضل محفوظة ومقروءة.",
+                    await gate.IsConfiguredAsync());
+
+                if (input is null) return;
+
+                var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
+                var result = await mgmt.DeleteWorkerAsync(
+                    SelectedWorker.WorkerId, input.Password, input.Reason);
+
+                if (!result.IsDeleted)
+                {
+                    MessageBox.Show(result.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                await LoadAsync();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "خطأ في الحذف", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        /// <summary>
         /// يقلب وضع الإضافة: الكروت بتتوسّع لتشمل المنتجات اللي العامل مالوش
         /// فيها ولا مهارة، فيقدر يفتح أي منتج ويضيف منه.
         /// </summary>

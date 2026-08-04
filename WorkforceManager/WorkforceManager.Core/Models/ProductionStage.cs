@@ -14,7 +14,7 @@ namespace WorkforceManager.Core.Models
     /// فعامل أنتج 5000 قطعة يبقى عمل يومية واحدة، ولو أنتج 10000
     /// يبقى عمل يوميتين، وهكذا (قسمة، مش سعر بالجنيه).
     /// </summary>
-    public class ProductionStage
+    public class ProductionStage : SoftDeletableEntity
     {
         [Key]
         public int Id { get; set; }

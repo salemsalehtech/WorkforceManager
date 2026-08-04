@@ -48,6 +48,12 @@ namespace WorkforceManager.UI.Views
             }
 
             LoggedInDisplayName = user.DisplayName ?? user.Username;
+
+            // الهوية المشتركة: من هنا ورايح كل حذف وكل حدث في السجل
+            // بياخد اسم الشخص ده. Singleton فبيتقري من أي Scope بعدين.
+            App.AppHost.Services.GetRequiredService<CurrentUserContext>()
+                .SignIn(user.Username, user.DisplayName);
+
             DialogResult = true;
         }
 

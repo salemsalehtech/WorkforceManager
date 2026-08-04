@@ -14,7 +14,7 @@ namespace WorkforceManager.Core.Models
     // فهرس مركّب (WorkerId, ProductionStageId, Date) لتسريع استعلامات
     // "إنتاج عامل معين في يوم معين" التي ستُستخدم بكثرة في التقارير والتقييم
     [Index(nameof(WorkerId), nameof(ProductionStageId), nameof(Date))]
-    public class DailyProduction
+    public class DailyProduction : SoftDeletableEntity
     {
         [Key]
         public int Id { get; set; }

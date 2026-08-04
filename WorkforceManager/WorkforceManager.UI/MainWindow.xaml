@@ -87,6 +87,14 @@
                     </RadioButton>
 
                     <RadioButton Style="{StaticResource NavItem}"
+                                 Checked="NavActivityLog_Checked" Click="NavActivityLog_Checked">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                            <TextBlock Text="سجل العمليات" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton Style="{StaticResource NavItem}"
                                  Checked="NavSettings_Checked" Click="NavSettings_Checked">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" VerticalAlignment="Center" />

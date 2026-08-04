@@ -314,16 +314,30 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (row is null) return;
 
-            if (MessageBox.Show(
-                    $"حذف سجل \"{row.WorkerName}\" على {row.StageDisplay} ({row.PieceCount} قطعة)؟\nيومياته هتتخصم من حسابه فورًا.",
-                    "تأكيد الحذف", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
-                return;
-
             try
             {
                 using var scope = _scopeFactory.CreateScope();
+                var gate = scope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+
+                // النافذة المشتركة بتجمع كلمة السر والسبب — والتحقق نفسه
+                // في الخدمة، فمفيش شاشة بتقارن كلمة سر بنفسها
+                var input = SensitiveActionDialog.Ask(
+                    Application.Current.MainWindow,
+                    "حذف سجل إنتاج",
+                    $"{row.WorkerName} — {row.StageDisplay} ({row.PieceCount} قطعة). يومياته هتتخصم من حسابه.",
+                    await gate.IsConfiguredAsync());
+
+                if (input is null) return;
+
                 var workdayService = scope.ServiceProvider.GetRequiredService<WorkdayCalculationService>();
-                await workdayService.DeleteProductionAsync(row.RecordId);
+                var result = await workdayService.DeleteProductionAsync(
+                    row.RecordId, input.Password, input.Reason);
+
+                if (!result.IsDeleted)
+                {
+                    MessageBox.Show(result.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
 
                 await ReloadForDateAsync();
             }

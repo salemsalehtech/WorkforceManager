@@ -77,6 +77,10 @@ namespace WorkforceManager.Tests
             services.AddScoped<IWageAdjustmentRepository, WageAdjustmentRepository>();
             services.AddScoped<IGenericRepository<ProductionStage>, GenericRepository<ProductionStage>>();
             services.AddScoped<IProductionDayClosureRepository, ProductionDayClosureRepository>();
+            services.AddScoped<IActivityEventRepository, ActivityEventRepository>();
+            services.AddScoped<IWorkerSkillRepository, WorkerSkillRepository>();
+            services.AddScoped<IGenericRepository<OperationsCredential>, GenericRepository<OperationsCredential>>();
+            services.AddScoped<IGenericRepository<WorkerSkill>, GenericRepository<WorkerSkill>>();
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
             services.AddScoped<WorkerAssignmentGuard>();
@@ -91,6 +95,15 @@ namespace WorkforceManager.Tests
             services.AddScoped<WeeklySummaryService>();
             services.AddScoped<PayrollService>();
             services.AddScoped<ProductManagementService>();
+            services.AddScoped<WorkerManagementService>();
+
+            // الأنظمة المشتركة: الهوية واحدة للكل، والبوابة والسجل والحذف
+            // بيتنادوا من مكان واحد
+            services.AddSingleton<CurrentUserContext>();
+            services.AddScoped<OperationsPasswordService>();
+            services.AddScoped<ActivityLogService>();
+            services.AddScoped<SoftDeleteService>();
+            services.AddScoped<SkillRatingService>();
 
             _provider = services.BuildServiceProvider();
 

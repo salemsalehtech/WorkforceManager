@@ -81,6 +81,54 @@
                 </StackPanel>
             </Border>
 
+            <!-- كلمة سر العمليات — أول قسم عن قصد: من غيرها كل الحماية مقفولة -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ShieldLockOutline" Width="18" Height="18"
+                                                  Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="كلمة سر العمليات" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10"
+                               Text="كلمة منفصلة عن كلمة الدخول: الدخول بيقول مين انت، ودي بتتطلب قبل الحذف وتعديل الأجور والجزاءات. الشغل اليومي (الحضور وتسجيل الإنتاج) مبيطلبهاش." />
+
+                    <!-- حالة التفعيل: أخضر لو متسجّلة، أحمر لو لأ -->
+                    <Border CornerRadius="7" Padding="10,7" Margin="0,0,0,10">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{StaticResource DangerBgBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasOperationsPassword}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource SuccessBgBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding OperationsStatusText}" FontSize="12.5" TextWrapping="Wrap"
+                                   FontWeight="SemiBold">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasOperationsPassword}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+
+                    <Button Command="{Binding SetOperationsPasswordCommand}"
+                            Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="KeyVariant" Width="15" Height="15" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding OperationsButtonText}" Margin="6,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
             <!-- الاسترجاع -->
             <Border Style="{StaticResource Card}">
                 <StackPanel>

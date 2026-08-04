@@ -14,13 +14,16 @@ namespace WorkforceManager.Business.Services
     {
         private readonly IWorkerRepository _workerRepo;
         private readonly IGenericRepository<WorkerSkill> _skillRepo;
+        private readonly SoftDeleteService _softDelete;
 
         public WorkerManagementService(
             IWorkerRepository workerRepo,
-            IGenericRepository<WorkerSkill> skillRepo)
+            IGenericRepository<WorkerSkill> skillRepo,
+            SoftDeleteService softDelete)
         {
             _workerRepo = workerRepo;
             _skillRepo = skillRepo;
+            _softDelete = softDelete;
         }
 
         /// <summary>
@@ -101,6 +104,49 @@ namespace WorkforceManager.Business.Services
             worker.IsActive = false;
             _workerRepo.Update(worker);
             await _workerRepo.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// يشيل عامل من النظام نهائيًا — **حذف ناعم** بكلمة سر وسبب.
+        ///
+        /// الفرق عن الإيقاف: الإيقاف مؤقت وله رجوع (العامل في إجازة أو
+        /// وقف شغل)، والحذف بيقول "الشخص ده مبقاش من المصنع خالص".
+        /// الاتنين بيخفوه من القوايم، بس الحذف بيسجّل مين شاله وليه.
+        ///
+        /// سجلاته التاريخية (إنتاج، أجور، حضور) بتفضل كلها زي ما هي
+        /// وبتعرض اسمه وقت الحذف — عشان كشف أجور قديم مايتحوّلش لأرقام
+        /// من غير أسماء.
+        /// </summary>
+        public async Task<SoftDeleteResult> DeleteWorkerAsync(
+            int workerId, string operationsPassword, string reason)
+        {
+            var worker = await _workerRepo.GetByIdAsync(workerId)
+                ?? throw new InvalidOperationException("العامل المحدد غير موجود");
+
+            var result = await _softDelete.DeleteAsync(
+                worker,
+                new DeletionDescriptor
+                {
+                    Action = SensitiveAction.DeleteWorker,
+                    EventType = ActivityEventType.WorkerDeleted,
+                    EntityType = nameof(Worker),
+                    EntityId = worker.Id,
+                    EntityName = worker.FullName
+                },
+                operationsPassword,
+                reason);
+
+            // العامل المشال ميظهرش في القوايم النشطة كمان: الحذف الناعم
+            // مالوش فلتر عام على العامل (عشان التقارير التاريخية)، فالإخفاء
+            // بيتم بنفس العلامة اللي كل الشاشات بتحترمها أصلاً
+            if (result.IsDeleted && worker.IsActive)
+            {
+                worker.IsActive = false;
+                _workerRepo.Update(worker);
+                await _workerRepo.SaveChangesAsync();
+            }
+
+            return result;
         }
 
         /// <summary>إعادة تفعيل عامل موقوف (رجع للشغل مثلاً) — سجله القديم كله بيرجع معاه</summary>
