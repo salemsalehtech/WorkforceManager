@@ -126,8 +126,7 @@ namespace WorkforceManager.Business.Services
             // يوم مقفول = المستخدم راجع أرقامه ووافق عليها. فتح الباب
             // لتسجيل جديد بعد كده بيخلي تقرير مطبوع يكدب
             if (await _closureRepo.IsClosedAsync(date))
-                throw new InvalidOperationException(
-                    $"إنتاج يوم {date:yyyy/MM/dd} مقفول — افتح اليوم تاني من شاشة التسجيل لو محتاج تعدّل");
+                throw new InvalidOperationException(DayClosureService.ClosedDayMessage(date));
 
             // ---------- 1) تحميل المنتج ومراحله النشطة بترتيب خط الإنتاج ----------
             var product = await _productRepo.GetWithStagesAsync(productId)
@@ -145,30 +144,45 @@ namespace WorkforceManager.Business.Services
                 .Select((stage, index) => (stage.Id, index))
                 .ToDictionary(x => x.Id, x => x.index);
 
-            // ---------- 2) حساب إنتاج كل مرحلة من النطاقات + منع التداخل ----------
+            // ---------- 2) حساب إنتاج كل مرحلة من النطاقات + منع التكرار ----------
             var piecesPerStage = new int[orderedStages.Count];
 
-            foreach (var range in ranges)
+            // أنهي نطاق حجز أنهي مرحلة. الرقم ده بيدخل في رسالة الخطأ:
+            // "متسجلة في النطاق رقم 1" أنفع بكتير من "فيه تداخل" لما يكون
+            // المستخدم كاتب 4 نطاقات وبيدوّر على الغلط فيهم
+            var claimedByRange = new int[orderedStages.Count];
+
+            var rangeList = ranges.ToList();
+            for (var rangeNumber = 0; rangeNumber < rangeList.Count; rangeNumber++)
             {
+                var range = rangeList[rangeNumber];
+
                 if (!indexByStageId.TryGetValue(range.FromStageId, out var fromIndex) ||
                     !indexByStageId.TryGetValue(range.ToStageId, out var toIndex))
-                    throw new InvalidOperationException("نطاق إنتاج بيشاور على مرحلة مش من مراحل المنتج المحدد");
+                    throw new InvalidOperationException(
+                        $"النطاق رقم {rangeNumber + 1} بيشاور على مرحلة مش من مراحل المنتج المحدد");
 
                 if (fromIndex > toIndex)
                     throw new InvalidOperationException(
-                        $"نطاق غير صحيح: \"{orderedStages[fromIndex].StageName}\" بتيجي بعد \"{orderedStages[toIndex].StageName}\" في خط الإنتاج — راجع الترتيب");
+                        $"النطاق رقم {rangeNumber + 1} معكوس: \"{orderedStages[fromIndex].StageName}\" بتيجي بعد " +
+                        $"\"{orderedStages[toIndex].StageName}\" في خط الإنتاج — راجع الترتيب");
 
                 if (range.PieceCount <= 0)
-                    throw new InvalidOperationException("عدد القطع في كل نطاق لازم يكون رقمًا موجبًا");
+                    throw new InvalidOperationException(
+                        $"عدد القطع في النطاق رقم {rangeNumber + 1} لازم يكون رقمًا موجبًا");
 
                 for (var i = fromIndex; i <= toIndex; i++)
                 {
-                    // نفس المرحلة ميصحش تقع في نطاقين — ده تسجيل مزدوج هيبوّظ اليوميات
+                    // نفس المرحلة ميصحش تقع في نطاقين — ده تسجيل مزدوج
+                    // بيضاعف يوميات العمال وأجورهم
                     if (piecesPerStage[i] != 0)
                         throw new InvalidOperationException(
-                            $"المرحلة \"{orderedStages[i].StageName}\" واقعة في أكتر من نطاق — النطاقات ميصحش تتداخل");
+                            $"المرحلة \"{orderedStages[i].StageName}\" متسجلة خلاص في النطاق رقم " +
+                            $"{claimedByRange[i] + 1}، ومش هينفع تتسجل تاني في النطاق رقم {rangeNumber + 1} — " +
+                            $"المرحلة الواحدة بتتحسب مرة واحدة في اليوم");
 
                     piecesPerStage[i] = range.PieceCount;
+                    claimedByRange[i] = rangeNumber;
                 }
             }
 

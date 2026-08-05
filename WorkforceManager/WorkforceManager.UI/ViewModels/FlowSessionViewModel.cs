@@ -90,9 +90,11 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>معاينة يوميات كل عامل قبل الحفظ (بتتحدث لحظيًا)</summary>
         public ObservableCollection<FlowWorkerTotalDto> FlowPreview { get; } = new();
 
-        /// <summary>تحذيرات لحظية (نطاقات متداخلة، توزيع مش مظبوط...) قبل ما المستخدم يحفظ</summary>
-        [ObservableProperty]
-        private string _flowWarning = string.Empty;
+        // بلوك التحذيرات الأصفر اللي كان هنا اتشال: كان بيجمّع أخطاء كل
+        // النطاقات في نص واحد فوق الشاشة، فالمستخدم بيقرا "مرحلة كذا
+        // واقعة في أكتر من نطاق" ويفضل يدوّر هي في أنهي نطاق. دلوقتي كل
+        // نطاق بيعرض خطأه تحته (FlowRangeRow.Error)، وتحذير "التوزيع ≠
+        // الإنتاج" اتشال خالص لأن كارت المرحلة بيتلوّن أحمر في نفس الحالة.
 
         /// <summary>هل المستخدم كتب أي حاجة في الرحلة دي؟ (للتأكيد قبل إزالتها)</summary>
         public bool HasUserInput =>
@@ -108,7 +110,6 @@ namespace WorkforceManager.UI.ViewModels
                 FlowStages.Clear();
                 FlowRanges.Clear();
                 FlowPreview.Clear();
-                FlowWarning = string.Empty;
                 // الموافقات بتخص التكليفات اللي كانت على الشاشة — الرحلة بتبدأ نظيفة
                 _confirmedAssignments.Clear();
 
@@ -141,12 +142,10 @@ namespace WorkforceManager.UI.ViewModels
                         StageName = stage.StageName,
                         Quota = stage.PiecesPerWorkday,
                         // مرتبين بالتقييم — الأحسن على المرحلة دي الأول.
-                        // الترتيب من SkillRatingService عشان يفضل واحد في
-                        // كل الشاشات، مش ترتيب أبجدي في شاشة وتقييم في تانية
-                        QualifiedWorkers = skillsByStage[stage.StageId]
-                            .OrderByDescending(ws => ws.Stars)
-                            .ThenByDescending(ws => ws.MeasuredRatio)
-                            .ThenBy(ws => ws.Worker.FullName)
+                        // الترتيب بيتنادى من SkillRatingService.Rank مش
+                        // متكتب هنا: نفس القاعدة اللي شاشة المنتجات شغالة
+                        // بيها، فالمدير بيشوف نفس الترتيب في الشاشتين
+                        QualifiedWorkers = SkillRatingService.Rank(skillsByStage[stage.StageId])
                             .Select(ws => new WorkerPick(
                                 ws.WorkerId,
                                 ws.Worker.FullName,
@@ -186,7 +185,7 @@ namespace WorkforceManager.UI.ViewModels
         private void OnSharesEdited()
         {
             if (_suppressCallbacks) return;
-            RecomputeTotals(new List<string>());
+            RecomputeTotals();
         }
 
         /// <summary>
@@ -196,26 +195,31 @@ namespace WorkforceManager.UI.ViewModels
         /// </summary>
         private void RecomputeFlow()
         {
-            var warnings = new List<string>();
-
             _suppressCallbacks = true;
             try
             {
                 // 1) إنتاج كل مرحلة من النطاقات (بنفس قواعد الخدمة: بلا تداخل وبترتيب صحيح)
                 foreach (var row in FlowStages) row.ComputedPieces = 0;
+                foreach (var range in FlowRanges) range.Error = "";
 
                 var indexByStageId = FlowStages
                     .Select((row, index) => (row.StageId, index))
                     .ToDictionary(x => x.StageId, x => x.index);
 
-                foreach (var range in FlowRanges)
+                // أنهي نطاق حجز أنهي مرحلة — عشان رسالة التعارض تقول
+                // "بيتعارض مع النطاق رقم كذا" مش "فيه تداخل" وبس
+                var claimedBy = new Dictionary<int, int>();
+
+                for (var rangeNumber = 0; rangeNumber < FlowRanges.Count; rangeNumber++)
                 {
+                    var range = FlowRanges[rangeNumber];
+
                     if (range.FromStage is null || range.ToStage is null) continue;
                     if (string.IsNullOrWhiteSpace(range.PiecesText)) continue;
 
                     if (!int.TryParse(range.PiecesText.Trim(), out var pieces) || pieces <= 0)
                     {
-                        warnings.Add($"⚠ عدد القطع \"{range.PiecesText}\" مش رقم صحيح موجب");
+                        range.Error = $"\"{range.PiecesText}\" مش رقم قطع صحيح — لازم رقم موجب";
                         continue;
                     }
 
@@ -223,18 +227,28 @@ namespace WorkforceManager.UI.ViewModels
                     var toIndex = indexByStageId[range.ToStage.StageId];
                     if (fromIndex > toIndex)
                     {
-                        warnings.Add($"⚠ نطاق معكوس: \"{range.FromStage.StageName}\" بتيجي بعد \"{range.ToStage.StageName}\" في الترتيب");
+                        range.Error =
+                            $"النطاق معكوس: \"{range.FromStage.StageName}\" بتيجي بعد " +
+                            $"\"{range.ToStage.StageName}\" في خط الإنتاج";
+                        continue;
+                    }
+
+                    // منع تكرار المرحلة بين النطاقات: مرحلة اتسجلت في نطاق
+                    // مش هينفع تتسجل تاني في نطاق بعده — ده تسجيل مزدوج
+                    // بيضاعف يوميات العمال. الرسالة بتسمّي النطاقين والمرحلة.
+                    var conflict = FirstConflictingStage(fromIndex, toIndex, claimedBy);
+                    if (conflict is { } clash)
+                    {
+                        range.Error =
+                            $"مرحلة \"{FlowStages[clash.StageIndex].StageName}\" متسجلة خلاص في " +
+                            $"النطاق رقم {clash.OwnerRangeNumber + 1} — المرحلة ميصحش تتحسب مرتين";
                         continue;
                     }
 
                     for (var i = fromIndex; i <= toIndex; i++)
                     {
-                        if (FlowStages[i].ComputedPieces != 0)
-                        {
-                            warnings.Add($"⚠ مرحلة \"{FlowStages[i].StageName}\" واقعة في أكتر من نطاق — النطاقات ميصحش تتداخل");
-                            continue;
-                        }
                         FlowStages[i].ComputedPieces = pieces;
+                        claimedBy[i] = rangeNumber;
                     }
                 }
 
@@ -261,11 +275,36 @@ namespace WorkforceManager.UI.ViewModels
                 _suppressCallbacks = false;
             }
 
-            RecomputeTotals(warnings);
+            RecomputeTotals();
         }
 
-        /// <summary>يبني معاينة إجمالي كل عامل (قطع + يوميات) ويجمّع التحذيرات في سطر واحد</summary>
-        private void RecomputeTotals(List<string> warnings)
+        /// <summary>
+        /// أول مرحلة في النطاق ده محجوزة لنطاق قبله — مع رقم النطاق اللي
+        /// حاجزها. بترجّع null لو النطاق سليم.
+        ///
+        /// دالة منفصلة عن قصد: الشرط ده هو قاعدة "المرحلة ميصحش تتحسب
+        /// مرتين"، وخلطه جوّه حلقة الحساب كان بيخليه صعب يتقري ويتغيّر.
+        /// </summary>
+        private static (int StageIndex, int OwnerRangeNumber)? FirstConflictingStage(
+            int fromIndex, int toIndex, IReadOnlyDictionary<int, int> claimedBy)
+        {
+            for (var i = fromIndex; i <= toIndex; i++)
+                if (claimedBy.TryGetValue(i, out var owner))
+                    return (i, owner);
+
+            return null;
+        }
+
+        /// <summary>
+        /// يبني معاينة إجمالي كل عامل (قطع + يوميات).
+        ///
+        /// مبقاش بيجمّع تحذيرات: تحذير "التوزيع ≠ إنتاج المرحلة" اتشال
+        /// لأن كارت المرحلة نفسه بيتلوّن أحمر في نفس الحالة بالظبط
+        /// (<see cref="FlowStageState.Mismatch"/>) — يعني نفس المعلومة
+        /// كانت بتتقال مرتين، مرة على الكارت ومرة في بلوك نص فوق.
+        /// وأخطاء النطاقات بقت على كل نطاق في مكانه.
+        /// </summary>
+        private void RecomputeTotals()
         {
             var totals = new Dictionary<int, (string Name, int Pieces, decimal Workdays)>();
 
@@ -273,21 +312,15 @@ namespace WorkforceManager.UI.ViewModels
             {
                 if (row.ComputedPieces == 0 && row.AssignedWorkers.Count == 0) continue;
 
-                var stageSum = 0;
                 foreach (var share in row.AssignedWorkers)
                 {
                     if (!int.TryParse(share.SharePieces?.Trim(), out var pieces) || pieces <= 0) continue;
 
-                    stageSum += pieces;
                     var workdays = Math.Round((decimal)pieces / row.Quota, 2);
                     totals[share.WorkerId] = totals.TryGetValue(share.WorkerId, out var t)
                         ? (t.Name, t.Pieces + pieces, t.Workdays + workdays)
                         : (share.WorkerName, pieces, workdays);
                 }
-
-                // مرحلة عليها إنتاج لكن التوزيع مش مساويه — تحذير قبل ما الحفظ يرفضها
-                if (row.ComputedPieces > 0 && stageSum != row.ComputedPieces)
-                    warnings.Add($"⚠ مرحلة \"{row.StageName}\": مجموع التوزيع ({stageSum}) ≠ إنتاج المرحلة ({row.ComputedPieces})");
             }
 
             FlowPreview.Clear();
@@ -300,8 +333,6 @@ namespace WorkforceManager.UI.ViewModels
                     TotalWorkdays = t.Workdays
                 });
             }
-
-            FlowWarning = string.Join("\n", warnings.Distinct());
 
             // تلوين البطاقات وعدّاد الجاهزية بيتحدّثوا مع أي تغيير
             foreach (var row in FlowStages) row.RefreshState();
@@ -965,6 +996,21 @@ namespace WorkforceManager.UI.ViewModels
         partial void OnFromStageChanged(StageEntryOption? value) => _onEdited();
         partial void OnToStageChanged(StageEntryOption? value) => _onEdited();
         partial void OnPiecesTextChanged(string value) => _onEdited();
+
+        /// <summary>
+        /// خطأ النطاق ده بالذات (فاضي = سليم).
+        ///
+        /// الخطأ بيتعرض **تحت النطاق نفسه** مش في بلوك تحذيرات فوق:
+        /// البلوك كان بيجمّع أخطاء كل النطاقات في نص واحد، فالمستخدم اللي
+        /// عنده تلات نطاقات كان لازم يقرا الرسالة ويدوّر هي بتتكلم عن
+        /// أنهي واحد فيهم.
+        /// </summary>
+        [ObservableProperty]
+        private string _error = "";
+
+        partial void OnErrorChanged(string value) => OnPropertyChanged(nameof(HasError));
+
+        public bool HasError => Error.Length > 0;
 
         [RelayCommand]
         private void Remove() => _onRemove(this);

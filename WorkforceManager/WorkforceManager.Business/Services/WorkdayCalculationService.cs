@@ -19,6 +19,7 @@ namespace WorkforceManager.Business.Services
         private readonly IProductRepository _productRepo;
         private readonly WorkerAssignmentGuard _assignmentGuard;
         private readonly SoftDeleteService _softDelete;
+        private readonly IProductionDayClosureRepository _closureRepo;
         private readonly IUnitOfWork _unitOfWork;
 
         public WorkdayCalculationService(
@@ -28,6 +29,7 @@ namespace WorkforceManager.Business.Services
             IProductRepository productRepo,
             WorkerAssignmentGuard assignmentGuard,
             SoftDeleteService softDelete,
+            IProductionDayClosureRepository closureRepo,
             IUnitOfWork unitOfWork)
         {
             _productionRepo = productionRepo;
@@ -36,7 +38,25 @@ namespace WorkforceManager.Business.Services
             _productRepo = productRepo;
             _assignmentGuard = assignmentGuard;
             _softDelete = softDelete;
+            _closureRepo = closureRepo;
             _unitOfWork = unitOfWork;
+        }
+
+        /// <summary>
+        /// يرفض الكتابة على يوم مقفول.
+        ///
+        /// كان الفحص ده في <see cref="ProductionFlowService"/> بس، يعني
+        /// القفل كان بيتلفّ حواليه من المسار ده: تسجيل سجل واحد أو تعديل
+        /// عدد قطع سجل محفوظ كانوا بيعدّوا على يوم مقفول عادي — والمستخدم
+        /// يكون شاف الأرقام ووافق عليها وطبع تقرير، والأرقام تتغيّر بعديها.
+        ///
+        /// الحذف **مستثنى** عن قصد: حذف بكلمة سر وسبب مكتوب هو الطريق
+        /// المقصود لتصحيح يوم اتقفل بالغلط.
+        /// </summary>
+        private async Task EnsureDayIsOpenAsync(DateTime date)
+        {
+            if (await _closureRepo.IsClosedAsync(date))
+                throw new InvalidOperationException(DayClosureService.ClosedDayMessage(date));
         }
 
         /// <summary>
@@ -90,8 +110,13 @@ namespace WorkforceManager.Business.Services
                 Notes = notes
             };
 
-            // نفس قاعدة رحلة الإنتاج بالظبط: تحقق وكتابة جوه معاملة واحدة
+            // نفس قاعدة رحلة الإنتاج بالظبط: تحقق وكتابة جوه معاملة واحدة.
+            // فحص القفل جوه المعاملة عشان يقرا تحت نفس قفل الكتابة اللي
+            // الإدخال بيتم تحته — من برّا كان ممكن يوم يتقفل بين الفحص
+            // والكتابة فيعدّي سجل على يوم مقفول
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
+
+            await EnsureDayIsOpenAsync(date);
 
             var check = await _assignmentGuard.CheckAsync(
                 date, new[] { await BuildAssignmentAsync(workerId, stage) });
@@ -116,6 +141,10 @@ namespace WorkforceManager.Business.Services
 
             var record = await _productionRepo.GetByIdAsync(recordId)
                 ?? throw new InvalidOperationException("سجل الإنتاج غير موجود");
+
+            // تعديل رقم على يوم مقفول = تغيير أرقام المستخدم شافها ووافق
+            // عليها وممكن يكون طبعها
+            await EnsureDayIsOpenAsync(record.Date);
 
             record.PieceCount = newPieceCount;
             _productionRepo.Update(record);
@@ -157,6 +186,63 @@ namespace WorkforceManager.Business.Services
                 },
                 operationsPassword,
                 reason);
+        }
+
+        /// <summary>
+        /// يشيل **كل** سجلات إنتاج يوم واحد — حذف ناعم بكلمة سر وسبب.
+        ///
+        /// موجودة كعملية واحدة مش حلقة على
+        /// <see cref="DeleteProductionAsync"/> لسببين:
+        ///   • كلمة السر بتتسأل مرة واحدة، مش مرة لكل سجل
+        ///   • كل السجلات بتتشال في معاملة واحدة — يا كلها يا ولا واحد.
+        ///     الحلقة كانت ممكن تسيب نص يوم متشال ونص موجود لو حصل خطأ
+        ///     في النص، وده أسوأ من إن الحذف كله يفشل
+        ///
+        /// اليوم المقفول بيتشال عادي: القفل بيمنع **تسجيل** جديد، والحذف
+        /// بكلمة سر وسبب هو الطريق المقصود لتصحيح يوم اتقفل بالغلط.
+        /// </summary>
+        public async Task<SoftDeleteResult> DeleteProductionDayAsync(
+            DateTime date, string operationsPassword, string reason)
+        {
+            var records = await _productionRepo.GetByDateAsync(date);
+            if (records.Count == 0)
+                return SoftDeleteResult.Fail($"مفيش أي إنتاج مسجّل يوم {date:yyyy/MM/dd}");
+
+            await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
+
+            var totalPieces = records.Sum(r => r.PieceCount);
+            var wasNotConfigured = false;
+
+            foreach (var record in records)
+            {
+                var result = await _softDelete.DeleteAsync(
+                    record,
+                    new DeletionDescriptor
+                    {
+                        Action = SensitiveAction.DeleteProduction,
+                        EventType = ActivityEventType.ProductionRecordDeleted,
+                        EntityType = nameof(DailyProduction),
+                        EntityId = record.Id,
+                        EntityName = $"سجل إنتاج #{record.Id} — {record.PieceCount} قطعة",
+                        Details = $"ضمن حذف يوم {date:yyyy/MM/dd} كامل " +
+                                  $"({records.Count} سجل، {totalPieces} قطعة)"
+                    },
+                    operationsPassword,
+                    reason,
+                    // الحفظ مؤجّل لآخر السجل: السجلات كلها بتنزل مع بعض
+                    saveChanges: false);
+
+                // أول رفض بيوقف كل حاجة — المعاملة بتتلغي عند الخروج
+                // من غير Commit، فمفيش سجل واحد اتشال
+                if (!result.IsDeleted) return result;
+
+                wasNotConfigured = result.PasswordNotConfigured;
+            }
+
+            await _productionRepo.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return SoftDeleteResult.Success(wasNotConfigured);
         }
     }
 }

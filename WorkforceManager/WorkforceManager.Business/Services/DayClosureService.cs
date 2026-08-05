@@ -35,6 +35,14 @@ namespace WorkforceManager.Business.Services
         public Task<bool> IsClosedAsync(DateTime date) => _closureRepo.IsClosedAsync(date);
 
         /// <summary>
+        /// رسالة رفض الكتابة على يوم مقفول — نص واحد لكل المسارات
+        /// (رحلة إنتاج، سجل واحد، تعديل عدد قطع). المستخدم لازم يشوف
+        /// نفس الجملة مهما كان جاي من فين.
+        /// </summary>
+        public static string ClosedDayMessage(DateTime date) =>
+            $"إنتاج يوم {date:yyyy/MM/dd} مقفول — افتح اليوم تاني من شاشة التسجيل لو محتاج تعدّل";
+
+        /// <summary>
         /// معاينة الإقفال: دخل الخط كام وخلص كام النهارده، لكل منتج.
         /// دي اللي بتتعرض للمستخدم قبل ما يوافق — مفيش يوم بيتقفل من غير
         /// ما يشوف أرقامه.

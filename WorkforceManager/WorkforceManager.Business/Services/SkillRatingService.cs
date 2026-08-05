@@ -259,22 +259,33 @@ namespace WorkforceManager.Business.Services
         // ======================= الاستهلاك في الشاشات =======================
 
         /// <summary>
-        /// العمال المؤهلين لمرحلة، مرتبين بالنجوم من الأحسن للأضعف.
+        /// ترتيب المؤهلين لمرحلة: الأحسن الأول.
         ///
-        /// ده اللي بتستخدمه شاشة التسجيل اليومي لما المستخدم يدوّر على
-        /// عامل يضيفه، وشاشة المنتجات لما يختار مرحلة.
+        /// **القاعدة دي المكان الوحيد اللي بيقرر مين يبان الأول.** دالة
+        /// نقية عن قصد عشان الشاشتين اللي بتستخدماها يقدروا ينادوها
+        /// بطريقتين مختلفتين من غير ما القاعدة تتكرر:
+        ///   • شاشة المنتجات بتسأل عن مرحلة واحدة (<see cref="GetRankedForStageAsync"/>)
+        ///   • شاشة التسجيل اليومي بتحمّل مهارات المنتج كله في استعلام
+        ///     واحد وبترتّب كل مرحلة من اللي في الذاكرة — استعلام لكل
+        ///     مرحلة كان هيبقى 11 استعلام لمنتج من 11 مرحلة
+        ///
+        /// النجوم الأول (رأي المدير)، وبعدين الأداء المقاس بيفصل بين
+        /// المتساويين، وبعدين الاسم عشان الترتيب يبقى ثابت.
         /// </summary>
-        public async Task<IReadOnlyList<RankedWorkerDto>> GetRankedForStageAsync(int stageId)
-        {
-            var skills = await _skills.GetByStageAsync(stageId);
-
-            return skills
+        public static IEnumerable<WorkerSkill> Rank(IEnumerable<WorkerSkill> skills) =>
+            skills
                 .OrderByDescending(s => s.Stars)
                 .ThenByDescending(s => s.MeasuredRatio)
-                .ThenBy(s => s.Worker.FullName)
-                .Select(ToRanked)
-                .ToList();
-        }
+                .ThenBy(s => s.Worker.FullName);
+
+        /// <summary>
+        /// العمال المؤهلين لمرحلة، مرتبين بالنجوم من الأحسن للأضعف.
+        ///
+        /// ده اللي بتستخدمه شاشة المنتجات لما المستخدم يسأل "مين يعرف
+        /// المرحلة دي؟".
+        /// </summary>
+        public async Task<IReadOnlyList<RankedWorkerDto>> GetRankedForStageAsync(int stageId) =>
+            Rank(await _skills.GetByStageAsync(stageId)).Select(ToRanked).ToList();
 
         /// <summary>مهارات عامل واحد بنجومها (لبروفايله)</summary>
         public async Task<IReadOnlyList<RankedWorkerDto>> GetForWorkerAsync(int workerId)

@@ -265,20 +265,10 @@
                                                         </TextBlock.Style>
                                                     </TextBlock>
 
-                                                    <!-- تحذيرات لحظية (تداخل نطاقات / توزيع مش مظبوط) قبل الحفظ -->
-                                                    <TextBlock Grid.Row="0" Text="{Binding FlowWarning}"
-                                                               Foreground="{StaticResource WarnBrush}" FontSize="12.5" FontWeight="SemiBold"
-                                                               TextWrapping="Wrap" Margin="4,0,4,6">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding FlowWarning}" Value="">
-                                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
+                                                    <!-- بلوك التحذيرات الأصفر كان هنا واتشال:
+                                                         أخطاء النطاقات بقت تحت كل نطاق في مكانه،
+                                                         و"التوزيع ≠ الإنتاج" كارت المرحلة بيقوله
+                                                         بلونه الأحمر أصلاً. -->
 
                                                     <!-- بطاقات المراحل -->
                                                     <ItemsControl Grid.Row="1" ItemsSource="{Binding FlowStages}">
@@ -546,6 +536,22 @@
                                                                                     <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
                                                                                 </Button>
                                                                             </StackPanel>
+
+                                                                            <!-- خطأ النطاق ده تحته مباشرة: المستخدم بيشوف
+                                                                                 المشكلة في مكانها بدل ما يدوّر في بلوك
+                                                                                 تحذيرات فوق بيتكلم عن كل النطاقات -->
+                                                                            <Border Background="{StaticResource DangerBgBrush}" CornerRadius="5"
+                                                                                    Padding="7,4" Margin="0,6,0,0"
+                                                                                    Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
+                                                                                <StackPanel Orientation="Horizontal">
+                                                                                    <materialDesign:PackIcon Kind="AlertCircleOutline" Width="13" Height="13"
+                                                                                                            VerticalAlignment="Top" Margin="0,1,0,0"
+                                                                                                            Foreground="{StaticResource DangerBrush}" />
+                                                                                    <TextBlock Text="{Binding Error}" FontSize="11.5" Margin="5,0,0,0"
+                                                                                               TextWrapping="Wrap" MaxWidth="300"
+                                                                                               Foreground="{StaticResource DangerBrush}" />
+                                                                                </StackPanel>
+                                                                            </Border>
                                                                         </StackPanel>
                                                                     </Border>
                                                                 </DataTemplate>
