@@ -8,6 +8,7 @@ using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
+using WorkforceManager.Data;
 using WorkforceManager.UI.Views;
 
 namespace WorkforceManager.UI.ViewModels
@@ -269,6 +270,10 @@ namespace WorkforceManager.UI.ViewModels
             {
                 IsLoading = false;
             }
+
+            // بعد ما الشاشة تجهز: لو وقت المراجعة الشهرية جه وفيه اقتراحات
+            // فعلاً، البانر بيظهر. بيتنادى في الآخر عشان ميأخّرش عرض القايمة
+            await CheckSkillReviewDueAsync();
         }
 
         // ------- لوحة التفاصيل -------
@@ -549,6 +554,74 @@ namespace WorkforceManager.UI.ViewModels
                 await mgmt.ReactivateWorkerAsync(SelectedWorker.WorkerId);
 
             await LoadAsync();
+        }
+
+        // ======================= المراجعة الشهرية للتقييمات =======================
+
+        /// <summary>فيه تقييمات محتاجة مراجعة؟ (بيتحكم في ظهور البانر)</summary>
+        [ObservableProperty]
+        private bool _needsSkillReview;
+
+        [ObservableProperty]
+        private string _skillReviewText = "";
+
+        /// <summary>
+        /// بيشوف لو وقت المراجعة الشهرية جه وفيه فعلاً اقتراحات.
+        ///
+        /// الشرطين مع بعض مقصودين: التذكير من غير اقتراحات ضوضاء، والاقتراحات
+        /// كل يوم بتخلي المستخدم يتعلّم يتجاهل البانر. فمرة كل شهر، ولو فيه
+        /// حاجة تستاهل بس.
+        /// </summary>
+        private async Task CheckSkillReviewDueAsync()
+        {
+            var settings = AppSettingsStore.Load();
+            var lastReview = settings.LastSkillReviewAt;
+
+            var due = lastReview is null ||
+                      (DateTime.Today - lastReview.Value.Date).TotalDays >= SkillRatingService.ReviewIntervalDays;
+
+            if (!due)
+            {
+                NeedsSkillReview = false;
+                return;
+            }
+
+            using var scope = _scopeFactory.CreateScope();
+            var review = await scope.ServiceProvider.GetRequiredService<SkillRatingService>()
+                .BuildReviewAsync(DateTime.Today);
+
+            NeedsSkillReview = review.HasSuggestions;
+            SkillReviewText = review.HasSuggestions
+                ? $"وقت مراجعة تقييمات العمال — {review.SummaryText}"
+                : "";
+        }
+
+        /// <summary>يفتح نافذة المراجعة ويسجّل إن المدير راجع</summary>
+        [RelayCommand]
+        private async Task OpenSkillReviewAsync()
+        {
+            SkillReviewDto review;
+            using (var scope = _scopeFactory.CreateScope())
+                review = await scope.ServiceProvider.GetRequiredService<SkillRatingService>()
+                    .BuildReviewAsync(DateTime.Today);
+
+            var applied = SkillReviewDialog.Show(Application.Current.MainWindow, _scopeFactory, review);
+
+            // التاريخ بيتسجّل حتى لو المدير تجاهل الكل: هو راجع فعلاً،
+            // ولو التذكير فضل ظاهر هيتحوّل لضوضاء بيتعلّم يتجاهلها
+            var settings = AppSettingsStore.Load();
+            settings.LastSkillReviewAt = DateTime.Today;
+            AppSettingsStore.Save(settings);
+
+            NeedsSkillReview = false;
+
+            if (applied > 0)
+            {
+                await LoadAsync();
+                MessageBox.Show(
+                    $"اتعدّل {applied} تقييم. العمال هيترتبوا بالتقييمات الجديدة في شاشة التسجيل.",
+                    "تم", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
         }
 
         /// <summary>

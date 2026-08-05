@@ -623,6 +623,62 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task Ignoring_a_suggestion_leaves_the_stars_untouched()
+        {
+            // "سيبه زي ما هو" لازم يبقى قرار حقيقي: التقييم مايتغيرش،
+            // والاقتراح يرجع الشهر الجاي لو الفرق لسه موجود
+            using (var scope = _db.CreateScope())
+                await _db.GetService<SkillRatingService>(scope)
+                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5);
+
+            for (var day = 0; day < 3; day++)
+            {
+                using var scope = _db.CreateScope();
+                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5,
+                    TestDatabase.Today.AddDays(-day));
+            }
+
+            using var check = _db.CreateScope();
+            var rating = _db.GetService<SkillRatingService>(check);
+
+            // بنبني المراجعة مرتين من غير ما نطبّق حاجة
+            Assert.Single((await rating.BuildReviewAsync(TestDatabase.Today)).Suggestions);
+            Assert.Single((await rating.BuildReviewAsync(TestDatabase.Today)).Suggestions);
+
+            var skill = await _db.GetService<IWorkerSkillRepository>(check)
+                .GetAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id);
+            Assert.Equal(5, skill!.Stars);
+        }
+
+        [Fact]
+        public async Task Review_ignores_workers_who_are_no_longer_active()
+        {
+            // مفيش داعي المدير يراجع تقييم حد مش شغّال أصلاً
+            using (var scope = _db.CreateScope())
+                await _db.GetService<SkillRatingService>(scope)
+                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5);
+
+            for (var day = 0; day < 3; day++)
+            {
+                using var scope = _db.CreateScope();
+                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5,
+                    TestDatabase.Today.AddDays(-day));
+            }
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkerManagementService>(scope)
+                    .DeactivateWorkerAsync(TestDatabase.WorkerAhmedId);
+
+            using var check = _db.CreateScope();
+            var review = await _db.GetService<SkillRatingService>(check)
+                .BuildReviewAsync(TestDatabase.Today);
+
+            Assert.False(review.HasSuggestions);
+        }
+
+        [Fact]
         public async Task Workers_are_ranked_by_stars_best_first()
         {
             using var scope = _db.CreateScope();

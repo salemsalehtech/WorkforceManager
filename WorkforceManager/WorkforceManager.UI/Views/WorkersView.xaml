@@ -12,11 +12,37 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- ===== تذكير المراجعة الشهرية للتقييمات ===== -->
+        <!-- بيظهر مرة كل شهر، ولو فيه اقتراحات فعلاً بس. التذكير من غير
+             حاجة تستاهل بيتحوّل لضوضاء المستخدم بيتعلّم يتجاهلها -->
+        <Border Grid.Row="0" CornerRadius="10" Padding="14,11" Margin="0,0,0,10"
+                Background="#FFF7E6" BorderBrush="#F5A623" BorderThickness="1.2"
+                Visibility="{Binding NeedsSkillReview, Converter={StaticResource BoolToVis}}">
+            <DockPanel>
+                <Button DockPanel.Dock="Left" Command="{Binding OpenSkillReviewCommand}"
+                        Style="{StaticResource PrimaryButton}" Padding="16,8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="StarCog" Width="15" Height="15" VerticalAlignment="Center" />
+                        <TextBlock Text="راجع دلوقتي" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Button>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <materialDesign:PackIcon Kind="StarCheckOutline" Width="20" Height="20"
+                                             VerticalAlignment="Center" Foreground="#F5A623" />
+                    <TextBlock Text="{Binding SkillReviewText}" FontSize="13" FontWeight="SemiBold"
+                               Margin="8,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center"
+                               Foreground="#8A6100" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
         <!-- ===== شريط الملخص: صورة القسم كلها بنظرة ===== -->
-        <Border Grid.Row="0" Style="{StaticResource Card}" Padding="18,14" Margin="0,0,0,10">
+        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="18,14" Margin="0,0,0,10">
             <DockPanel>
                 <Button DockPanel.Dock="Left" Command="{Binding AddWorkerCommand}"
                         Style="{StaticResource PrimaryButton}" VerticalAlignment="Center" Padding="18,10">
@@ -87,7 +113,7 @@
         </Border>
 
         <!-- ===== البحث + الفلاتر + الترتيب ===== -->
-        <Grid Grid.Row="1" Margin="2,0,2,8">
+        <Grid Grid.Row="2" Margin="2,0,2,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="290" />
                 <ColumnDefinition Width="Auto" />
@@ -172,7 +198,7 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="520" />
                 <ColumnDefinition Width="360" />
