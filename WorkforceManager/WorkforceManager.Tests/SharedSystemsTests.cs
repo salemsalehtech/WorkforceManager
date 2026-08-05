@@ -432,37 +432,52 @@ namespace WorkforceManager.Tests
         // ======================= نظام 4: تقييم المهارة =======================
 
         [Fact]
-        public void Rating_maps_to_the_right_level()
+        public void Performance_maps_to_the_right_star_count()
         {
-            Assert.Equal(SkillLevel.Expert, SkillRatingService.LevelFor(1.20m));
-            Assert.Equal(SkillLevel.Proficient, SkillRatingService.LevelFor(1.00m));
-            Assert.Equal(SkillLevel.Beginner, SkillRatingService.LevelFor(0.50m));
+            Assert.Equal(5, SkillRatingService.StarsForRatio(1.50m)); // بيعمل الكوتة ونص
+            Assert.Equal(4, SkillRatingService.StarsForRatio(1.20m));
+            Assert.Equal(3, SkillRatingService.StarsForRatio(1.00m)); // الكوتة بالظبط
+            Assert.Equal(2, SkillRatingService.StarsForRatio(0.75m));
+            Assert.Equal(1, SkillRatingService.StarsForRatio(0.40m));
         }
 
         [Fact]
-        public async Task Manual_rating_is_stored_with_manual_source()
+        public async Task Manager_stars_are_stored_with_who_and_when()
         {
             using (var scope = _db.CreateScope())
+            {
+                _db.GetService<CurrentUserContext>(scope).SignIn("admin", "مدير القسم");
                 await _db.GetService<SkillRatingService>(scope)
-                    .SetManualRatingAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 1.25m);
+                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5);
+            }
 
             using var check = _db.CreateScope();
-            var ranked = await _db.GetService<SkillRatingService>(check)
-                .GetRankedForStageAsync(TestDatabase.BagStage1Id);
+            var skill = await _db.GetService<IWorkerSkillRepository>(check)
+                .GetAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id);
 
-            var ahmed = ranked.Single(r => r.WorkerId == TestDatabase.WorkerAhmedId);
-            Assert.Equal(1.25m, ahmed.RatingValue);
-            Assert.Equal(SkillRatingSource.Manual, ahmed.Source);
-            Assert.Equal(SkillLevel.Expert, ahmed.Level);
-            Assert.Equal("تقدير يدوي", ahmed.SourceText);
+            Assert.Equal(5, skill!.Stars);
+            Assert.Equal("مدير القسم", skill.StarsUpdatedBy);
+            Assert.NotNull(skill.StarsUpdatedAt);
         }
 
         [Fact]
-        public void Auto_rating_needs_enough_days_before_it_replaces_a_human_estimate()
+        public async Task Stars_outside_one_to_five_are_refused()
         {
-            // يوم واحد شاذ ميصحش يقلب تقييم عامل
+            using var scope = _db.CreateScope();
+            var rating = _db.GetService<SkillRatingService>(scope);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                rating.SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 0));
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                rating.SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 6));
+        }
+
+        [Fact]
+        public void Measurement_needs_enough_days_to_mean_anything()
+        {
+            // يوم واحد شاذ ميصحش يبقى أساس اقتراح تعديل تقييم
             var oneDay = new[] { Record(TestDatabase.Today, 20, 10) };
-            Assert.Null(SkillRatingService.ComputeFromRecords(oneDay));
+            Assert.Null(SkillRatingService.MeasureFromRecords(oneDay));
 
             var threeDays = new[]
             {
@@ -471,10 +486,10 @@ namespace WorkforceManager.Tests
                 Record(TestDatabase.Today.AddDays(-2), 14, 10)
             };
 
-            var computed = SkillRatingService.ComputeFromRecords(threeDays);
-            Assert.NotNull(computed);
-            Assert.Equal(1.20m, computed!.Value.Rating); // (1.2 + 1.0 + 1.4) ÷ 3
-            Assert.Equal(3, computed.Value.Days);
+            var measured = SkillRatingService.MeasureFromRecords(threeDays);
+            Assert.NotNull(measured);
+            Assert.Equal(1.20m, measured!.Value.Ratio); // (1.2 + 1.0 + 1.4) ÷ 3
+            Assert.Equal(3, measured.Value.Days);
         }
 
         [Fact]
@@ -490,74 +505,152 @@ namespace WorkforceManager.Tests
                 Record(TestDatabase.Today.AddDays(-2), 10, 10)
             };
 
-            var computed = SkillRatingService.ComputeFromRecords(twoRecordsOneDay);
-            Assert.Equal(1.00m, computed!.Value.Rating);
-            Assert.Equal(3, computed.Value.Days);
+            var measured = SkillRatingService.MeasureFromRecords(twoRecordsOneDay);
+            Assert.Equal(1.00m, measured!.Value.Ratio);
+            Assert.Equal(3, measured.Value.Days);
         }
 
         [Fact]
-        public async Task Auto_rating_overrides_manual_but_keeps_it_visible()
+        public async Task Measuring_never_touches_the_managers_stars()
         {
+            // ده الضمان الأساسي في النظام: النظام بيقيس، والمدير بس هو
+            // اللي بيقيّم. رقم بيتقلب من ورا ظهر المدير بيخليه ميثقش فيه
             using (var scope = _db.CreateScope())
                 await _db.GetService<SkillRatingService>(scope)
-                    .SetManualRatingAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 1.30m);
+                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5);
 
-            // 3 أيام إنتاج على نص الكوتة
+            // 3 أيام إنتاج على نص الكوتة — أداء ضعيف جدًا
             for (var day = 0; day < 3; day++)
             {
-                var date = TestDatabase.Today.AddDays(-day);
                 using var scope = _db.CreateScope();
                 await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
-                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5, date);
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5,
+                    TestDatabase.Today.AddDays(-day));
             }
 
             using (var scope = _db.CreateScope())
-                await _db.GetService<SkillRatingService>(scope)
-                    .RecalculateForWorkerAsync(TestDatabase.WorkerAhmedId, TestDatabase.Today);
+                await _db.GetService<SkillRatingService>(scope).MeasureAllAsync(TestDatabase.Today);
 
             using var check = _db.CreateScope();
-            var ahmed = (await _db.GetService<SkillRatingService>(check)
-                    .GetRankedForStageAsync(TestDatabase.BagStage1Id))
-                .Single(r => r.WorkerId == TestDatabase.WorkerAhmedId);
+            var skill = await _db.GetService<IWorkerSkillRepository>(check)
+                .GetAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id);
 
-            Assert.Equal(SkillRatingSource.Auto, ahmed.Source);
-            Assert.Equal(0.50m, ahmed.RatingValue);
-            Assert.Equal(3, ahmed.SampleDays);
-
-            // التقدير البشري مضاعش — الواجهة بتقدر تعرض الاتنين
-            Assert.Equal(1.30m, ahmed.LastManualValue);
-            Assert.True(ahmed.OverridesManualValue);
-            Assert.Contains("3 يوم", ahmed.SourceText);
+            Assert.Equal(5, skill!.Stars);          // النجوم زي ما هي
+            Assert.Equal(0.50m, skill.MeasuredRatio); // والقياس اتحدّث جنبها
+            Assert.Equal(3, skill.MeasuredDays);
         }
 
         [Fact]
-        public async Task Workers_are_ranked_best_to_worst_for_a_stage()
+        public async Task Monthly_review_flags_the_gap_between_stars_and_reality()
+        {
+            using (var scope = _db.CreateScope())
+                await _db.GetService<SkillRatingService>(scope)
+                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5);
+
+            // بيعمل نص الكوتة بس — يستاهل نجمة واحدة
+            for (var day = 0; day < 3; day++)
+            {
+                using var scope = _db.CreateScope();
+                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5,
+                    TestDatabase.Today.AddDays(-day));
+            }
+
+            using var check = _db.CreateScope();
+            var review = await _db.GetService<SkillRatingService>(check)
+                .BuildReviewAsync(TestDatabase.Today);
+
+            var suggestion = Assert.Single(review.Suggestions);
+            Assert.Equal(TestDatabase.WorkerAhmedId, suggestion.WorkerId);
+            Assert.Equal(5, suggestion.CurrentStars);
+            Assert.Equal(1, suggestion.SuggestedStars);
+            Assert.False(suggestion.IsUpgrade);
+            Assert.Equal(1, review.DowngradeCount);
+        }
+
+        [Fact]
+        public async Task Review_stays_quiet_when_stars_match_reality()
+        {
+            // المدير مش محتاج يبص على اللي مظبوط أصلاً
+            using (var scope = _db.CreateScope())
+                await _db.GetService<SkillRatingService>(scope)
+                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 3);
+
+            // بيعمل الكوتة بالظبط = 3 نجوم = نفس تقييمه
+            for (var day = 0; day < 3; day++)
+            {
+                using var scope = _db.CreateScope();
+                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 10,
+                    TestDatabase.Today.AddDays(-day));
+            }
+
+            using var check = _db.CreateScope();
+            var review = await _db.GetService<SkillRatingService>(check)
+                .BuildReviewAsync(TestDatabase.Today);
+
+            Assert.False(review.HasSuggestions);
+        }
+
+        [Fact]
+        public async Task Applying_a_suggestion_sets_the_stars()
+        {
+            using (var scope = _db.CreateScope())
+                await _db.GetService<SkillRatingService>(scope)
+                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 1);
+
+            // بيعمل الكوتة وزيادة 50% — يستاهل 5 نجوم
+            for (var day = 0; day < 3; day++)
+            {
+                using var scope = _db.CreateScope();
+                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 15,
+                    TestDatabase.Today.AddDays(-day));
+            }
+
+            using var scope2 = _db.CreateScope();
+            var rating = _db.GetService<SkillRatingService>(scope2);
+            var review = await rating.BuildReviewAsync(TestDatabase.Today);
+
+            var suggestion = Assert.Single(review.Suggestions);
+            Assert.True(suggestion.IsUpgrade);
+
+            await rating.ApplySuggestionAsync(suggestion);
+
+            var skill = await _db.GetService<IWorkerSkillRepository>(scope2)
+                .GetAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id);
+            Assert.Equal(5, skill!.Stars);
+        }
+
+        [Fact]
+        public async Task Workers_are_ranked_by_stars_best_first()
         {
             using var scope = _db.CreateScope();
             var rating = _db.GetService<SkillRatingService>(scope);
 
-            await rating.SetManualRatingAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 0.80m);
-            await rating.SetManualRatingAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage1Id, 1.40m);
+            await rating.SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 2);
+            await rating.SetStarsAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage1Id, 5);
 
             var ranked = await rating.GetRankedForStageAsync(TestDatabase.BagStage1Id);
 
             Assert.Equal(TestDatabase.WorkerSaidId, ranked[0].WorkerId);
+            Assert.Equal("★★★★★", ranked[0].StarsText);
             Assert.Equal(TestDatabase.WorkerAhmedId, ranked[1].WorkerId);
         }
 
         [Fact]
-        public void Product_rating_averages_only_the_stages_the_worker_knows()
+        public void Product_stars_average_only_the_stages_the_worker_knows()
         {
             // المتخصص في 3 مراحل من 11 مش ضعيف — المراحل اللي مالوش فيها
             // مهارة مبتتحسبش صفر
             var skills = new[]
             {
-                new WorkerSkill { RatingValue = 1.20m },
-                new WorkerSkill { RatingValue = 1.00m }
+                new WorkerSkill { Stars = 5 },
+                new WorkerSkill { Stars = 4 }
             };
 
-            Assert.Equal(1.10m, SkillRatingService.ProductRating(skills));
-            Assert.Null(SkillRatingService.ProductRating(Array.Empty<WorkerSkill>()));
+            Assert.Equal(4.5m, SkillRatingService.ProductStars(skills));
+            Assert.Null(SkillRatingService.ProductStars(Array.Empty<WorkerSkill>()));
         }
 
         // ======================= التدفق المشترك =======================

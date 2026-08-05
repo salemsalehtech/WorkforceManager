@@ -17,5 +17,12 @@ namespace WorkforceManager.Core.Interfaces
 
         /// <summary>كل العمال المؤهلين لمرحلة، مع بيانات العامل (لقوايم الاختيار)</summary>
         Task<IReadOnlyList<WorkerSkill>> GetByStageAsync(int stageId);
+
+        /// <summary>
+        /// كل المهارات اللي ليها قياس أداء، بالعامل والمرحلة والمنتج —
+        /// أساس المراجعة الشهرية. العمال الموقوفين مستثنيين: مفيش داعي
+        /// المدير يراجع تقييم حد مش شغّال أصلاً.
+        /// </summary>
+        Task<IReadOnlyList<WorkerSkill>> GetAllMeasuredAsync();
     }
 }

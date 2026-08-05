@@ -496,24 +496,24 @@
                                                                                                         <Style TargetType="Border">
                                                                                                             <Setter Property="Background" Value="{StaticResource ChipBgBrush}" />
                                                                                                             <Style.Triggers>
-                                                                                                                <DataTrigger Binding="{Binding IsAboveQuota}" Value="True">
+                                                                                                                <DataTrigger Binding="{Binding IsTopRated}" Value="True">
                                                                                                                     <Setter Property="Background" Value="{StaticResource SuccessBgBrush}" />
                                                                                                                 </DataTrigger>
-                                                                                                                <DataTrigger Binding="{Binding IsBelowQuota}" Value="True">
+                                                                                                                <DataTrigger Binding="{Binding IsLowRated}" Value="True">
                                                                                                                     <Setter Property="Background" Value="{StaticResource WarnBgBrush}" />
                                                                                                                 </DataTrigger>
                                                                                                             </Style.Triggers>
                                                                                                         </Style>
                                                                                                     </Border.Style>
-                                                                                                    <TextBlock Text="{Binding RatingText}" FontSize="10.5" FontWeight="SemiBold">
+                                                                                                    <TextBlock Text="{Binding StarsText}" FontSize="10.5" FontWeight="SemiBold">
                                                                                                         <TextBlock.Style>
                                                                                                             <Style TargetType="TextBlock">
                                                                                                                 <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                                                                                                                 <Style.Triggers>
-                                                                                                                    <DataTrigger Binding="{Binding IsAboveQuota}" Value="True">
+                                                                                                                    <DataTrigger Binding="{Binding IsTopRated}" Value="True">
                                                                                                                         <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
                                                                                                                     </DataTrigger>
-                                                                                                                    <DataTrigger Binding="{Binding IsBelowQuota}" Value="True">
+                                                                                                                    <DataTrigger Binding="{Binding IsLowRated}" Value="True">
                                                                                                                         <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
                                                                                                                     </DataTrigger>
                                                                                                                 </Style.Triggers>

@@ -174,13 +174,15 @@ namespace WorkforceManager.UI.ViewModels
                         // الترتيب من SkillRatingService عشان يفضل واحد في
                         // كل الشاشات، مش ترتيب أبجدي في شاشة وتقييم في تانية
                         QualifiedWorkers = skillsByStage[stage.StageId]
-                            .OrderByDescending(ws => ws.RatingValue)
+                            .OrderByDescending(ws => ws.Stars)
+                            .ThenByDescending(ws => ws.MeasuredRatio)
                             .ThenBy(ws => ws.Worker.FullName)
                             .Select(ws => new WorkerPick(
                                 ws.WorkerId,
                                 ws.Worker.FullName,
-                                ws.RatingValue,
-                                ws.RatingSource))
+                                ws.Stars,
+                                ws.MeasuredRatio,
+                                ws.MeasuredDays))
                             .ToList(),
                         AlreadyText = already > 0 ? $"مسجل اليوم: {already}" : ""
                     };
@@ -702,25 +704,27 @@ namespace WorkforceManager.UI.ViewModels
     public record WorkerPick(
         int WorkerId,
         string Name,
-        decimal RatingValue = 1.0m,
-        SkillRatingSource RatingSource = SkillRatingSource.Manual)
+        int Stars = SkillRatingService.DefaultStars,
+        decimal MeasuredRatio = 1.0m,
+        int MeasuredDays = 0)
     {
-        /// <summary>النسبة كنص مئوي ("115%")</summary>
-        public string RatingText => $"{RatingValue * 100:0}%";
+        /// <summary>النجوم كنص ("★★★★☆")</summary>
+        public string StarsText => new string('★', Stars) + new string('☆', 5 - Stars);
 
         /// <summary>
-        /// شارة مصدر التقييم: النظام حسبه ولا حد حطّه.
-        /// من غيرها المستخدم بيشوف رقم ومش عارف يثق فيه قد إيه.
+        /// شرح التقييم: تقييم المدير + الأداء المقاس لو موجود.
+        /// المستخدم لازم يعرف الرقم ده رأي مين قبل ما يبني عليه قرار.
         /// </summary>
-        public string RatingTooltip => RatingSource == SkillRatingSource.Auto
-            ? $"محسوب من إنتاجه الفعلي — {RatingText} من الكوتة"
-            : $"تقدير يدوي — {RatingText} من الكوتة";
+        public string RatingTooltip => MeasuredDays > 0
+            ? $"تقييمك: {SkillRatingService.StarsLabel(Stars)} ({Stars}/5) — " +
+              $"إنتاجه الفعلي {MeasuredRatio * 100:0}% من الكوتة على مدار {MeasuredDays} يوم"
+            : $"تقييمك: {SkillRatingService.StarsLabel(Stars)} ({Stars}/5) — لسه مافيش إنتاج كفاية للقياس";
 
-        /// <summary>بيعمل الكوتة وزيادة (بيتلوّن أخضر في القايمة)</summary>
-        public bool IsAboveQuota => RatingValue >= SkillRatingService.ExpertThreshold;
+        /// <summary>4 نجوم أو أكتر (بيتلوّن أخضر في القايمة)</summary>
+        public bool IsTopRated => Stars >= 4;
 
-        /// <summary>تحت الكوتة بوضوح (بيتلوّن أصفر)</summary>
-        public bool IsBelowQuota => RatingValue < SkillRatingService.ProficientThreshold;
+        /// <summary>نجمتين أو أقل (بيتلوّن أصفر)</summary>
+        public bool IsLowRated => Stars <= 2;
     }
 
     /// <summary>حالة مرحلة في رحلة الإنتاج — بتحدد لون البطاقة ورسالتها</summary>

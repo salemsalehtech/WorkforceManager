@@ -21,6 +21,16 @@ namespace WorkforceManager.Data.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IReadOnlyList<WorkerSkill>> GetAllMeasuredAsync()
+        {
+            return await DbSet
+                .Include(ws => ws.Worker)
+                .Include(ws => ws.ProductionStage)
+                    .ThenInclude(s => s.Product)
+                .Where(ws => ws.MeasuredAt != null && ws.Worker.IsActive)
+                .ToListAsync();
+        }
+
         public async Task<IReadOnlyList<WorkerSkill>> GetByStageAsync(int stageId)
         {
             return await DbSet
