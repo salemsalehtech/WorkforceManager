@@ -9,9 +9,8 @@ namespace WorkforceManager.Business.Services
     /// فاليوم بياخد حالة نهائية ومبقاش ينفع يتسجل عليه إنتاج جديد يغيّر
     /// أرقام تقرير اتطبع خلاص.
     ///
-    /// الواقف مش بيتحرّك ولا بيترحّل — هو أصلاً محسوب من سجلات الإنتاج،
-    /// فالقطع اللي معدّتش المرحلة الجاية بتفضل بانها واقفة لوحدها بكرة
-    /// وبعد بكرة لحد ما حد يشتغل عليها.
+    /// مفيش حاجة بتترحّل ولا بتتنقل: كل يوم بيتقرا من سجلات الإنتاج بتاعته
+    /// لوحده، والشغل اللي لسه ما خلصش بيتسجل عادي في اليوم اللي هيتعمل فيه.
     ///
     /// الإقفال قابل للفتح تاني — الغلط في الإدخال وارد، وحبس المستخدم بره
     /// يومه مش حل.
@@ -36,23 +35,28 @@ namespace WorkforceManager.Business.Services
         public Task<bool> IsClosedAsync(DateTime date) => _closureRepo.IsClosedAsync(date);
 
         /// <summary>
-        /// معاينة الإقفال: خلص كام النهارده وكام لسه واقف وعند أنهي مرحلة.
+        /// معاينة الإقفال: دخل الخط كام وخلص كام النهارده، لكل منتج.
         /// دي اللي بتتعرض للمستخدم قبل ما يوافق — مفيش يوم بيتقفل من غير
         /// ما يشوف أرقامه.
         /// </summary>
         public async Task<DayClosurePreviewDto> PreviewAsync(DateTime date)
         {
             var report = await _reportService.GetAsync(date);
-            var parked = await _reportService.GetAllParkedAsync(date);
 
             return new DayClosurePreviewDto
             {
                 Date = date.Date,
                 AlreadyClosed = await _closureRepo.IsClosedAsync(date),
                 CompletedPieces = report.TotalCompletedPieces,
-                ParkedPieces = parked.Sum(p => p.ParkedPieces),
-                HasOverCounting = parked.Any(p => p.HasOverCounting),
-                ParkedByProduct = parked.Select(ToParkedProduct).ToList()
+                StartedPieces = report.TotalStartedPieces,
+                ByProduct = report.Products
+                    .Select(p => new ProductOutputDto
+                    {
+                        ProductName = p.ProductName,
+                        CompletedPieces = p.CompletedPieces,
+                        StartedPieces = p.StartedPieces
+                    })
+                    .ToList()
             };
         }
 
@@ -77,7 +81,7 @@ namespace WorkforceManager.Business.Services
                 Date = date.Date,
                 ClosedAt = DateTime.Now,
                 CompletedPieces = preview.CompletedPieces,
-                ParkedPieces = preview.ParkedPieces,
+                StartedPieces = preview.StartedPieces,
                 Notes = notes
             };
 
@@ -86,22 +90,6 @@ namespace WorkforceManager.Business.Services
             await transaction.CommitAsync();
 
             return closure;
-        }
-
-        /// <summary>أكتر مرحلة متكدّس عندها شغل — دي اللي محتاجة عمال بكرة</summary>
-        private static ParkedProductDto ToParkedProduct(DailyProductReportDto product)
-        {
-            var biggest = product.StageWip
-                .OrderByDescending(w => w.WaitingPieces)
-                .FirstOrDefault();
-
-            return new ParkedProductDto
-            {
-                ProductName = product.ProductName,
-                ParkedPieces = product.ParkedPieces,
-                BiggestQueueStage = biggest?.StageName ?? "—",
-                BiggestQueuePieces = biggest?.WaitingPieces ?? 0
-            };
         }
 
         /// <summary>يفتح يوم مقفول عشان يتعدّل (الغلط في الإدخال وارد)</summary>

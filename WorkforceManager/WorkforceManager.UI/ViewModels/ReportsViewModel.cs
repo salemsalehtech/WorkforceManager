@@ -103,14 +103,11 @@ namespace WorkforceManager.UI.ViewModels
 
         partial void OnOutputDateChanged(DateTime value) => SafeAsync.Run(LoadOutputAsync);
 
-        /// <summary>منتجات فيها حركة في اليوم ده (مكتمل أو واقف)</summary>
+        /// <summary>منتجات فيها حركة في اليوم ده (خلص منها أو دخل الخط)</summary>
         public ObservableCollection<DailyProductReportDto> OutputProducts { get; } = new();
 
         [ObservableProperty]
         private string _outputCompletedText = "0";
-
-        [ObservableProperty]
-        private string _outputParkedText = "0";
 
         [ObservableProperty]
         private string _outputStartedText = "0";
@@ -122,8 +119,8 @@ namespace WorkforceManager.UI.ViewModels
         private bool _outputIsEmpty = true;
 
         /// <summary>
-        /// تقرير إنتاج اليوم: كام قطعة خلصت آخر مرحلة (= منتج تام)، وكام
-        /// لسه مستنية عند كل مرحلة. الرقمين محسوبين من سجلات الإنتاج نفسها.
+        /// تقرير إنتاج اليوم: كام قطعة خلصت آخر مرحلة (= منتج تام) وكام قطعة
+        /// دخلت أول مرحلة. الرقمين محسوبين من سجلات الإنتاج نفسها.
         /// </summary>
         private async Task LoadOutputAsync()
         {
@@ -136,8 +133,7 @@ namespace WorkforceManager.UI.ViewModels
             foreach (var product in report.Products) OutputProducts.Add(product);
 
             OutputCompletedText = report.TotalCompletedPieces.ToString("N0");
-            OutputParkedText = report.TotalParkedPieces.ToString("N0");
-            OutputStartedText = report.Products.Sum(p => p.StartedPieces).ToString("N0");
+            OutputStartedText = report.TotalStartedPieces.ToString("N0");
             OutputIsClosed = report.IsClosed;
             OutputIsEmpty = report.Products.Count == 0;
         }

@@ -119,10 +119,8 @@ Core  <----------------------- UI
   One or MORE products per day: each product gets its own
   `FlowSessionViewModel` card — stages as ordered cards, qualified-only workers per stage with equal
   auto-split + manual override, stage ranges "from stage X to Y: N pieces", live per-worker workdays
-  preview, independent save. Each stage card also shows a "مستني: N" badge (`FlowStageRow.WaitingPieces`,
-  fed from `DailyProductionReportService`) — the number that tells the user which stages need workers
-  today. A range has no "where did these pieces come from?" picker: that question died with the batch
-  entity (see Business logic notes), so a range is just from-stage/to-stage/pieces.
+  preview, independent save. A range has no "where did these pieces come from?" picker: that question
+  died with the batch entity (see Business logic notes), so a range is just from-stage/to-stage/pieces.
   "add product" button appends sessions; row-level commands live on the row
   view-models via callbacks, not RelativeSource), a "سجلات اليوم" correction tab (edit/delete saved
   production records), a **unified** attendance grid (upsert per worker/date) that replaced the
@@ -236,42 +234,43 @@ Core  <----------------------- UI
 
 ### Business logic notes
 
-- **Completed output and WIP are DERIVED, never stored** (`DailyProductionReportService` — the ONLY
-  place these two numbers are computed). There is no entity tracking pieces as they walk the line:
-  - **Completed today** = production recorded on the **last active stage** that day.
-  - **Waiting before stage `i`** = cumulative pieces through stage `i-1` (from the first record ever,
-    via `IDailyProductionRepository.GetStageTotalsUpToAsync`) minus cumulative through stage `i`.
-    A piece that cleared stage 6 and not stage 7 is *by definition* waiting before 7 — the subtraction
-    states that without the user answering any extra question. Total WIP for a product therefore
-    collapses to `cumulative(first stage) - cumulative(last stage)`.
-  - The aggregation runs as `GROUP BY` in SQLite, not in memory — these totals accumulate for years.
+- **Daily output is DERIVED, never stored** (`DailyProductionReportService` — the ONLY place these
+  numbers are computed). There is no entity tracking pieces as they walk the line. Each report reads
+  **one day's** production rows (`GetStageTotalsOnAsync`, a `GROUP BY` in SQLite) and asks two
+  questions per product, both against `ActiveLine(product)` — active stages ordered by
+  `SortOrder` then `Id`:
+  - **Completed today** = production recorded on the **last** stage of the line that day.
+  - **Started today** = production recorded on the **first** stage of the line that day.
+  - A product with neither is dropped from the report (`HasActivity`), so idle products don't pad it.
   - **This replaced a `ProductionBatch` entity** (batch/split/carry-over/opening-balance, removed in
     `RemoveProductionBatches`). That design asked the user "where did these pieces come from?" on every
     mid-line range, and answering it wrong (choosing "opening balance" while a lot was parked at that
-    exact stage) minted pieces from nothing — 2000 stayed parked when only 1000 truly remained. The
-    subtraction cannot express that bug. **Do not reintroduce piece-level lot tracking** to answer
-    "how many are done / what's stuck where"; both fall out of the records already being entered.
-    The deliberate trade-off: no per-lot traceability (when a specific lot started, how it moved).
-  - A stage recorded **above** the stage before it is physically impossible, so it is surfaced as
-    `StageWipDto.IsOverCounted` + `OverCountedBy` rather than clamped away. Silently flooring WIP at
-    zero would hide the data-entry error that caused it. `WaitingPieces` is still floored at 0 so no
-    caller ever sees negative WIP.
+    exact stage) minted pieces from nothing — 2000 stayed parked when only 1000 truly remained.
+    **Do not reintroduce piece-level lot tracking** to answer "how many are done"; it falls out of the
+    records already being entered. The deliberate trade-off: no per-lot traceability (when a specific
+    lot started, how it moved).
+  - **There is deliberately no WIP / "الواقف" / "مستني" number anywhere**, and no cumulative-history
+    query behind one (`GetStageTotalsUpToAsync` was deleted with it). A cross-stage subtraction
+    (`cumulative(i-1) − cumulative(i)`) did exist and was correct arithmetic, but the user removed it:
+    it was shown on the entry screen, the reports screen and the closure dialog, and nobody ever took
+    a decision from it. Reintroducing it means reintroducing per-stage queue badges, over-count
+    warnings, and a third summary number the screens have to carry. Don't.
 - **Ranges no longer carry any lot identity** (`FlowRangeDto`): from-stage, to-stage, piece count.
   Ranges still may not overlap (a stage in two ranges is double-entry) and each covered stage still
   needs worker shares summing exactly to its pieces. A range may start anywhere in the line — starting
   mid-line needs no justification, because the pieces it consumes are implied by the arithmetic.
-- **Day closure** (`DayClosureService`): `PreviewAsync` shows completed + WIP per product (with the
-  most-congested stage, which is what tells the user where to put workers tomorrow), `CloseAsync`
-  writes a `ProductionDayClosure` row and `RecordFlowAsync` then refuses that date. Nothing is
-  "carried forward" — WIP is computed from all history, so unfinished pieces simply keep showing up
-  tomorrow. The stored `CompletedPieces`/`ParkedPieces` are a **snapshot the user approved**, not a
-  cache to recompute. `ReopenAsync` undoes it (data-entry mistakes are normal).
+- **Day closure** (`DayClosureService`): `PreviewAsync` shows completed + started per product,
+  `CloseAsync` writes a `ProductionDayClosure` row and `RecordFlowAsync` then refuses that date.
+  Nothing is "carried forward" — every day is read from its own rows, so work that wasn't finished
+  is simply recorded on the day it does get done. The stored `CompletedPieces`/`StartedPieces` are a
+  **snapshot the user approved**, not a cache to recompute. `ReopenAsync` undoes it (data-entry
+  mistakes are normal).
 - `WorkdayCalculationService.Update/DeleteProductionAsync` edit rows freely. They used to refuse rows
   belonging to a batch because quantity and line position could desync; with numbers derived from the
   rows themselves, correcting a row corrects every report that depends on it.
 - `DailyProduction` rows are created only by `WorkdayCalculationService.RecordProductionAsync` or
   `ProductionFlowService.RecordFlowAsync` — both snapshot the stage quota automatically. Every row
-  counts for both wages and the output/WIP report; there is no second class of row.
+  counts for both wages and the daily output report; there is no second class of row.
 - **Worker-assignment rule** (`WorkerAssignmentGuard` in Business — the ONLY place this rule exists;
   never re-implement it in a controller/ViewModel). An "assignment" is a `DailyProduction` row, so
   "assigned" = has a row for that worker/stage/date. By default a worker holds one assignment per

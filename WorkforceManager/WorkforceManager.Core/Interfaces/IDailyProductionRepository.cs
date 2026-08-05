@@ -18,15 +18,5 @@ namespace WorkforceManager.Core.Interfaces
         /// المفتاح = ProductionStageId.
         /// </summary>
         Task<IReadOnlyDictionary<int, int>> GetStageTotalsOnAsync(DateTime date);
-
-        /// <summary>
-        /// مجموع القطع لكل مرحلة من أول التسجيل لحد اليوم ده (شامله).
-        ///
-        /// ده أساس حساب "الواقف": القطع المستنية قبل مرحلة معينة = إجمالي
-        /// اللي خلص المرحلة اللي قبلها ناقص إجمالي اللي خلص المرحلة نفسها.
-        /// التجميع بيتم في الداتابيز مش في الذاكرة — الأرقام دي بتتراكم
-        /// على مدار سنين والتحميل الكامل مش هيفضل عملي.
-        /// </summary>
-        Task<IReadOnlyDictionary<int, int>> GetStageTotalsUpToAsync(DateTime date);
     }
 }

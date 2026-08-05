@@ -7,7 +7,7 @@
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
 
-    <!-- مراجعة الواقف قبل الترحيل — مفيش حاجة بتترحّل من غير ما المستخدم يشوفها -->
+    <!-- مراجعة أرقام اليوم قبل القفل — مفيش يوم بيتقفل من غير ما المستخدم يشوف أرقامه -->
     <Border CornerRadius="18" Background="White">
         <Border.Effect>
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
@@ -45,24 +45,16 @@
                             <TextBlock x:Name="CarriedText" FontSize="20" FontWeight="Bold"
                                        HorizontalAlignment="Center"
                                        Foreground="{StaticResource WarnBrush}" />
-                            <TextBlock Text="قطعة مستنية بين المراحل" FontSize="11" HorizontalAlignment="Center"
+                            <TextBlock Text="قطعة دخلت الخط النهارده" FontSize="11" HorizontalAlignment="Center"
                                        Foreground="{StaticResource TextMutedBrush}" />
                         </StackPanel>
                     </Border>
                 </UniformGrid>
 
-                <!-- أرقام مش منطقية لازم يشوفها قبل ما يقفل -->
-                <Border x:Name="OverCountWarning" Background="{StaticResource DangerBgBrush}" CornerRadius="8"
-                        Padding="12,9" Margin="0,0,0,10" Visibility="Collapsed">
-                    <TextBlock Text="⚠ فيه مرحلة اتسجل عليها قطع أكتر من المرحلة اللي قبلها — راجع تبويب التقارير قبل ما تقفل."
-                               FontSize="12" TextWrapping="Wrap"
-                               Foreground="{StaticResource DangerBrush}" />
-                </Border>
-
-                <TextBlock x:Name="CarriedHeader" Text="الشغل المستني في الخط" FontWeight="Bold" FontSize="13"
+                <TextBlock x:Name="CarriedHeader" Text="إنتاج اليوم لكل منتج" FontWeight="Bold" FontSize="13"
                            Margin="0,0,0,6" />
 
-                <!-- الواقف لكل منتج + أكتر مرحلة متكدّسة -->
+                <!-- إنتاج كل منتج في اليوم -->
                 <ScrollViewer x:Name="LotsScroller" MaxHeight="260" VerticalScrollBarVisibility="Auto">
                     <ItemsControl x:Name="LotsList">
                         <ItemsControl.ItemTemplate>
@@ -70,20 +62,18 @@
                                 <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
                                         Padding="10,7" Margin="0,0,0,5">
                                     <DockPanel>
-                                        <Border DockPanel.Dock="Left" Background="{StaticResource WarnBgBrush}"
+                                        <Border DockPanel.Dock="Left" Background="{StaticResource SuccessBgBrush}"
                                                 CornerRadius="6" Padding="8,3" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding ParkedPieces, StringFormat=N0}" FontSize="13.5" FontWeight="Bold"
-                                                       Foreground="{StaticResource WarnBrush}" />
+                                            <TextBlock Text="{Binding CompletedPieces, StringFormat=N0}" FontSize="13.5" FontWeight="Bold"
+                                                       Foreground="{StaticResource SuccessBrush}" />
                                         </Border>
                                         <StackPanel Margin="9,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding ProductName}" FontSize="12.5" FontWeight="Bold"
                                                        Foreground="{StaticResource TextPrimaryBrush}" />
                                             <TextBlock FontSize="10.5" Margin="0,2,0,0"
                                                        Foreground="{StaticResource TextMutedBrush}">
-                                                <Run Text="أكتر تكدّس عند" />
-                                                <Run Text="{Binding BiggestQueueStage, Mode=OneWay}" FontWeight="Bold" />
-                                                <Run Text="—" />
-                                                <Run Text="{Binding BiggestQueuePieces, Mode=OneWay, StringFormat=N0}" />
+                                                <Run Text="خلص الخط، ودخله" />
+                                                <Run Text="{Binding StartedPieces, Mode=OneWay, StringFormat=N0}" FontWeight="Bold" />
                                                 <Run Text="قطعة" />
                                             </TextBlock>
                                         </StackPanel>
@@ -94,10 +84,10 @@
                     </ItemsControl>
                 </ScrollViewer>
 
-                <!-- مفيش واقف خالص -->
+                <!-- مفيش حركة خالص -->
                 <Border x:Name="NothingCarried" Background="{StaticResource SuccessBgBrush}" CornerRadius="8"
                         Padding="12,10" Visibility="Collapsed">
-                    <TextBlock Text="مفيش شغل مستني — كل اللي دخل الخط خلص لآخره"
+                    <TextBlock Text="مفيش إنتاج مسجّل في اليوم ده"
                                FontSize="12.5" TextWrapping="Wrap"
                                Foreground="{StaticResource SuccessBrush}" />
                 </Border>

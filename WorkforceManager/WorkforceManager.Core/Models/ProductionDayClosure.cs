@@ -28,13 +28,13 @@ namespace WorkforceManager.Core.Models
         public int CompletedPieces { get; set; }
 
         /// <summary>
-        /// القطع الواقفة بين المراحل بنهاية اليوم (لقطة وقت الإقفال).
+        /// قطع دخلت أول مرحلة في اليوم ده (لقطة وقت الإقفال).
         ///
         /// اللقطة دي مش بتتحسب من صفوف تانية وقت العرض عن قصد: الرقم ده
         /// اتعرض للمستخدم ووافق عليه، فلازم يفضل زي ما هو حتى لو حد صحّح
         /// سجل إنتاج قديم بعد كده.
         /// </summary>
-        public int ParkedPieces { get; set; }
+        public int StartedPieces { get; set; }
 
         [MaxLength(300)]
         public string? Notes { get; set; }

@@ -121,26 +121,12 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private bool _isDayClosed;
 
-        /// <summary>ملخص الواقف — بيظهر جنب الزرار عشان المستخدم يعرف قبل ما يدوس</summary>
-        [ObservableProperty]
-        private string _carriedSummary = "";
-
-        public bool HasCarriedWork => CarriedSummary.Length > 0;
-
-        partial void OnCarriedSummaryChanged(string value) => OnPropertyChanged(nameof(HasCarriedWork));
-
         private async Task LoadClosureStateAsync()
         {
             using var scope = _scopeFactory.CreateScope();
             var closure = scope.ServiceProvider.GetRequiredService<DayClosureService>();
 
             IsDayClosed = await closure.IsClosedAsync(EntryDate);
-
-            // ملخص "الواقف في الخط" اتشال من شاشة التسجيل: الشاشة دي
-            // موضوعها تسجيل شغل النهارده، والرقم ده كان بيزاحمها من غير
-            // ما المستخدم يعمل بيه حاجة وهو واقف عندها.
-            // لسه موجود في تقرير الإنتاج اليومي لمن يحتاجه.
-            CarriedSummary = "";
         }
 
         /// <summary>
@@ -175,9 +161,7 @@ namespace WorkforceManager.UI.ViewModels
 
                 MessageBox.Show(
                     $"اتقفل إنتاج يوم {EntryDate:yyyy/MM/dd}.\n" +
-                    (preview.ParkedPieces > 0
-                        ? $"{preview.ParkedPieces:N0} قطعة لسه مستنية في الخط — هتلاقي أرقامها على المراحل بكرة."
-                        : "مفيش شغل مستني في الخط."),
+                    $"{preview.CompletedPieces:N0} قطعة خلصت الخط، و{preview.StartedPieces:N0} دخلته.",
                     "تم القفل", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (InvalidOperationException ex)
