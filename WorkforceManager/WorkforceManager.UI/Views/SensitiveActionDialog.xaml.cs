@@ -17,17 +17,25 @@ namespace WorkforceManager.UI.Views
     /// </summary>
     public partial class SensitiveActionDialog : Window
     {
-        private SensitiveActionDialog(string title, string subtitle, bool passwordRequired)
+        private readonly bool _reasonRequired;
+
+        private SensitiveActionDialog(
+            string title, string subtitle, bool passwordRequired, bool reasonRequired)
         {
             InitializeComponent();
 
             TitleText.Text = title;
             SubtitleText.Text = subtitle;
+            _reasonRequired = reasonRequired;
 
             // مفيش كلمة سر متسجّلة: بنخفي الخانة وبنوضّح السبب بدل ما
             // نطلب من المستخدم حاجة مش موجودة أصلاً
             PasswordSection.Visibility = passwordRequired ? Visibility.Visible : Visibility.Collapsed;
             NotConfiguredBox.Visibility = passwordRequired ? Visibility.Collapsed : Visibility.Visible;
+
+            // العمليات المتكررة (حفظ الحضور) بتاخد كلمة سر بس: "اكتب سبب"
+            // على شغل يومي بيتحوّل لخانة المستخدم بيكتب فيها نقطة
+            ReasonSection.Visibility = reasonRequired ? Visibility.Visible : Visibility.Collapsed;
         }
 
         /// <summary>كلمة السر اللي كتبها المستخدم (فاضية لو مفيش واحدة متسجّلة)</summary>
@@ -45,10 +53,15 @@ namespace WorkforceManager.UI.Views
         /// false لما مفيش كلمة سر متسجّلة — النافذة بتفضل بتطلب السبب
         /// لأن السجل من غير سبب مالوش قيمة، بس مش بتطلب كلمة سر.
         /// </param>
+        /// <param name="reasonRequired">
+        /// false للعمليات المتكررة اللي مش بتمسح حاجة (حفظ الحضور):
+        /// كلمة سر بس من غير سبب مكتوب.
+        /// </param>
         public static SensitiveActionInput? Ask(
-            Window? owner, string title, string subtitle, bool passwordRequired)
+            Window? owner, string title, string subtitle,
+            bool passwordRequired, bool reasonRequired = true)
         {
-            var dialog = new SensitiveActionDialog(title, subtitle, passwordRequired);
+            var dialog = new SensitiveActionDialog(title, subtitle, passwordRequired, reasonRequired);
             if (owner is not null) dialog.Owner = owner;
 
             return dialog.ShowDialog() == true
@@ -59,7 +72,7 @@ namespace WorkforceManager.UI.Views
         private void Confirm_Click(object sender, RoutedEventArgs e)
         {
             var reason = ReasonBox.Text.Trim();
-            if (reason.Length == 0)
+            if (_reasonRequired && reason.Length == 0)
             {
                 ShowError("لازم تكتب سبب الحذف");
                 ReasonBox.Focus();

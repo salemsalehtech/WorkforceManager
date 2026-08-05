@@ -43,13 +43,16 @@
                     <PasswordBox x:Name="PasswordBox" Padding="8,6" FontSize="14" />
                 </StackPanel>
 
-                <TextBlock Text="سبب الحذف" FontWeight="Bold" FontSize="12.5" Margin="0,12,0,4" />
-                <TextBox x:Name="ReasonBox" Padding="8,6" FontSize="13.5"
-                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
-                         VerticalScrollBarVisibility="Auto" />
-                <TextBlock Text="السبب بيتسجّل في سجل العمليات — اكتبه واضح عشان اللي هيراجع بعدين يفهم."
-                           FontSize="11" TextWrapping="Wrap" Margin="2,3,0,0"
-                           Foreground="{StaticResource TextMutedBrush}" />
+                <!-- بيختفي للعمليات المتكررة اللي مش بتمسح حاجة (حفظ الحضور) -->
+                <StackPanel x:Name="ReasonSection">
+                    <TextBlock Text="سبب الحذف" FontWeight="Bold" FontSize="12.5" Margin="0,12,0,4" />
+                    <TextBox x:Name="ReasonBox" Padding="8,6" FontSize="13.5"
+                             AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
+                             VerticalScrollBarVisibility="Auto" />
+                    <TextBlock Text="السبب بيتسجّل في سجل العمليات — اكتبه واضح عشان اللي هيراجع بعدين يفهم."
+                               FontSize="11" TextWrapping="Wrap" Margin="2,3,0,0"
+                               Foreground="{StaticResource TextMutedBrush}" />
+                </StackPanel>
 
                 <Border x:Name="ErrorBox" Background="{StaticResource DangerBgBrush}" CornerRadius="7"
                         Padding="10,7" Margin="0,10,0,0" Visibility="Collapsed">

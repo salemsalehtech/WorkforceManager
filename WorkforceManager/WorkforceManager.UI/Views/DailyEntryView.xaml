@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:WorkforceManager.UI.ViewModels"
+             xmlns:views="clr-namespace:WorkforceManager.UI.Views"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              mc:Ignorable="d"
              d:DesignHeight="650" d:DesignWidth="1100">
@@ -777,16 +778,34 @@
                                 </StackPanel>
                             </ToggleButton>
 
+                            <!-- كان اسمها "لسه مفيش" — مبهمة: لسه مفيش إيه؟
+                                 الاسم الجديد بيقول الحالة بالظبط -->
                             <ToggleButton Style="{StaticResource SummaryChip}"
                                           Tag="{StaticResource TextMutedBrush}"
                                           IsChecked="{Binding IsFilterUnset, Mode=OneWay}"
                                           Command="{Binding SetAttendanceFilterCommand}"
                                           CommandParameter="{x:Static vm:AttendanceFilter.Unset}"
-                                          ToolTip="عرض اللي لسه محصلش تسجيل — اقفلهم واحد واحد">
+                                          ToolTip="عرض اللي لسه محصلش تسجيل حضور — اقفلهم واحد واحد">
                                 <StackPanel>
                                     <TextBlock Text="{Binding UnsetCount}" Style="{StaticResource SummaryNumber}"
                                                Foreground="{StaticResource TextMutedBrush}" />
-                                    <TextBlock Text="لسه مفيش" Style="{StaticResource SummaryLabel}" />
+                                    <TextBlock Text="محصلش تسجيل" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <!-- شريحة نوع مش حالة حضور: عمال الساعة بكل حالاتهم.
+                                 ليهم شيفتات بمنطق مختلف، والقايمة الموحّدة بتخلطهم
+                                 مع عمال الإنتاج فصعب توصلهم -->
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{StaticResource WarnBrush}"
+                                          IsChecked="{Binding IsFilterHourly, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.Hourly}"
+                                          ToolTip="عرض عمال الساعة بس (رص / جودة / تدريب)">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding HourlyCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{StaticResource WarnBrush}" />
+                                    <TextBlock Text="بالساعة" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
                             </ToggleButton>
 
@@ -1024,8 +1043,10 @@
                             <TextBlock Text="تسجيل جزاء جديد" FontWeight="Bold" Foreground="{StaticResource DangerBrush}" Margin="0,0,0,8" />
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="العامل:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <ComboBox ItemsSource="{Binding AttendanceRows}" SelectedItem="{Binding PenaltyWorker}"
-                                          DisplayMemberPath="FullName" Width="220" Margin="0,0,14,0" />
+                                <views:WorkerSearchBox Workers="{Binding AttendanceRows}"
+                                                       SelectedWorker="{Binding PenaltyWorker, Mode=TwoWay}"
+                                                       Placeholder="دوّر على العامل بالاسم…"
+                                                       Width="220" Margin="0,0,14,0" />
                                 <TextBlock Text="الخصم:" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <ComboBox ItemsSource="{Binding DeductionOptions}" SelectedItem="{Binding SelectedDeduction}"
                                           DisplayMemberPath="Display" Width="110" Margin="0,0,14,0" />
@@ -1061,6 +1082,22 @@
                                 <DataGridTextColumn Header="العامل" Binding="{Binding WorkerName}" Width="*" />
                                 <DataGridTextColumn Header="السبب" Binding="{Binding Reason}" Width="2*" />
                                 <DataGridTextColumn Header="الخصم" Binding="{Binding DeductionName}" Width="90" />
+                                <DataGridTemplateColumn Header="" Width="60">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button FontSize="11" Foreground="{StaticResource BrandBrush}"
+                                                    Style="{StaticResource IconButton}"
+                                                    ToolTip="تعديل الجزاء"
+                                                    Command="{Binding DataContext.EditPenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="PencilOutline" Width="12" Height="12" VerticalAlignment="Center" />
+                                                    <TextBlock Text="تعديل" Margin="4,0,0,0" />
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTemplateColumn Header="" Width="70">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
@@ -1099,8 +1136,10 @@
                                        Foreground="{StaticResource BrandBrush}" Margin="0,0,0,8" />
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="العامل:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <ComboBox ItemsSource="{Binding AttendanceRows}" SelectedItem="{Binding AdjustmentWorker}"
-                                          DisplayMemberPath="FullName" Width="200" Margin="0,0,14,0" />
+                                <views:WorkerSearchBox Workers="{Binding AttendanceRows}"
+                                                       SelectedWorker="{Binding AdjustmentWorker, Mode=TwoWay}"
+                                                       Placeholder="دوّر على العامل بالاسم…"
+                                                       Width="200" Margin="0,0,14,0" />
                                 <TextBlock Text="النوع:" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <ComboBox ItemsSource="{Binding AdjustmentTypeOptions}" SelectedItem="{Binding SelectedAdjustmentType}"
                                           DisplayMemberPath="Display" Width="110" Margin="0,0,14,0" />

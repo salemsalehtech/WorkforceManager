@@ -1,0 +1,53 @@
+<Window x:Class="WorkforceManager.UI.Views.PenaltyEditDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="تعديل جزاء" Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
+
+    <!-- تعديل سبب الجزاء وخصمه. الجزاءات التلقائية بترفضها الخدمة نفسها،
+         فالنافذة دي مش محتاجة تعرف الفرق. -->
+    <Border CornerRadius="18" Background="White">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
+        </Border.Effect>
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="{StaticResource DangerBrush}"
+                    CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Foreground="White"
+                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
+                            ToolTip="إغلاق">
+                        <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
+                    </Button>
+                    <StackPanel>
+                        <TextBlock Text="تعديل جزاء" Foreground="White" FontSize="15.5" FontWeight="Bold" />
+                        <TextBlock x:Name="WorkerText" Foreground="#FFE0E0" FontSize="12" Margin="0,2,0,0" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <StackPanel Margin="24,20,24,22">
+                <TextBlock Text="سبب الجزاء" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="ReasonBox" Margin="0,0,0,14" Padding="8,6"
+                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60"
+                         VerticalScrollBarVisibility="Auto" />
+
+                <TextBlock Text="الخصم" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="DeductionBox" Margin="0,0,0,14"
+                          DisplayMemberPath="Display" SelectedValuePath="Value" />
+
+                <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerBrush}" FontSize="12"
+                           Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Content="حفظ" Click="Save_Click" IsDefault="True"
+                            Style="{StaticResource PrimaryButton}" Padding="26,9" Margin="0,0,8,0" />
+                    <Button Content="إلغاء" IsCancel="True" Style="{StaticResource GhostButton}" Padding="26,9" />
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+    </Border>
+</Window>

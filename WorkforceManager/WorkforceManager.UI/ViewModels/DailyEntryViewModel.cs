@@ -435,6 +435,10 @@ namespace WorkforceManager.UI.ViewModels
                 AttendanceFilter.Excused => AttendanceRows.Where(r => r.SelectedStatus == AttendanceStatus.AbsentWithPermission),
                 AttendanceFilter.Unexcused => AttendanceRows.Where(r => r.SelectedStatus == AttendanceStatus.AbsentWithoutPermission),
                 AttendanceFilter.Unset => AttendanceRows.Where(r => r.SelectedStatus is null),
+                // شريحة نوع مش حالة حضور: بتعرض عمال الساعة بكل حالاتهم.
+                // موجودة عشان الشيفتات ليها منطق مختلف، والقايمة الموحّدة
+                // بتخلطهم مع عمال الإنتاج
+                AttendanceFilter.Hourly => AttendanceRows.Where(r => r.IsHourly),
                 _ => AttendanceRows
             };
 
@@ -476,6 +480,7 @@ namespace WorkforceManager.UI.ViewModels
         public bool IsFilterExcused => ActiveAttendanceFilter == AttendanceFilter.Excused;
         public bool IsFilterUnexcused => ActiveAttendanceFilter == AttendanceFilter.Unexcused;
         public bool IsFilterUnset => ActiveAttendanceFilter == AttendanceFilter.Unset;
+        public bool IsFilterHourly => ActiveAttendanceFilter == AttendanceFilter.Hourly;
 
         private void RefreshFilterFlags()
         {
@@ -484,6 +489,7 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(IsFilterExcused));
             OnPropertyChanged(nameof(IsFilterUnexcused));
             OnPropertyChanged(nameof(IsFilterUnset));
+            OnPropertyChanged(nameof(IsFilterHourly));
         }
 
         // ------- عدّادات الملخص اللي فوق القائمة -------
@@ -492,6 +498,7 @@ namespace WorkforceManager.UI.ViewModels
         public int ExcusedCount => AttendanceRows.Count(r => r.SelectedStatus == AttendanceStatus.AbsentWithPermission);
         public int UnexcusedCount => AttendanceRows.Count(r => r.SelectedStatus == AttendanceStatus.AbsentWithoutPermission);
         public int UnsetCount => AttendanceRows.Count(r => r.SelectedStatus is null);
+        public int HourlyCount => AttendanceRows.Count(r => r.IsHourly);
         public int TotalWorkersCount => AttendanceRows.Count;
 
         /// <summary>الخصم المتوقع لو حفظت دلوقتي — تحذير قبل الحفظ مش بعده</summary>
@@ -505,6 +512,7 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(ExcusedCount));
             OnPropertyChanged(nameof(UnexcusedCount));
             OnPropertyChanged(nameof(UnsetCount));
+            OnPropertyChanged(nameof(HourlyCount));
             OnPropertyChanged(nameof(TotalWorkersCount));
             OnPropertyChanged(nameof(PendingPenaltyText));
 
@@ -601,6 +609,24 @@ namespace WorkforceManager.UI.ViewModels
                 return;
             }
 
+            // كلمة سر واحدة للدفعة كلها. الحفظ ده بيولّد جزاءات غياب
+            // بتنقص من الأجور، فهو عملية بتلمس فلوس — بس مرة في اليوم
+            // مش مرة لكل عامل، عشان ميبقاش عبء يومي
+            var unexcused = rowsToSave.Count(r => r.SelectedStatus == AttendanceStatus.AbsentWithoutPermission);
+            var gateNote = unexcused > 0
+                ? $"\n\nهيتسجل كمان {unexcused} جزاء غياب تلقائي (نص يومية لكل واحد)."
+                : "";
+
+            var gateInput = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                "حفظ حضور اليوم",
+                $"هيتحفظ حضور {rowsToSave.Count} عامل ليوم {EntryDate:yyyy/MM/dd}." + gateNote,
+                passwordRequired: true,
+                // مفيش سبب مكتوب: ده حفظ يومي مش حذف
+                reasonRequired: false);
+
+            if (gateInput is null) return;
+
             try
             {
                 AttendanceSaveResultDto result;
@@ -617,7 +643,8 @@ namespace WorkforceManager.UI.ViewModels
                     var entries = rowsToSave.Select(r => (r.WorkerId, Status: r.SelectedStatus!.Value));
 
                     // حفظ جماعي + مصالحة جزاءات الغياب في معاملة واحدة
-                    result = await attendanceService.RecordAttendanceBatchAsync(EntryDate, entries);
+                    result = await attendanceService.RecordAttendanceBatchAsync(
+                        EntryDate, entries, gateInput.Password);
                 }
 
                 var penaltyLines = "";
@@ -690,15 +717,75 @@ namespace WorkforceManager.UI.ViewModels
             }
             if (SelectedDeduction is null) return;
 
-            using var scope = _scopeFactory.CreateScope();
-            var penaltyService = scope.ServiceProvider.GetRequiredService<PenaltyService>();
-            await penaltyService.RecordPenaltyAsync(
-                PenaltyWorker.WorkerId, EntryDate, PenaltyReason, SelectedDeduction.Value);
+            // الجزاء بيخصم من أجر عامل حقيقي — عملية بتلمس فلوس
+            var gate = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                "تسجيل جزاء",
+                $"جزاء \"{PenaltyReason}\" على {PenaltyWorker.FullName} " +
+                $"بخصم {SelectedDeduction.Display} يوم {EntryDate:yyyy/MM/dd}.",
+                passwordRequired: true,
+                reasonRequired: false);
+
+            if (gate is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var penaltyService = scope.ServiceProvider.GetRequiredService<PenaltyService>();
+                await penaltyService.RecordPenaltyAsync(
+                    PenaltyWorker.WorkerId, EntryDate, PenaltyReason, SelectedDeduction.Value,
+                    operationsPassword: gate.Password);
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             // تفريغ الفورم وإعادة تحميل قائمة اليوم
             PenaltyReason = string.Empty;
             PenaltyWorker = null;
             await LoadPenaltiesAsync();
+        }
+
+        /// <summary>
+        /// يعدّل جزاء يدوي متسجّل. الجزاءات التلقائية بترفض التعديل من
+        /// الخدمة نفسها — الشاشة بتعرض السبب.
+        /// </summary>
+        [RelayCommand]
+        private async Task EditPenaltyAsync(PenaltyRow? row)
+        {
+            if (row is null) return;
+
+            var dialog = new PenaltyEditDialog(row.WorkerName, row.Reason, row.DeductionName)
+            {
+                Owner = Application.Current.MainWindow
+            };
+            if (dialog.ShowDialog() != true) return;
+
+            var gate = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                "تعديل جزاء",
+                $"تعديل جزاء {row.WorkerName} ليوم {EntryDate:yyyy/MM/dd}.",
+                passwordRequired: true,
+                reasonRequired: false);
+
+            if (gate is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<PenaltyService>()
+                    .UpdatePenaltyAsync(
+                        row.PenaltyId, dialog.PenaltyReason, dialog.Deduction,
+                        operationsPassword: gate.Password);
+
+                await LoadPenaltiesAsync();
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         [RelayCommand]
@@ -710,10 +797,17 @@ namespace WorkforceManager.UI.ViewModels
                     "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
 
-            using var scope = _scopeFactory.CreateScope();
-            var penaltyService = scope.ServiceProvider.GetRequiredService<PenaltyService>();
-            await penaltyService.RemovePenaltyAsync(row.PenaltyId);
-            await LoadPenaltiesAsync();
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var penaltyService = scope.ServiceProvider.GetRequiredService<PenaltyService>();
+                await penaltyService.RemovePenaltyAsync(row.PenaltyId);
+                await LoadPenaltiesAsync();
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         // ======================= قسم السلف والحوافز =======================
@@ -1135,12 +1229,18 @@ namespace WorkforceManager.UI.ViewModels
     /// أقسام شريط ملخص الحضور. كل عدّاد في الشريط بيفتح القسم بتاعه،
     /// و<see cref="AttendanceFilter.All"/> معناها الشريط مقفول والكل ظاهر.
     /// </summary>
+    /// <summary>شرايح قايمة الحضور. كلها بتشتغل على نفس القايمة الموحّدة.</summary>
     public enum AttendanceFilter
     {
         All,
         Present,
         Excused,
         Unexcused,
-        Unset
+
+        /// <summary>لسه محدش سجّل ليهم حضور النهارده</summary>
+        Unset,
+
+        /// <summary>العمال بالساعة (رص/جودة/تدريب) — شريحة مش حالة حضور</summary>
+        Hourly
     }
 }
