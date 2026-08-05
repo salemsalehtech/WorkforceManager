@@ -619,7 +619,7 @@ namespace WorkforceManager.UI.ViewModels
             {
                 await LoadAsync();
                 MessageBox.Show(
-                    $"اتعدّل {applied} تقييم. العمال هيترتبوا بالتقييمات الجديدة في شاشة التسجيل.",
+                    $"اتحفظ {applied} تقييم. العمال هيترتبوا بالتقييمات دي في شاشة التسجيل.",
                     "تم", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }

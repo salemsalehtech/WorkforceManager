@@ -593,6 +593,39 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task A_never_rated_skill_is_offered_for_confirmation_even_when_it_matches()
+        {
+            // من غير SetStarsAsync: النجوم اللي على المهارة حطها الترحيل،
+            // مش المدير. لو سكتنا عنها لأنها "مظبوطة"، مصنع لسه بادئ عمره
+            // ما هيشوف تنبيه المراجعة أصلاً — كل تقييماته مبدئية ومتطابقة
+            for (var day = 0; day < 3; day++)
+            {
+                using var scope = _db.CreateScope();
+                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 10,
+                    TestDatabase.Today.AddDays(-day));
+            }
+
+            using var check = _db.CreateScope();
+            var rating = _db.GetService<SkillRatingService>(check);
+            var review = await rating.BuildReviewAsync(TestDatabase.Today);
+
+            var suggestion = Assert.Single(review.Suggestions);
+            Assert.True(suggestion.IsConfirmation);
+            Assert.True(suggestion.IsUnrated);
+            Assert.False(suggestion.IsUpgrade);
+            Assert.False(suggestion.IsDowngrade);
+            Assert.Equal(suggestion.CurrentStars, suggestion.SuggestedStars);
+            Assert.Equal(1, review.ConfirmationCount);
+
+            // وبعد ما المدير يأكّد، بتسكت للأبد — التأكيد بيختم
+            // StarsUpdatedAt حتى لو الرقم نفسه مااتغيرش
+            await rating.ApplySuggestionAsync(suggestion);
+
+            Assert.False((await rating.BuildReviewAsync(TestDatabase.Today)).HasSuggestions);
+        }
+
+        [Fact]
         public async Task Applying_a_suggestion_sets_the_stars()
         {
             using (var scope = _db.CreateScope())

@@ -196,8 +196,14 @@ namespace WorkforceManager.Business.Services
         ///
         /// بيقيس الأول (عشان الأرقام تبقى طازة) وبعدين بيقارن كل مهارة:
         /// النجوم اللي عليها دلوقتي مقابل النجوم اللي أداؤها يستاهلها.
-        /// المهارات اللي الاتنين فيها متساويين مش بتظهر — المدير مش
-        /// محتاج يبص على اللي مظبوط أصلاً.
+        /// المهارات اللي الاتنين فيها متساويين **والمدير قال رأيه فيها قبل
+        /// كده** مش بتظهر — مفيش داعي يبص على اللي مظبوط أصلاً.
+        ///
+        /// الاستثناء مهم: مهارة عمرها ما اتقيّمت بإيد، النجوم اللي عليها
+        /// حطها الترحيل مش المدير. فبتتعرض عليه مرة واحدة يأكّدها، وبعدها
+        /// بتسكت للأبد. من غير الاستثناء ده الميزة كانت بتفضل مخفية على
+        /// مصنع لسه بادئ: كل التقييمات مبدئية ومتطابقة، فمفيش تنبيه أبدًا،
+        /// فالمدير عمره ما يعرف إن الميزة موجودة.
         /// </summary>
         public async Task<SkillReviewDto> BuildReviewAsync(DateTime asOf)
         {
@@ -213,7 +219,9 @@ namespace WorkforceManager.Business.Services
                 if (skill.MeasuredAt is null || skill.MeasuredDays < MinSampleDays) continue;
 
                 var suggested = StarsForRatio(skill.MeasuredRatio);
-                if (suggested == skill.Stars) continue;
+
+                // مظبوط + المدير أكّده قبل كده = مفيش حاجة يتسأل عنها تاني
+                if (suggested == skill.Stars && skill.StarsUpdatedAt is not null) continue;
 
                 suggestions.Add(new SkillSuggestionDto
                 {

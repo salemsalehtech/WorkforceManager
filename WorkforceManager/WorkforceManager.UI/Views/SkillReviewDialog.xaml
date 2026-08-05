@@ -69,10 +69,19 @@
                                         <!-- أزرار القرار -->
                                         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
                                                     VerticalAlignment="Center" Margin="0,0,12,0">
-                                            <Button Style="{StaticResource IconButton}" Padding="7,5"
+                                            <Button Padding="7,5"
                                                     Foreground="{StaticResource SuccessBrush}"
-                                                    ToolTip="وافق على التعديل ده"
                                                     Tag="{Binding}" Click="ApplyOne_Click">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                                        <Setter Property="ToolTip" Value="وافق على التعديل ده" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsConfirmation}" Value="True">
+                                                                <Setter Property="ToolTip" Value="أكّد التقييم ده" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
                                                 <materialDesign:PackIcon Kind="Check" Width="17" Height="17" />
                                             </Button>
                                             <Button Style="{StaticResource IconButton}" Padding="7,5"
@@ -83,7 +92,7 @@
                                             </Button>
                                         </StackPanel>
 
-                                        <!-- التغيير المقترح -->
+                                        <!-- التغيير المقترح: ارفع / نزّل / أكّد -->
                                         <Border DockPanel.Dock="Right" CornerRadius="7" Padding="11,7"
                                                 VerticalAlignment="Center" MinWidth="150">
                                             <Border.Style>
@@ -93,15 +102,27 @@
                                                         <DataTrigger Binding="{Binding IsUpgrade}" Value="True">
                                                             <Setter Property="Background" Value="{StaticResource SuccessBgBrush}" />
                                                         </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsConfirmation}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource SubtleBgBrush}" />
+                                                        </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </Border.Style>
                                             <StackPanel>
-                                                <TextBlock HorizontalAlignment="Center" FontSize="13">
+                                                <!-- تعديل: من كذا لكذا -->
+                                                <TextBlock HorizontalAlignment="Center" FontSize="13"
+                                                           Visibility="{Binding IsConfirmation, Converter={StaticResource InverseBoolToVis}}">
                                                     <Run Text="{Binding CurrentStarsText, Mode=OneWay}" Foreground="#BFC7D4" />
                                                     <Run Text="  ←  " Foreground="#8892A4" />
                                                     <Run Text="{Binding SuggestedStarsText, Mode=OneWay}" Foreground="#F5A623" FontWeight="Bold" />
                                                 </TextBlock>
+
+                                                <!-- تأكيد: النجوم زي ما هي، فالسهم بيلغبط -->
+                                                <TextBlock HorizontalAlignment="Center" FontSize="13"
+                                                           Text="{Binding SuggestedStarsText}"
+                                                           Foreground="#F5A623" FontWeight="Bold"
+                                                           Visibility="{Binding IsConfirmation, Converter={StaticResource BoolToVis}}" />
+
                                                 <TextBlock HorizontalAlignment="Center" FontSize="10.5" Margin="0,2,0,0">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
@@ -111,6 +132,10 @@
                                                                 <DataTrigger Binding="{Binding IsUpgrade}" Value="True">
                                                                     <Setter Property="Text" Value="ارفع التقييم" />
                                                                     <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsConfirmation}" Value="True">
+                                                                    <Setter Property="Text" Value="أكّد التقييم" />
+                                                                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>

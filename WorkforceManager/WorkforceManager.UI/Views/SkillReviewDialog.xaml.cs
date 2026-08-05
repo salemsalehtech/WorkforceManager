@@ -104,7 +104,9 @@ namespace WorkforceManager.UI.Views
             ListScroller.Visibility = empty ? Visibility.Collapsed : Visibility.Visible;
             ApplyAllButton.Visibility = empty ? Visibility.Collapsed : Visibility.Visible;
 
-            AppliedText.Text = _appliedCount == 0 ? "" : $"اتعدّل {_appliedCount} تقييم";
+            // "اتحفظ" مش "اتعدّل": السطر ممكن يكون تأكيد لتقييم مطابق
+            // أصلاً، ووصفه بإنه اتعدّل بيخلي المدير يدوّر على تغيير محصلش
+            AppliedText.Text = _appliedCount == 0 ? "" : $"اتحفظ {_appliedCount} تقييم";
         }
 
         private void Window_Drag(object sender, MouseButtonEventArgs e)
