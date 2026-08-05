@@ -47,7 +47,7 @@ namespace WorkforceManager.UI.ViewModels
 
         partial void OnSearchTextChanged(string value) => ApplyFilters();
 
-        /// <summary>الفلتر السريع المختار (الكل / بالقطعة / بالساعة / موقوفين)</summary>
+        /// <summary>الفلتر السريع المختار (الكل / بالإنتاج / بالساعة / موقوفين)</summary>
         [ObservableProperty]
         private WorkerFilter _activeFilter = WorkerFilter.All;
 
@@ -75,6 +75,88 @@ namespace WorkforceManager.UI.ViewModels
                 "inactive" => WorkerFilter.Inactive,
                 _ => WorkerFilter.All
             };
+
+        // ------- الفلاتر المركّبة (بتتجمع مع الشريحة بـ AND) -------
+
+        /// <summary>فلترة بمرحلة العامل مؤهل ليها (null = كل المراحل)</summary>
+        [ObservableProperty]
+        private StageFilterOption? _selectedStageFilter;
+
+        partial void OnSelectedStageFilterChanged(StageFilterOption? value) => ApplyFilters();
+
+        /// <summary>فلترة بمنتج عنده مهارة في أي مرحلة منه</summary>
+        [ObservableProperty]
+        private ProductFilterOption? _selectedProductFilter;
+
+        partial void OnSelectedProductFilterChanged(ProductFilterOption? value) => ApplyFilters();
+
+        /// <summary>أقل متوسط نجوم مقبول (null = أي تقييم)</summary>
+        [ObservableProperty]
+        private StarsFilterOption? _selectedStarsFilter;
+
+        partial void OnSelectedStarsFilterChanged(StarsFilterOption? value) => ApplyFilters();
+
+        /// <summary>حالة الحضور النهارده</summary>
+        [ObservableProperty]
+        private AttendanceFilterOption? _selectedAttendanceFilter;
+
+        partial void OnSelectedAttendanceFilterChanged(AttendanceFilterOption? value) => ApplyFilters();
+
+        /// <summary>المراحل المتاحة للفلترة (كل مراحل المصنع النشطة)</summary>
+        public ObservableCollection<StageFilterOption> StageFilterOptions { get; } = new();
+
+        /// <summary>المنتجات المتاحة للفلترة</summary>
+        public ObservableCollection<ProductFilterOption> ProductFilterOptions { get; } = new();
+
+        public List<StarsFilterOption> StarsFilterOptions { get; } = new()
+        {
+            new(null, "أي تقييم"),
+            new(5, "★★★★★ ممتاز"),
+            new(4, "★★★★ فأكتر"),
+            new(3, "★★★ فأكتر"),
+            new(2, "★★ فأكتر")
+        };
+
+        public List<AttendanceFilterOption> AttendanceFilterOptions { get; } = new()
+        {
+            new(null, "أي حالة حضور"),
+            new(AttendanceStatus.Present, "حاضر النهارده"),
+            new(AttendanceStatus.AbsentWithPermission, "غايب بإذن"),
+            new(AttendanceStatus.AbsentWithoutPermission, "غايب من غير إذن")
+        };
+
+        /// <summary>فيه فلتر مركّب مفعّل؟ (بيظهر زرار "شيل الفلاتر")</summary>
+        public bool HasExtraFilters =>
+            SelectedStageFilter?.StageId is not null ||
+            SelectedProductFilter?.ProductId is not null ||
+            SelectedStarsFilter?.MinStars is not null ||
+            SelectedAttendanceFilter?.Status is not null;
+
+        /// <summary>يجمّع الفلاتر المختارة في معايير واحدة للقاعدة</summary>
+        private WorkerFilterCriteria BuildCriteria() => new()
+        {
+            Scope = ActiveFilter switch
+            {
+                WorkerFilter.PieceRate => WorkerPayScope.ByProduction,
+                WorkerFilter.Hourly => WorkerPayScope.Hourly,
+                WorkerFilter.Inactive => WorkerPayScope.Inactive,
+                _ => WorkerPayScope.AllActive
+            },
+            StageId = SelectedStageFilter?.StageId,
+            ProductId = SelectedProductFilter?.ProductId,
+            MinStars = SelectedStarsFilter?.MinStars,
+            TodayStatus = SelectedAttendanceFilter?.Status
+        };
+
+        /// <summary>يرجّع الفلاتر المركّبة لوضعها الافتراضي</summary>
+        [RelayCommand]
+        private void ClearExtraFilters()
+        {
+            SelectedStageFilter = StageFilterOptions.FirstOrDefault();
+            SelectedProductFilter = ProductFilterOptions.FirstOrDefault();
+            SelectedStarsFilter = StarsFilterOptions[0];
+            SelectedAttendanceFilter = AttendanceFilterOptions[0];
+        }
 
         /// <summary>طريقة الترتيب المختارة</summary>
         [ObservableProperty]
@@ -118,8 +200,35 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>عدد العمال اللي محتاجين انتباه (مفيش سعر يومية أو مفيش مهارات)</summary>
         public int NeedsAttentionCount => _allWorkers.Count(w => w.IsActive && w.NeedsAttention);
 
-        public string BestWorkerName =>
-            _allWorkers.FirstOrDefault(w => w.IsBestOfWeek)?.FullName ?? "—";
+        /// <summary>
+        /// أحسن عامل في الأسبوع. **مين هو** بيتحدد في WeeklySummaryService
+        /// (أعلى صافي يوميات، بشرط إنه أنتج وصافيه موجب) — الشاشة بتعرض
+        /// النتيجة بس ومش بتحسبها.
+        /// </summary>
+        public WorkerRow? BestWorker => _allWorkers.FirstOrDefault(w => w.IsBestOfWeek);
+
+        public bool HasBestWorker => BestWorker is not null;
+
+        public string BestWorkerName => BestWorker?.FullName ?? "—";
+
+        /// <summary>يفتح بروفايل أحسن عامل — الكارت كله زرار</summary>
+        [RelayCommand]
+        private void OpenBestWorker()
+        {
+            var best = BestWorker;
+            if (best is null) return;
+
+            // ممكن يكون مخفي تحت فلتر شغال دلوقتي، فبنرجّع القايمة
+            // لوضعها الطبيعي الأول عشان الاختيار يبان فعلاً
+            if (!Workers.Contains(best))
+            {
+                SearchText = string.Empty;
+                ActiveFilter = WorkerFilter.All;
+                ClearExtraFilters();
+            }
+
+            SelectedWorker = best;
+        }
 
         /// <summary>عدد النتايج المعروضة دلوقتي (بيظهر جنب البحث)</summary>
         public string ResultsText => Workers.Count == TotalCount
@@ -135,6 +244,8 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(InactiveCount));
             OnPropertyChanged(nameof(HourlyCount));
             OnPropertyChanged(nameof(NeedsAttentionCount));
+            OnPropertyChanged(nameof(BestWorker));
+            OnPropertyChanged(nameof(HasBestWorker));
             OnPropertyChanged(nameof(BestWorkerName));
             OnPropertyChanged(nameof(ResultsText));
             OnPropertyChanged(nameof(NoResults));
@@ -148,13 +259,11 @@ namespace WorkforceManager.UI.ViewModels
         {
             var query = SearchText?.Trim() ?? "";
 
-            IEnumerable<WorkerRow> result = ActiveFilter switch
-            {
-                WorkerFilter.PieceRate => _allWorkers.Where(w => w.IsActive && !w.IsHourly),
-                WorkerFilter.Hourly => _allWorkers.Where(w => w.IsActive && w.IsHourly),
-                WorkerFilter.Inactive => _allWorkers.Where(w => !w.IsActive),
-                _ => _allWorkers.Where(w => w.IsActive)
-            };
+            // كل الفلاتر (الشريحة + المرحلة + النجوم + الحضور + المنتج)
+            // بتتطبّق مع بعض بـ AND في WorkerFilterRules — القاعدة عايشة
+            // في طبقة الأعمال عشان تتختبر من غير واجهة
+            IEnumerable<WorkerRow> result =
+                WorkerFilterRules.Apply(_allWorkers, w => w.FilterSubject, BuildCriteria());
 
             // البحث بيشمل الاسم والمهارات (اسم المرحلة أو المنتج) والملاحظات.
             // بيتجاهل الهمزات زي بحث العمال في شاشة التسجيل اليومي — لو بحث
@@ -180,14 +289,16 @@ namespace WorkforceManager.UI.ViewModels
 
             OnPropertyChanged(nameof(ResultsText));
             OnPropertyChanged(nameof(NoResults));
+            OnPropertyChanged(nameof(HasExtraFilters));
         }
 
-        /// <summary>يمسح البحث ويرجّع الفلتر للكل</summary>
+        /// <summary>يمسح البحث ويرجّع كل الفلاتر للكل</summary>
         [RelayCommand]
         private void ClearSearch()
         {
             SearchText = string.Empty;
             ActiveFilter = WorkerFilter.All;
+            ClearExtraFilters();
         }
 
         /// <summary>يعرض العمال المحتاجين انتباه بس (من زرار التنبيه في الملخص)</summary>
@@ -214,6 +325,45 @@ namespace WorkforceManager.UI.ViewModels
 
         // ------- تحميل القائمة -------
 
+        /// <summary>
+        /// يملا قوايم المراحل والمنتجات المتاحة للفلترة.
+        ///
+        /// المراحل الموقوفة مستبعدة: الفلترة بيها بتدّي عمال مش هيشتغلوا
+        /// عليها أصلاً. الاختيار الحالي بيتحافظ عليه لو لسه موجود، عشان
+        /// إعادة التحميل بعد أي تعديل متلغيش فلتر المستخدم.
+        /// </summary>
+        private async Task LoadFilterOptionsAsync(IProductRepository productRepo)
+        {
+            var products = await productRepo.GetAllWithStagesAsync();
+
+            var previousStageId = SelectedStageFilter?.StageId;
+            var previousProductId = SelectedProductFilter?.ProductId;
+
+            StageFilterOptions.Clear();
+            StageFilterOptions.Add(new StageFilterOption(null, "كل المراحل"));
+
+            ProductFilterOptions.Clear();
+            ProductFilterOptions.Add(new ProductFilterOption(null, "كل المنتجات"));
+
+            foreach (var product in products.Where(p => p.IsActive).OrderBy(p => p.Name))
+            {
+                ProductFilterOptions.Add(new ProductFilterOption(product.Id, product.Name));
+
+                foreach (var stage in product.Stages
+                             .Where(s => s.IsActive)
+                             .OrderBy(s => s.SortOrder).ThenBy(s => s.Id))
+                    StageFilterOptions.Add(
+                        new StageFilterOption(stage.Id, $"{product.Name} — {stage.StageName}"));
+            }
+
+            SelectedStageFilter = StageFilterOptions.FirstOrDefault(o => o.StageId == previousStageId)
+                                  ?? StageFilterOptions[0];
+            SelectedProductFilter = ProductFilterOptions.FirstOrDefault(o => o.ProductId == previousProductId)
+                                    ?? ProductFilterOptions[0];
+            SelectedStarsFilter ??= StarsFilterOptions[0];
+            SelectedAttendanceFilter ??= AttendanceFilterOptions[0];
+        }
+
         [RelayCommand]
         public async Task LoadAsync()
         {
@@ -223,6 +373,8 @@ namespace WorkforceManager.UI.ViewModels
                 using var scope = _scopeFactory.CreateScope();
                 var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
                 var weeklyService = scope.ServiceProvider.GetRequiredService<WeeklySummaryService>();
+                var attendanceRepo = scope.ServiceProvider.GetRequiredService<IAttendanceRepository>();
+                var productRepo = scope.ServiceProvider.GetRequiredService<IProductRepository>();
 
                 var (weekStart, weekEnd) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);
                 WeekTitle = $"الأسبوع الحالي: من الخميس {weekStart:yyyy/MM/dd} إلى الأربعاء {weekEnd:yyyy/MM/dd}";
@@ -231,8 +383,14 @@ namespace WorkforceManager.UI.ViewModels
                 var weekly = await weeklyService.GetTeamWeeklySummaryAsync(DateTime.Today);
                 var weeklyByWorker = weekly.ToDictionary(w => w.WorkerId);
 
+                // حضور النهارده لفلتر الحضور — استعلام واحد لليوم كله
+                var todayAttendance = (await attendanceRepo.GetByDateAsync(DateTime.Today))
+                    .ToDictionary(a => a.WorkerId, a => a.Status);
+
                 // كل العمال بمهاراتهم مرة واحدة — الفلترة والبحث بعد كده في الذاكرة
                 var workers = await workerRepo.GetAllWithSkillsAsync();
+
+                await LoadFilterOptionsAsync(productRepo);
 
                 _allWorkers.Clear();
                 foreach (var w in workers)
@@ -258,6 +416,24 @@ namespace WorkforceManager.UI.ViewModels
                         PenaltyDeduction = wk?.PenaltyDeduction ?? 0,
                         NetWorkdays = wk?.NetWorkdays ?? 0,
                         IsBestOfWeek = wk?.IsBestWorkerOfWeek == true,
+                        PhotoData = w.PhotoData,
+                        // بيانات الفلاتر المركّبة
+                        StageIds = w.Skills.Select(s => s.ProductionStageId).ToHashSet(),
+                        ProductIds = w.Skills
+                            .Select(s => s.ProductionStage.ProductId)
+                            .ToHashSet(),
+                        AverageStars = w.Skills.Count == 0
+                            ? 0m
+                            : Math.Round((decimal)w.Skills.Average(s => s.Stars), 2),
+                        TodayStatus = todayAttendance.TryGetValue(w.Id, out var status) ? status : null,
+                        // المنتج اللي متوسط نجومه فيه الأعلى — شارة كارت أحسن عامل
+                        TopSkillProduct = w.Skills
+                            .Where(s => s.ProductionStage.Product is not null)
+                            .GroupBy(s => s.ProductionStage.Product!.Name)
+                            .OrderByDescending(g => g.Average(s => s.Stars))
+                            .ThenBy(g => g.Key)
+                            .Select(g => g.Key)
+                            .FirstOrDefault() ?? "",
                         // نص واحد مجمّع للبحث في المهارات والملاحظات بضربة واحدة
                         SkillsSearchText = string.Join(" ", skillNames) + " " + (w.SkillsNotes ?? "")
                     });
@@ -315,13 +491,17 @@ namespace WorkforceManager.UI.ViewModels
 
             var skillGroups = BuildSkillGroups(products, ownedStageIds, ratingByStage);
 
+            // كروت "شاطر في إيه" — بتحل محل خانة الملاحظات النصية القديمة
+            var strengths = BuildStrengths(products, worker.Skills);
+
             Detail = new WorkerDetail
             {
+                Strengths = new ObservableCollection<WorkerStrength>(strengths),
                 WorkerId = worker.Id,
                 FullName = worker.FullName,
                 PhoneNumber = worker.PhoneNumber ?? "—",
                 HireDateText = worker.HireDate?.ToString("yyyy/MM/dd") ?? "—",
-                SkillsNotes = worker.SkillsNotes ?? "",
+                PhotoData = worker.PhotoData,
                 IsActive = worker.IsActive,
                 HourlyRole = worker.HourlyRole,
                 HourlyRoleText = worker.HourlyRole?.ToArabicName() ?? "",
@@ -423,6 +603,41 @@ namespace WorkforceManager.UI.ViewModels
         /// الترتيب بالتغطية تنازليًا: المنتجات اللي العامل قريب من تغطيتها
         /// بالكامل هي اللي المستخدم بيهتم بيها الأول (فاضل مرحلتين وتخلص).
         /// </summary>
+        /// <summary>
+        /// كارت لكل منتج العامل عنده فيه مهارة، بمتوسط نجومه عليه.
+        ///
+        /// المتوسط بيتحسب بـ <see cref="SkillRatingService.ProductStars"/> —
+        /// مش بحساب محلي هنا. القاعدة (المراحل اللي مالوش فيها مهارة
+        /// مبتتحسبش صفر، عشان المتخصص ميبانش ضعيف) عايشة في مكان واحد.
+        ///
+        /// المنتجات اللي مالوش فيها ولا مهارة بتختفي — كارت "صفر مهارات"
+        /// مبيقولش حاجة.
+        /// </summary>
+        private static List<WorkerStrength> BuildStrengths(
+            IReadOnlyList<Core.Models.Product> products,
+            IEnumerable<Core.Models.WorkerSkill> skills)
+        {
+            var skillByStage = skills.ToDictionary(s => s.ProductionStageId);
+
+            return products
+                .Select(product =>
+                {
+                    var onProduct = product.Stages
+                        .Where(stage => skillByStage.ContainsKey(stage.Id))
+                        .Select(stage => skillByStage[stage.Id])
+                        .ToList();
+
+                    var stars = SkillRatingService.ProductStars(onProduct);
+                    return stars is null
+                        ? null
+                        : new WorkerStrength { ProductName = product.Name, Stars = stars.Value };
+                })
+                .OfType<WorkerStrength>()
+                .OrderByDescending(s => s.Stars)
+                .ThenBy(s => s.ProductName)
+                .ToList();
+        }
+
         private static List<SkillProductGroup> BuildSkillGroups(
             IReadOnlyList<Core.Models.Product> products,
             HashSet<int> ownedStageIds,
@@ -488,9 +703,13 @@ namespace WorkforceManager.UI.ViewModels
             {
                 using var scope = _scopeFactory.CreateScope();
                 var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
-                await mgmt.CreateWorkerAsync(
+                var created = await mgmt.CreateWorkerAsync(
                     dialog.WorkerName, dialog.PhoneNumber,
-                    dialog.HireDate, dialog.SkillsNotes, dialog.HourlyRole, dialog.DailyWageEgp);
+                    dialog.HireDate, dialog.HourlyRole, dialog.DailyWageEgp);
+
+                if (dialog.PhotoData is not null)
+                    await mgmt.SetWorkerPhotoAsync(created.Id, dialog.PhotoData);
+
                 await LoadAsync();
             }
             catch (Exception ex)
@@ -512,7 +731,7 @@ namespace WorkforceManager.UI.ViewModels
             dialog.LoadWorker(Detail.FullName,
                 Detail.PhoneNumber == "—" ? null : Detail.PhoneNumber,
                 Detail.HireDateText == "—" ? null : DateTime.Parse(Detail.HireDateText),
-                Detail.SkillsNotes, Detail.HourlyRole, Detail.DailyWageEgp);
+                Detail.HourlyRole, Detail.DailyWageEgp, Detail.PhotoData);
 
             if (dialog.ShowDialog() != true) return;
 
@@ -522,7 +741,12 @@ namespace WorkforceManager.UI.ViewModels
                 var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
                 await mgmt.UpdateWorkerAsync(
                     SelectedWorker.WorkerId, dialog.WorkerName,
-                    dialog.PhoneNumber, dialog.HireDate, dialog.SkillsNotes, dialog.HourlyRole, dialog.DailyWageEgp);
+                    dialog.PhoneNumber, dialog.HireDate, dialog.HourlyRole, dialog.DailyWageEgp);
+
+                // الصورة بتتحفظ بس لو المستخدم غيّرها فعلاً
+                if (dialog.PhotoChanged)
+                    await mgmt.SetWorkerPhotoAsync(SelectedWorker.WorkerId, dialog.PhotoData);
+
                 await LoadAsync();
             }
             catch (Exception ex)
@@ -704,9 +928,18 @@ namespace WorkforceManager.UI.ViewModels
             var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
 
             foreach (var stage in missing)
+            {
                 await mgmt.AssignSkillAsync(Detail.WorkerId, stage.StageId);
 
-            await LoadDetailAsync(SelectedWorker);
+                stage.IsKnown = true;
+                stage.Stars = SkillRatingService.DefaultStars;
+                Detail.NoteAdded(stage.StageName);
+            }
+
+            // زي ToggleSkillAsync: تحديث في المكان عشان اللوحة متتبنيش من
+            // الأول والكارت المفتوح ميتقفلش
+            group.RefreshCounters();
+            Detail.RefreshCoverage(missing[0].StageId);
             await RefreshRowsKeepingSelectionAsync();
         }
 
@@ -714,6 +947,11 @@ namespace WorkforceManager.UI.ViewModels
         /// يقلب حالة المرحلة: بيعرفها ← مش بيعرفها. زرار واحد للاتنين لأن
         /// المرحلة معروضة في مكانها في الخط سواء بيعرفها أو لأ — فسدّ الفجوة
         /// وشيل المهارة الغلط بقوا نفس الحركة.
+        ///
+        /// **مفيش إعادة تحميل للبروفايل هنا عن قصد.** كانت بتتنادى بعد كل
+        /// إضافة، فاللوحة كانت بتتبني من الأول والكارت المفتوح بيتقفل —
+        /// والمستخدم بيضيف عشر مهارات ورا بعض، يعني عشر مرات بيدوّر على
+        /// مكانه تاني. التحديث بقى في مكانه، واللوحة بتفضل زي ما هي.
         /// </summary>
         [RelayCommand]
         private async Task ToggleSkillAsync(SkillStageItem? stage)
@@ -723,15 +961,29 @@ namespace WorkforceManager.UI.ViewModels
             using var scope = _scopeFactory.CreateScope();
             var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
 
-            if (stage.IsKnown) await mgmt.RemoveSkillAsync(Detail.WorkerId, stage.StageId);
-            else await mgmt.AssignSkillAsync(Detail.WorkerId, stage.StageId);
+            var adding = !stage.IsKnown;
 
-            await LoadDetailAsync(SelectedWorker);
+            if (adding) await mgmt.AssignSkillAsync(Detail.WorkerId, stage.StageId);
+            else await mgmt.RemoveSkillAsync(Detail.WorkerId, stage.StageId);
+
+            stage.IsKnown = adding;
+            if (adding)
+            {
+                stage.Stars = SkillRatingService.DefaultStars;
+                Detail.NoteAdded(stage.StageName);
+            }
+
+            Detail.RefreshCoverage(stage.StageId);
             await RefreshRowsKeepingSelectionAsync();
         }
 
         /// <summary>
         /// يحطّ تقييم المدير بالنجوم على مهارة.
+        ///
+        /// ولو المرحلة لسه مش مضافة (وضع الإضافة)، بيضيفها **بالتقييم ده**
+        /// في حركة واحدة. ده اللي بيخلي "مستوى العامل في المرحلة" جزء من
+        /// إضافتها مش خطوة تانية بعدها — والقيمة بتروح لنظام النجوم نفسه
+        /// (SkillRatingService)، مفيش حقل تقييم تاني موازي.
         ///
         /// المعامل بييجي كنص "stageId:stars" من زرار النجمة — WPF
         /// مبيبعتش معاملين، والبديل (خمس أوامر لكل نجمة) كان هيكرر نفس
@@ -751,19 +1003,36 @@ namespace WorkforceManager.UI.ViewModels
                 .SelectMany(g => g.Stages)
                 .FirstOrDefault(s => s.StageId == stageId);
 
-            // التقييم للمهارات اللي العامل بيعرفها بس — مفيش معنى لتقييم
-            // مرحلة هو أصلاً مش مربوط بيها
-            if (item is null || !item.IsKnown) return;
+            // مرحلة مش معروضة، أو مش مضافة ومش في وضع الإضافة = مفيش حاجة تتعمل
+            if (item is null || !item.ShowStars) return;
 
             try
             {
                 using var scope = _scopeFactory.CreateScope();
+
+                // مرحلة جديدة: الربط الأول، وبعدين التقييم. الترتيب مهم —
+                // SetStarsAsync بيرمي "العامل ده مش مربوط بالمرحلة دي"
+                if (!item.IsKnown)
+                    await scope.ServiceProvider.GetRequiredService<WorkerManagementService>()
+                        .AssignSkillAsync(Detail.WorkerId, stageId);
+
                 await scope.ServiceProvider.GetRequiredService<SkillRatingService>()
                     .SetStarsAsync(Detail.WorkerId, stageId, stars);
 
                 // تحديث الصف في مكانه بدل إعادة تحميل البروفايل كله —
                 // إعادة التحميل بتقفل الكارت المفتوح والمستخدم بيضيع
+                var wasNew = !item.IsKnown;
                 item.Stars = stars;
+                item.IsKnown = true;
+
+                // الإضافة بتغيّر عدّادات التغطية والصف في القائمة، والعرض
+                // مش هيتحدّث لوحده — بس من غير ما نقفل الكارت المفتوح
+                if (wasNew)
+                {
+                    Detail.NoteAdded(item.StageName);
+                    Detail.RefreshCoverage(stageId);
+                    await RefreshRowsKeepingSelectionAsync();
+                }
             }
             catch (InvalidOperationException ex)
             {
@@ -825,6 +1094,17 @@ namespace WorkforceManager.UI.ViewModels
     /// <summary>خيار ترتيب في القائمة المنسدلة</summary>
     public record WorkerSortOption(WorkerSort Value, string Display);
 
+    // ------- خيارات الفلاتر المركّبة -------
+    // كلها بتبدأ بخيار "الكل" اللي قيمته null = الفلتر مش مفعّل
+
+    public record StageFilterOption(int? StageId, string Display);
+
+    public record ProductFilterOption(int? ProductId, string Display);
+
+    public record StarsFilterOption(int? MinStars, string Display);
+
+    public record AttendanceFilterOption(AttendanceStatus? Status, string Display);
+
     /// <summary>بطاقة عامل واحد في القائمة: بياناته + أرقام الأسبوع الحالي + تنبيهاته</summary>
     public class WorkerRow
     {
@@ -847,10 +1127,44 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>كل مهاراته وملاحظاته في نص واحد — للبحث اللحظي من غير حسابات</summary>
         public string SkillsSearchText { get; init; } = "";
 
+        /// <summary>صورة العامل (null = تتعرض الحروف الأولى بدلها)</summary>
+        public byte[]? PhotoData { get; init; }
+
+        // ------- بيانات الفلترة -------
+
+        /// <summary>المراحل اللي العامل مؤهل ليها</summary>
+        public IReadOnlySet<int> StageIds { get; init; } = new HashSet<int>();
+
+        /// <summary>المنتجات اللي عنده مهارة في أي مرحلة منها</summary>
+        public IReadOnlySet<int> ProductIds { get; init; } = new HashSet<int>();
+
+        /// <summary>متوسط نجومه على كل مهاراته (0 = مالوش مهارات)</summary>
+        public decimal AverageStars { get; init; }
+
+        /// <summary>حالة حضوره النهارده (null = مفيش تسجيل)</summary>
+        public AttendanceStatus? TodayStatus { get; init; }
+
+        /// <summary>المنتج اللي تقييمه فيه الأعلى (فاضي = مالوش مهارات)</summary>
+        public string TopSkillProduct { get; init; } = "";
+
+        public bool HasTopSkill => TopSkillProduct.Length > 0;
+
+        /// <summary>نفس الصف بالشكل اللي قاعدة الفلترة بتفهمه</summary>
+        public WorkerFilterSubject FilterSubject => new()
+        {
+            WorkerId = WorkerId,
+            IsActive = IsActive,
+            IsHourly = IsHourly,
+            StageIds = StageIds,
+            ProductIds = ProductIds,
+            AverageStars = AverageStars,
+            TodayStatus = TodayStatus
+        };
+
         // ------- العرض -------
 
         public string StatusText => IsActive ? "نشط" : "موقوف";
-        public string TypeText => IsHourly ? HourlyRoleText : "بالقطعة";
+        public string TypeText => IsHourly ? HourlyRoleText : "بالإنتاج";
 
         /// <summary>أول حرفين من الاسم للدايرة (نفس أسلوب شاشة الحضور)</summary>
         public string Initials
@@ -901,6 +1215,29 @@ namespace WorkforceManager.UI.ViewModels
         };
     }
 
+    /// <summary>
+    /// "ممتاز في GRS" — تقييم العامل على منتج واحد، محسوب من نجوم مراحله.
+    ///
+    /// حلّ محل خانة "ملاحظات المهارات" النصية: الفرق إن ده بيتحدّث لوحده
+    /// مع كل تعديل تقييم، والنص الحر كان بيقدم ومحدش بيلاحظ.
+    /// </summary>
+    public class WorkerStrength
+    {
+        public string ProductName { get; init; } = "";
+
+        /// <summary>متوسط نجومه على مراحل المنتج اللي بيعرفها (1–5)</summary>
+        public decimal Stars { get; init; }
+
+        /// <summary>المتوسط مقرّب لأقرب نجمة للعرض</summary>
+        public int RoundedStars =>
+            Math.Clamp((int)Math.Round(Stars, MidpointRounding.AwayFromZero), 1, 5);
+
+        public string StarsText => new string('★', RoundedStars) + new string('☆', 5 - RoundedStars);
+
+        /// <summary>الوصف من SkillRatingService عشان نص الوصف واحد في البرنامج كله</summary>
+        public string Label => $"{SkillRatingService.StarsLabel(RoundedStars)} في {ProductName}";
+    }
+
     /// <summary>تفاصيل العامل المعروضة في اللوحة الجانبية (البروفايل)</summary>
     public partial class WorkerDetail : ObservableObject
     {
@@ -908,10 +1245,12 @@ namespace WorkforceManager.UI.ViewModels
         public string FullName { get; init; } = "";
         public string PhoneNumber { get; init; } = "";
         public string HireDateText { get; init; } = "";
-        public string SkillsNotes { get; init; } = "";
         public bool IsActive { get; init; }
 
-        /// <summary>دور العامل بالساعة (null = عامل إنتاج بالقطعة)</summary>
+        /// <summary>صورة العامل (null = تتعرض الحروف الأولى بدلها)</summary>
+        public byte[]? PhotoData { get; init; }
+
+        /// <summary>دور العامل بالساعة (null = عامل إنتاج بيتحاسب على إنتاجه)</summary>
         public Core.Enums.HourlyRole? HourlyRole { get; init; }
 
         /// <summary>نص الدور بالساعة للعرض في البروفايل (فاضي لعامل الإنتاج)</summary>
@@ -928,6 +1267,14 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>هل هو عامل بالساعة؟ (لإظهار شارة في البروفايل)</summary>
         public bool IsHourly => HourlyRole is not null;
+
+        /// <summary>
+        /// كارت لكل منتج العامل عنده فيه مهارة، بمتوسط نجومه ("ممتاز في GRS").
+        /// عرض محسوب — مش إدخال. التقييم بيتغيّر من نجوم المرحلة نفسها.
+        /// </summary>
+        public ObservableCollection<WorkerStrength> Strengths { get; init; } = new();
+
+        public bool HasStrengths => Strengths.Count > 0;
 
         /// <summary>مهارات العامل مجمّعة في كارت لكل منتج (مرتبة بالتغطية)</summary>
         public ObservableCollection<SkillProductGroup> SkillProducts { get; init; } = new();
@@ -952,6 +1299,42 @@ namespace WorkforceManager.UI.ViewModels
         {
             ApplyGroupMode();
             OnPropertyChanged(nameof(SkillSearchHint));
+
+            // قايمة "اتضاف دلوقتي" بتخص جلسة إضافة واحدة — بتتصفّر لما
+            // المستخدم يقفل اللوحة، مش بتتراكم عبر الجلسات
+            if (!value) ClearRecentlyAdded();
+        }
+
+        // ------- تغذية راجعة أثناء الإضافة -------
+
+        /// <summary>
+        /// المهارات اللي اتضافت في جلسة الإضافة الحالية.
+        ///
+        /// اللوحة بتفضل مفتوحة بعد كل إضافة، فمن غير القايمة دي المستخدم
+        /// مبيعرفش هو ضاف إيه لحد دلوقتي وهو بيضيف عشرة ورا بعض.
+        /// </summary>
+        public ObservableCollection<string> RecentlyAdded { get; } = new();
+
+        public bool HasRecentlyAdded => RecentlyAdded.Count > 0;
+        public string RecentlyAddedText => $"اتضاف {RecentlyAdded.Count} مهارة في الجلسة دي";
+
+        public void NoteAdded(string stageName)
+        {
+            RecentlyAdded.Insert(0, stageName); // الأحدث فوق
+            RefreshRecentlyAdded();
+        }
+
+        public void ClearRecentlyAdded()
+        {
+            if (RecentlyAdded.Count == 0) return;
+            RecentlyAdded.Clear();
+            RefreshRecentlyAdded();
+        }
+
+        private void RefreshRecentlyAdded()
+        {
+            OnPropertyChanged(nameof(HasRecentlyAdded));
+            OnPropertyChanged(nameof(RecentlyAddedText));
         }
 
         public void ApplyGroupMode()
@@ -966,6 +1349,11 @@ namespace WorkforceManager.UI.ViewModels
                 // منتج موقوف ومالوش فيه مهارة مبيظهرش أبدًا — مينفعش يشتغل عليه
                 var show = IsAddingSkills ? known || !group.IsProductInactive : known;
                 if (show) SkillProducts.Add(group);
+
+                // في وضع الإضافة النجوم بتبان على المراحل اللي لسه مش
+                // مضافة كمان: الضغط على نجمة بيضيف المهارة بالتقييم ده
+                // في حركة واحدة، بدل "ضيف" وبعدين "قيّم"
+                foreach (var stage in group.Stages) stage.IsAddMode = IsAddingSkills;
             }
 
             ApplySkillFilter();
@@ -1028,6 +1416,19 @@ namespace WorkforceManager.UI.ViewModels
         public bool AllExpanded => SkillProducts.Count > 0 && SkillProducts.All(g => g.IsExpanded);
 
         public void RefreshExpandState() => OnPropertyChanged(nameof(AllExpanded));
+
+        /// <summary>
+        /// بيحدّث عدّادات كارت المنتج اللي المرحلة دي تبعه، بعد إضافة
+        /// مهارة من غير إعادة تحميل البروفايل — عشان الكارت المفتوح
+        /// والبحث الجاري ميضيعوش من تحت إيد المستخدم.
+        /// </summary>
+        public void RefreshCoverage(int stageId)
+        {
+            var group = SkillProducts.FirstOrDefault(g => g.Stages.Any(s => s.StageId == stageId));
+            group?.RefreshCounters();
+
+            OnPropertyChanged(nameof(HasAnySkill));
+        }
     }
 
     /// <summary>
@@ -1116,6 +1517,26 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private bool _isKnown;
 
+        partial void OnIsKnownChanged(bool value)
+        {
+            OnPropertyChanged(nameof(ShowStars));
+            OnPropertyChanged(nameof(RatingTooltip));
+            RefreshStarFlags();
+        }
+
+        /// <summary>اللوحة في وضع "ضيف مهارات" دلوقتي؟</summary>
+        [ObservableProperty]
+        private bool _isAddMode;
+
+        partial void OnIsAddModeChanged(bool value) => OnPropertyChanged(nameof(ShowStars));
+
+        /// <summary>
+        /// النجوم بتبان للمهارات اللي بيعرفها (عشان يعدّل تقييمه)، وكمان
+        /// في وضع الإضافة للمراحل اللي لسه مش مضافة — وساعتها الضغط على
+        /// نجمة بيضيف المهارة بالتقييم ده على طول.
+        /// </summary>
+        public bool ShowStars => IsKnown || IsAddMode;
+
         /// <summary>مطابق للبحث دلوقتي؟</summary>
         [ObservableProperty]
         private bool _isVisible = true;
@@ -1156,19 +1577,24 @@ namespace WorkforceManager.UI.ViewModels
         public bool HasGapWithReality =>
             HasMeasurement && SkillRatingService.StarsForRatio(MeasuredRatio) != Stars;
 
-        public string RatingTooltip => HasMeasurement
-            ? $"تقييمك: {StarsLabel} ({Stars}/5)\nإنتاجه الفعلي: {MeasuredText} من الكوتة على مدار {MeasuredDays} يوم"
-            : $"تقييمك: {StarsLabel} ({Stars}/5)\nلسه مافيش إنتاج كفاية للقياس";
+        public string RatingTooltip =>
+            !IsKnown
+                ? "دوس على عدد النجوم اللي شايفه — هيتضاف للعامل بالمستوى ده"
+                : HasMeasurement
+                    ? $"تقييمك: {StarsLabel} ({Stars}/5)\nإنتاجه الفعلي: {MeasuredText} من الكوتة على مدار {MeasuredDays} يوم"
+                    : $"تقييمك: {StarsLabel} ({Stars}/5)\nلسه مافيش إنتاج كفاية للقياس";
 
         // ------- حالة كل نجمة (للعرض والضغط) -------
         // خمس خصائص منفصلة عشان الـ XAML يربط عليها مباشرة من غير
         // محوّلات ولا قوايم متداخلة
 
-        public bool Star1 => Stars >= 1;
-        public bool Star2 => Stars >= 2;
-        public bool Star3 => Stars >= 3;
-        public bool Star4 => Stars >= 4;
-        public bool Star5 => Stars >= 5;
+        // مرحلة لسه مش مضافة بتتعرض بنجوم فاضية كلها: القيمة الافتراضية
+        // (3) هي مبدئية مش تقييم، وعرضها مليانة كان هيوحي إن المدير قيّمها
+        public bool Star1 => IsKnown && Stars >= 1;
+        public bool Star2 => IsKnown && Stars >= 2;
+        public bool Star3 => IsKnown && Stars >= 3;
+        public bool Star4 => IsKnown && Stars >= 4;
+        public bool Star5 => IsKnown && Stars >= 5;
 
         // معامل الأمر جاهز كنص من هنا مش من StringFormat في الـ XAML:
         // StringFormat على CommandParameter مبيحوّلش فعليًا — WPF بيبعت

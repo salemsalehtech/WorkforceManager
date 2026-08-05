@@ -1,0 +1,22 @@
+<UserControl x:Class="WorkforceManager.UI.Views.WorkerAvatar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FlowDirection="RightToLeft">
+
+    <!-- صورة العامل في كل الشاشات. الدايرة نفسها Ellipse مش Border+Clip
+         عشان تفضل مظبوطة عند أي حجم من غير حساب هندسي في الكود. -->
+    <Grid x:Name="Root">
+        <!-- الحروف الأولى: بتبان لما مفيش صورة -->
+        <Ellipse x:Name="InitialsCircle" Fill="{DynamicResource SubtleBgBrush}" />
+        <TextBlock x:Name="InitialsText" FontWeight="Bold"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   Foreground="{DynamicResource BrandBrush}" />
+
+        <!-- الصورة: بتغطي الحروف لما تكون موجودة -->
+        <Ellipse x:Name="PhotoCircle" Visibility="Collapsed">
+            <Ellipse.Fill>
+                <ImageBrush x:Name="PhotoBrush" Stretch="UniformToFill" />
+            </Ellipse.Fill>
+        </Ellipse>
+    </Grid>
+</UserControl>

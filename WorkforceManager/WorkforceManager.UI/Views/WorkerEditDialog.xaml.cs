@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
+using Microsoft.Win32;
+using WorkforceManager.UI.ViewModels;
 // alias صريح للـ enum عشان اسم الخاصية HourlyRole في الكلاس ميحجبش النوع
 using HourlyRoleEnum = WorkforceManager.Core.Enums.HourlyRole;
 
@@ -38,23 +40,83 @@ namespace WorkforceManager.UI.Views
         public string WorkerName => NameBox.Text.Trim();
         public string? PhoneNumber => string.IsNullOrWhiteSpace(PhoneBox.Text) ? null : PhoneBox.Text.Trim();
         public DateTime? HireDate => HireDatePicker.SelectedDate;
-        public string? SkillsNotes => string.IsNullOrWhiteSpace(NotesBox.Text) ? null : NotesBox.Text.Trim();
         public HourlyRoleEnum? HourlyRole => HourlyRoleBox.SelectedValue as HourlyRoleEnum?;
 
         /// <summary>سعر اليومية بالجنيه (مضمون رقم غير سالب بعد Save_Click)</summary>
         public decimal DailyWageEgp =>
             decimal.TryParse(WageBox.Text.Trim(), out var w) ? w : 0m;
 
+        /// <summary>
+        /// صورة العامل بعد الحفظ (null = مفيش صورة أو المستخدم شالها).
+        /// بتبقى مصغّرة ومضغوطة جاهزة للتخزين.
+        /// </summary>
+        public byte[]? PhotoData { get; private set; }
+
+        /// <summary>
+        /// اتغيّرت الصورة في الجلسة دي؟ الشاشة الأم بتحفظ الصورة بس لو
+        /// اتغيّرت فعلاً — عشان تعديل الاسم لوحده ميعملش كتابة زيادة
+        /// للصورة كلها في قاعدة البيانات.
+        /// </summary>
+        public bool PhotoChanged { get; private set; }
+
         /// <summary>تعبئة الفورم ببيانات عامل موجود (وضع التعديل)</summary>
         public void LoadWorker(string fullName, string? phone, DateTime? hireDate,
-            string? notes, HourlyRoleEnum? hourlyRole, decimal dailyWageEgp)
+            HourlyRoleEnum? hourlyRole, decimal dailyWageEgp, byte[]? photoData = null)
         {
             NameBox.Text = fullName;
             PhoneBox.Text = phone ?? "";
             HireDatePicker.SelectedDate = hireDate;
-            NotesBox.Text = notes ?? "";
             HourlyRoleBox.SelectedValue = hourlyRole;
             WageBox.Text = dailyWageEgp > 0 ? dailyWageEgp.ToString("0.##") : "";
+
+            PhotoData = photoData;
+            PhotoChanged = false; // التحميل مش تغيير
+            ShowPhotoPreview();
+        }
+
+        /// <summary>يعرض الصورة الحالية أو أيقونة "مفيش صورة"</summary>
+        private void ShowPhotoPreview()
+        {
+            var source = StoredImageHelper.ToImageSource(PhotoData);
+
+            PhotoPreview.Source = source;
+            PhotoPreview.Visibility = source is null ? Visibility.Collapsed : Visibility.Visible;
+            NoPhotoIcon.Visibility = source is null ? Visibility.Visible : Visibility.Collapsed;
+            RemovePhotoButton.Visibility = source is null ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private void PickPhoto_Click(object sender, RoutedEventArgs e)
+        {
+            var picker = new OpenFileDialog
+            {
+                Title = "اختار صورة العامل",
+                Filter = StoredImageHelper.FileDialogFilter,
+                CheckFileExists = true
+            };
+
+            if (picker.ShowDialog(this) != true) return;
+
+            try
+            {
+                // التصغير والضغط بيحصلوا هنا — اللي بيتخزن صورة صغيرة مش الأصل
+                PhotoData = StoredImageHelper.LoadForStorage(picker.FileName);
+                PhotoChanged = true;
+                ShowPhotoPreview();
+
+                ErrorText.Visibility = Visibility.Collapsed;
+            }
+            catch (Exception ex)
+            {
+                ErrorText.Text = ex.Message;
+                ErrorText.Visibility = Visibility.Visible;
+            }
+        }
+
+        private void RemovePhoto_Click(object sender, RoutedEventArgs e)
+        {
+            PhotoData = null;
+            PhotoChanged = true;
+            ShowPhotoPreview();
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)

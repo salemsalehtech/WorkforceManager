@@ -20,7 +20,6 @@ namespace WorkforceManager.UI.Views
         // ------- القيم اللي الشاشة الأم بتقرأها بعد الحفظ -------
 
         public string ProductName => NameBox.Text.Trim();
-        public string? ProductCode => string.IsNullOrWhiteSpace(CodeBox.Text) ? null : CodeBox.Text.Trim();
         public string? ProductDescription => string.IsNullOrWhiteSpace(DescriptionBox.Text) ? null : DescriptionBox.Text.Trim();
 
         /// <summary>
@@ -37,10 +36,9 @@ namespace WorkforceManager.UI.Views
         public bool ImageChanged { get; private set; }
 
         /// <summary>تعبئة الفورم ببيانات منتج موجود (وضع التعديل)</summary>
-        public void LoadProduct(string name, string? code, string? description, byte[]? imageData = null)
+        public void LoadProduct(string name, string? description, byte[]? imageData = null)
         {
             NameBox.Text = name;
-            CodeBox.Text = code ?? "";
             DescriptionBox.Text = description ?? "";
 
             ImageData = imageData;
@@ -51,7 +49,7 @@ namespace WorkforceManager.UI.Views
         /// <summary>يعرض الصورة الحالية أو أيقونة "مفيش صورة"</summary>
         private void ShowImagePreview()
         {
-            var source = ProductImageHelper.ToImageSource(ImageData);
+            var source = StoredImageHelper.ToImageSource(ImageData);
 
             ImagePreview.Source = source;
             ImagePreview.Visibility = source is null ? Visibility.Collapsed : Visibility.Visible;
@@ -64,7 +62,7 @@ namespace WorkforceManager.UI.Views
             var picker = new OpenFileDialog
             {
                 Title = "اختار صورة المنتج",
-                Filter = ProductImageHelper.FileDialogFilter,
+                Filter = StoredImageHelper.FileDialogFilter,
                 CheckFileExists = true
             };
 
@@ -73,7 +71,7 @@ namespace WorkforceManager.UI.Views
             try
             {
                 // التصغير والضغط بيحصلوا هنا — اللي بيتخزن صورة صغيرة مش الأصل
-                ImageData = ProductImageHelper.LoadForStorage(picker.FileName);
+                ImageData = StoredImageHelper.LoadForStorage(picker.FileName);
                 ImageChanged = true;
                 ShowImagePreview();
 

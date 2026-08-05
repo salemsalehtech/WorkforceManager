@@ -30,7 +30,7 @@ namespace WorkforceManager.Business.Services
         // ======================= المنتجات =======================
 
         /// <summary>يضيف منتج جديد (الاسم إجباري)</summary>
-        public async Task<Product> CreateProductAsync(string name, string? productCode = null, string? description = null)
+        public async Task<Product> CreateProductAsync(string name, string? description = null)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("اسم المنتج مطلوب", nameof(name));
@@ -38,7 +38,6 @@ namespace WorkforceManager.Business.Services
             var product = new Product
             {
                 Name = name.Trim(),
-                ProductCode = string.IsNullOrWhiteSpace(productCode) ? null : productCode.Trim(),
                 Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim()
             };
 
@@ -48,7 +47,7 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>يعدّل بيانات منتج موجود</summary>
-        public async Task<Product> UpdateProductAsync(int productId, string name, string? productCode = null, string? description = null)
+        public async Task<Product> UpdateProductAsync(int productId, string name, string? description = null)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("اسم المنتج مطلوب", nameof(name));
@@ -57,7 +56,6 @@ namespace WorkforceManager.Business.Services
                 ?? throw new InvalidOperationException("المنتج المحدد غير موجود");
 
             product.Name = name.Trim();
-            product.ProductCode = string.IsNullOrWhiteSpace(productCode) ? null : productCode.Trim();
             product.Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
 
             _productRepo.Update(product);

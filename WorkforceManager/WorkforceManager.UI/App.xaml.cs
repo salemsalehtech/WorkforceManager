@@ -63,6 +63,7 @@ namespace WorkforceManager.UI
                     services.AddScoped<DayClosureService>();
                     services.AddScoped<DailyProductionReportService>();
                     services.AddScoped<ProductionChartService>();
+                    services.AddScoped<ProductActivityService>();
                     services.AddScoped<HourlyWorkdayService>();
                     services.AddScoped<PayrollService>();
                     services.AddScoped<ProductionReportService>();

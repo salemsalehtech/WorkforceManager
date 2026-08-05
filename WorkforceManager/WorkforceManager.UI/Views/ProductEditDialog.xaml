@@ -33,9 +33,6 @@
                 <TextBlock Text="اسم المنتج (إجباري)" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="NameBox" Margin="0,0,0,12" />
 
-                <TextBlock Text="كود المنتج" Style="{StaticResource FieldLabel}" />
-                <TextBox x:Name="CodeBox" Margin="0,0,0,12" />
-
                 <TextBlock Text="وصف (اختياري)" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="DescriptionBox" Margin="0,0,0,14"
                          TextWrapping="Wrap" AcceptsReturn="True" Height="60"

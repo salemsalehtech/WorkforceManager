@@ -54,6 +54,14 @@
             <SolidColorBrush x:Key="ChipBgBrush" Color="#E8EDF7" />
             <SolidColorBrush x:Key="GridLineBrush" Color="#EEF1F6" />
 
+            <!-- تحديد النص جوه حقول الكتابة.
+                 لازم يفضل منفصل عن SelectionBgBrush: ده لون خلفية الصف
+                 المختار في الكروت (#E3EDFB، فاتح عن قصد عشان النص الأسود
+                 يفضل مقروء فوقه). لما اتحط على SelectionBrush بقى تحديد
+                 بشفافية 0.4 فوق خلفية بيضا = شبه مش باين، فالمستخدم كان
+                 بيحدد ومبيشوفش إنه حدّد. -->
+            <SolidColorBrush x:Key="TextSelectionBrush" Color="#2C7BE5" />
+
             <!-- ــــــــــ محاذاة ألوان MaterialDesign مع هوية البراند ــــــــــ -->
             <!-- البروباتي BundledTheme.PrimaryColor بياخد ألوان Material اسمية بس (مش Hex حر)،
                  فبدل ما نستخدم Indigo الافتراضي اللي مالوش علاقة بالكحلي بتاعنا، بنعيد تعريف
@@ -499,7 +507,7 @@
             </Style>
 
             <!--
-                زرار فلترة سريع (الكل / بالقطعة / بالساعة / موقوفين).
+                زرار فلترة سريع (الكل / بالإنتاج / بالساعة / موقوفين).
                 RadioButton عشان الاختيار يبقى واحد بس، بس شكله شريحة —
                 المفعّل بلون البراند والباقي باهت.
             -->
@@ -1059,7 +1067,9 @@
                 <Setter Property="BorderBrush" Value="#D5DCE8" />
                 <Setter Property="BorderThickness" Value="1.4" />
                 <Setter Property="CaretBrush" Value="{StaticResource BrandBrush}" />
-                <Setter Property="SelectionBrush" Value="{StaticResource SelectionBgBrush}" />
+                <Setter Property="SelectionBrush" Value="{StaticResource TextSelectionBrush}" />
+                <Setter Property="SelectionOpacity" Value="0.45" />
+                <Setter Property="SelectionTextBrush" Value="White" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="TextBox">
@@ -1083,6 +1093,17 @@
                 </Setter>
             </Style>
 
+            <!-- حقل التاريخ الداخلي: نوع مشتق من TextBox، والأنماط الضمنية
+                 في WPF مبتوصلش للأنواع المشتقة، فلازم يتظبط لوحده. بنظبط
+                 ألوان التحديد بس من غير Template عشان منكسرش الـ watermark
+                 بتاع MaterialDesign. -->
+            <Style TargetType="DatePickerTextBox">
+                <Setter Property="CaretBrush" Value="{StaticResource BrandBrush}" />
+                <Setter Property="SelectionBrush" Value="{StaticResource TextSelectionBrush}" />
+                <Setter Property="SelectionOpacity" Value="0.45" />
+                <Setter Property="SelectionTextBrush" Value="White" />
+            </Style>
+
             <!-- نفس شكل الحقل النصي لخانة كلمة المرور -->
             <Style TargetType="PasswordBox">
                 <Setter Property="Padding" Value="9,7" />
@@ -1091,7 +1112,9 @@
                 <Setter Property="BorderBrush" Value="#D5DCE8" />
                 <Setter Property="BorderThickness" Value="1.4" />
                 <Setter Property="CaretBrush" Value="{StaticResource BrandBrush}" />
-                <Setter Property="SelectionBrush" Value="{StaticResource SelectionBgBrush}" />
+                <Setter Property="SelectionBrush" Value="{StaticResource TextSelectionBrush}" />
+                <Setter Property="SelectionOpacity" Value="0.45" />
+                <Setter Property="SelectionTextBrush" Value="White" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="PasswordBox">

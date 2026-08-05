@@ -12,6 +12,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -48,25 +49,50 @@
                     </StackPanel>
                 </Button>
 
+                <!-- ===== إحصائيات النشاط =====
+                     "الإجمالي" و"إجمالي المراحل" اتشالوا: رقمين ثابتين تقريبًا
+                     ومحدش بياخد قرار بناءً عليهم. مكانهم بقى أكتر وأقل منتج
+                     إنتاجًا فعليًا — دول اللي بيقولوا فين الشغل وفين الوقفة.
+                     كل إحصائية مكتوب تحتها الفترة اللي بتقيسها. -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="24,0,0,0">
                     <StackPanel Style="{StaticResource SummaryStat}">
-                        <TextBlock Text="{Binding ActiveProducts}" Style="{StaticResource SummaryNumber}"
+                        <TextBlock Text="{Binding WorkedProductsCount}" Style="{StaticResource SummaryNumber}"
                                    Foreground="{StaticResource TextPrimaryBrush}" />
-                        <TextBlock Text="منتج نشط" Style="{StaticResource SummaryLabel}" />
+                        <TextBlock Text="منتج شغّال" Style="{StaticResource SummaryLabel}" />
                     </StackPanel>
 
                     <Border Style="{StaticResource SummaryDivider}" />
 
-                    <StackPanel Style="{StaticResource SummaryStat}">
-                        <TextBlock Text="{Binding TotalStages}" Style="{StaticResource SummaryNumber}"
-                                   Foreground="{StaticResource BrandBrush}" />
-                        <TextBlock Text="إجمالي المراحل" Style="{StaticResource SummaryLabel}" />
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0" MaxWidth="170">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <materialDesign:PackIcon Kind="TrendingUp" Width="14" Height="14"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="{StaticResource SuccessBrush}" />
+                            <TextBlock Text="{Binding MostActiveName}" FontSize="13" FontWeight="Bold"
+                                       Margin="5,0,0,0" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding MostActivePieces}" FontSize="10.5" HorizontalAlignment="Right"
+                                   Foreground="{StaticResource SuccessBrush}" />
+                        <TextBlock Text="أكتر منتج إنتاجًا" Style="{StaticResource SummaryLabel}"
+                                   HorizontalAlignment="Right" />
                     </StackPanel>
 
-                    <StackPanel Style="{StaticResource SummaryStat}">
-                        <TextBlock Text="{Binding TotalProducts}" Style="{StaticResource SummaryNumber}"
-                                   Foreground="{StaticResource TextMutedBrush}" />
-                        <TextBlock Text="الإجمالي" Style="{StaticResource SummaryLabel}" />
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,10,0" MaxWidth="170">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <materialDesign:PackIcon Kind="TrendingDown" Width="14" Height="14"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="{StaticResource WarnBrush}" />
+                            <TextBlock Text="{Binding LeastActiveName}" FontSize="13" FontWeight="Bold"
+                                       Margin="5,0,0,0" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding LeastActivePieces}" FontSize="10.5" HorizontalAlignment="Right"
+                                   Foreground="{StaticResource WarnBrush}" />
+                        <TextBlock Text="أقل منتج إنتاجًا" Style="{StaticResource SummaryLabel}"
+                                   HorizontalAlignment="Right" />
                     </StackPanel>
                 </StackPanel>
             </DockPanel>
@@ -123,9 +149,12 @@
             </Border>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
-                <RadioButton Content="النشط" Style="{StaticResource FilterChip}"
-                             IsChecked="{Binding IsFilterActive, Mode=OneWay}"
-                             Command="{Binding SetFilterCommand}" CommandParameter="active" />
+                <!-- كان اسمها "النشط" وكانت بتقرا فلاج IsActive. بقت تقيس
+                     شغل فعلي في الفترة، والاسم بيتغيّر مع الفترة عشان
+                     ميقولش "الأسبوع ده" والمعروض شهر -->
+                <RadioButton Content="{Binding WorkedFilterLabel}" Style="{StaticResource FilterChip}"
+                             IsChecked="{Binding IsFilterWorked, Mode=OneWay}"
+                             Command="{Binding SetFilterCommand}" CommandParameter="worked" />
                 <RadioButton Content="الكل" Style="{StaticResource FilterChip}"
                              IsChecked="{Binding IsFilterAll, Mode=OneWay}"
                              Command="{Binding SetFilterCommand}" CommandParameter="all" />
@@ -139,7 +168,70 @@
                        Foreground="{StaticResource TextPrimaryBrush}" />
         </Grid>
 
-        <Grid Grid.Row="2">
+        <!-- ===== الفترة + الفلاتر المركّبة =====
+             الفترة بتحكم "شغّال ولا لأ" والإحصائيات فوق مع بعض، عشان
+             الرقم اللي المستخدم شايفه والفلتر اللي مطبّقه يبقوا على نفس
+             المدى دايمًا. -->
+        <Border Grid.Row="2" Style="{StaticResource ToolbarCard}" Padding="12,9" Margin="0,0,0,10">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="CalendarRange" Width="16" Height="16"
+                                             VerticalAlignment="Center" Margin="0,0,8,0"
+                                             Foreground="{StaticResource TextMutedBrush}" />
+                    <TextBlock Text="من" FontSize="12" VerticalAlignment="Center" Margin="0,0,5,0"
+                               Foreground="{StaticResource TextMutedBrush}" />
+                    <DatePicker SelectedDate="{Binding PeriodFrom}" Width="130" FontSize="12.5" />
+                    <TextBlock Text="إلى" FontSize="12" VerticalAlignment="Center" Margin="8,0,5,0"
+                               Foreground="{StaticResource TextMutedBrush}" />
+                    <DatePicker SelectedDate="{Binding PeriodTo}" Width="130" FontSize="12.5" />
+
+                    <Button Command="{Binding UseCurrentWeekCommand}" Content="الأسبوع ده"
+                            Style="{StaticResource GhostButton}" Padding="11,6" Margin="8,0,0,0"
+                            FontSize="12" VerticalAlignment="Center" />
+                    <Button Command="{Binding UseLastMonthCommand}" Content="آخر 30 يوم"
+                            Style="{StaticResource GhostButton}" Padding="11,6" Margin="6,0,0,0"
+                            FontSize="12" VerticalAlignment="Center" />
+
+                    <TextBlock Text="{Binding PeriodText}" FontSize="11" VerticalAlignment="Center"
+                               Margin="12,0,0,0" TextTrimming="CharacterEllipsis"
+                               Foreground="{StaticResource TextMutedBrush}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                    <materialDesign:PackIcon Kind="FilterVariant" Width="16" Height="16"
+                                             VerticalAlignment="Center" Margin="0,0,8,0"
+                                             Foreground="{StaticResource TextMutedBrush}" />
+
+                    <ComboBox ItemsSource="{Binding StageFilterOptions}"
+                              SelectedItem="{Binding SelectedStageFilter}"
+                              DisplayMemberPath="Display" Width="170" FontSize="12.5"
+                              ToolTip="المنتجات اللي فيها المرحلة دي" Margin="0,0,8,0" />
+
+                    <ComboBox ItemsSource="{Binding WorkerFilterOptions}"
+                              SelectedItem="{Binding SelectedWorkerFilter}"
+                              DisplayMemberPath="Display" Width="190" FontSize="12.5"
+                              ToolTip="المنتجات اللي العامل ده اشتغل عليها في الفترة" Margin="0,0,8,0" />
+
+                    <ComboBox ItemsSource="{Binding VolumeFilterOptions}"
+                              SelectedItem="{Binding SelectedVolumeFilter}"
+                              DisplayMemberPath="Display" Width="165" FontSize="12.5"
+                              ToolTip="ترتيب المنتجات بحجم إنتاجها في الفترة" Margin="0,0,8,0" />
+
+                    <Button Command="{Binding ClearExtraFiltersCommand}"
+                            Style="{StaticResource GhostButton}" Padding="11,6"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding HasExtraFilters, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FilterRemove" Width="14" Height="14"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="شيل الفلاتر" Margin="5,0,0,0" FontSize="12" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="380" />
                 <ColumnDefinition Width="500" />
@@ -552,8 +644,16 @@
                                                         </StackPanel>
                                                     </StackPanel>
 
-                                                    <!-- تعديل / إيقاف -->
+                                                    <!-- مين مؤهل / تعديل / إيقاف -->
                                                     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <!-- بيفتح قايمة المؤهلين بتقييماتهم — نفس ترتيب شاشة التسجيل -->
+                                                        <Button Margin="0,0,4,0"
+                                                                Style="{StaticResource IconButton}"
+                                                                ToolTip="مين يعرف يعمل المرحلة دي؟"
+                                                                Command="{Binding DataContext.ShowQualifiedWorkersCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}">
+                                                            <materialDesign:PackIcon Kind="AccountSearchOutline" Width="15" Height="15" />
+                                                        </Button>
                                                         <Button Margin="0,0,4,0"
                                                                 Style="{StaticResource IconButton}" ToolTip="تعديل المرحلة"
                                                                 Command="{Binding DataContext.EditStageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"

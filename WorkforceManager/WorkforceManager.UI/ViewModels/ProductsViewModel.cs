@@ -35,17 +35,17 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>الفلتر السريع المختار</summary>
         [ObservableProperty]
-        private ProductFilter _activeFilter = ProductFilter.Active;
+        private ProductFilter _activeFilter = ProductFilter.WorkedThisPeriod;
 
         partial void OnActiveFilterChanged(ProductFilter value)
         {
-            OnPropertyChanged(nameof(IsFilterActive));
+            OnPropertyChanged(nameof(IsFilterWorked));
             OnPropertyChanged(nameof(IsFilterAll));
             OnPropertyChanged(nameof(IsFilterInactive));
             ApplyFilter();
         }
 
-        public bool IsFilterActive => ActiveFilter == ProductFilter.Active;
+        public bool IsFilterWorked => ActiveFilter == ProductFilter.WorkedThisPeriod;
         public bool IsFilterAll => ActiveFilter == ProductFilter.All;
         public bool IsFilterInactive => ActiveFilter == ProductFilter.Inactive;
 
@@ -55,20 +55,100 @@ namespace WorkforceManager.UI.ViewModels
             {
                 "all" => ProductFilter.All,
                 "inactive" => ProductFilter.Inactive,
-                _ => ProductFilter.Active
+                _ => ProductFilter.WorkedThisPeriod
             };
 
         [RelayCommand]
         private void ClearSearch() => SearchText = string.Empty;
 
+        // ------- الفترة اللي الإحصائيات والفلترة بتتحسب عليها -------
+
+        /// <summary>
+        /// الفترة الافتراضية = أسبوع الشغل الحالي (الخميس → الأربع)، نفس
+        /// تعريف باقي التطبيق. المستخدم يقدر يوسّعها من الشاشة.
+        /// </summary>
+        [ObservableProperty]
+        private DateTime _periodFrom = ProductActivityService.CurrentWeek(DateTime.Today).From;
+
+        [ObservableProperty]
+        private DateTime _periodTo = ProductActivityService.CurrentWeek(DateTime.Today).To;
+
+        partial void OnPeriodFromChanged(DateTime value) => SafeAsync.Run(LoadAsync);
+        partial void OnPeriodToChanged(DateTime value) => SafeAsync.Run(LoadAsync);
+
+        /// <summary>يرجّع الفترة لأسبوع الشغل الحالي</summary>
+        [RelayCommand]
+        private void UseCurrentWeek()
+        {
+            var (from, to) = ProductActivityService.CurrentWeek(DateTime.Today);
+            PeriodFrom = from;
+            PeriodTo = to;
+        }
+
+        /// <summary>يوسّع الفترة لآخر 30 يوم</summary>
+        [RelayCommand]
+        private void UseLastMonth()
+        {
+            PeriodFrom = DateTime.Today.AddDays(-30);
+            PeriodTo = DateTime.Today;
+        }
+
+        /// <summary>وصف الفترة المعروضة — كل إحصائية بتقول هي بتقيس إيه</summary>
+        public string PeriodText => IsCurrentWeek
+            ? $"أسبوع الشغل الحالي (الخميس {PeriodFrom:dd/MM} → الأربع {PeriodTo:dd/MM})"
+            : $"من {PeriodFrom:yyyy/MM/dd} إلى {PeriodTo:yyyy/MM/dd}";
+
+        public bool IsCurrentWeek
+        {
+            get
+            {
+                var (from, to) = ProductActivityService.CurrentWeek(DateTime.Today);
+                return PeriodFrom.Date == from.Date && PeriodTo.Date == to.Date;
+            }
+        }
+
+        /// <summary>اسم فلتر "شغّالين" بيتغيّر مع الفترة عشان ميكدبش</summary>
+        public string WorkedFilterLabel => IsCurrentWeek
+            ? "شغّالين الأسبوع ده على"
+            : "شغّالين في الفترة دي";
+
         // ------- عدّادات الملخص -------
 
         public int TotalProducts => _allProducts.Count;
-        public int ActiveProducts => _allProducts.Count(p => p.IsActive);
-        public int TotalStages => _allProducts.Where(p => p.IsActive).Sum(p => p.ActiveStagesCount);
+
+        /// <summary>منتجات اتسجل عليها شغل فعلي في الفترة</summary>
+        public int WorkedProductsCount => _allProducts.Count(p => p.WorkedInPeriod);
 
         /// <summary>منتجات فيها مشكلة تمنع الإنتاج عليها فعليًا</summary>
         public int NeedsAttentionCount => _allProducts.Count(p => p.IsActive && p.NeedsAttention);
+
+        /// <summary>أكتر منتج إنتاجًا في الفترة (null = مفيش شغل خالص)</summary>
+        public ProductRow? MostActiveProduct =>
+            _allProducts.Where(p => p.WorkedInPeriod)
+                .OrderByDescending(p => p.PiecesInPeriod).ThenBy(p => p.Name)
+                .FirstOrDefault();
+
+        /// <summary>
+        /// أقل منتج إنتاجًا **من اللي اشتغلوا فعلًا**.
+        ///
+        /// المنتجات اللي مفيش عليها شغل خالص مستبعدة عن قصد: كلهم بصفر،
+        /// فالنتيجة كانت هتبقى أول واحد أبجديًا — رقم مالوش أي معنى.
+        /// </summary>
+        public ProductRow? LeastActiveProduct =>
+            _allProducts.Where(p => p.WorkedInPeriod)
+                .OrderBy(p => p.PiecesInPeriod).ThenBy(p => p.Name)
+                .FirstOrDefault();
+
+        public string MostActiveName => MostActiveProduct?.Name ?? "—";
+        public string MostActivePieces => MostActiveProduct is null
+            ? "مفيش شغل مسجّل" : $"{MostActiveProduct.PiecesInPeriod:N0} قطعة";
+
+        public string LeastActiveName => LeastActiveProduct?.Name ?? "—";
+        public string LeastActivePieces => LeastActiveProduct is null
+            ? "مفيش شغل مسجّل" : $"{LeastActiveProduct.PiecesInPeriod:N0} قطعة";
+
+        /// <summary>منتج واحد بس اشتغل — "الأكتر" و"الأقل" هيبقوا هو</summary>
+        public bool HasSingleWorkedProduct => WorkedProductsCount == 1;
 
         public string ResultsText => Products.Count == TotalProducts
             ? $"{Products.Count} منتج"
@@ -79,11 +159,63 @@ namespace WorkforceManager.UI.ViewModels
         private void RefreshSummary()
         {
             OnPropertyChanged(nameof(TotalProducts));
-            OnPropertyChanged(nameof(ActiveProducts));
-            OnPropertyChanged(nameof(TotalStages));
+            OnPropertyChanged(nameof(WorkedProductsCount));
             OnPropertyChanged(nameof(NeedsAttentionCount));
+            OnPropertyChanged(nameof(MostActiveProduct));
+            OnPropertyChanged(nameof(LeastActiveProduct));
+            OnPropertyChanged(nameof(MostActiveName));
+            OnPropertyChanged(nameof(MostActivePieces));
+            OnPropertyChanged(nameof(LeastActiveName));
+            OnPropertyChanged(nameof(LeastActivePieces));
+            OnPropertyChanged(nameof(HasSingleWorkedProduct));
+            OnPropertyChanged(nameof(PeriodText));
+            OnPropertyChanged(nameof(IsCurrentWeek));
+            OnPropertyChanged(nameof(WorkedFilterLabel));
             OnPropertyChanged(nameof(ResultsText));
             OnPropertyChanged(nameof(NoResults));
+        }
+
+        // ------- الفلاتر المركّبة (بتتجمع مع الشريحة بـ AND) -------
+
+        /// <summary>فلترة بالمنتجات اللي فيها المرحلة دي</summary>
+        [ObservableProperty]
+        private StageNameFilterOption? _selectedStageFilter;
+
+        partial void OnSelectedStageFilterChanged(StageNameFilterOption? value) => ApplyFilter();
+
+        /// <summary>فلترة بالمنتجات اللي العامل ده اشتغل عليها في الفترة</summary>
+        [ObservableProperty]
+        private WorkerNameFilterOption? _selectedWorkerFilter;
+
+        partial void OnSelectedWorkerFilterChanged(WorkerNameFilterOption? value) => ApplyFilter();
+
+        /// <summary>ترتيب/تصفية بحجم الإنتاج في الفترة</summary>
+        [ObservableProperty]
+        private VolumeFilterOption? _selectedVolumeFilter;
+
+        partial void OnSelectedVolumeFilterChanged(VolumeFilterOption? value) => ApplyFilter();
+
+        public ObservableCollection<StageNameFilterOption> StageFilterOptions { get; } = new();
+        public ObservableCollection<WorkerNameFilterOption> WorkerFilterOptions { get; } = new();
+
+        public List<VolumeFilterOption> VolumeFilterOptions { get; } = new()
+        {
+            new(ProductVolumeSort.None, "الترتيب الافتراضي"),
+            new(ProductVolumeSort.HighestFirst, "الأعلى إنتاجًا الأول"),
+            new(ProductVolumeSort.LowestFirst, "الأقل إنتاجًا الأول")
+        };
+
+        public bool HasExtraFilters =>
+            SelectedStageFilter?.StageName is not null ||
+            SelectedWorkerFilter?.WorkerId is not null ||
+            (SelectedVolumeFilter?.Sort ?? ProductVolumeSort.None) != ProductVolumeSort.None;
+
+        [RelayCommand]
+        private void ClearExtraFilters()
+        {
+            SelectedStageFilter = StageFilterOptions.FirstOrDefault();
+            SelectedWorkerFilter = WorkerFilterOptions.FirstOrDefault();
+            SelectedVolumeFilter = VolumeFilterOptions[0];
         }
 
         /// <summary>يعرض المنتجات اللي فيها مشكلة بس</summary>
@@ -91,7 +223,8 @@ namespace WorkforceManager.UI.ViewModels
         private void ShowNeedsAttention()
         {
             SearchText = string.Empty;
-            ActiveFilter = ProductFilter.Active;
+            ActiveFilter = ProductFilter.All;
+            ClearExtraFilters();
 
             var selectedId = SelectedProduct?.ProductId;
             Products.Clear();
@@ -126,12 +259,52 @@ namespace WorkforceManager.UI.ViewModels
 
         // ------- التحميل والفلترة -------
 
+        /// <summary>
+        /// يملا قوايم المراحل والعمال المتاحة للفلترة.
+        ///
+        /// المراحل بالاسم مش بالـ Id: نفس اسم المرحلة ("لمعة") بيتكرر عبر
+        /// منتجات كتير بأرقام مختلفة، والمستخدم بيسأل "أنهي منتجات فيها
+        /// لمعة؟" — مش "المرحلة رقم 42".
+        /// </summary>
+        private async Task LoadFilterOptionsAsync(
+            IWorkerRepository workerRepo, IReadOnlyList<Product> products)
+        {
+            var previousStage = SelectedStageFilter?.StageName;
+            var previousWorkerId = SelectedWorkerFilter?.WorkerId;
+
+            StageFilterOptions.Clear();
+            StageFilterOptions.Add(new StageNameFilterOption(null, "كل المراحل"));
+
+            foreach (var stageName in products
+                         .SelectMany(p => p.Stages.Where(s => s.IsActive))
+                         .Select(s => s.StageName)
+                         .Distinct()
+                         .OrderBy(name => name))
+                StageFilterOptions.Add(new StageNameFilterOption(stageName, stageName));
+
+            WorkerFilterOptions.Clear();
+            WorkerFilterOptions.Add(new WorkerNameFilterOption(null, "كل العمال"));
+
+            foreach (var worker in (await workerRepo.GetAllAsync())
+                         .Where(w => w.IsActive)
+                         .OrderBy(w => w.FullName))
+                WorkerFilterOptions.Add(new WorkerNameFilterOption(worker.Id, worker.FullName));
+
+            SelectedStageFilter = StageFilterOptions.FirstOrDefault(o => o.StageName == previousStage)
+                                  ?? StageFilterOptions[0];
+            SelectedWorkerFilter = WorkerFilterOptions.FirstOrDefault(o => o.WorkerId == previousWorkerId)
+                                   ?? WorkerFilterOptions[0];
+            SelectedVolumeFilter ??= VolumeFilterOptions[0];
+        }
+
         [RelayCommand]
         public async Task LoadAsync()
         {
             using var scope = _scopeFactory.CreateScope();
             var productRepo = scope.ServiceProvider.GetRequiredService<IProductRepository>();
             var skillRepo = scope.ServiceProvider.GetRequiredService<IGenericRepository<WorkerSkill>>();
+            var activityService = scope.ServiceProvider.GetRequiredService<ProductActivityService>();
+            var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
 
             // عدد العمال المؤهلين لكل مرحلة — استعلام واحد وتجميع في الذاكرة.
             // ده اللي بيكشف المرحلة اللي "مفيش حد يعرف يعملها"، وهي مشكلة
@@ -140,15 +313,24 @@ namespace WorkforceManager.UI.ViewModels
                 .GroupBy(ws => ws.ProductionStageId)
                 .ToDictionary(g => g.Key, g => g.Count());
 
+            // النشاط الفعلي في الفترة — منه بييجي "شغّال ولا لأ" والإحصائيات
+            var activity = (await activityService.GetAsync(PeriodFrom, PeriodTo))
+                .ToDictionary(a => a.ProductId);
+
             var products = await productRepo.GetAllWithStagesAsync();
+
+            await LoadFilterOptionsAsync(workerRepo, products);
+
             _allProducts = products.Select(p => new ProductRow
             {
                 ProductId = p.Id,
                 Name = p.Name,
-                ProductCode = p.ProductCode ?? "—",
                 Description = p.Description ?? "",
                 IsActive = p.IsActive,
                 ImageData = p.ImageData,
+                PiecesInPeriod = activity.GetValueOrDefault(p.Id)?.PiecesProduced ?? 0,
+                DaysWorkedInPeriod = activity.GetValueOrDefault(p.Id)?.DaysWorked ?? 0,
+                WorkerIds = activity.GetValueOrDefault(p.Id)?.WorkerIds ?? new HashSet<int>(),
                 Stages = p.Stages
                     .OrderBy(s => s.SortOrder).ThenBy(s => s.Id)
                     .Select((s, index) => new StageRow
@@ -169,23 +351,46 @@ namespace WorkforceManager.UI.ViewModels
             RefreshSummary();
         }
 
-        /// <summary>تطبيق البحث والفلتر على القائمة المحمّلة (في الذاكرة — عدد المنتجات صغير)</summary>
+        /// <summary>
+        /// تطبيق البحث والفلاتر على القائمة المحمّلة (في الذاكرة — عدد
+        /// المنتجات صغير). كل الفلاتر بتتجمع بـ AND.
+        /// </summary>
         private void ApplyFilter()
         {
             var query = SearchText.Trim();
             var selectedId = SelectedProduct?.ProductId;
 
+            // "شغّالين" بقت تعني إنتاج فعلي في الفترة، مش فلاج IsActive
             IEnumerable<ProductRow> filtered = ActiveFilter switch
             {
                 ProductFilter.All => _allProducts,
                 ProductFilter.Inactive => _allProducts.Where(p => !p.IsActive),
-                _ => _allProducts.Where(p => p.IsActive)
+                _ => _allProducts.Where(p => p.WorkedInPeriod)
             };
 
             if (query.Length > 0)
                 filtered = filtered.Where(p =>
                     p.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                     p.Stages.Any(s => s.StageName.Contains(query, StringComparison.OrdinalIgnoreCase)));
+
+            // المنتجات اللي فيها مرحلة بالاسم ده (نفس اسم المرحلة بيتكرر
+            // عبر منتجات، والمستخدم بيسأل "مين فيه لمعة؟")
+            if (SelectedStageFilter?.StageName is { } stageName)
+                filtered = filtered.Where(p =>
+                    p.Stages.Any(s => s.IsActive && s.StageName == stageName));
+
+            // المنتجات اللي العامل ده اشتغل عليها في الفترة
+            if (SelectedWorkerFilter?.WorkerId is { } workerId)
+                filtered = filtered.Where(p => p.WorkerIds.Contains(workerId));
+
+            filtered = (SelectedVolumeFilter?.Sort ?? ProductVolumeSort.None) switch
+            {
+                ProductVolumeSort.HighestFirst =>
+                    filtered.OrderByDescending(p => p.PiecesInPeriod).ThenBy(p => p.Name),
+                ProductVolumeSort.LowestFirst =>
+                    filtered.OrderBy(p => p.PiecesInPeriod).ThenBy(p => p.Name),
+                _ => filtered
+            };
 
             Products.Clear();
             foreach (var p in filtered) Products.Add(p);
@@ -196,6 +401,7 @@ namespace WorkforceManager.UI.ViewModels
 
             OnPropertyChanged(nameof(ResultsText));
             OnPropertyChanged(nameof(NoResults));
+            OnPropertyChanged(nameof(HasExtraFilters));
         }
 
         /// <summary>يعيد التحميل من غير ما يضيّع المنتج المفتوح</summary>
@@ -220,7 +426,7 @@ namespace WorkforceManager.UI.ViewModels
             {
                 using var scope = _scopeFactory.CreateScope();
                 var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
-                var created = await mgmt.CreateProductAsync(dialog.ProductName, dialog.ProductCode, dialog.ProductDescription);
+                var created = await mgmt.CreateProductAsync(dialog.ProductName, dialog.ProductDescription);
 
                 if (dialog.ImageData is not null)
                     await mgmt.SetProductImageAsync(created.Id, dialog.ImageData);
@@ -242,7 +448,6 @@ namespace WorkforceManager.UI.ViewModels
 
             var dialog = new ProductEditDialog { Owner = Application.Current.MainWindow, Title = "تعديل منتج" };
             dialog.LoadProduct(SelectedProduct.Name,
-                SelectedProduct.ProductCode == "—" ? null : SelectedProduct.ProductCode,
                 SelectedProduct.Description,
                 SelectedProduct.ImageData);
             if (dialog.ShowDialog() != true) return;
@@ -252,7 +457,7 @@ namespace WorkforceManager.UI.ViewModels
                 using var scope = _scopeFactory.CreateScope();
                 var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
                 await mgmt.UpdateProductAsync(SelectedProduct.ProductId,
-                    dialog.ProductName, dialog.ProductCode, dialog.ProductDescription);
+                    dialog.ProductName, dialog.ProductDescription);
 
                 // الصورة بتتحفظ بس لو المستخدم غيّرها فعلاً
                 if (dialog.ImageChanged)
@@ -352,6 +557,23 @@ namespace WorkforceManager.UI.ViewModels
             {
                 MessageBox.Show(ex.Message, "خطأ في إضافة المرحلة", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
+        }
+
+        /// <summary>
+        /// يعرض مين مؤهل للمرحلة دي بتقييماتهم، مرتبين من الأحسن للأضعف.
+        ///
+        /// النافذة نفسها بتنادي <c>SkillRatingService.GetRankedForStageAsync</c>
+        /// — نفس الدالة اللي شاشة التسجيل اليومي شغالة بيها، عشان الترتيب
+        /// اللي المدير بيشوفه هنا هو نفسه اللي هيلاقيه وهو بيسجّل.
+        /// </summary>
+        [RelayCommand]
+        private async Task ShowQualifiedWorkersAsync(StageRow? stage)
+        {
+            if (stage is null) return;
+
+            await QualifiedWorkersDialog.ShowAsync(
+                Application.Current.MainWindow, _scopeFactory,
+                stage.StageId, SelectedProduct?.Name ?? "", stage.StageName);
         }
 
         [RelayCommand]
@@ -462,17 +684,53 @@ namespace WorkforceManager.UI.ViewModels
     // ------- نماذج العرض الخاصة بالشاشة -------
 
     /// <summary>الفلتر السريع فوق قائمة المنتجات</summary>
-    public enum ProductFilter { Active, All, Inactive }
+    /// <summary>
+    /// شرايح شاشة المنتجات.
+    ///
+    /// <c>WorkedThisPeriod</c> حلّت محل "نشط" القديمة: دي بتقيس شغل فعلي
+    /// في الفترة، والقديمة كانت بتقرا فلاج <c>Product.IsActive</c> اللي
+    /// بيفضل مفعّل حتى لو المنتج متسيب من شهور.
+    /// </summary>
+    public enum ProductFilter { WorkedThisPeriod, All, Inactive }
+
+    /// <summary>ترتيب المنتجات بحجم إنتاجها في الفترة</summary>
+    public enum ProductVolumeSort { None, HighestFirst, LowestFirst }
+
+    // ------- خيارات فلاتر شاشة المنتجات (null = الفلتر مش مفعّل) -------
+
+    public record StageNameFilterOption(string? StageName, string Display);
+
+    public record WorkerNameFilterOption(int? WorkerId, string Display);
+
+    public record VolumeFilterOption(ProductVolumeSort Sort, string Display);
 
     /// <summary>منتج واحد في قائمة الشاشة، بمراحله المحمّلة معاه</summary>
     public class ProductRow
     {
         public int ProductId { get; init; }
         public string Name { get; init; } = "";
-        public string ProductCode { get; init; } = "";
         public string Description { get; init; } = "";
         public bool IsActive { get; init; }
         public List<StageRow> Stages { get; init; } = new();
+
+        // ------- نشاط المنتج في الفترة المعروضة -------
+
+        /// <summary>القطع المسجّلة على كل مراحله في الفترة</summary>
+        public int PiecesInPeriod { get; init; }
+
+        /// <summary>عدد أيام الشغل عليه في الفترة</summary>
+        public int DaysWorkedInPeriod { get; init; }
+
+        /// <summary>العمال اللي اشتغلوا عليه في الفترة</summary>
+        public IReadOnlySet<int> WorkerIds { get; init; } = new HashSet<int>();
+
+        /// <summary>اشتغل عليه فعلًا في الفترة؟ (ده معنى "شغّال")</summary>
+        public bool WorkedInPeriod => PiecesInPeriod > 0;
+
+        /// <summary>ملخص النشاط على الكارت</summary>
+        public string ActivityText => WorkedInPeriod
+            ? $"{PiecesInPeriod:N0} قطعة في {DaysWorkedInPeriod} يوم"
+            : "مفيش شغل في الفترة دي";
 
         /// <summary>صورة المنتج المخزّنة (null = مفيش صورة)</summary>
         public byte[]? ImageData { get; init; }
@@ -481,7 +739,7 @@ namespace WorkforceManager.UI.ViewModels
         /// الصورة جاهزة للعرض. بتتبني مرة واحدة مع بناء الصف مش مع كل
         /// رسم للبطاقة — فك تشفير الصورة في كل مرة كان هيتقل القائمة.
         /// </summary>
-        public System.Windows.Media.ImageSource? Image => _image ??= ProductImageHelper.ToImageSource(ImageData);
+        public System.Windows.Media.ImageSource? Image => _image ??= StoredImageHelper.ToImageSource(ImageData);
         private System.Windows.Media.ImageSource? _image;
 
         /// <summary>عنده صورة؟ (لو لأ بتظهر دايرة الحروف الأولى مكانها)</summary>

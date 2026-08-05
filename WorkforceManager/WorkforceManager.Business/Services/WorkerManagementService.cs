@@ -32,10 +32,14 @@ namespace WorkforceManager.Business.Services
         /// مفيش كود وظيفي: العامل الجديد بيتسجل بـ <c>EmployeeCode = null</c>
         /// عن قصد. الكود بقى بيانات داخلية للتهيئة الأولى بس (بيربط
         /// مهارات العمال المزروعين)، والمستخدم لا بيشوفه ولا بيكتبه.
+        ///
+        /// ومفيش ملاحظات مهارات كمان: خانتها اتشالت من الفورم واتبدّلت
+        /// بتقييم النجوم لكل مرحلة (<c>SkillRatingService</c>)، فالعامل
+        /// الجديد بيتسجل بـ <c>SkillsNotes = null</c>.
         /// </summary>
         public async Task<Worker> CreateWorkerAsync(
             string fullName, string? phoneNumber = null,
-            DateTime? hireDate = null, string? skillsNotes = null, HourlyRole? hourlyRole = null,
+            DateTime? hireDate = null, HourlyRole? hourlyRole = null,
             decimal dailyWageEgp = 0)
         {
             if (string.IsNullOrWhiteSpace(fullName))
@@ -48,7 +52,6 @@ namespace WorkforceManager.Business.Services
                 FullName = fullName.Trim(),
                 PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim(),
                 HireDate = hireDate,
-                SkillsNotes = string.IsNullOrWhiteSpace(skillsNotes) ? null : skillsNotes.Trim(),
                 HourlyRole = hourlyRole,
                 DailyWageEgp = dailyWageEgp
             };
@@ -65,10 +68,16 @@ namespace WorkforceManager.Business.Services
         /// المهارات وقت التهيئة، ولو التعديل مسحه (وده اللي كان بيحصل لما
         /// كان جاي من فورم مالوش خانة كود) العامل كان هيخسر ارتباط
         /// مهاراته في أي إعادة تهيئة.
+        ///
+        /// و<c>SkillsNotes</c> بقى ليه نفس الحماية بالظبط ولنفس السبب:
+        /// خانته اتشالت من الفورم، فلو فضل بيتكتب من هنا كان أول تعديل
+        /// لأي عامل هيصفّر ملاحظاته — واللي
+        /// <c>DatabaseSeeder.SeedHourlyRolesAsync</c> بيقرا منها، والبحث
+        /// بيدوّر جواها. فالقاعدة: مفيش حد بيكتب فيه، واللي متكتب فاضل.
         /// </summary>
         public async Task<Worker> UpdateWorkerAsync(
             int workerId, string fullName,
-            string? phoneNumber = null, DateTime? hireDate = null, string? skillsNotes = null,
+            string? phoneNumber = null, DateTime? hireDate = null,
             HourlyRole? hourlyRole = null, decimal dailyWageEgp = 0)
         {
             if (string.IsNullOrWhiteSpace(fullName))
@@ -82,9 +91,27 @@ namespace WorkforceManager.Business.Services
             worker.FullName = fullName.Trim();
             worker.PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
             worker.HireDate = hireDate;
-            worker.SkillsNotes = string.IsNullOrWhiteSpace(skillsNotes) ? null : skillsNotes.Trim();
             worker.HourlyRole = hourlyRole;
             worker.DailyWageEgp = dailyWageEgp;
+
+            _workerRepo.Update(worker);
+            await _workerRepo.SaveChangesAsync();
+            return worker;
+        }
+
+        /// <summary>
+        /// يحدّد صورة العامل أو يشيلها (<paramref name="photoData"/> = null).
+        ///
+        /// منفصلة عن <see cref="UpdateWorkerAsync"/> لنفس سبب
+        /// <c>SetProductImageAsync</c>: تعديل الاسم مالوش لازمة يبعت الصورة
+        /// كلها معاه في كل مرة، ولا يمسحها بالغلط لو المتصل نسي يبعتها.
+        /// </summary>
+        public async Task<Worker> SetWorkerPhotoAsync(int workerId, byte[]? photoData)
+        {
+            var worker = await _workerRepo.GetByIdAsync(workerId)
+                ?? throw new InvalidOperationException("العامل المحدد غير موجود");
+
+            worker.PhotoData = photoData is { Length: > 0 } ? photoData : null;
 
             _workerRepo.Update(worker);
             await _workerRepo.SaveChangesAsync();

@@ -4,12 +4,14 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:views="clr-namespace:WorkforceManager.UI.Views"
              mc:Ignorable="d"
              d:DesignHeight="650" d:DesignWidth="1100">
 
     <!-- شاشة العمال: شريط أدوات فوق + جدول العمال في النص + لوحة تفاصيل (بروفايل) على الجنب -->
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -41,8 +43,74 @@
             </DockPanel>
         </Border>
 
-        <!-- ===== شريط الملخص: صورة القسم كلها بنظرة ===== -->
-        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="18,14" Margin="0,0,0,10">
+        <!-- ===== شريط الملخص + كارت أحسن عامل =====
+             الكارت في العمود 0، واللوحة RightToLeft، يعني بيتعرض على يمين
+             الشاشة — أول حاجة عين المستخدم بتقع عليها. -->
+        <Grid Grid.Row="1" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== أحسن عامل الأسبوع: كارت مميّز بيفتح بروفايله ===== -->
+            <Button Grid.Column="0" Command="{Binding OpenBestWorkerCommand}"
+                    Margin="0,0,10,0" Padding="0" Cursor="Hand"
+                    HorizontalContentAlignment="Stretch"
+                    ToolTip="افتح بروفايل أحسن عامل"
+                    Visibility="{Binding HasBestWorker, Converter={StaticResource BoolToVis}}">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                        <Setter Property="Background" Value="Transparent" />
+                    </Style>
+                </Button.Style>
+
+                <Border CornerRadius="12" Padding="14,11" MinWidth="230">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#FFF3D6" Offset="0" />
+                            <GradientStop Color="#FFE9B8" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Border.BorderBrush>
+                        <SolidColorBrush Color="#F5A623" />
+                    </Border.BorderBrush>
+                    <Border.BorderThickness>1.4</Border.BorderThickness>
+
+                    <DockPanel>
+                        <views:WorkerAvatar DockPanel.Dock="Left" Diameter="46"
+                                            PhotoData="{Binding BestWorker.PhotoData}"
+                                            Initials="{Binding BestWorker.Initials}"
+                                            VerticalAlignment="Center" Margin="0,0,11,0" />
+
+                        <StackPanel VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Trophy" Width="13" Height="13"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="#B7791F" />
+                                <TextBlock Text="أحسن عامل الأسبوع" FontSize="10.5" Margin="4,0,0,0"
+                                           VerticalAlignment="Center" FontWeight="SemiBold"
+                                           Foreground="#B7791F" />
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding BestWorkerName}" FontSize="14" FontWeight="Bold"
+                                       Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource TextPrimaryBrush}" />
+
+                            <!-- شارة أقوى مهارة -->
+                            <Border CornerRadius="5" Padding="6,2" Margin="0,4,0,0"
+                                    HorizontalAlignment="Right" Background="#66FFFFFF"
+                                    Visibility="{Binding BestWorker.HasTopSkill, Converter={StaticResource BoolToVis}}">
+                                <TextBlock FontSize="10.5" Foreground="#8A6100">
+                                    <Run Text="أقوى مهاراته:" />
+                                    <Run Text="{Binding BestWorker.TopSkillProduct, Mode=OneWay}" FontWeight="Bold" />
+                                </TextBlock>
+                            </Border>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+            </Button>
+
+        <Border Grid.Column="1" Style="{StaticResource Card}" Padding="18,14">
             <DockPanel>
                 <Button DockPanel.Dock="Left" Command="{Binding AddWorkerCommand}"
                         Style="{StaticResource PrimaryButton}" VerticalAlignment="Center" Padding="18,10">
@@ -95,22 +163,10 @@
                         <TextBlock Text="موقوف" Style="{StaticResource SummaryLabel}" />
                     </StackPanel>
 
-                    <Border Style="{StaticResource SummaryDivider}" />
-
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <materialDesign:PackIcon Kind="Star" Width="15" Height="15" VerticalAlignment="Center"
-                                                    Foreground="{StaticResource AccentBrush}" />
-                            <TextBlock Text="{Binding BestWorkerName}" FontSize="13.5" FontWeight="SemiBold"
-                                       Margin="5,0,0,0" VerticalAlignment="Center"
-                                       Foreground="{StaticResource TextPrimaryBrush}" />
-                        </StackPanel>
-                        <TextBlock Text="أحسن عامل الأسبوع" Style="{StaticResource SummaryLabel}"
-                                   HorizontalAlignment="Right" />
-                    </StackPanel>
                 </StackPanel>
             </DockPanel>
         </Border>
+        </Grid>
 
         <!-- ===== البحث + الفلاتر + الترتيب ===== -->
         <Grid Grid.Row="2" Margin="2,0,2,8">
@@ -170,7 +226,9 @@
                 <RadioButton Content="الكل" Style="{StaticResource FilterChip}"
                              IsChecked="{Binding IsFilterAll, Mode=OneWay}"
                              Command="{Binding SetFilterCommand}" CommandParameter="all" />
-                <RadioButton Content="بالقطعة" Style="{StaticResource FilterChip}"
+                <!-- الاسم بس اللي اتغيّر من "بالقطعة" — نفس الفلتر ونفس المنطق:
+                     العمال اللي HourlyRole بتاعهم null، يعني بيتحاسبوا على إنتاجهم -->
+                <RadioButton Content="بالإنتاج" Style="{StaticResource FilterChip}"
                              IsChecked="{Binding IsFilterPiece, Mode=OneWay}"
                              Command="{Binding SetFilterCommand}" CommandParameter="piece" />
                 <RadioButton Content="بالساعة" Style="{StaticResource FilterChip}"
@@ -198,7 +256,49 @@
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="3">
+        <!-- ===== الفلاتر المركّبة =====
+             بتتجمع مع بعض ومع الشريحة فوق بـ AND (WorkerFilterRules):
+             "عمال مرحلة الدبلة + 4 نجوم فأكتر + حاضرين النهارده" سؤال واحد -->
+        <Border Grid.Row="3" Style="{StaticResource ToolbarCard}" Padding="12,9" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal">
+                <materialDesign:PackIcon Kind="FilterVariant" Width="16" Height="16"
+                                         VerticalAlignment="Center" Margin="0,0,8,0"
+                                         Foreground="{StaticResource TextMutedBrush}" />
+
+                <ComboBox ItemsSource="{Binding StageFilterOptions}"
+                          SelectedItem="{Binding SelectedStageFilter}"
+                          DisplayMemberPath="Display" Width="200" FontSize="12.5"
+                          ToolTip="العمال المؤهلين لمرحلة معينة" Margin="0,0,8,0" />
+
+                <ComboBox ItemsSource="{Binding ProductFilterOptions}"
+                          SelectedItem="{Binding SelectedProductFilter}"
+                          DisplayMemberPath="Display" Width="150" FontSize="12.5"
+                          ToolTip="العمال اللي عندهم مهارة في المنتج ده" Margin="0,0,8,0" />
+
+                <ComboBox ItemsSource="{Binding StarsFilterOptions}"
+                          SelectedItem="{Binding SelectedStarsFilter}"
+                          DisplayMemberPath="Display" Width="140" FontSize="12.5"
+                          ToolTip="متوسط تقييم العامل على كل مهاراته" Margin="0,0,8,0" />
+
+                <ComboBox ItemsSource="{Binding AttendanceFilterOptions}"
+                          SelectedItem="{Binding SelectedAttendanceFilter}"
+                          DisplayMemberPath="Display" Width="150" FontSize="12.5"
+                          ToolTip="حالة الحضور المسجّلة النهارده" Margin="0,0,8,0" />
+
+                <Button Command="{Binding ClearExtraFiltersCommand}"
+                        Style="{StaticResource GhostButton}" Padding="11,6"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding HasExtraFilters, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="FilterRemove" Width="14" Height="14"
+                                                 VerticalAlignment="Center" />
+                        <TextBlock Text="شيل الفلاتر" Margin="5,0,0,0" FontSize="12" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="520" />
                 <ColumnDefinition Width="360" />
@@ -270,14 +370,11 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- دايرة الحروف الأولى -->
-                                        <Border Grid.Column="0" Width="44" Height="44" CornerRadius="22"
-                                                Background="{StaticResource SubtleBgBrush}"
-                                                VerticalAlignment="Center" Margin="0,0,14,0">
-                                            <TextBlock Text="{Binding Initials}" FontSize="15.5" FontWeight="Bold"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource BrandBrush}" />
-                                        </Border>
+                                        <!-- صورة العامل (أو حروفه الأولى) — نفس العنصر في كل الشاشات -->
+                                        <views:WorkerAvatar Grid.Column="0" Diameter="44"
+                                                            PhotoData="{Binding PhotoData}"
+                                                            Initials="{Binding Initials}"
+                                                            VerticalAlignment="Center" Margin="0,0,14,0" />
 
                                         <!-- الاسم + الشارات + التنبيه -->
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -613,19 +710,63 @@
                                            Foreground="{StaticResource WarnBrush}" />
                             </Border>
 
-                            <!-- وضع الإضافة شغال: المستخدم لازم يعرف ليه الكروت زادت فجأة -->
+                            <!-- وضع الإضافة شغال: المستخدم لازم يعرف ليه الكروت زادت فجأة.
+                                 اللوحة بتفضل مفتوحة بعد كل إضافة ومبتتقفلش غير بزرار
+                                 "خلصت" تحت — فبنعرض عدّاد باللي اتضاف عشان يعرف
+                                 هو وصل لفين وهو بيضيف عشرة ورا بعض. -->
                             <Border Background="{StaticResource SoftPanelBgBrush}"
                                     BorderBrush="{StaticResource BrandBrush}" BorderThickness="1.4"
                                     CornerRadius="9" Padding="9,7" Margin="0,0,0,7"
                                     Visibility="{Binding IsAddingSkills, Converter={StaticResource BoolToVis}}">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="InformationOutline" Width="15" Height="15"
-                                                            VerticalAlignment="Center"
-                                                            Foreground="{StaticResource BrandBrush}" />
-                                    <TextBlock Text="بتشوف كل منتجات المصنع — افتح أي منتج وضيف منه المراحل"
-                                               FontSize="11.5" Margin="6,0,0,0" TextWrapping="Wrap"
-                                               VerticalAlignment="Center"
-                                               Foreground="{StaticResource BrandBrush}" />
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="InformationOutline" Width="15" Height="15"
+                                                                VerticalAlignment="Center"
+                                                                Foreground="{StaticResource BrandBrush}" />
+                                        <TextBlock Text="افتح أي منتج وضيف منه المراحل — دوس على عدد النجوم عشان تضيفها بمستواها"
+                                                   FontSize="11.5" Margin="6,0,0,0" TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource BrandBrush}" />
+                                    </StackPanel>
+
+                                    <!-- اللي اتضاف في الجلسة دي -->
+                                    <StackPanel Margin="0,7,0,0"
+                                                Visibility="{Binding HasRecentlyAdded, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="{Binding RecentlyAddedText}" FontSize="11.5" FontWeight="Bold"
+                                                   Foreground="{StaticResource SuccessBrush}" />
+                                        <ItemsControl ItemsSource="{Binding RecentlyAdded}" Margin="0,4,0,0">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="{StaticResource SuccessBgBrush}" CornerRadius="6"
+                                                            Padding="7,3" Margin="0,0,4,4">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <materialDesign:PackIcon Kind="Check" Width="11" Height="11"
+                                                                                    VerticalAlignment="Center"
+                                                                                    Foreground="{StaticResource SuccessBrush}" />
+                                                            <TextBlock Text="{Binding}" FontSize="11" Margin="3,0,0,0"
+                                                                       Foreground="{StaticResource SuccessBrush}" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+
+                                    <!-- الإغلاق الصريح — اللوحة عمرها ما بتقفل لوحدها -->
+                                    <Button Command="{Binding DataContext.ToggleAddSkillsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            Style="{StaticResource PrimaryButton}" Padding="14,6"
+                                            HorizontalAlignment="Left" Margin="0,8,0,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="CheckCircleOutline" Width="14" Height="14"
+                                                                    VerticalAlignment="Center" />
+                                            <TextBlock Text="خلصت إضافة" Margin="5,0,0,0" FontSize="12" />
+                                        </StackPanel>
+                                    </Button>
                                 </StackPanel>
                             </Border>
 
@@ -842,12 +983,13 @@
                                                                         </Border>
 
                                                                         <!-- ===== تقييم المدير بالنجوم ===== -->
-                                                                        <!-- بيظهر للمهارات اللي العامل بيعرفها بس: تقييم مرحلة
-                                                                             هو مش مربوط بيها مالوش معنى -->
+                                                                        <!-- بيظهر للمهارات اللي بيعرفها (عشان يعدّل)، وكمان في
+                                                                             وضع الإضافة للمراحل الجديدة: ساعتها الضغط على نجمة
+                                                                             بيضيف المهارة بالمستوى ده على طول -->
                                                                         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
                                                                                     VerticalAlignment="Center" Margin="6,0,0,0"
                                                                                     ToolTip="{Binding RatingTooltip}"
-                                                                                    Visibility="{Binding IsKnown, Converter={StaticResource BoolToVis}}">
+                                                                                    Visibility="{Binding ShowStars, Converter={StaticResource BoolToVis}}">
                                                                             <StackPanel.Resources>
                                                                                 <!-- نجمة واحدة: مليانة لو ضمن التقييم، فاضية لو لأ -->
                                                                                 <Style x:Key="StarButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
@@ -1017,30 +1159,36 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <!-- ملاحظات المهارات النصية (المرجع القديم من ملف الإكسل) -->
-                            <TextBlock Text="ملاحظات المهارات (المرجع النصي)" FontWeight="Bold" Margin="0,4,0,2">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SkillsNotes}" Value="">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                            <TextBlock Text="{Binding SkillsNotes}" FontSize="12" Foreground="{StaticResource TextMutedBrush}"
-                                       TextWrapping="Wrap" Margin="0,0,0,10">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding SkillsNotes}" Value="">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
+                            <!-- ===== كروت "شاطر في إيه" =====
+                                 حلّت محل خانة "ملاحظات المهارات" النصية. الفرق إن
+                                 دي **محسوبة** من نجوم المهارات (SkillRatingService)
+                                 مش نص حر بيتكتب بالإيد وبيقدم من غير ما حد ياخد
+                                 باله. عرض بس — التقييم نفسه بيتغيّر من نجوم المرحلة. -->
+                            <TextBlock Text="شاطر في إيه" FontWeight="Bold" Margin="0,4,0,6"
+                                       Visibility="{Binding HasStrengths, Converter={StaticResource BoolToVis}}" />
+                            <ItemsControl ItemsSource="{Binding Strengths}" Margin="0,0,0,10"
+                                          Visibility="{Binding HasStrengths, Converter={StaticResource BoolToVis}}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border CornerRadius="8" Padding="10,6" Margin="0,0,6,6"
+                                                Background="{StaticResource SuccessBgBrush}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding StarsText}" FontSize="12"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="#F5A623" />
+                                                <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold"
+                                                           Margin="6,0,0,0" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
                             <!-- ===== الهستوري الأسبوعي: كارت لكل أسبوع، بيتفتح على تفاصيله ===== -->
                             <TextBlock Text="الهستوري الأسبوعي (آخر 8 أسابيع)" FontWeight="Bold" Margin="0,10,0,6" />

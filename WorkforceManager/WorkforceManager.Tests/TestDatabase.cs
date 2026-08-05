@@ -104,6 +104,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<ActivityLogService>();
             services.AddScoped<SoftDeleteService>();
             services.AddScoped<SkillRatingService>();
+            services.AddScoped<ProductActivityService>();
 
             _provider = services.BuildServiceProvider();
 

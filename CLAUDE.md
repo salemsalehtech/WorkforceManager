@@ -62,7 +62,8 @@ Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output)
 - `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
   UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
 
-`WorkforceManager.Tests` (xUnit, `net8.0`) covers the worker-assignment rule — run with `dotnet test`
+`WorkforceManager.Tests` (xUnit, `net8.0`, 171 tests) covers the worker-assignment rule, daily output,
+the skill-rating system, worker filtering, product activity, and the removed-field guards — run with `dotnet test`
 from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
@@ -97,17 +98,36 @@ Core  <----------------------- UI
   up DI via `Microsoft.Extensions.Hosting`'s `Host` (`AppHost`) — this is the single place new
   repositories/services/views get registered. `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) is
   implemented as a **card list** (same `WorkerCard` style as the attendance screen), not a grid: summary
-  bar (active / hourly / inactive / best-of-week + a "needs attention" button that filters to problem
-  workers), instant search, `FilterChip` quick filters (الكل / بالقطعة / بالساعة / موقوفين), and a sort
-  dropdown. The whole worker list is loaded once via `IWorkerRepository.GetAllWithSkillsAsync()` and
+  bar (active / hourly / inactive + a "needs attention" button that filters to problem
+  workers), instant search, `FilterChip` quick filters (الكل / بالإنتاج / بالساعة / موقوفين), and a sort
+  dropdown. **Best-of-week is its own highlighted card** in grid column 0 of the summary row — the screen
+  is RTL, so column 0 renders on the visual right; it shows photo + name + strongest product
+  (`WorkerRow.TopSkillProduct`) and the whole card is a button running `OpenBestWorkerCommand`, which
+  clears any active filter first so the selection is actually visible. Who counts as best worker is
+  still decided in `WeeklySummaryService` — the card only renders it.
+  On top of the chips sit four **composable** dropdowns (stage / product / min-stars / today's
+  attendance). All of them AND together with the chip in `WorkerFilterRules` (Business) — the chip is
+  the mutually-exclusive scope (`WorkerPayScope`), the dropdowns narrow it further. `null` on a
+  criterion means "filter off", never "match empty"; `AverageStars <= 0` means "no skills" and is
+  excluded from any stars filter rather than treated as zero stars. The rule is pure and lives in
+  Business precisely so `WorkerFilterTests` can cover it without a ViewModel.
+  The whole worker list is loaded once via `IWorkerRepository.GetAllWithSkillsAsync()` and
   search/filter/sort run **in memory** (`ApplyFilters`) — that is why search is per-keystroke with no
   DB round-trip; `WorkerRow.SkillsSearchText` pre-joins skills + notes so skill search stays a single
   string match. Each card flags `HasNoWage` (worker would earn 0 EGP on the payroll) and `HasNoSkills`
   (piece-rate worker with no skill links never appears in a production flow) — both surfaced together as
-  `NeedsAttention`. The profile panel adds bulk skill assignment: `IsAddingSkills` opens a searchable,
-  multi-select stage list (`VisibleStageOptions`, already-owned stages filtered out) and
-  `AddSelectedSkillsCommand` assigns them all at once. `RefreshRowsKeepingSelectionAsync` reloads the
-  list without losing the open profile. Also add/edit/soft-delete. `DailyEntryView` is implemented: one shared date +
+  `NeedsAttention`. The profile shows **"شاطر في إيه"** cards (`WorkerDetail.Strengths`) — one per
+  product the worker has any skill in, labelled from their average stars via
+  `SkillRatingService.ProductStars` + `StarsLabel`. These **replaced the free-text
+  "ملاحظات المهارات" field**, which is gone from the add/edit form (see Domain model notes for why the
+  column survives). Skill assignment happens inside the profile: `IsAddingSkills` widens the cards to
+  every product, and the star row shows on not-yet-assigned stages too (`SkillStageItem.ShowStars`) —
+  clicking a star there **assigns the skill at that rating in one gesture**
+  (`SetSkillStarsCommand` → `AssignSkillAsync` then `SetStarsAsync`). The panel **never closes by
+  itself**: add/remove update the row in place instead of reloading the profile (a reload collapsed the
+  open card on every single addition), a running `RecentlyAdded` chip list shows what this session added,
+  and only the explicit "خلصت إضافة" button closes it. Also add/edit/soft-delete, plus an optional
+  profile photo. `DailyEntryView` is implemented: one shared date +
   3 tabs — production-flow entry, topped by a day summary bar (pieces / workdays / workers / products,
   derived from the records `LoadDayRecordsAsync` already loads — no extra query). Each stage card carries
   a colour bar and label driven by `FlowStageRow.State` (`FlowStageState`: Ready / NeedsWorkers /
@@ -146,14 +166,32 @@ Core  <----------------------- UI
   (اليوم/الأسبوع/الشهر) + a free from/to custom range (any span works, e.g. day 1→20), all served by
   `ProductionReportService.GetGeneralReportAsync(from,to)`/`GetWorkerReportAsync(workerId,from,to)`
   (completed pieces = last-stage-per-product, same rule as the chart) with Excel export via
-  `WeeklyReportExcelService.ExportGeneralReport`/`ExportWorkerReport`. `ProductsView` is implemented with the same card language as the workers/attendance screens: summary bar
-  (active products / total stages / total + a "needs attention" button), instant search (product or stage
-  name), `FilterChip` filters (النشط / الكل / موقوف), and product cards showing stage count only — a
-  `TotalQuota` stat (sum of every active stage's `PiecesPerWorkday`) was removed on purpose: summing
-  quotas across sequential stages measures nothing, since a piece passes through the stages in order
-  rather than in parallel, so the number just grew with stage count. Don't reintroduce it.
+  `WeeklyReportExcelService.ExportGeneralReport`/`ExportWorkerReport`. `ProductsView` is implemented with the same card language as the workers/attendance screens: summary bar,
+  instant search (product or stage name), `FilterChip` filters, and product cards showing stage count
+  only — a `TotalQuota` stat (sum of every active stage's `PiecesPerWorkday`) was removed on purpose:
+  summing quotas across sequential stages measures nothing, since a piece passes through the stages in
+  order rather than in parallel, so the number just grew with stage count. Don't reintroduce it.
+  **The screen is driven by a period**, defaulting to the current work week and served by
+  `ProductActivityService` (which delegates to `WeeklySummaryService.GetWorkWeekRange` — do not define a
+  second "this week" anywhere). The period controls the filter and the stats together, so the number on
+  screen and the filter applied always cover the same span:
+  - The first chip is **"شغّالين الأسبوع ده على"** (`ProductFilter.WorkedThisPeriod`), and its label
+    follows the period so it never claims "this week" while a month is shown. It means *actual logged
+    production in the period* (`ProductActivityDto.WorkedInPeriod`), **not** the `Product.IsActive` flag
+    the old "نشط" chip read — a product untouched for months stayed "active" forever, so the count said
+    nothing. `IsActive` still backs the "موقوف" chip, which is a different question.
+  - Summary stats are **"أكتر منتج إنتاجًا" / "أقل منتج إنتاجًا"**; the old "الإجمالي" and
+    "إجمالي المراحل" are gone (near-constant numbers nobody acted on). "Least active" ranks only
+    products that actually worked — including the zeros would just surface the first product
+    alphabetically.
+  - Three more filters AND together with the chip: stage **by name** (the same stage name repeats across
+    products, and the user asks "which products have لمعة?"), worker (who worked on it in the period),
+    and a volume sort.
   The right panel renders the product as a **production line** — one card per stage with its
-  position number, quota, and **how many workers are qualified for it**, plus ▲▼ buttons that reorder the
+  position number, quota, **how many workers are qualified for it**, and a 👤🔍 button opening
+  `QualifiedWorkersDialog` (who can do this stage, best-rated first). That dialog calls
+  `SkillRatingService.GetRankedForStageAsync` — **the same method the daily-entry screen uses**, so the
+  order the manager sees here is the order they get while recording. Plus ▲▼ buttons that reorder the
   line. Reordering goes through `ProductManagementService.MoveStageAsync(stageId, moveUp)`, which swaps
   with the neighbour and then **renumbers the whole line from 1** (healing gaps/duplicates left by older
   edits); it returns false at the ends instead of throwing. Order is not cosmetic — production ranges
@@ -172,7 +210,22 @@ Core  <----------------------- UI
   must use `BasedOn="{StaticResource ModernGridRow}"`. ViewModels take `IServiceScopeFactory` and create a scope per operation
   (keeps DbContext short-lived). Gotcha: WPF implicit styles don't apply to derived types, so the
   `TargetType="Window"` style in App.xaml does NOT hit `MainWindow` — set `FlowDirection="RightToLeft"`
-  explicitly on each window.
+  explicitly on each window. **The same derived-type rule bites text inputs**: the implicit
+  `TargetType="TextBox"` style does not reach `DatePickerTextBox`, which needs its own style.
+- **Text selection colours are set once, in `App.xaml`'s implicit `TextBox`/`PasswordBox`/
+  `DatePickerTextBox` styles** — never per screen. They use `TextSelectionBrush` (#2C7BE5) with an
+  explicit `SelectionOpacity`, deliberately **separate** from `SelectionBgBrush` (#E3EDFB). The latter
+  is the selected-row background for cards and is pale on purpose so black text stays readable on it;
+  when it was also wired to `SelectionBrush`, selection rendered at 0.4 opacity over a white field and
+  was effectively invisible — users were selecting text and seeing nothing happen. No `TextBox` in the
+  app carries an explicit style, so fixing the implicit one covers every screen.
+- **Shared worker rendering**: `Views/WorkerAvatar` (photo, else initials) is the only place a worker's
+  avatar is drawn — worker cards, the best-worker card, and the qualified-workers dialog all use it.
+  Its `PhotoData` DP is typed `object`, not `byte[]`, because XAML rejects array-typed properties inside
+  a `DataTemplate` ("Tags of type 'PropertyArrayStart' are not supported in template sections") and the
+  control lives inside list templates.
+- **Stored images** (product photos and worker photos) all go through `StoredImageHelper` — downscale to
+  256px, re-encode as JPEG, return null for unreadable data so callers fall back to initials.
 
 ### Domain model relationships
 
@@ -183,10 +236,23 @@ Core  <----------------------- UI
   backup only copies the `.db` file, so images kept as loose files would be lost on restore or when
   moving to another machine. Always write it through `ProductManagementService.SetProductImageAsync`
   (kept separate from `UpdateProductAsync` so renaming a product neither resends nor accidentally clears
-  the photo), and always prepare the bytes with `ProductImageHelper.LoadForStorage` (UI layer), which
+  the photo), and always prepare the bytes with `StoredImageHelper.LoadForStorage` (UI layer), which
   downscales to 256px and re-encodes as JPEG using WPF's own imaging — no new package, and the stored
   blob stays tens of KB instead of megabytes multiplied across every daily backup. In the UI the photo
   occupies the **same 44×44 slot as the initials circle**, so products without one cost no extra space.
+  `Product.ProductCode` **was deleted outright** (column and all) in `AddWorkerPhotoDropProductCode`:
+  nothing read it — no report, no export, no calculation; it went form → service → displayed as "—".
+  Contrast `Worker.EmployeeCode` below, which looks equally unused and is not.
+  `Worker.PhotoData` mirrors `Product.ImageData` exactly (same reason, same helper) and is written only
+  through `WorkerManagementService.SetWorkerPhotoAsync`, kept out of `UpdateWorkerAsync` for the same
+  reason the product photo is kept out of `UpdateProductAsync`.
+- `Worker.SkillsNotes` is **write-nobody, read-somebody**. Its input was removed from the add/edit form
+  (replaced by the per-stage star ratings, surfaced as "شاطر في إيه" cards), so
+  `CreateWorkerAsync`/`UpdateWorkerAsync` no longer take or touch it — exactly like `EmployeeCode`, and
+  for the same reason: leaving the parameter in place while the form stopped supplying it would have
+  made the first edit of any worker silently null the column. The column stays because
+  `DatabaseSeeder.SeedHourlyRolesAsync` parses it every startup to classify رص/جودة/تدريب workers, and
+  `WorkerRow.SkillsSearchText` still searches it. `RemovedFieldsTests` guards both halves.
 - `Worker` *—* `ProductionStage` via `WorkerSkill` (join entity, unique per worker+stage): which stages a
   worker is qualified to perform.
 - `DailyProduction`: one entry = pieces produced by one worker on one stage on one date. Snapshots
@@ -271,6 +337,17 @@ Core  <----------------------- UI
 - `DailyProduction` rows are created only by `WorkdayCalculationService.RecordProductionAsync` or
   `ProductionFlowService.RecordFlowAsync` — both snapshot the stage quota automatically. Every row
   counts for both wages and the daily output report; there is no second class of row.
+- **Product activity** (`ProductActivityService` — the ONLY place "is this product working?" is
+  decided): a product counts as working in a period iff it has logged production in it, never because
+  `Product.IsActive` is set. Its `CurrentWeek` delegates to `WeeklySummaryService.GetWorkWeekRange`, so
+  the products screen and the payroll sheet can never disagree about which week "this week" is. It
+  returns a row for **every** product including zero-production ones, so the screen can filter and rank;
+  callers that need "worked" must check `WorkedInPeriod`.
+- **Worker filtering** (`WorkerFilterRules` in Business — pure, no DB, no UI): the composable filters on
+  the workers screen. Scope (production / hourly / inactive) is mutually exclusive because those sets
+  are disjoint; every other criterion ANDs on top. `null` criterion = filter off. A worker with no
+  skills (`AverageStars <= 0`) is excluded from any stars filter rather than counted as zero stars, and
+  a worker with no attendance record matches no attendance status — "unrecorded" is its own state.
 - **Worker-assignment rule** (`WorkerAssignmentGuard` in Business — the ONLY place this rule exists;
   never re-implement it in a controller/ViewModel). An "assignment" is a `DailyProduction` row, so
   "assigned" = has a row for that worker/stage/date. By default a worker holds one assignment per

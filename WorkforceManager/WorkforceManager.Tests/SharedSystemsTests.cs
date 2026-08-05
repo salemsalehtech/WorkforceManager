@@ -728,6 +728,48 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task Assigning_a_skill_then_rating_it_records_the_managers_opinion()
+        {
+            // ده اللي بيحصل لما المدير يدوس على نجمة لمرحلة لسه مش مضافة
+            // في وضع "ضيف مهارات": الربط الأول، وبعدين التقييم — والاتنين
+            // بيروحوا لنظام النجوم نفسه، مفيش حقل تقييم تاني موازي
+            using var scope = _db.CreateScope();
+            var management = _db.GetService<WorkerManagementService>(scope);
+            var rating = _db.GetService<SkillRatingService>(scope);
+
+            await management.RemoveSkillAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id);
+
+            await management.AssignSkillAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id);
+            await rating.SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id, 5);
+
+            var skills = await rating.GetForWorkerAsync(TestDatabase.WorkerAhmedId);
+            var added = skills.Single(s => s.StageId == TestDatabase.BagStage3Id);
+
+            Assert.Equal(5, added.Stars);
+            // الختم بيقول "المدير قال رأيه" — وده اللي بيسكّت المراجعة الشهرية
+            Assert.NotNull(added.StarsUpdatedAt);
+        }
+
+        [Fact]
+        public async Task A_freshly_assigned_skill_starts_unrated()
+        {
+            // الإضافة العادية (زرار +) بتسيب التقييم مبدئي من غير ختم،
+            // فالمراجعة الشهرية بتفضل تسأل عنه لحد ما المدير يقول رأيه
+            using var scope = _db.CreateScope();
+            var management = _db.GetService<WorkerManagementService>(scope);
+            var rating = _db.GetService<SkillRatingService>(scope);
+
+            await management.RemoveSkillAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id);
+            await management.AssignSkillAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id);
+
+            var skills = await rating.GetForWorkerAsync(TestDatabase.WorkerAhmedId);
+            var added = skills.Single(s => s.StageId == TestDatabase.BagStage3Id);
+
+            Assert.Equal(SkillRatingService.DefaultStars, added.Stars);
+            Assert.Null(added.StarsUpdatedAt);
+        }
+
+        [Fact]
         public void Product_stars_average_only_the_stages_the_worker_knows()
         {
             // المتخصص في 3 مراحل من 11 مش ضعيف — المراحل اللي مالوش فيها

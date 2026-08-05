@@ -19,10 +19,6 @@ namespace WorkforceManager.Core.Models
         [MaxLength(150)]
         public string Name { get; set; } = string.Empty;
 
-        /// <summary>كود اختياري للمنتج لتسهيل الفرز والتقارير</summary>
-        [MaxLength(30)]
-        public string? ProductCode { get; set; }
-
         [MaxLength(500)]
         public string? Description { get; set; }
 
@@ -33,7 +29,7 @@ namespace WorkforceManager.Core.Models
         /// بينسخ ملف الـ db بس — فلو الصور كانت ملفات منفصلة كانت هتضيع مع
         /// أي استرجاع أو نقل للبرنامج لجهاز تاني.
         ///
-        /// الصورة بتتصغّر وتتضغط قبل التخزين (شوف ProductImageHelper في
+        /// الصورة بتتصغّر وتتضغط قبل التخزين (شوف StoredImageHelper في
         /// طبقة الواجهة) فحجمها بيفضل عشرات الكيلوبايتات مش ميجات — مهم
         /// لأن حجم النسخة الاحتياطية بيكبر بيها.
         /// </summary>

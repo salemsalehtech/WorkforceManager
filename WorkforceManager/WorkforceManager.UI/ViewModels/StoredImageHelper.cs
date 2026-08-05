@@ -5,7 +5,8 @@ using System.Windows.Media.Imaging;
 namespace WorkforceManager.UI.ViewModels
 {
     /// <summary>
-    /// تجهيز صور المنتجات للتخزين والعرض.
+    /// تجهيز أي صورة بتتخزن جوه قاعدة البيانات — صور المنتجات وصور
+    /// العمال. المكان الوحيد اللي بيصغّر ويضغط ويحوّل للعرض.
     ///
     /// الصورة اللي المستخدم بيختارها ممكن تكون 5 ميجا من موبايل — وهي
     /// معروضة في مربع 44 بكسل. عشان كده بنصغّرها ونضغطها قبل ما تتخزن:
@@ -15,7 +16,7 @@ namespace WorkforceManager.UI.ViewModels
     /// بنستخدم تشفير WPF الأصلي (BitmapFrame / JpegBitmapEncoder) —
     /// مفيش أي مكتبة صور خارجية اتضافت للمشروع.
     /// </summary>
-    public static class ProductImageHelper
+    public static class StoredImageHelper
     {
         /// <summary>
         /// أقصى بُعد للصورة المخزّنة بالبكسل. 256 كفاية بكتير لمربع 44
