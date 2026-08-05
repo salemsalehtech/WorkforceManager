@@ -491,12 +491,8 @@ namespace WorkforceManager.UI.ViewModels
 
             var skillGroups = BuildSkillGroups(products, ownedStageIds, ratingByStage);
 
-            // كروت "شاطر في إيه" — بتحل محل خانة الملاحظات النصية القديمة
-            var strengths = BuildStrengths(products, worker.Skills);
-
             Detail = new WorkerDetail
             {
-                Strengths = new ObservableCollection<WorkerStrength>(strengths),
                 WorkerId = worker.Id,
                 FullName = worker.FullName,
                 PhoneNumber = worker.PhoneNumber ?? "—",
@@ -603,41 +599,6 @@ namespace WorkforceManager.UI.ViewModels
         /// الترتيب بالتغطية تنازليًا: المنتجات اللي العامل قريب من تغطيتها
         /// بالكامل هي اللي المستخدم بيهتم بيها الأول (فاضل مرحلتين وتخلص).
         /// </summary>
-        /// <summary>
-        /// كارت لكل منتج العامل عنده فيه مهارة، بمتوسط نجومه عليه.
-        ///
-        /// المتوسط بيتحسب بـ <see cref="SkillRatingService.ProductStars"/> —
-        /// مش بحساب محلي هنا. القاعدة (المراحل اللي مالوش فيها مهارة
-        /// مبتتحسبش صفر، عشان المتخصص ميبانش ضعيف) عايشة في مكان واحد.
-        ///
-        /// المنتجات اللي مالوش فيها ولا مهارة بتختفي — كارت "صفر مهارات"
-        /// مبيقولش حاجة.
-        /// </summary>
-        private static List<WorkerStrength> BuildStrengths(
-            IReadOnlyList<Core.Models.Product> products,
-            IEnumerable<Core.Models.WorkerSkill> skills)
-        {
-            var skillByStage = skills.ToDictionary(s => s.ProductionStageId);
-
-            return products
-                .Select(product =>
-                {
-                    var onProduct = product.Stages
-                        .Where(stage => skillByStage.ContainsKey(stage.Id))
-                        .Select(stage => skillByStage[stage.Id])
-                        .ToList();
-
-                    var stars = SkillRatingService.ProductStars(onProduct);
-                    return stars is null
-                        ? null
-                        : new WorkerStrength { ProductName = product.Name, Stars = stars.Value };
-                })
-                .OfType<WorkerStrength>()
-                .OrderByDescending(s => s.Stars)
-                .ThenBy(s => s.ProductName)
-                .ToList();
-        }
-
         private static List<SkillProductGroup> BuildSkillGroups(
             IReadOnlyList<Core.Models.Product> products,
             HashSet<int> ownedStageIds,
@@ -1025,12 +986,15 @@ namespace WorkforceManager.UI.ViewModels
                 item.Stars = stars;
                 item.IsKnown = true;
 
-                // الإضافة بتغيّر عدّادات التغطية والصف في القائمة، والعرض
-                // مش هيتحدّث لوحده — بس من غير ما نقفل الكارت المفتوح
+                // أي تغيير في النجوم بيحرّك متوسط المنتج، والشارة اللي على
+                // رأس الكارت محسوبة منه — فلازم تتحدّث حتى لو المهارة مش جديدة
+                Detail.RefreshCoverage(stageId);
+
+                // الإضافة كمان بتغيّر عدّادات التغطية والصف في القائمة —
+                // بس من غير ما نقفل الكارت المفتوح
                 if (wasNew)
                 {
                     Detail.NoteAdded(item.StageName);
-                    Detail.RefreshCoverage(stageId);
                     await RefreshRowsKeepingSelectionAsync();
                 }
             }
@@ -1215,29 +1179,6 @@ namespace WorkforceManager.UI.ViewModels
         };
     }
 
-    /// <summary>
-    /// "ممتاز في GRS" — تقييم العامل على منتج واحد، محسوب من نجوم مراحله.
-    ///
-    /// حلّ محل خانة "ملاحظات المهارات" النصية: الفرق إن ده بيتحدّث لوحده
-    /// مع كل تعديل تقييم، والنص الحر كان بيقدم ومحدش بيلاحظ.
-    /// </summary>
-    public class WorkerStrength
-    {
-        public string ProductName { get; init; } = "";
-
-        /// <summary>متوسط نجومه على مراحل المنتج اللي بيعرفها (1–5)</summary>
-        public decimal Stars { get; init; }
-
-        /// <summary>المتوسط مقرّب لأقرب نجمة للعرض</summary>
-        public int RoundedStars =>
-            Math.Clamp((int)Math.Round(Stars, MidpointRounding.AwayFromZero), 1, 5);
-
-        public string StarsText => new string('★', RoundedStars) + new string('☆', 5 - RoundedStars);
-
-        /// <summary>الوصف من SkillRatingService عشان نص الوصف واحد في البرنامج كله</summary>
-        public string Label => $"{SkillRatingService.StarsLabel(RoundedStars)} في {ProductName}";
-    }
-
     /// <summary>تفاصيل العامل المعروضة في اللوحة الجانبية (البروفايل)</summary>
     public partial class WorkerDetail : ObservableObject
     {
@@ -1267,14 +1208,6 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>هل هو عامل بالساعة؟ (لإظهار شارة في البروفايل)</summary>
         public bool IsHourly => HourlyRole is not null;
-
-        /// <summary>
-        /// كارت لكل منتج العامل عنده فيه مهارة، بمتوسط نجومه ("ممتاز في GRS").
-        /// عرض محسوب — مش إدخال. التقييم بيتغيّر من نجوم المرحلة نفسها.
-        /// </summary>
-        public ObservableCollection<WorkerStrength> Strengths { get; init; } = new();
-
-        public bool HasStrengths => Strengths.Count > 0;
 
         /// <summary>مهارات العامل مجمّعة في كارت لكل منتج (مرتبة بالتغطية)</summary>
         public ObservableCollection<SkillProductGroup> SkillProducts { get; init; } = new();
@@ -1457,6 +1390,82 @@ namespace WorkforceManager.UI.ViewModels
 
         public string CoverageText => $"{KnownCount} / {ActiveCount} مرحلة";
 
+        // ------- تقييم العامل على المنتج ده (بيتعرض على رأس الكارت) -------
+
+        /// <summary>
+        /// متوسط نجومه على مراحل المنتج **اللي بيعرفها**.
+        ///
+        /// الحساب بيتنادى من <see cref="SkillRatingService.ProductStars"/> مش
+        /// محلي هنا: القاعدة (المراحل اللي مالوش فيها مهارة مبتتحسبش صفر،
+        /// عشان المتخصص في 3 مراحل من 11 ميبانش ضعيف) عايشة في مكان واحد.
+        ///
+        /// النتيجة متخزّنة لأن ست خصائص معروضة بتقرا منها، ومن غير التخزين
+        /// كانت هتتحسب من الأول مع كل رسمة للكارت. بتتصفّر في
+        /// <see cref="RefreshRating"/> بعد أي تعديل مهارة أو نجوم.
+        ///
+        /// null = مالوش ولا مهارة في المنتج ده، فمفيش تقييم يتعرض.
+        /// </summary>
+        public decimal? AverageStars => _averageStars ??= SkillRatingService.ProductStars(
+            Stages.Where(s => s.IsKnown)
+                  .Select(s => new Core.Models.WorkerSkill { Stars = s.Stars }));
+
+        private decimal? _averageStars;
+
+        public bool HasRating => AverageStars is not null;
+
+        /// <summary>المتوسط مقرّب لأقرب نجمة للعرض</summary>
+        public int RoundedStars => AverageStars is null
+            ? 0
+            : Math.Clamp((int)Math.Round(AverageStars.Value, MidpointRounding.AwayFromZero), 1, 5);
+
+        public string StarsText => HasRating
+            ? new string('★', RoundedStars) + new string('☆', 5 - RoundedStars)
+            : "";
+
+        /// <summary>"ممتاز" / "كويس جدًا" / … — النص من SkillRatingService</summary>
+        public string RatingLabel => HasRating ? SkillRatingService.StarsLabel(RoundedStars) : "";
+
+        /// <summary>
+        /// لون الشارة حسب المستوى: أخضر للممتاز، رمادي للعادي، برتقالي
+        /// وأحمر للأقل. اللون بيخلي المستوى يتقري من غير ما العين تعدّ نجوم.
+        /// </summary>
+        public string RatingColor => RoundedStars switch
+        {
+            5 => "#0B6E4F", // ممتاز
+            4 => "#2E8B57", // كويس جدًا
+            3 => "#6B7686", // عادي
+            2 => "#B7791F", // ضعيف
+            _ => "#B00020"  // ضعيف جدًا
+        };
+
+        public string RatingBackground => RoundedStars switch
+        {
+            5 => "#E7F4EF",
+            4 => "#EAF5EE",
+            3 => "#EFF1F5",
+            2 => "#FFF7E8",
+            _ => "#FBEAEC"
+        };
+
+        /// <summary>شرح الشارة — من غيره الرقم مالوش سياق</summary>
+        public string RatingTooltip => HasRating
+            ? $"متوسط تقييمك على {KnownCount} مرحلة في {ProductName}: {RatingLabel} ({AverageStars:0.#}/5)"
+            : "";
+
+        private void RefreshRating()
+        {
+            _averageStars = null; // يتحسب من الأول عند أول قراءة جاية
+
+            OnPropertyChanged(nameof(AverageStars));
+            OnPropertyChanged(nameof(HasRating));
+            OnPropertyChanged(nameof(RoundedStars));
+            OnPropertyChanged(nameof(StarsText));
+            OnPropertyChanged(nameof(RatingLabel));
+            OnPropertyChanged(nameof(RatingColor));
+            OnPropertyChanged(nameof(RatingBackground));
+            OnPropertyChanged(nameof(RatingTooltip));
+        }
+
         /// <summary>بيعرف كل مراحل الخط النشطة — يقدر يمسك المنتج لوحده</summary>
         public bool CoversWholeLine => ActiveCount > 0 && KnownCount == ActiveCount;
 
@@ -1494,6 +1503,10 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(HasMissing));
             OnPropertyChanged(nameof(AddAllText));
             OnPropertyChanged(nameof(IsUntouched));
+
+            // إضافة/إزالة مهارة بتغيّر المتوسط، والشارة على رأس الكارت
+            // لازم تتحدّث معاها
+            RefreshRating();
         }
     }
 

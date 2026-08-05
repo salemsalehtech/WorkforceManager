@@ -116,11 +116,15 @@ Core  <----------------------- UI
   DB round-trip; `WorkerRow.SkillsSearchText` pre-joins skills + notes so skill search stays a single
   string match. Each card flags `HasNoWage` (worker would earn 0 EGP on the payroll) and `HasNoSkills`
   (piece-rate worker with no skill links never appears in a production flow) — both surfaced together as
-  `NeedsAttention`. The profile shows **"شاطر في إيه"** cards (`WorkerDetail.Strengths`) — one per
-  product the worker has any skill in, labelled from their average stars via
-  `SkillRatingService.ProductStars` + `StarsLabel`. These **replaced the free-text
-  "ملاحظات المهارات" field**, which is gone from the add/edit form (see Domain model notes for why the
-  column survives). Skill assignment happens inside the profile: `IsAddingSkills` widens the cards to
+  `NeedsAttention`. Each product card in the profile carries a **rating badge on its own header** —
+  stars + a one-word level ("ممتاز" / "عادي" …) colour-coded by level, from
+  `SkillProductGroup.AverageStars` (which delegates to `SkillRatingService.ProductStars`, so the
+  "unknown stages don't count as zero" rule stays in one place) plus `StarsLabel`. This **replaced the
+  free-text "ملاحظات المهارات" field**, which is gone from the add/edit form (see Domain model notes for
+  why the column survives). It deliberately lives on the card rather than in a separate list section:
+  the same information next to the product it describes, at no extra vertical space. `AverageStars` is
+  memoised and invalidated by `RefreshCounters` → `RefreshRating`, because six bound properties read it
+  on every render. Skill assignment happens inside the profile: `IsAddingSkills` widens the cards to
   every product, and the star row shows on not-yet-assigned stages too (`SkillStageItem.ShowStars`) —
   clicking a star there **assigns the skill at that rating in one gesture**
   (`SetSkillStarsCommand` → `AssignSkillAsync` then `SetStarsAsync`). The panel **never closes by
@@ -247,7 +251,7 @@ Core  <----------------------- UI
   through `WorkerManagementService.SetWorkerPhotoAsync`, kept out of `UpdateWorkerAsync` for the same
   reason the product photo is kept out of `UpdateProductAsync`.
 - `Worker.SkillsNotes` is **write-nobody, read-somebody**. Its input was removed from the add/edit form
-  (replaced by the per-stage star ratings, surfaced as "شاطر في إيه" cards), so
+  (replaced by the per-stage star ratings, surfaced as a rating badge on each product card), so
   `CreateWorkerAsync`/`UpdateWorkerAsync` no longer take or touch it — exactly like `EmployeeCode`, and
   for the same reason: leaving the parameter in place while the form stopped supplying it would have
   made the first edit of any worker silently null the column. The column stays because

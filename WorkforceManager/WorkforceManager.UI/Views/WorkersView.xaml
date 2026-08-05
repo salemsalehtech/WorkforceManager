@@ -881,6 +881,25 @@
                                                             </TextBlock>
                                                         </Border>
 
+                                                        <!-- ===== تقييمه على المنتج ده =====
+                                                             على الكارت نفسه بدل قسم منفصل تحت — بيوفّر
+                                                             مساحة والمعلومة جنب المنتج اللي بتوصفه.
+                                                             اللون بيتغيّر مع المستوى عشان العين تقراه
+                                                             من غير ما تعدّ نجوم. -->
+                                                        <Border DockPanel.Dock="Left" CornerRadius="6" Padding="7,2" Margin="5,0,0,0"
+                                                                VerticalAlignment="Center"
+                                                                ToolTip="{Binding RatingTooltip}"
+                                                                Background="{Binding RatingBackground}"
+                                                                Visibility="{Binding HasRating, Converter={StaticResource BoolToVis}}">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding StarsText}" FontSize="10.5"
+                                                                           VerticalAlignment="Center" Foreground="#F5A623" />
+                                                                <TextBlock Text="{Binding RatingLabel}" FontSize="11" FontWeight="Medium"
+                                                                           Margin="4,0,0,0" VerticalAlignment="Center"
+                                                                           Foreground="{Binding RatingColor}" />
+                                                            </StackPanel>
+                                                        </Border>
+
                                                         <StackPanel VerticalAlignment="Center" Margin="8,0,0,0">
                                                             <StackPanel Orientation="Horizontal">
                                                                 <TextBlock Text="{Binding ProductName}" FontWeight="Bold" FontSize="13"
@@ -1159,36 +1178,6 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <!-- ===== كروت "شاطر في إيه" =====
-                                 حلّت محل خانة "ملاحظات المهارات" النصية. الفرق إن
-                                 دي **محسوبة** من نجوم المهارات (SkillRatingService)
-                                 مش نص حر بيتكتب بالإيد وبيقدم من غير ما حد ياخد
-                                 باله. عرض بس — التقييم نفسه بيتغيّر من نجوم المرحلة. -->
-                            <TextBlock Text="شاطر في إيه" FontWeight="Bold" Margin="0,4,0,6"
-                                       Visibility="{Binding HasStrengths, Converter={StaticResource BoolToVis}}" />
-                            <ItemsControl ItemsSource="{Binding Strengths}" Margin="0,0,0,10"
-                                          Visibility="{Binding HasStrengths, Converter={StaticResource BoolToVis}}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border CornerRadius="8" Padding="10,6" Margin="0,0,6,6"
-                                                Background="{StaticResource SuccessBgBrush}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding StarsText}" FontSize="12"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="#F5A623" />
-                                                <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold"
-                                                           Margin="6,0,0,0" VerticalAlignment="Center"
-                                                           Foreground="{StaticResource TextPrimaryBrush}" />
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
 
                             <!-- ===== الهستوري الأسبوعي: كارت لكل أسبوع، بيتفتح على تفاصيله ===== -->
                             <TextBlock Text="الهستوري الأسبوعي (آخر 8 أسابيع)" FontWeight="Bold" Margin="0,10,0,6" />
