@@ -815,6 +815,133 @@
                                                                                        VerticalAlignment="Center" />
                                                                         </Border>
 
+                                                                        <!-- ===== تقييم المدير بالنجوم ===== -->
+                                                                        <!-- بيظهر للمهارات اللي العامل بيعرفها بس: تقييم مرحلة
+                                                                             هو مش مربوط بيها مالوش معنى -->
+                                                                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
+                                                                                    VerticalAlignment="Center" Margin="6,0,0,0"
+                                                                                    ToolTip="{Binding RatingTooltip}"
+                                                                                    Visibility="{Binding IsKnown, Converter={StaticResource BoolToVis}}">
+                                                                            <StackPanel.Resources>
+                                                                                <!-- نجمة واحدة: مليانة لو ضمن التقييم، فاضية لو لأ -->
+                                                                                <Style x:Key="StarButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                                                                    <Setter Property="Padding" Value="1,0" />
+                                                                                    <Setter Property="Width" Value="18" />
+                                                                                    <Setter Property="Height" Value="18" />
+                                                                                </Style>
+                                                                            </StackPanel.Resources>
+
+                                                                            <Button Style="{StaticResource StarButton}"
+                                                                                    Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                    CommandParameter="{Binding StageId, StringFormat={}{0}:1}">
+                                                                                <materialDesign:PackIcon Width="14" Height="14">
+                                                                                    <materialDesign:PackIcon.Style>
+                                                                                        <Style TargetType="materialDesign:PackIcon">
+                                                                                            <Setter Property="Kind" Value="StarOutline" />
+                                                                                            <Setter Property="Foreground" Value="{StaticResource CardBorderBrush}" />
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding Star1}" Value="True">
+                                                                                                    <Setter Property="Kind" Value="Star" />
+                                                                                                    <Setter Property="Foreground" Value="#F5A623" />
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </materialDesign:PackIcon.Style>
+                                                                                </materialDesign:PackIcon>
+                                                                            </Button>
+
+                                                                            <Button Style="{StaticResource StarButton}"
+                                                                                    Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                    CommandParameter="{Binding StageId, StringFormat={}{0}:2}">
+                                                                                <materialDesign:PackIcon Width="14" Height="14">
+                                                                                    <materialDesign:PackIcon.Style>
+                                                                                        <Style TargetType="materialDesign:PackIcon">
+                                                                                            <Setter Property="Kind" Value="StarOutline" />
+                                                                                            <Setter Property="Foreground" Value="{StaticResource CardBorderBrush}" />
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding Star2}" Value="True">
+                                                                                                    <Setter Property="Kind" Value="Star" />
+                                                                                                    <Setter Property="Foreground" Value="#F5A623" />
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </materialDesign:PackIcon.Style>
+                                                                                </materialDesign:PackIcon>
+                                                                            </Button>
+
+                                                                            <Button Style="{StaticResource StarButton}"
+                                                                                    Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                    CommandParameter="{Binding StageId, StringFormat={}{0}:3}">
+                                                                                <materialDesign:PackIcon Width="14" Height="14">
+                                                                                    <materialDesign:PackIcon.Style>
+                                                                                        <Style TargetType="materialDesign:PackIcon">
+                                                                                            <Setter Property="Kind" Value="StarOutline" />
+                                                                                            <Setter Property="Foreground" Value="{StaticResource CardBorderBrush}" />
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding Star3}" Value="True">
+                                                                                                    <Setter Property="Kind" Value="Star" />
+                                                                                                    <Setter Property="Foreground" Value="#F5A623" />
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </materialDesign:PackIcon.Style>
+                                                                                </materialDesign:PackIcon>
+                                                                            </Button>
+
+                                                                            <Button Style="{StaticResource StarButton}"
+                                                                                    Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                    CommandParameter="{Binding StageId, StringFormat={}{0}:4}">
+                                                                                <materialDesign:PackIcon Width="14" Height="14">
+                                                                                    <materialDesign:PackIcon.Style>
+                                                                                        <Style TargetType="materialDesign:PackIcon">
+                                                                                            <Setter Property="Kind" Value="StarOutline" />
+                                                                                            <Setter Property="Foreground" Value="{StaticResource CardBorderBrush}" />
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding Star4}" Value="True">
+                                                                                                    <Setter Property="Kind" Value="Star" />
+                                                                                                    <Setter Property="Foreground" Value="#F5A623" />
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </materialDesign:PackIcon.Style>
+                                                                                </materialDesign:PackIcon>
+                                                                            </Button>
+
+                                                                            <Button Style="{StaticResource StarButton}"
+                                                                                    Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                    CommandParameter="{Binding StageId, StringFormat={}{0}:5}">
+                                                                                <materialDesign:PackIcon Width="14" Height="14">
+                                                                                    <materialDesign:PackIcon.Style>
+                                                                                        <Style TargetType="materialDesign:PackIcon">
+                                                                                            <Setter Property="Kind" Value="StarOutline" />
+                                                                                            <Setter Property="Foreground" Value="{StaticResource CardBorderBrush}" />
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding Star5}" Value="True">
+                                                                                                    <Setter Property="Kind" Value="Star" />
+                                                                                                    <Setter Property="Foreground" Value="#F5A623" />
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </materialDesign:PackIcon.Style>
+                                                                                </materialDesign:PackIcon>
+                                                                            </Button>
+
+                                                                            <!-- الأداء المقاس جنب النجوم — الدليل جنب الرأي -->
+                                                                            <Border Background="{StaticResource ChipBgBrush}" CornerRadius="4"
+                                                                                    Padding="5,1" Margin="5,0,0,0" VerticalAlignment="Center"
+                                                                                    Visibility="{Binding HasMeasurement, Converter={StaticResource BoolToVis}}">
+                                                                                <TextBlock Text="{Binding MeasuredText}" FontSize="10"
+                                                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                                                            </Border>
+
+                                                                            <!-- تنبيه إن تقييمك بعيد عن أداؤه الفعلي -->
+                                                                            <materialDesign:PackIcon Kind="AlertCircleOutline" Width="13" Height="13"
+                                                                                                     VerticalAlignment="Center" Margin="4,0,0,0"
+                                                                                                     Foreground="{StaticResource WarnBrush}"
+                                                                                                     ToolTip="تقييمك بعيد عن إنتاجه الفعلي — راجعه"
+                                                                                                     Visibility="{Binding HasGapWithReality, Converter={StaticResource BoolToVis}}" />
+                                                                        </StackPanel>
+
                                                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                                             <TextBlock Text="{Binding StageName}" FontSize="12" TextWrapping="Wrap">
                                                                                 <TextBlock.Style>
