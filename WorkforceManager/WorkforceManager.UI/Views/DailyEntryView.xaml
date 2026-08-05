@@ -347,14 +347,6 @@
                                                                             <TextBlock Text="{Binding QuotaText}" Foreground="{StaticResource TextMutedBrush}" FontSize="11.5"
                                                                                        VerticalAlignment="Center" Margin="10,0,0,0" />
 
-                                                                            <!-- القطع المستنية المرحلة دي — بتقول للمستخدم يحط عماله فين -->
-                                                                            <Border Background="{StaticResource WarnBgBrush}" CornerRadius="5" Padding="6,2"
-                                                                                    VerticalAlignment="Center" Margin="10,0,0,0"
-                                                                                    Visibility="{Binding HasWaitingPieces, Converter={StaticResource BoolToVis}}">
-                                                                                <TextBlock Text="{Binding WaitingText}" Foreground="{StaticResource WarnBrush}"
-                                                                                           FontSize="11.5" FontWeight="SemiBold" />
-                                                                            </Border>
-
                                                                             <TextBlock Text="{Binding AlreadyText}" Foreground="{StaticResource WarnBrush}" FontSize="11.5"
                                                                                        VerticalAlignment="Center" Margin="10,0,0,0" />
 

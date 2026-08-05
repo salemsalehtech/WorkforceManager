@@ -87,20 +87,6 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>نطاقات الإنتاج: "من مرحلة إلى مرحلة: عدد قطع"</summary>
         public ObservableCollection<FlowRangeRow> FlowRanges { get; } = new();
 
-        /// <summary>
-        /// القطع الواقفة في خط المنتج ده — محسوبة من سجلات الإنتاج نفسها
-        /// (اللي خلص المرحلة اللي قبل ناقص اللي خلص المرحلة دي)، مش من أي
-        /// جدول تتبّع. بتتعرض على كل بطاقة مرحلة عشان المستخدم يعرف
-        /// المراحل المتكدّسة قبل ما يوزّع عمال النهارده.
-        /// </summary>
-        public int ParkedPieces { get; private set; }
-
-        public bool HasParkedPieces => ParkedPieces > 0;
-
-        public string ParkedPiecesText => ParkedPieces == 0
-            ? ""
-            : $"{ParkedPieces:N0} قطعة مستنية في الخط — الأرقام على كل مرحلة تحت";
-
         /// <summary>معاينة يوميات كل عامل قبل الحفظ (بتتحدث لحظيًا)</summary>
         public ObservableCollection<FlowWorkerTotalDto> FlowPreview { get; } = new();
 
@@ -132,20 +118,6 @@ namespace WorkforceManager.UI.ViewModels
                 using var scope = _scopeFactory.CreateScope();
                 var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
                 var productionRepo = scope.ServiceProvider.GetRequiredService<IDailyProductionRepository>();
-                var reportService = scope.ServiceProvider.GetRequiredService<DailyProductionReportService>();
-
-                // الواقف عند كل مرحلة — بيتعرض على البطاقات عشان المستخدم
-                // يشوف المتكدّس فين قبل ما يوزّع عمال النهارده
-                var report = await reportService.GetAsync(_getEntryDate());
-                var wipByStage = report.Products
-                    .FirstOrDefault(p => p.ProductId == product.ProductId)?.StageWip
-                    .ToDictionary(w => w.StageId, w => w.WaitingPieces)
-                    ?? new Dictionary<int, int>();
-
-                ParkedPieces = wipByStage.Values.Sum();
-                OnPropertyChanged(nameof(ParkedPieces));
-                OnPropertyChanged(nameof(HasParkedPieces));
-                OnPropertyChanged(nameof(ParkedPiecesText));
 
                 // المؤهلين لكل مراحل المنتج باستعلام واحد
                 var skillsByStage = (await workerRepo.GetSkillsForProductAsync(product.ProductId))
@@ -161,7 +133,6 @@ namespace WorkforceManager.UI.ViewModels
                 foreach (var stage in product.Stages)
                 {
                     alreadyByStage.TryGetValue(stage.StageId, out var already);
-                    wipByStage.TryGetValue(stage.StageId, out var waiting);
 
                     var row = new FlowStageRow(AddWorkerToStageAsync)
                     {
@@ -169,7 +140,6 @@ namespace WorkforceManager.UI.ViewModels
                         DisplayOrder = stage.DisplayOrder,
                         StageName = stage.StageName,
                         Quota = stage.PiecesPerWorkday,
-                        WaitingPieces = waiting,
                         // مرتبين بالتقييم — الأحسن على المرحلة دي الأول.
                         // الترتيب من SkillRatingService عشان يفضل واحد في
                         // كل الشاشات، مش ترتيب أبجدي في شاشة وتقييم في تانية
@@ -769,19 +739,6 @@ namespace WorkforceManager.UI.ViewModels
         public string StageName { get; init; } = "";
         public int Quota { get; init; }
         public List<WorkerPick> QualifiedWorkers { get; init; } = new();
-
-        /// <summary>
-        /// القطع اللي خلصت المرحلة اللي قبل ومستنية المرحلة دي.
-        ///
-        /// الرقم ده هو اللي بيقول للمستخدم يحط عماله فين النهارده: مرحلة
-        /// متكدّس قدامها 2000 قطعة محتاجة ناس أكتر من مرحلة فاضية.
-        /// محسوب من سجلات الإنتاج، مش مخزّن في أي مكان.
-        /// </summary>
-        public int WaitingPieces { get; init; }
-
-        public bool HasWaitingPieces => WaitingPieces > 0;
-
-        public string WaitingText => WaitingPieces > 0 ? $"مستني: {WaitingPieces:N0}" : "";
 
         /// <summary>مفيش عمال مؤهلين للمرحلة دي — لازم تتربط المهارات الأول (قرار: المؤهلين بس)</summary>
         public bool HasNoQualified => QualifiedWorkers.Count == 0;

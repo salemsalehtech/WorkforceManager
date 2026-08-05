@@ -133,15 +133,14 @@ namespace WorkforceManager.UI.ViewModels
         {
             using var scope = _scopeFactory.CreateScope();
             var closure = scope.ServiceProvider.GetRequiredService<DayClosureService>();
-            var report = scope.ServiceProvider.GetRequiredService<DailyProductionReportService>();
 
             IsDayClosed = await closure.IsClosedAsync(EntryDate);
 
-            var parked = await report.GetAllParkedAsync(EntryDate);
-            var pieces = parked.Sum(p => p.ParkedPieces);
-            CarriedSummary = pieces == 0
-                ? ""
-                : $"{pieces:N0} قطعة مستنية في {parked.Count} منتج";
+            // ملخص "الواقف في الخط" اتشال من شاشة التسجيل: الشاشة دي
+            // موضوعها تسجيل شغل النهارده، والرقم ده كان بيزاحمها من غير
+            // ما المستخدم يعمل بيه حاجة وهو واقف عندها.
+            // لسه موجود في تقرير الإنتاج اليومي لمن يحتاجه.
+            CarriedSummary = "";
         }
 
         /// <summary>
