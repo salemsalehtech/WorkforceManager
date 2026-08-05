@@ -833,7 +833,7 @@
 
                                                                             <Button Style="{StaticResource StarButton}"
                                                                                     Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    CommandParameter="{Binding StageId, StringFormat={}{0}:1}">
+                                                                                    CommandParameter="{Binding Star1Param}">
                                                                                 <materialDesign:PackIcon Width="14" Height="14">
                                                                                     <materialDesign:PackIcon.Style>
                                                                                         <Style TargetType="materialDesign:PackIcon">
@@ -852,7 +852,7 @@
 
                                                                             <Button Style="{StaticResource StarButton}"
                                                                                     Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    CommandParameter="{Binding StageId, StringFormat={}{0}:2}">
+                                                                                    CommandParameter="{Binding Star2Param}">
                                                                                 <materialDesign:PackIcon Width="14" Height="14">
                                                                                     <materialDesign:PackIcon.Style>
                                                                                         <Style TargetType="materialDesign:PackIcon">
@@ -871,7 +871,7 @@
 
                                                                             <Button Style="{StaticResource StarButton}"
                                                                                     Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    CommandParameter="{Binding StageId, StringFormat={}{0}:3}">
+                                                                                    CommandParameter="{Binding Star3Param}">
                                                                                 <materialDesign:PackIcon Width="14" Height="14">
                                                                                     <materialDesign:PackIcon.Style>
                                                                                         <Style TargetType="materialDesign:PackIcon">
@@ -890,7 +890,7 @@
 
                                                                             <Button Style="{StaticResource StarButton}"
                                                                                     Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    CommandParameter="{Binding StageId, StringFormat={}{0}:4}">
+                                                                                    CommandParameter="{Binding Star4Param}">
                                                                                 <materialDesign:PackIcon Width="14" Height="14">
                                                                                     <materialDesign:PackIcon.Style>
                                                                                         <Style TargetType="materialDesign:PackIcon">
@@ -909,7 +909,7 @@
 
                                                                             <Button Style="{StaticResource StarButton}"
                                                                                     Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                                    CommandParameter="{Binding StageId, StringFormat={}{0}:5}">
+                                                                                    CommandParameter="{Binding Star5Param}">
                                                                                 <materialDesign:PackIcon Width="14" Height="14">
                                                                                     <materialDesign:PackIcon.Style>
                                                                                         <Style TargetType="materialDesign:PackIcon">

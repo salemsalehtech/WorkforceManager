@@ -484,44 +484,24 @@
                                                                                          PreviewMouseLeftButtonUp="Suggestions_Click">
                                                                                     <ListBox.ItemTemplate>
                                                                                         <DataTemplate>
-                                                                                            <DockPanel LastChildFill="False" MinWidth="180"
-                                                                                                       ToolTip="{Binding RatingTooltip}">
-                                                                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                                                                            <!-- الاسم فوق والنجوم تحته: الأسماء العربية طويلة
+                                                                                                 والقايمة ضيقة، فالنجوم جنبه كانت بتزقّه أو تتقص -->
+                                                                                            <StackPanel MinWidth="180" Margin="0,1"
+                                                                                                        ToolTip="{Binding RatingTooltip}">
+                                                                                                <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
 
-                                                                                                <!-- شارة التقييم: أخضر فوق الكوتة، أصفر تحتها -->
-                                                                                                <Border DockPanel.Dock="Left" CornerRadius="4"
-                                                                                                        Padding="5,1" Margin="8,0,0,0"
-                                                                                                        VerticalAlignment="Center">
-                                                                                                    <Border.Style>
-                                                                                                        <Style TargetType="Border">
-                                                                                                            <Setter Property="Background" Value="{StaticResource ChipBgBrush}" />
-                                                                                                            <Style.Triggers>
-                                                                                                                <DataTrigger Binding="{Binding IsTopRated}" Value="True">
-                                                                                                                    <Setter Property="Background" Value="{StaticResource SuccessBgBrush}" />
-                                                                                                                </DataTrigger>
-                                                                                                                <DataTrigger Binding="{Binding IsLowRated}" Value="True">
-                                                                                                                    <Setter Property="Background" Value="{StaticResource WarnBgBrush}" />
-                                                                                                                </DataTrigger>
-                                                                                                            </Style.Triggers>
-                                                                                                        </Style>
-                                                                                                    </Border.Style>
-                                                                                                    <TextBlock Text="{Binding StarsText}" FontSize="10.5" FontWeight="SemiBold">
-                                                                                                        <TextBlock.Style>
-                                                                                                            <Style TargetType="TextBlock">
-                                                                                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
-                                                                                                                <Style.Triggers>
-                                                                                                                    <DataTrigger Binding="{Binding IsTopRated}" Value="True">
-                                                                                                                        <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
-                                                                                                                    </DataTrigger>
-                                                                                                                    <DataTrigger Binding="{Binding IsLowRated}" Value="True">
-                                                                                                                        <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
-                                                                                                                    </DataTrigger>
-                                                                                                                </Style.Triggers>
-                                                                                                            </Style>
-                                                                                                        </TextBlock.Style>
-                                                                                                    </TextBlock>
-                                                                                                </Border>
-                                                                                            </DockPanel>
+                                                                                                <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                                                                                    <!-- النجوم دهبية دايمًا — ده لون النجوم المتعارف عليه -->
+                                                                                                    <TextBlock Text="{Binding StarsText}" FontSize="11"
+                                                                                                               FontWeight="Bold" Foreground="#F5A623" />
+
+                                                                                                    <!-- الأداء المقاس جنبها، رمادي عشان ميزاحمش النجوم -->
+                                                                                                    <TextBlock Text="{Binding MeasuredText}" FontSize="10"
+                                                                                                               Margin="6,0,0,0" VerticalAlignment="Center"
+                                                                                                               Foreground="{StaticResource TextMutedBrush}"
+                                                                                                               Visibility="{Binding HasMeasurement, Converter={StaticResource BoolToVis}}" />
+                                                                                                </StackPanel>
+                                                                                            </StackPanel>
                                                                                         </DataTemplate>
                                                                                     </ListBox.ItemTemplate>
                                                                                 </ListBox>

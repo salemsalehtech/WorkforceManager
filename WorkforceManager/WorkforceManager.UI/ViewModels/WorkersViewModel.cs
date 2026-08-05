@@ -1097,6 +1097,16 @@ namespace WorkforceManager.UI.ViewModels
         public bool Star4 => Stars >= 4;
         public bool Star5 => Stars >= 5;
 
+        // معامل الأمر جاهز كنص من هنا مش من StringFormat في الـ XAML:
+        // StringFormat على CommandParameter مبيحوّلش فعليًا — WPF بيبعت
+        // الرقم زي ما هو والأمر اللي بياخد string بيرفضه، فالضغطة كانت
+        // بترمي استثناء بدل ما تشتغل
+        public string Star1Param => $"{StageId}:1";
+        public string Star2Param => $"{StageId}:2";
+        public string Star3Param => $"{StageId}:3";
+        public string Star4Param => $"{StageId}:4";
+        public string Star5Param => $"{StageId}:5";
+
         private void RefreshStarFlags()
         {
             OnPropertyChanged(nameof(Star1));

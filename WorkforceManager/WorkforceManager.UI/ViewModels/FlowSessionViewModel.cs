@@ -711,6 +711,12 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>النجوم كنص ("★★★★☆")</summary>
         public string StarsText => new string('★', Stars) + new string('☆', 5 - Stars);
 
+        /// <summary>فيه قياس أداء فعلي ولا لسه؟</summary>
+        public bool HasMeasurement => MeasuredDays > 0;
+
+        /// <summary>الأداء المقاس كنسبة ("115%")</summary>
+        public string MeasuredText => HasMeasurement ? $"{MeasuredRatio * 100:0}%" : "";
+
         /// <summary>
         /// شرح التقييم: تقييم المدير + الأداء المقاس لو موجود.
         /// المستخدم لازم يعرف الرقم ده رأي مين قبل ما يبني عليه قرار.
