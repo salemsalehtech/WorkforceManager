@@ -301,7 +301,14 @@ namespace WorkforceManager.UI.ViewModels
             // استعلام واحد بكل المنتجات ومراحلها (بما فيها الموقوف)
             var ownedStageIds = worker.Skills.Select(s => s.ProductionStageId).ToHashSet();
             var products = await productRepo.GetAllWithStagesAsync();
-            var skillGroups = BuildSkillGroups(products, ownedStageIds);
+
+            // النجوم والقياس لكل مهارة — مفهرسة بالمرحلة عشان البناء
+            // ميعملش استعلام لكل صف
+            var ratingByStage = worker.Skills.ToDictionary(
+                s => s.ProductionStageId,
+                s => (s.Stars, s.MeasuredRatio, s.MeasuredDays));
+
+            var skillGroups = BuildSkillGroups(products, ownedStageIds, ratingByStage);
 
             Detail = new WorkerDetail
             {
@@ -412,7 +419,9 @@ namespace WorkforceManager.UI.ViewModels
         /// بالكامل هي اللي المستخدم بيهتم بيها الأول (فاضل مرحلتين وتخلص).
         /// </summary>
         private static List<SkillProductGroup> BuildSkillGroups(
-            IReadOnlyList<Core.Models.Product> products, HashSet<int> ownedStageIds)
+            IReadOnlyList<Core.Models.Product> products,
+            HashSet<int> ownedStageIds,
+            IReadOnlyDictionary<int, (int Stars, decimal Ratio, int Days)> ratingByStage)
         {
             var groups = new List<SkillProductGroup>();
 
@@ -434,6 +443,8 @@ namespace WorkforceManager.UI.ViewModels
                     // لكن لو بيعرفها بتفضل ظاهرة بعلامة تحذير عشان يشيلها.
                     if (!stage.IsActive && !ownedStageIds.Contains(stage.Id)) continue;
 
+                    ratingByStage.TryGetValue(stage.Id, out var rating);
+
                     group.Stages.Add(new SkillStageItem
                     {
                         StageId = stage.Id,
@@ -441,7 +452,12 @@ namespace WorkforceManager.UI.ViewModels
                         StageName = stage.StageName,
                         Position = i + 1,
                         IsStageInactive = !stage.IsActive,
-                        IsKnown = ownedStageIds.Contains(stage.Id)
+                        IsKnown = ownedStageIds.Contains(stage.Id),
+                        // المرحلة اللي العامل مش بيعرفها مالهاش تقييم —
+                        // القيمة المحايدة بتتعرض بس مش بتتحفظ
+                        Stars = rating.Stars == 0 ? SkillRatingService.DefaultStars : rating.Stars,
+                        MeasuredRatio = rating.Ratio,
+                        MeasuredDays = rating.Days
                     });
                 }
 
@@ -639,6 +655,47 @@ namespace WorkforceManager.UI.ViewModels
 
             await LoadDetailAsync(SelectedWorker);
             await RefreshRowsKeepingSelectionAsync();
+        }
+
+        /// <summary>
+        /// يحطّ تقييم المدير بالنجوم على مهارة.
+        ///
+        /// المعامل بييجي كنص "stageId:stars" من زرار النجمة — WPF
+        /// مبيبعتش معاملين، والبديل (خمس أوامر لكل نجمة) كان هيكرر نفس
+        /// الكود خمس مرات.
+        /// </summary>
+        [RelayCommand]
+        private async Task SetSkillStarsAsync(string? parameter)
+        {
+            if (Detail is null || string.IsNullOrWhiteSpace(parameter)) return;
+
+            var parts = parameter.Split(':');
+            if (parts.Length != 2 ||
+                !int.TryParse(parts[0], out var stageId) ||
+                !int.TryParse(parts[1], out var stars)) return;
+
+            var item = Detail.SkillProducts
+                .SelectMany(g => g.Stages)
+                .FirstOrDefault(s => s.StageId == stageId);
+
+            // التقييم للمهارات اللي العامل بيعرفها بس — مفيش معنى لتقييم
+            // مرحلة هو أصلاً مش مربوط بيها
+            if (item is null || !item.IsKnown) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<SkillRatingService>()
+                    .SetStarsAsync(Detail.WorkerId, stageId, stars);
+
+                // تحديث الصف في مكانه بدل إعادة تحميل البروفايل كله —
+                // إعادة التحميل بتقفل الكارت المفتوح والمستخدم بيضيع
+                item.Stars = stars;
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         /// <summary>
@@ -989,6 +1046,75 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>مطابق للبحث دلوقتي؟</summary>
         [ObservableProperty]
         private bool _isVisible = true;
+
+        // ------- التقييم -------
+
+        /// <summary>تقييم المدير من 1 لـ 5 — بيتغيّر بالضغط على النجمة</summary>
+        [ObservableProperty]
+        private int _stars = SkillRatingService.DefaultStars;
+
+        /// <summary>إنتاجه الفعلي ÷ الكوتة (0 = لسه مافيش قياس)</summary>
+        public decimal MeasuredRatio { get; set; }
+
+        /// <summary>عدد أيام الشغل اللي القياس اتبنى عليها</summary>
+        public int MeasuredDays { get; set; }
+
+        partial void OnStarsChanged(int value)
+        {
+            OnPropertyChanged(nameof(StarsLabel));
+            OnPropertyChanged(nameof(RatingTooltip));
+            OnPropertyChanged(nameof(HasGapWithReality));
+            RefreshStarFlags();
+        }
+
+        /// <summary>وصف التقييم بالعربي (ممتاز / كويس جدًا / عادي ...)</summary>
+        public string StarsLabel => SkillRatingService.StarsLabel(Stars);
+
+        /// <summary>فيه قياس فعلي؟</summary>
+        public bool HasMeasurement => MeasuredDays > 0;
+
+        /// <summary>الأداء المقاس كنسبة ("115%")</summary>
+        public string MeasuredText => HasMeasurement ? $"{MeasuredRatio * 100:0}%" : "";
+
+        /// <summary>
+        /// تقييم المدير بعيد عن الأداء الفعلي — بيتعلّم عشان يراجعه.
+        /// ده اللي بيخلي المدير يشوف الفجوة من غير ما يفتح شاشة المراجعة.
+        /// </summary>
+        public bool HasGapWithReality =>
+            HasMeasurement && SkillRatingService.StarsForRatio(MeasuredRatio) != Stars;
+
+        public string RatingTooltip => HasMeasurement
+            ? $"تقييمك: {StarsLabel} ({Stars}/5)\nإنتاجه الفعلي: {MeasuredText} من الكوتة على مدار {MeasuredDays} يوم"
+            : $"تقييمك: {StarsLabel} ({Stars}/5)\nلسه مافيش إنتاج كفاية للقياس";
+
+        // ------- حالة كل نجمة (للعرض والضغط) -------
+        // خمس خصائص منفصلة عشان الـ XAML يربط عليها مباشرة من غير
+        // محوّلات ولا قوايم متداخلة
+
+        public bool Star1 => Stars >= 1;
+        public bool Star2 => Stars >= 2;
+        public bool Star3 => Stars >= 3;
+        public bool Star4 => Stars >= 4;
+        public bool Star5 => Stars >= 5;
+
+        // معامل الأمر جاهز كنص من هنا مش من StringFormat في الـ XAML:
+        // StringFormat على CommandParameter مبيحوّلش فعليًا — WPF بيبعت
+        // الرقم زي ما هو والأمر اللي بياخد string بيرفضه، فالضغطة كانت
+        // بترمي استثناء بدل ما تشتغل
+        public string Star1Param => $"{StageId}:1";
+        public string Star2Param => $"{StageId}:2";
+        public string Star3Param => $"{StageId}:3";
+        public string Star4Param => $"{StageId}:4";
+        public string Star5Param => $"{StageId}:5";
+
+        private void RefreshStarFlags()
+        {
+            OnPropertyChanged(nameof(Star1));
+            OnPropertyChanged(nameof(Star2));
+            OnPropertyChanged(nameof(Star3));
+            OnPropertyChanged(nameof(Star4));
+            OnPropertyChanged(nameof(Star5));
+        }
     }
 
     /// <summary>

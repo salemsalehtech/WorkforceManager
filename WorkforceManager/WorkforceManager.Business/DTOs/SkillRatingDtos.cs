@@ -1,45 +1,101 @@
-using WorkforceManager.Core.Enums;
-
 namespace WorkforceManager.Business.DTOs
 {
     /// <summary>
-    /// عامل مرتّب بتقييمه على مرحلة — اللي بيتعرض في قوايم اختيار العمال.
+    /// مهارة عامل بنجومها وأداؤها المقاس — اللي بيتعرض في بروفايل العامل
+    /// وقوايم اختيار العمال.
     ///
-    /// بيحمل مصدر التقييم وحجم العينة مع الرقم عن قصد: المستخدم لازم
-    /// يعرف الرقم ده جه منين قبل ما يبني عليه قرار، خصوصًا لما النظام
-    /// يكون غيّر تقدير بشري.
+    /// بيحمل الرقمين مع بعض عن قصد: النجوم (رأي المدير) والأداء المقاس
+    /// (رقم النظام). المدير لازم يشوف الاتنين عشان يعرف رأيه لسه مظبوط
+    /// ولا الواقع اتغيّر.
     /// </summary>
     public class RankedWorkerDto
     {
         public int WorkerId { get; init; }
         public string WorkerName { get; init; } = string.Empty;
+        public int StageId { get; init; }
+        public string StageName { get; init; } = string.Empty;
 
-        /// <summary>نسبة الأداء (1.0 = بيعمل الكوتة بالظبط)</summary>
-        public decimal RatingValue { get; init; }
+        /// <summary>تقييم المدير من 1 لـ 5</summary>
+        public int Stars { get; init; }
 
-        public SkillLevel Level { get; init; }
+        /// <summary>الأداء الفعلي المقاس (1.0 = بيعمل الكوتة بالظبط)</summary>
+        public decimal MeasuredRatio { get; init; }
 
-        /// <summary>يدوي ولا محسوب من الإنتاج</summary>
-        public SkillRatingSource Source { get; init; }
+        /// <summary>عدد أيام الشغل اللي القياس اتبنى عليها</summary>
+        public int MeasuredDays { get; init; }
 
-        /// <summary>عدد أيام الشغل اللي الحساب التلقائي اتبنى عليها (0 لو يدوي)</summary>
-        public int SampleDays { get; init; }
+        public DateTime? MeasuredAt { get; init; }
+        public DateTime? StarsUpdatedAt { get; init; }
 
-        /// <summary>آخر تقدير بشري — بيفضل معروض حتى بعد الحساب التلقائي</summary>
-        public decimal? LastManualValue { get; init; }
+        /// <summary>النجوم كنص للعرض ("★★★★☆")</summary>
+        public string StarsText => new string('★', Stars) + new string('☆', 5 - Stars);
 
-        /// <summary>النسبة كنص مئوي للعرض ("115%")</summary>
-        public string RatingText => $"{RatingValue * 100:0}%";
+        /// <summary>فيه قياس فعلي ولا لسه؟</summary>
+        public bool HasMeasurement => MeasuredAt is not null && MeasuredDays > 0;
+
+        /// <summary>الأداء كنسبة مئوية ("115%")</summary>
+        public string MeasuredText => HasMeasurement ? $"{MeasuredRatio * 100:0}%" : "—";
 
         /// <summary>
-        /// شرح مصدر الرقم للمستخدم — ده اللي بيمنع إحساس "الرقم اتغيّر لوحده".
+        /// شرح الرقم للمدير — من غيره الأرقام بتبقى بلا سياق.
         /// </summary>
-        public string SourceText => Source == SkillRatingSource.Auto
-            ? $"محسوب من إنتاج {SampleDays} يوم"
-            : "تقدير يدوي";
+        public string MeasuredTooltip => HasMeasurement
+            ? $"إنتاجه الفعلي {MeasuredText} من الكوتة — محسوب من {MeasuredDays} يوم شغل"
+            : "لسه مافيش إنتاج كفاية للقياس";
+    }
 
-        /// <summary>النظام غيّر تقدير بشري؟ (الواجهة بتعرض الاتنين ساعتها)</summary>
-        public bool OverridesManualValue =>
-            Source == SkillRatingSource.Auto && LastManualValue is not null;
+    /// <summary>
+    /// اقتراح تعديل تقييم: النجوم الحالية مقابل اللي أداؤه يستاهلها.
+    ///
+    /// اقتراح مش قرار — المدير هو اللي يوافق أو يتجاهل.
+    /// </summary>
+    public class SkillSuggestionDto
+    {
+        public int WorkerId { get; init; }
+        public string WorkerName { get; init; } = string.Empty;
+        public int StageId { get; init; }
+        public string StageName { get; init; } = string.Empty;
+        public string ProductName { get; init; } = string.Empty;
+
+        public int CurrentStars { get; init; }
+        public int SuggestedStars { get; init; }
+
+        public decimal MeasuredRatio { get; init; }
+        public int MeasuredDays { get; init; }
+
+        /// <summary>آخر مرة المدير عدّل التقييم (null = عمره ما اتعدّل)</summary>
+        public DateTime? StarsUpdatedAt { get; init; }
+
+        /// <summary>الاقتراح بيرفع ولا بينزّل</summary>
+        public bool IsUpgrade => SuggestedStars > CurrentStars;
+
+        public string CurrentStarsText => new string('★', CurrentStars) + new string('☆', 5 - CurrentStars);
+        public string SuggestedStarsText => new string('★', SuggestedStars) + new string('☆', 5 - SuggestedStars);
+
+        /// <summary>سبب الاقتراح بالعربي — المدير لازم يفهم الرقم جه منين</summary>
+        public string Reason => IsUpgrade
+            ? $"إنتاجه {MeasuredRatio * 100:0}% من الكوتة على مدار {MeasuredDays} يوم — أحسن من تقييمه الحالي"
+            : $"إنتاجه {MeasuredRatio * 100:0}% من الكوتة على مدار {MeasuredDays} يوم — أقل من تقييمه الحالي";
+
+        /// <summary>"من ★★★ لـ ★★★★" — الملخص اللي بيتعرض في السطر</summary>
+        public string ChangeText => $"{CurrentStarsText}  ←  {SuggestedStarsText}";
+    }
+
+    /// <summary>نتيجة المراجعة الشهرية كاملة</summary>
+    public class SkillReviewDto
+    {
+        public DateTime GeneratedAt { get; init; }
+
+        public List<SkillSuggestionDto> Suggestions { get; init; } = new();
+
+        public int UpgradeCount => Suggestions.Count(s => s.IsUpgrade);
+        public int DowngradeCount => Suggestions.Count(s => !s.IsUpgrade);
+
+        public bool HasSuggestions => Suggestions.Count > 0;
+
+        /// <summary>ملخص للعرض في التنبيه</summary>
+        public string SummaryText => Suggestions.Count == 0
+            ? "كل التقييمات متطابقة مع الأداء الفعلي — مفيش حاجة محتاجة تعديل"
+            : $"{UpgradeCount} عامل أداؤه بقى أحسن من تقييمه، و{DowngradeCount} أقل";
     }
 }

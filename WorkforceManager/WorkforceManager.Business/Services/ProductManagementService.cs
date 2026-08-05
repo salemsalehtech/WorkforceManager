@@ -1,3 +1,4 @@
+using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 
@@ -14,13 +15,16 @@ namespace WorkforceManager.Business.Services
     {
         private readonly IProductRepository _productRepo;
         private readonly IGenericRepository<ProductionStage> _stageRepo;
+        private readonly SoftDeleteService _softDelete;
 
         public ProductManagementService(
             IProductRepository productRepo,
-            IGenericRepository<ProductionStage> stageRepo)
+            IGenericRepository<ProductionStage> stageRepo,
+            SoftDeleteService softDelete)
         {
             _productRepo = productRepo;
             _stageRepo = stageRepo;
+            _softDelete = softDelete;
         }
 
         // ======================= المنتجات =======================
@@ -92,6 +96,47 @@ namespace WorkforceManager.Business.Services
             product.IsActive = false;
             _productRepo.Update(product);
             await _productRepo.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// يشيل منتج من النظام نهائيًا — **حذف ناعم** بكلمة سر وسبب.
+        ///
+        /// الفرق عن الإيقاف: الإيقاف بيقول "وقفنا إنتاجه دلوقتي" وله
+        /// رجوع، والحذف بيقول "المنتج ده مبقاش من المصنع".
+        ///
+        /// سجلات الإنتاج القديمة عليه بتفضل كلها — تقرير الشهر اللي فات
+        /// لازم يفضل يقرا صح حتى بعد ما المنتج يتشال.
+        /// </summary>
+        public async Task<SoftDeleteResult> DeleteProductAsync(
+            int productId, string operationsPassword, string reason)
+        {
+            var product = await _productRepo.GetByIdAsync(productId)
+                ?? throw new InvalidOperationException("المنتج المحدد غير موجود");
+
+            var result = await _softDelete.DeleteAsync(
+                product,
+                new DeletionDescriptor
+                {
+                    Action = SensitiveAction.DeleteProduct,
+                    EventType = ActivityEventType.ProductDeleted,
+                    EntityType = nameof(Product),
+                    EntityId = product.Id,
+                    EntityName = product.Name
+                },
+                operationsPassword,
+                reason);
+
+            // نفس قاعدة العامل: الإخفاء من القوايم بالعلامة اللي كل
+            // الشاشات بتحترمها أصلاً، لأن الفلتر العام مش على المنتج
+            // (عشان التقارير التاريخية تفضل شغالة)
+            if (result.IsDeleted && product.IsActive)
+            {
+                product.IsActive = false;
+                _productRepo.Update(product);
+                await _productRepo.SaveChangesAsync();
+            }
+
+            return result;
         }
 
         /// <summary>إعادة تفعيل منتج موقوف (رجع للإنتاج تاني)</summary>
@@ -215,6 +260,42 @@ namespace WorkforceManager.Business.Services
             stage.IsActive = false;
             _stageRepo.Update(stage);
             await _stageRepo.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// يشيل مرحلة من الخط نهائيًا — **حذف ناعم** بكلمة سر وسبب.
+        ///
+        /// سجلات الإنتاج على المرحلة دي بتفضل، وأجور العمال اللي اشتغلوا
+        /// عليها متأثرش — اليومية محفوظة كـ Snapshot على كل سجل أصلاً.
+        /// </summary>
+        public async Task<SoftDeleteResult> DeleteStageAsync(
+            int stageId, string operationsPassword, string reason)
+        {
+            var stage = await _stageRepo.GetByIdAsync(stageId)
+                ?? throw new InvalidOperationException("المرحلة المحددة غير موجودة");
+
+            var result = await _softDelete.DeleteAsync(
+                stage,
+                new DeletionDescriptor
+                {
+                    Action = SensitiveAction.DeleteStage,
+                    EventType = ActivityEventType.StageDeleted,
+                    EntityType = nameof(ProductionStage),
+                    EntityId = stage.Id,
+                    EntityName = stage.StageName,
+                    Details = $"اليومية وقت الحذف: {stage.PiecesPerWorkday} قطعة"
+                },
+                operationsPassword,
+                reason);
+
+            if (result.IsDeleted && stage.IsActive)
+            {
+                stage.IsActive = false;
+                _stageRepo.Update(stage);
+                await _stageRepo.SaveChangesAsync();
+            }
+
+            return result;
         }
 
         /// <summary>إعادة تفعيل مرحلة موقوفة</summary>

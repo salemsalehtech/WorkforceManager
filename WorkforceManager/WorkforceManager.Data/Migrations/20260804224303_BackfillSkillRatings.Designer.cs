@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WorkforceManager.Data;
 
@@ -10,9 +11,11 @@ using WorkforceManager.Data;
 namespace WorkforceManager.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260804224303_BackfillSkillRatings")]
+    partial class BackfillSkillRatings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.29");
@@ -534,29 +537,25 @@ namespace WorkforceManager.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("AutoSampleDays")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LastAutoCalculatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("LastManualValue")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Level")
                         .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("MeasuredAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("MeasuredDays")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<decimal>("MeasuredRatio")
-                        .HasColumnType("TEXT");
 
                     b.Property<int>("ProductionStageId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("Stars")
+                    b.Property<int>("RatingSource")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime?>("StarsUpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("StarsUpdatedBy")
-                        .HasMaxLength(100)
+                    b.Property<decimal>("RatingValue")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("WorkerId")

@@ -389,6 +389,18 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
+
+                                <!-- الحذف غير الإيقاف: بيمر على كلمة سر العمليات وبيتسجّل -->
+                                <Button Command="{Binding DeleteProductCommand}" Margin="0,0,6,0"
+                                        Style="{StaticResource GhostButton}"
+                                        Foreground="{StaticResource DangerBrush}"
+                                        ToolTip="شيل المنتج من النظام نهائيًا — سجلات إنتاجه القديمة بتفضل محفوظة">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="DeleteOutline" Width="14" Height="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="حذف" Margin="5,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+
                                 <Button Command="{Binding AddStageCommand}" Style="{StaticResource SuccessButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Plus" Width="15" Height="15" VerticalAlignment="Center" />
@@ -570,6 +582,15 @@
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </Button.Style>
+                                                        </Button>
+
+                                                        <!-- حذف المرحلة: بكلمة سر وسبب مسجّلين -->
+                                                        <Button Command="{Binding DataContext.DeleteStageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                Style="{StaticResource IconButton}"
+                                                                Foreground="{StaticResource DangerBrush}"
+                                                                ToolTip="حذف المرحلة نهائيًا">
+                                                            <materialDesign:PackIcon Kind="DeleteOutline" Width="14" Height="14" />
                                                         </Button>
                                                     </StackPanel>
                                                 </Grid>

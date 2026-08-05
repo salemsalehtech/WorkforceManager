@@ -6,149 +6,116 @@ using WorkforceManager.Core.Models;
 namespace WorkforceManager.Business.Services
 {
     /// <summary>
-    /// تقييم مهارة العامل على المرحلة — القاعدة الوحيدة للحساب والترتيب.
+    /// تقييم مهارة العامل بالنجوم — المكان الوحيد اللي بيحسب ويرتّب.
     ///
-    /// القاعدة المتفق عليها:
-    ///   التقييم = متوسط (إنتاج العامل في اليوم ÷ الكوتة المعيارية للمرحلة)
-    ///             على مدار آخر <see cref="LookbackDays"/> يوم فيهم شغل.
+    /// الفكرة الأساسية: **رقمين منفصلين، مش رقم واحد**.
     ///
-    /// ليه نسبة مش عدد قطع: كوتات المراحل مختلفة تمامًا (5000 قطعة في
-    /// مرحلة و80 في مرحلة تانية)، فمقارنة الأعداد الخام بين مرحلتين
-    /// مالهاش أي معنى. النسبة بتخلي كل المراحل على نفس المسطرة.
+    ///   ⭐ النجوم (1–5)  = رأي المدير. هو اللي بيحطها والنظام مبيلمسهاش.
+    ///   📊 الأداء المقاس = إنتاجه الفعلي ÷ الكوتة. النظام بيحسبه.
     ///
-    /// التقييم اليدوي بيفضل هو المعروض لحد ما يبقى فيه إنتاج كفاية
-    /// (<see cref="MinSampleDays"/> أيام): تقييم مبني على يوم واحد
-    /// بيتقلب مع أي يوم شاذ، والمستخدم بيفقد الثقة في الرقم.
+    /// ليه الفصل ده: المدير شايف حاجات الأرقام مبتقولهاش — ماكينة بايظة،
+    /// شغل صعب الشهر ده، عامل جديد لسه بيتعلّم. لو النظام غيّر التقييم
+    /// لوحده، المدير هيلاقي أرقام بتتقلب من ورا ظهره وهيبطّل يثق فيها.
+    ///
+    /// فبدل كده: النظام بيقيس، وبيقارن، وكل شهر بيقول "العمال دول أداؤهم
+    /// بقى مختلف عن تقييمهم — تحب تعدّل؟" والقرار يفضل للمدير.
     /// </summary>
     public class SkillRatingService
     {
-        /// <summary>الفترة اللي الحساب التلقائي بيبص عليها</summary>
+        // ------- ثوابت القياس -------
+
+        /// <summary>الفترة اللي القياس بيبص عليها</summary>
         public const int LookbackDays = 30;
 
-        /// <summary>أقل عدد أيام شغل قبل ما النظام يستبدل التقييم اليدوي</summary>
+        /// <summary>أقل عدد أيام شغل قبل ما القياس يبقى له معنى</summary>
         public const int MinSampleDays = 3;
 
-        /// <summary>حد "خبير": بيعمل الكوتة وزيادة 15%</summary>
-        public const decimal ExpertThreshold = 1.15m;
+        /// <summary>كل قد إيه المدير يراجع التقييمات (بالأيام)</summary>
+        public const int ReviewIntervalDays = 30;
 
-        /// <summary>حد "متمكن": بيعمل 85% من الكوتة على الأقل</summary>
-        public const decimal ProficientThreshold = 0.85m;
+        /// <summary>النجوم الافتراضية = بيعمل الكوتة بالظبط</summary>
+        public const int DefaultStars = 3;
+
+        /// <summary>
+        /// حدود تحويل الأداء المقاس لنجوم مقترحة.
+        ///
+        /// الحدود متباعدة عن قصد: فرق 5% في الإنتاج مش سبب كافي إن
+        /// تقييم عامل يتغيّر. النجمة الواحدة لازم تعني فرق حقيقي.
+        /// </summary>
+        private static readonly (decimal MinRatio, int Stars)[] StarBands =
+        {
+            (1.35m, 5),   // بيعمل الكوتة وزيادة 35%+ — ممتاز
+            (1.15m, 4),   // فوق الكوتة بوضوح
+            (0.85m, 3),   // بيعمل الكوتة تقريبًا
+            (0.70m, 2),   // تحت الكوتة
+            (0m,    1)    // بعيد عن الكوتة
+        };
 
         private readonly IWorkerSkillRepository _skills;
         private readonly IDailyProductionRepository _production;
+        private readonly CurrentUserContext _currentUser;
 
         public SkillRatingService(
             IWorkerSkillRepository skills,
-            IDailyProductionRepository production)
+            IDailyProductionRepository production,
+            CurrentUserContext currentUser)
         {
             _skills = skills;
             _production = production;
+            _currentUser = currentUser;
         }
 
-        // ======================= القاعدة النقية =======================
+        // ======================= قواعد نقية =======================
 
-        /// <summary>
-        /// يحوّل نسبة الأداء لمستوى معروض. دالة نقية عشان الواجهة
-        /// والتقارير يستخدموها من غير قاعدة بيانات.
-        /// </summary>
-        public static SkillLevel LevelFor(decimal ratingValue) => ratingValue switch
+        /// <summary>النجوم اللي الأداء المقاس ده بيستاهلها</summary>
+        public static int StarsForRatio(decimal ratio) =>
+            StarBands.First(band => ratio >= band.MinRatio).Stars;
+
+        /// <summary>وصف النجوم بالعربي — نص واحد في البرنامج كله</summary>
+        public static string StarsLabel(int stars) => stars switch
         {
-            >= ExpertThreshold => SkillLevel.Expert,
-            >= ProficientThreshold => SkillLevel.Proficient,
+            5 => "ممتاز",
+            4 => "كويس جدًا",
+            3 => "عادي",
+            2 => "ضعيف",
+            _ => "ضعيف جدًا"
+        };
+
+        /// <summary>المستوى القديم المقابل للنجوم — عشان العمودين ميتناقضوش</summary>
+        public static SkillLevel LevelForStars(int stars) => stars switch
+        {
+            >= 4 => SkillLevel.Expert,
+            3 => SkillLevel.Proficient,
             _ => SkillLevel.Beginner
         };
 
         /// <summary>
-        /// متوسط تقييم العامل على منتج = متوسط المراحل **اللي هو مربوط
+        /// متوسط نجوم العامل على منتج = متوسط المراحل **اللي هو مربوط
         /// بيها فعلاً** في المنتج ده.
         ///
-        /// المراحل اللي مالوش فيها مهارة مش بتتحسب صفر عن قصد: العامل
+        /// المراحل اللي مالوش فيها مهارة مبتتحسبش صفر عن قصد: العامل
         /// المتخصص في 3 مراحل من 11 مش ضعيف، هو متخصص — وحسابه صفر في
         /// الباقي كان هيخلي كل المتخصصين يبانوا سيئين.
         ///
         /// بيرجّع null لو مالوش أي مهارة في المنتج ده.
         /// </summary>
-        public static decimal? ProductRating(IEnumerable<WorkerSkill> skillsOnProduct)
+        public static decimal? ProductStars(IEnumerable<WorkerSkill> skillsOnProduct)
         {
-            var values = skillsOnProduct.Select(s => s.RatingValue).ToList();
-            return values.Count == 0 ? null : Math.Round(values.Average(), 2);
-        }
-
-        // ======================= التقييم اليدوي =======================
-
-        /// <summary>
-        /// يحطّ تقييم يدوي لعامل على مرحلة (بيتنادى وقت ربط المهارة).
-        /// بيسجّل القيمة كـ LastManualValue كمان عشان تفضل معروفة حتى
-        /// بعد ما النظام يحسب فوقها.
-        /// </summary>
-        public async Task SetManualRatingAsync(int workerId, int stageId, decimal ratingValue)
-        {
-            if (ratingValue <= 0)
-                throw new InvalidOperationException("التقييم لازم يكون رقم موجب");
-
-            var skill = await _skills.GetAsync(workerId, stageId)
-                ?? throw new InvalidOperationException("العامل ده مش مربوط بالمرحلة دي");
-
-            skill.RatingValue = ratingValue;
-            skill.LastManualValue = ratingValue;
-            skill.RatingSource = SkillRatingSource.Manual;
-            skill.Level = LevelFor(ratingValue);
-
-            _skills.Update(skill);
-            await _skills.SaveChangesAsync();
-        }
-
-        // ======================= التقييم التلقائي =======================
-
-        /// <summary>
-        /// يعيد حساب تقييمات عامل من إنتاجه الفعلي.
-        ///
-        /// بيعدّي على المراحل اللي ليها إنتاج كفاية بس — الباقي بيفضل
-        /// على تقييمه اليدوي، والواجهة بتوضّح الفرق.
-        /// </summary>
-        /// <returns>عدد المراحل اللي اتحدّثت</returns>
-        public async Task<int> RecalculateForWorkerAsync(int workerId, DateTime asOf)
-        {
-            var from = asOf.Date.AddDays(-LookbackDays);
-            var records = (await _production.GetByWorkerAndRangeAsync(workerId, from, asOf.Date)).ToList();
-            if (records.Count == 0) return 0;
-
-            var skills = await _skills.GetByWorkerAsync(workerId);
-            var updated = 0;
-
-            foreach (var skill in skills)
-            {
-                var sample = ComputeFromRecords(
-                    records.Where(r => r.ProductionStageId == skill.ProductionStageId));
-
-                if (sample is null) continue;
-
-                skill.RatingValue = sample.Value.Rating;
-                skill.RatingSource = SkillRatingSource.Auto;
-                skill.AutoSampleDays = sample.Value.Days;
-                skill.LastAutoCalculatedAt = DateTime.Now;
-                skill.Level = LevelFor(sample.Value.Rating);
-
-                _skills.Update(skill);
-                updated++;
-            }
-
-            if (updated > 0) await _skills.SaveChangesAsync();
-            return updated;
+            var values = skillsOnProduct.Select(s => (decimal)s.Stars).ToList();
+            return values.Count == 0 ? null : Math.Round(values.Average(), 1);
         }
 
         /// <summary>
-        /// نسبة الأداء من سجلات مرحلة واحدة، ومعاها عدد الأيام اللي
-        /// اتبنت عليها. دالة نقية — دي اللي بتخلي الحساب قابل للشرح
-        /// والاختبار من غير قاعدة بيانات.
+        /// الأداء المقاس من سجلات مرحلة واحدة، ومعاه عدد الأيام.
+        /// دالة نقية — دي اللي بتخلي الحساب قابل للشرح والاختبار.
         ///
         /// بترجّع null لو الأيام أقل من الحد الأدنى.
         /// </summary>
-        public static (decimal Rating, int Days)? ComputeFromRecords(IEnumerable<DailyProduction> stageRecords)
+        public static (decimal Ratio, int Days)? MeasureFromRecords(IEnumerable<DailyProduction> stageRecords)
         {
             // اليوم الواحد ممكن يكون فيه أكتر من سجل على نفس المرحلة،
-            // والتقييم بيتحسب على اليوم مش على السجل: عامل اتسجل له
-            // سجلين نص كوتة كل واحد عمل كوتة كاملة، مش نص كوتة مرتين
+            // والقياس بيتم على اليوم مش على السجل: عامل اتسجل له سجلين
+            // نص كوتة كل واحد عمل كوتة كاملة، مش نص كوتة مرتين
             var perDay = stageRecords
                 .Where(r => r.PiecesPerWorkdayAtEntry > 0)
                 .GroupBy(r => r.Date.Date)
@@ -160,10 +127,131 @@ namespace WorkforceManager.Business.Services
             return (Math.Round(perDay.Average(), 2), perDay.Count);
         }
 
+        // ======================= رأي المدير =======================
+
+        /// <summary>
+        /// يحطّ نجوم المدير على مهارة. ده الطريق **الوحيد** اللي بيغيّر
+        /// النجوم — النظام مالوش أي دالة بتكتب فيها.
+        /// </summary>
+        public async Task SetStarsAsync(int workerId, int stageId, int stars)
+        {
+            if (stars is < 1 or > 5)
+                throw new InvalidOperationException("التقييم لازم يكون من نجمة لـ 5 نجوم");
+
+            var skill = await _skills.GetAsync(workerId, stageId)
+                ?? throw new InvalidOperationException("العامل ده مش مربوط بالمرحلة دي");
+
+            skill.Stars = stars;
+            skill.Level = LevelForStars(stars);
+            skill.StarsUpdatedAt = DateTime.Now;
+            skill.StarsUpdatedBy = _currentUser.ActorName;
+
+            _skills.Update(skill);
+            await _skills.SaveChangesAsync();
+        }
+
+        // ======================= قياس النظام =======================
+
+        /// <summary>
+        /// يقيس أداء كل العمال على كل مهاراتهم من الإنتاج الفعلي.
+        ///
+        /// **مبيغيّرش أي نجوم** — بيحدّث رقم القياس بس، وده اللي
+        /// المراجعة الشهرية بتقارن بيه.
+        /// </summary>
+        /// <returns>عدد المهارات اللي اتقاس أداؤها</returns>
+        public async Task<int> MeasureAllAsync(DateTime asOf)
+        {
+            var from = asOf.Date.AddDays(-LookbackDays);
+            var records = await _production.GetByRangeAsync(from, asOf.Date);
+
+            var byWorkerStage = records
+                .GroupBy(r => (r.WorkerId, r.ProductionStageId))
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var measured = 0;
+            foreach (var ((workerId, stageId), stageRecords) in byWorkerStage)
+            {
+                var skill = await _skills.GetAsync(workerId, stageId);
+                if (skill is null) continue;
+
+                var sample = MeasureFromRecords(stageRecords);
+                if (sample is null) continue;
+
+                skill.MeasuredRatio = sample.Value.Ratio;
+                skill.MeasuredDays = sample.Value.Days;
+                skill.MeasuredAt = DateTime.Now;
+
+                _skills.Update(skill);
+                measured++;
+            }
+
+            if (measured > 0) await _skills.SaveChangesAsync();
+            return measured;
+        }
+
+        // ======================= المراجعة الشهرية =======================
+
+        /// <summary>
+        /// بيجهّز مراجعة التقييمات: مين أداؤه بقى أحسن من تقييمه ومين وقع.
+        ///
+        /// بيقيس الأول (عشان الأرقام تبقى طازة) وبعدين بيقارن كل مهارة:
+        /// النجوم اللي عليها دلوقتي مقابل النجوم اللي أداؤها يستاهلها.
+        /// المهارات اللي الاتنين فيها متساويين مش بتظهر — المدير مش
+        /// محتاج يبص على اللي مظبوط أصلاً.
+        /// </summary>
+        public async Task<SkillReviewDto> BuildReviewAsync(DateTime asOf)
+        {
+            await MeasureAllAsync(asOf);
+
+            var all = await _skills.GetAllMeasuredAsync();
+            var suggestions = new List<SkillSuggestionDto>();
+
+            foreach (var skill in all)
+            {
+                // مفيش قياس كفاية = مفيش رأي. اقتراح مبني على يومين
+                // أسوأ من مفيش اقتراح
+                if (skill.MeasuredAt is null || skill.MeasuredDays < MinSampleDays) continue;
+
+                var suggested = StarsForRatio(skill.MeasuredRatio);
+                if (suggested == skill.Stars) continue;
+
+                suggestions.Add(new SkillSuggestionDto
+                {
+                    WorkerId = skill.WorkerId,
+                    WorkerName = skill.Worker.FullName,
+                    StageId = skill.ProductionStageId,
+                    StageName = skill.ProductionStage.StageName,
+                    ProductName = skill.ProductionStage.Product?.Name ?? "",
+                    CurrentStars = skill.Stars,
+                    SuggestedStars = suggested,
+                    MeasuredRatio = skill.MeasuredRatio,
+                    MeasuredDays = skill.MeasuredDays,
+                    StarsUpdatedAt = skill.StarsUpdatedAt
+                });
+            }
+
+            return new SkillReviewDto
+            {
+                GeneratedAt = asOf,
+                Suggestions = suggestions
+                    // الأكبر فرقًا الأول — دول اللي محتاجين نظرة فعلاً
+                    .OrderByDescending(s => Math.Abs(s.SuggestedStars - s.CurrentStars))
+                    .ThenByDescending(s => s.MeasuredDays)
+                    .ToList()
+            };
+        }
+
+        /// <summary>
+        /// يطبّق اقتراح: بيحطّ النجوم المقترحة كأن المدير حطّها بإيده.
+        /// بيتنادى لما يدوس "وافق" في شاشة المراجعة.
+        /// </summary>
+        public Task ApplySuggestionAsync(SkillSuggestionDto suggestion) =>
+            SetStarsAsync(suggestion.WorkerId, suggestion.StageId, suggestion.SuggestedStars);
+
         // ======================= الاستهلاك في الشاشات =======================
 
         /// <summary>
-        /// العمال المؤهلين لمرحلة، مرتبين من الأحسن للأضعف.
+        /// العمال المؤهلين لمرحلة، مرتبين بالنجوم من الأحسن للأضعف.
         ///
         /// ده اللي بتستخدمه شاشة التسجيل اليومي لما المستخدم يدوّر على
         /// عامل يضيفه، وشاشة المنتجات لما يختار مرحلة.
@@ -173,19 +261,31 @@ namespace WorkforceManager.Business.Services
             var skills = await _skills.GetByStageAsync(stageId);
 
             return skills
-                .OrderByDescending(s => s.RatingValue)
+                .OrderByDescending(s => s.Stars)
+                .ThenByDescending(s => s.MeasuredRatio)
                 .ThenBy(s => s.Worker.FullName)
-                .Select(s => new RankedWorkerDto
-                {
-                    WorkerId = s.WorkerId,
-                    WorkerName = s.Worker.FullName,
-                    RatingValue = s.RatingValue,
-                    Level = s.Level,
-                    Source = s.RatingSource,
-                    SampleDays = s.AutoSampleDays,
-                    LastManualValue = s.LastManualValue
-                })
+                .Select(ToRanked)
                 .ToList();
         }
+
+        /// <summary>مهارات عامل واحد بنجومها (لبروفايله)</summary>
+        public async Task<IReadOnlyList<RankedWorkerDto>> GetForWorkerAsync(int workerId)
+        {
+            var skills = await _skills.GetByWorkerAsync(workerId);
+            return skills.Select(ToRanked).ToList();
+        }
+
+        private static RankedWorkerDto ToRanked(WorkerSkill s) => new()
+        {
+            WorkerId = s.WorkerId,
+            WorkerName = s.Worker?.FullName ?? "",
+            StageId = s.ProductionStageId,
+            StageName = s.ProductionStage?.StageName ?? "",
+            Stars = s.Stars,
+            MeasuredRatio = s.MeasuredRatio,
+            MeasuredDays = s.MeasuredDays,
+            MeasuredAt = s.MeasuredAt,
+            StarsUpdatedAt = s.StarsUpdatedAt
+        };
     }
 }

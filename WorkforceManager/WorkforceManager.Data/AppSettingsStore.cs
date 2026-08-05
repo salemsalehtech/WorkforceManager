@@ -11,6 +11,15 @@ namespace WorkforceManager.Data
         /// الهارد متحميش من تلف الهارد نفسه — النسخة الخارجية بتحمي.
         /// </summary>
         public string? ExternalBackupFolder { get; set; }
+
+        /// <summary>
+        /// آخر مرة المدير راجع تقييمات مهارات العمال.
+        ///
+        /// البرنامج بيفكّره كل شهر — من غير التاريخ ده التذكير هيظهر كل
+        /// يوم ويتحوّل لضوضاء المستخدم بيتعلّم يتجاهلها.
+        /// null = عمره ما راجع (بيتعرض التذكير أول ما يبقى فيه اقتراحات).
+        /// </summary>
+        public DateTime? LastSkillReviewAt { get; set; }
     }
 
     /// <summary>

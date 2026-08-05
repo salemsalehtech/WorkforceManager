@@ -7,6 +7,7 @@ using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
+using WorkforceManager.Core.Enums;
 using System.Linq;
 
 namespace WorkforceManager.UI.ViewModels
@@ -169,8 +170,19 @@ namespace WorkforceManager.UI.ViewModels
                         StageName = stage.StageName,
                         Quota = stage.PiecesPerWorkday,
                         WaitingPieces = waiting,
+                        // مرتبين بالتقييم — الأحسن على المرحلة دي الأول.
+                        // الترتيب من SkillRatingService عشان يفضل واحد في
+                        // كل الشاشات، مش ترتيب أبجدي في شاشة وتقييم في تانية
                         QualifiedWorkers = skillsByStage[stage.StageId]
-                            .Select(ws => new WorkerPick(ws.WorkerId, ws.Worker.FullName))
+                            .OrderByDescending(ws => ws.Stars)
+                            .ThenByDescending(ws => ws.MeasuredRatio)
+                            .ThenBy(ws => ws.Worker.FullName)
+                            .Select(ws => new WorkerPick(
+                                ws.WorkerId,
+                                ws.Worker.FullName,
+                                ws.Stars,
+                                ws.MeasuredRatio,
+                                ws.MeasuredDays))
                             .ToList(),
                         AlreadyText = already > 0 ? $"مسجل اليوم: {already}" : ""
                     };
@@ -683,8 +695,43 @@ namespace WorkforceManager.UI.ViewModels
 
     // ======================= نماذج عرض الرحلة =======================
 
-    /// <summary>عامل مؤهل في قائمة اختيار عمال المرحلة</summary>
-    public record WorkerPick(int WorkerId, string Name);
+    /// <summary>
+    /// عامل مؤهل في قائمة اختيار عمال المرحلة، ومعاه تقييمه عليها.
+    ///
+    /// التقييم بيتعرض جنب الاسم عشان اللي بيوزّع الشغل يعرف مين الأحسن
+    /// من غير ما يفتح شاشة تانية — والقايمة مرتبة بيه أصلاً.
+    /// </summary>
+    public record WorkerPick(
+        int WorkerId,
+        string Name,
+        int Stars = SkillRatingService.DefaultStars,
+        decimal MeasuredRatio = 1.0m,
+        int MeasuredDays = 0)
+    {
+        /// <summary>النجوم كنص ("★★★★☆")</summary>
+        public string StarsText => new string('★', Stars) + new string('☆', 5 - Stars);
+
+        /// <summary>فيه قياس أداء فعلي ولا لسه؟</summary>
+        public bool HasMeasurement => MeasuredDays > 0;
+
+        /// <summary>الأداء المقاس كنسبة ("115%")</summary>
+        public string MeasuredText => HasMeasurement ? $"{MeasuredRatio * 100:0}%" : "";
+
+        /// <summary>
+        /// شرح التقييم: تقييم المدير + الأداء المقاس لو موجود.
+        /// المستخدم لازم يعرف الرقم ده رأي مين قبل ما يبني عليه قرار.
+        /// </summary>
+        public string RatingTooltip => MeasuredDays > 0
+            ? $"تقييمك: {SkillRatingService.StarsLabel(Stars)} ({Stars}/5) — " +
+              $"إنتاجه الفعلي {MeasuredRatio * 100:0}% من الكوتة على مدار {MeasuredDays} يوم"
+            : $"تقييمك: {SkillRatingService.StarsLabel(Stars)} ({Stars}/5) — لسه مافيش إنتاج كفاية للقياس";
+
+        /// <summary>4 نجوم أو أكتر (بيتلوّن أخضر في القايمة)</summary>
+        public bool IsTopRated => Stars >= 4;
+
+        /// <summary>نجمتين أو أقل (بيتلوّن أصفر)</summary>
+        public bool IsLowRated => Stars <= 2;
+    }
 
     /// <summary>حالة مرحلة في رحلة الإنتاج — بتحدد لون البطاقة ورسالتها</summary>
     public enum FlowStageState
