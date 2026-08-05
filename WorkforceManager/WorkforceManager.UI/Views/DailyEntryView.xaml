@@ -251,20 +251,17 @@
                                                 </Border>
                                             </DockPanel>
 
-                                            <!-- الشغل المستني في الخط — أول حاجة المستخدم لازم يشوفها -->
-                                            <Border DockPanel.Dock="Top" Background="{StaticResource WarnBgBrush}"
-                                                    BorderBrush="{StaticResource WarnBrush}" BorderThickness="1.2"
-                                                    CornerRadius="8" Padding="10,7" Margin="0,0,0,8"
-                                                    Visibility="{Binding HasParkedPieces, Converter={StaticResource BoolToVis}}">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="PackageVariantClosed" Width="16" Height="16"
-                                                                            VerticalAlignment="Center"
-                                                                            Foreground="{StaticResource WarnBrush}" />
-                                                    <TextBlock Text="{Binding ParkedPiecesText}" FontSize="12" FontWeight="Medium"
-                                                               Margin="6,0,0,0" TextWrapping="Wrap" VerticalAlignment="Center"
-                                                               Foreground="{StaticResource WarnBrush}" />
-                                                </StackPanel>
-                                            </Border>
+                                            <!--
+                                              شريط "الشغل المستني في الخط" اتشال من هنا.
+                                              سببين:
+                                              1. كان Border من غير Grid.Row، فبيتحط في الصف 0
+                                                 (الافتراضي) فوق شريط اختيار المنتج ويغطيه —
+                                                 المستخدم مبقاش يقدر يغيّر المنتج خالص.
+                                              2. الرقم نفسه مكرر: بيظهر على كل بطاقة مرحلة
+                                                 ("مستني: N") وده أنفع، لأنه بيقول المتكدّس
+                                                 فين بالظبط مش مجرد إجمالي.
+                                              الإجمالي لسه موجود في شاشة التقارير لمن يحتاجه.
+                                            -->
 
                                             <Grid Grid.Row="1">
                                                 <Grid.ColumnDefinitions>
