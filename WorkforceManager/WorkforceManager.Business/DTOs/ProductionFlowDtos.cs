@@ -85,4 +85,23 @@ namespace WorkforceManager.Business.DTOs
         public int WorkerId { get; init; }
         public string WorkerName { get; init; } = string.Empty;
     }
+
+    /// <summary>
+    /// يوم فيه شغل على المنتج، معروض في قايمة "كرّر يوم فات" عشان
+    /// المستخدم يختار منه بدل ما يخمّن تاريخ.
+    /// </summary>
+    public class FlowDayOptionDto
+    {
+        public DateTime Date { get; init; }
+
+        /// <summary>عدد العمال اللي اشتغلوا في اليوم ده</summary>
+        public int WorkerCount { get; init; }
+
+        /// <summary>عدد المراحل اللي اتسجل عليها شغل</summary>
+        public int StageCount { get; init; }
+
+        public string DateText => Date.ToString("dddd yyyy/MM/dd");
+
+        public string SummaryText => $"{WorkerCount} عامل على {StageCount} مرحلة";
+    }
 }

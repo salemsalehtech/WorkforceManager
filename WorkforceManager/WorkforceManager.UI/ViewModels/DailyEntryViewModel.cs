@@ -170,6 +170,55 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
+        /// <summary>
+        /// يشيل كل إنتاج اليوم — حذف ناعم بكلمة سر وسبب مكتوب.
+        ///
+        /// عملية واحدة مش حلقة على السجلات: كلمة السر بتتسأل مرة، وكل
+        /// السجلات بتتشال في معاملة واحدة. البوابة والحذف الناعم والإشعار
+        /// كلهم من الأنظمة المشتركة — مفيش نسخة تانية منهم هنا.
+        /// </summary>
+        [RelayCommand]
+        private async Task DeleteDayAsync()
+        {
+            var input = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                "حذف إنتاج اليوم كله",
+                $"كل سجلات إنتاج يوم {EntryDate:yyyy/MM/dd} هتتشال.\n" +
+                "السجلات مش بتتمسح فعليًا — بتفضل محفوظة بسببها ومين شالها، " +
+                "بس بتختفي من كل الحسابات والأجور.",
+                passwordRequired: true);
+
+            if (input is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var result = await scope.ServiceProvider.GetRequiredService<WorkdayCalculationService>()
+                    .DeleteProductionDayAsync(EntryDate, input.Password, input.Reason);
+
+                if (!result.IsDeleted)
+                {
+                    MessageBox.Show(result.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                await LoadDayRecordsAsync();
+                await LoadClosureStateAsync();
+
+                var note = result.PasswordNotConfigured
+                    ? "\n\nملحوظة: مفيش كلمة سر عمليات متسجّلة — اتنفّذ من غير تحقق. اتظبطها من الإعدادات."
+                    : "";
+
+                MessageBox.Show(
+                    $"اتشال إنتاج يوم {EntryDate:yyyy/MM/dd}." + note,
+                    "تم", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
         // ======================= قسم رحلات الإنتاج (منتج أو أكتر في اليوم) =======================
 
         public ObservableCollection<FlowSessionViewModel> FlowSessions { get; } = new();

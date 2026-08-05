@@ -8,6 +8,7 @@ using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Enums;
+using WorkforceManager.UI.Views;
 using System.Linq;
 
 namespace WorkforceManager.UI.ViewModels
@@ -366,7 +367,11 @@ namespace WorkforceManager.UI.ViewModels
         // ------- أوامر الرحلة -------
 
         /// <summary>
-        /// بيجيب توزيع عمال آخر يوم اشتغل فيه المنتج ده وبيحطه زي ما هو.
+        /// بيجيب توزيع عمال يوم فات وبيحطه زي ما هو.
+        ///
+        /// المستخدم **بيختار اليوم** من قايمة الأيام اللي فيها شغل فعلي
+        /// على المنتج ده — قبل كده كان بياخد آخر يوم تلقائيًا، وده مكانش
+        /// بينفع لما يكون آخر يوم استثنائي (نصف عمالة، أو منتج تاني).
         ///
         /// **الأعداد مش بتتنسخ** عن قصد (قرار متفق عليه): العمال بيتحطوا
         /// على مراحلهم، والمستخدم بيكتب قطع النهارده. نسخ أرقام إمبارح
@@ -381,18 +386,32 @@ namespace WorkforceManager.UI.ViewModels
                 return;
             }
 
+            IReadOnlyList<FlowDayOptionDto> days;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                days = await scope.ServiceProvider.GetRequiredService<ProductionFlowService>()
+                    .GetRepeatableDaysAsync(product.ProductId, _getEntryDate());
+            }
+
+            // القايمة الفاضية بتتعرض جوه النافذة نفسها — رسالة منفصلة
+            // قبلها كانت هتبقى نافذتين ورا بعض على نفس المعلومة
+            var pickedDate = RepeatDayDialog.Pick(
+                Application.Current.MainWindow, product.Name, days);
+
+            if (pickedDate is null) return;
+
             LastFlowDto? last;
             using (var scope = _scopeFactory.CreateScope())
             {
-                var flowService = scope.ServiceProvider.GetRequiredService<ProductionFlowService>();
-                last = await flowService.GetLastFlowAsync(product.ProductId, _getEntryDate());
+                last = await scope.ServiceProvider.GetRequiredService<ProductionFlowService>()
+                    .GetFlowOnAsync(product.ProductId, pickedDate.Value);
             }
 
             if (last is null || last.Assignments.Count == 0)
             {
                 MessageBox.Show(
-                    $"مفيش إنتاج متسجل على \"{product.Name}\" في آخر شهرين — مفيش حاجة تتكرر.",
-                    "مفيش يوم سابق", MessageBoxButton.OK, MessageBoxImage.Information);
+                    $"يوم {pickedDate:yyyy/MM/dd} مبقاش فيه توزيع على \"{product.Name}\" — يمكن اتشال دلوقتي.",
+                    "مفيش حاجة تتكرر", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 

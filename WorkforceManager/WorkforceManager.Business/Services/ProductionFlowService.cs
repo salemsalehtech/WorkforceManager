@@ -100,6 +100,71 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
+        /// الأيام اللي فيها شغل فعلي على المنتج ده قبل اليوم المحدد،
+        /// الأحدث الأول، ومعاها عدد العمال والمراحل في كل يوم.
+        ///
+        /// دي اللي بتغذّي اختيار اليوم في "كرّر يوم فات": منتقي تاريخ
+        /// فاضي بيخلي المستخدم يخمّن ويلاقي "مفيش شغل في اليوم ده"
+        /// كذا مرة. القايمة بتوريه الأيام اللي فيها حاجة تتكرر أصلاً.
+        /// </summary>
+        public async Task<IReadOnlyList<FlowDayOptionDto>> GetRepeatableDaysAsync(
+            int productId, DateTime before, int lookbackDays = 60)
+        {
+            var product = await _productRepo.GetWithStagesAsync(productId);
+            if (product is null) return Array.Empty<FlowDayOptionDto>();
+
+            var stageIds = product.Stages.Select(s => s.Id).ToHashSet();
+            if (stageIds.Count == 0) return Array.Empty<FlowDayOptionDto>();
+
+            var from = before.Date.AddDays(-lookbackDays);
+            var to = before.Date.AddDays(-1); // قبل اليوم المحدد، مش هو نفسه
+
+            return (await _productionRepo.GetByRangeAsync(from, to))
+                .Where(r => stageIds.Contains(r.ProductionStageId))
+                .GroupBy(r => r.Date.Date)
+                .Select(g => new FlowDayOptionDto
+                {
+                    Date = g.Key,
+                    WorkerCount = g.Select(r => r.WorkerId).Distinct().Count(),
+                    StageCount = g.Select(r => r.ProductionStageId).Distinct().Count()
+                })
+                .OrderByDescending(d => d.Date)
+                .ToList();
+        }
+
+        /// <summary>
+        /// توزيع العمال على المراحل في **يوم محدد** بالظبط (مش آخر يوم).
+        /// بيرجّع null لو اليوم ده مفيهوش شغل على المنتج.
+        /// </summary>
+        public async Task<LastFlowDto?> GetFlowOnAsync(int productId, DateTime date)
+        {
+            var product = await _productRepo.GetWithStagesAsync(productId);
+            if (product is null) return null;
+
+            var stageIds = product.Stages.Select(s => s.Id).ToHashSet();
+            if (stageIds.Count == 0) return null;
+
+            var records = (await _productionRepo.GetByRangeAsync(date.Date, date.Date))
+                .Where(r => stageIds.Contains(r.ProductionStageId))
+                .ToList();
+
+            if (records.Count == 0) return null;
+
+            var assignments = records
+                // نفس العامل ممكن يكون له أكتر من سجل على نفس المرحلة — مرة واحدة تكفي
+                .GroupBy(r => (r.ProductionStageId, r.WorkerId))
+                .Select(g => new FlowAssignmentDto
+                {
+                    ProductionStageId = g.Key.ProductionStageId,
+                    WorkerId = g.Key.WorkerId,
+                    WorkerName = g.First().Worker?.FullName ?? string.Empty
+                })
+                .ToList();
+
+            return new LastFlowDto { Date = date.Date, Assignments = assignments };
+        }
+
+        /// <summary>
         /// يسجل رحلة إنتاج كاملة ليوم واحد على منتج واحد. بيرمي استثناء
         /// برسالة عربية واضحة لو فيه أي خطأ في المدخلات — ومفيش أي حاجة
         /// بتتحفظ إلا لو الرحلة كلها سليمة.

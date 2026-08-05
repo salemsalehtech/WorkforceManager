@@ -1,0 +1,85 @@
+<Window x:Class="WorkforceManager.UI.Views.RepeatDayDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="كرّر يوم فات" Width="480" Height="520"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
+
+    <!-- اختيار اليوم اللي التوزيع هيتنسخ منه.
+         قايمة بالأيام اللي فيها شغل فعلاً مش منتقي تاريخ فاضي: المستخدم
+         مش لازم يخمّن ويلاقي "مفيش شغل في اليوم ده" كذا مرة. -->
+    <Border CornerRadius="18" Background="White">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
+        </Border.Effect>
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
+                    CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Foreground="White"
+                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
+                            ToolTip="إغلاق">
+                        <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
+                    </Button>
+                    <StackPanel>
+                        <TextBlock Text="كرّر توزيع يوم فات" Foreground="White"
+                                   FontSize="15.5" FontWeight="Bold" />
+                        <TextBlock x:Name="SubtitleText" Foreground="#CFE0FF" FontSize="12"
+                                   Margin="0,2,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <Border DockPanel.Dock="Bottom" Background="{StaticResource SubtleBgBrush}"
+                    CornerRadius="0,0,18,18" Padding="18,12">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}"
+                            Padding="16,8" IsCancel="True" Content="إلغاء" />
+                    <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" FontSize="11.5"
+                               TextWrapping="Wrap" HorizontalAlignment="Right"
+                               Text="الأعداد مش هتتنسخ — هتكتبها انت"
+                               Foreground="{StaticResource TextMutedBrush}" />
+                </DockPanel>
+            </Border>
+
+            <Grid Margin="18,14,18,10">
+                <TextBlock x:Name="EmptyText" TextWrapping="Wrap" FontSize="13.5"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           Visibility="Collapsed" />
+
+                <ScrollViewer x:Name="ListScroller" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="DaysList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Tag="{Binding}" Click="PickDay_Click"
+                                        HorizontalContentAlignment="Stretch" Cursor="Hand"
+                                        Padding="0" Margin="0,0,0,7" BorderThickness="0"
+                                        Background="Transparent">
+                                    <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="9"
+                                            Padding="13,10">
+                                        <DockPanel>
+                                            <materialDesign:PackIcon DockPanel.Dock="Left" Kind="ContentCopy"
+                                                                    Width="17" Height="17"
+                                                                    VerticalAlignment="Center"
+                                                                    Foreground="{StaticResource BrandBrush}" />
+                                            <StackPanel Margin="10,0,0,0">
+                                                <TextBlock Text="{Binding DateText}" FontSize="13" FontWeight="Bold"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                                <TextBlock Text="{Binding SummaryText}" FontSize="11.5"
+                                                           Margin="0,2,0,0"
+                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </DockPanel>
+    </Border>
+</Window>

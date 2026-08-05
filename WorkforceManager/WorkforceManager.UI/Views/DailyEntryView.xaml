@@ -58,6 +58,23 @@
                     </StackPanel>
                 </Button>
 
+                <!-- حذف إنتاج اليوم كله: كلمة سر + سبب مكتوب + حذف ناعم + إشعار،
+                     كلهم في معاملة واحدة من الأنظمة المشتركة -->
+                <Button DockPanel.Dock="Left" Padding="12,7" Margin="8,0,0,0"
+                        Command="{Binding DeleteDayCommand}"
+                        ToolTip="يشيل كل سجلات إنتاج اليوم (بكلمة سر وسبب)">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="CalendarRemoveOutline" Width="16" Height="16"
+                                                 VerticalAlignment="Center" />
+                        <TextBlock Text="حذف إنتاج اليوم" Margin="6,0,0,0" FontSize="13" />
+                    </StackPanel>
+                </Button>
+
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="CalendarBlankOutline" Width="17" Height="17"
                                              Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
