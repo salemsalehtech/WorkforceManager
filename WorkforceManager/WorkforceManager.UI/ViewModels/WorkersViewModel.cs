@@ -1390,6 +1390,15 @@ namespace WorkforceManager.UI.ViewModels
 
         public string CoverageText => $"{KnownCount} / {ActiveCount} مرحلة";
 
+        /// <summary>
+        /// شرح شارة التغطية. بتحمل رسالة نجمة "بيغطي الخط كله" اللي اتشالت
+        /// من جنب اسم المنتج — الشارة بتخضرّ في نفس الحالة، فالأيقونة كانت
+        /// بتقول نفس الكلام مرتين وبتاخد مساحة.
+        /// </summary>
+        public string CoverageTooltip => CoversWholeLine
+            ? $"بيعرف كل مراحل {ProductName} — يقدر يمسك المنتج لوحده"
+            : $"بيعرف {KnownCount} من {ActiveCount} مرحلة في {ProductName}";
+
         // ------- تقييم العامل على المنتج ده (بيتعرض على رأس الكارت) -------
 
         /// <summary>
@@ -1495,6 +1504,7 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(KnownCount));
             OnPropertyChanged(nameof(ActiveCount));
             OnPropertyChanged(nameof(CoverageText));
+            OnPropertyChanged(nameof(CoverageTooltip));
             OnPropertyChanged(nameof(CoversWholeLine));
             OnPropertyChanged(nameof(InactiveSkillCount));
             OnPropertyChanged(nameof(HasInactiveSkills));
