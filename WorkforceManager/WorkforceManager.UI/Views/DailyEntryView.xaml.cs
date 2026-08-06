@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using WorkforceManager.UI.ViewModels;
 
 namespace WorkforceManager.UI.Views
@@ -75,6 +76,79 @@ namespace WorkforceManager.UI.Views
         private void Suggestions_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (sender is ListBox { SelectedItem: { } item } list) list.ScrollIntoView(item);
+        }
+
+        /// <summary>
+        /// الدوس على خانة البحث بيفتح قايمة الاقتراحات.
+        ///
+        /// القايمة بتتقفل مع كل إضافة عامل، فالفتح لازم يبقى فعل صريح من
+        /// المستخدم. مربوطة بدوسة الماوس بس مش بالفوكس: بعد الإضافة
+        /// بالماوس الكود بيرجّع الفوكس للخانة (عشان يكتب اللي بعده)، ولو
+        /// الفوكس كان بيفتح كانت هتترجع تفتح فورًا وتلغي القفل.
+        /// </summary>
+        private void WorkerSearch_Clicked(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement { DataContext: FlowStageRow stage })
+                stage.IsPickerOpen = true;
+        }
+
+        // ============ الزحلقة للمرحلة بعد إضافة عامل ============
+        // المستخدم كان بينزل بالماوس بعد كل عامل عشان يوصل للمرحلة اللي
+        // بعدها. دلوقتي الشاشة بتوقّف المرحلة اللي لسه مالياها في أول
+        // الإطار، فاللي بعدها بتبقى تحتيها على طول — ولو محتاج يضيف عامل
+        // تاني على نفس المرحلة لسه قدامه مش محتاج يرجع لفوق.
+
+        /// <summary>قايمة مراحل كل رحلة مفتوحة — عشان نعرف نزحلق في أنهي واحدة</summary>
+        private readonly Dictionary<FlowSessionViewModel, ItemsControl> _stageLists = new();
+
+        /// <summary>مسافة صغيرة فوق البطاقة عشان متلزقش في حافة الإطار</summary>
+        private const double StageTopGap = 12;
+
+        private void FlowStages_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is not ItemsControl { DataContext: FlowSessionViewModel session } list) return;
+
+            _stageLists[session] = list;
+
+            // -= الأول: الشاشة ممكن تتحمّل تاني (تبديل تبويبات) والاشتراك
+            // كان هيتكرر فتحصل الزحلقة مرتين
+            session.WorkerAdded -= OnWorkerAdded;
+            session.WorkerAdded += OnWorkerAdded;
+        }
+
+        private void FlowStages_Unloaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is not ItemsControl { DataContext: FlowSessionViewModel session }) return;
+
+            session.WorkerAdded -= OnWorkerAdded;
+            _stageLists.Remove(session);
+        }
+
+        private void OnWorkerAdded(FlowStageRow stage)
+        {
+            var list = _stageLists.FirstOrDefault(pair => pair.Key.FlowStages.Contains(stage)).Value;
+            if (list is null) return;
+
+            // بعد ما التخطيط يخلص: شريحة العامل لسه بتتضاف والقايمة
+            // بتتقفل، والارتفاع بيتغير — الزحلقة قبل كده بتحسب مكان قديم
+            Dispatcher.BeginInvoke(
+                new Action(() => ScrollStageToTop(list, stage)), DispatcherPriority.Loaded);
+        }
+
+        private void ScrollStageToTop(ItemsControl list, FlowStageRow stage)
+        {
+            if (list.ItemContainerGenerator.ContainerFromItem(stage) is not FrameworkElement container)
+                return;
+
+            var scroller = FindAncestor<ScrollViewer>(list);
+            if (scroller is null)
+            {
+                container.BringIntoView(); // احتياطي: على الأقل تبقى ظاهرة
+                return;
+            }
+
+            var top = container.TransformToAncestor(scroller).Transform(new Point(0, 0)).Y;
+            scroller.ScrollToVerticalOffset(scroller.VerticalOffset + top - StageTopGap);
         }
 
         private static void TryAddWorker(FlowStageRow stage)

@@ -158,7 +158,24 @@ Core  <----------------------- UI
   card, and the session header shows `ReadinessText` ("7 من 11 مرحلة جاهزة"). `RefreshState` /
   `RefreshReadiness` are driven from `RecomputeTotals`, so anything touching pieces or shares repaints
   both. Every stage's worker picker has its own search box (`WorkerSearch` → `VisibleWorkers`) since a
-  stage can have ~20 qualified workers. "كرّر يوم فات" is `RepeatLastDayAsync` (see `GetLastFlowAsync`).
+  stage can have ~20 qualified workers. Three rules make placing workers down an 11-stage line bearable,
+  all driven from `AddWorkerToStageAsync`:
+  (1) a worker **already assigned somewhere else today sinks to the bottom** of every other stage's list
+  and carries a "مكلّف على {product} / {stage}" tag. This is not cosmetic — `WorkerAssignmentGuard` allows
+  one assignment per worker per day, so picking them raises a confirmation dialog; the tag explains it
+  before it happens. `DescribeAssignedElsewhere` is deliberately **synchronous** (it runs per keystroke),
+  reading a cached `_savedDayAssignments` plus every open session's live chips — the same two sources the
+  guard itself measures against. `RefreshAllWorkerPickers()` re-sorts every list in every session after
+  each add/remove, since the moment the ordering matters is the moment the next stage's list is opened,
+  not when it's typed into. `OrderBy` is stable, so the rating order survives inside each group.
+  (2) the suggestions list **closes on every add** (`IsPickerOpen`, reset last inside `ResetWorkerPicker`).
+  Focus alone couldn't close it — focus stays in the box, so the list re-opened over the next stage. The
+  user re-opens it by clicking the box or typing; `WorkerSearch_Clicked` is bound to mouse-down and **not**
+  to `GotKeyboardFocus`, because the click-to-add path restores focus to the box and that would re-open it.
+  (3) the view then **scrolls the just-filled stage to the top** (`WorkerAdded` event → `ScrollStageToTop`,
+  dispatched at `Loaded` priority so the new chip and the closed list are already laid out). Top, not
+  past it: a stage may need a second worker, and scrolling past would force a scroll back.
+  "كرّر يوم فات" is `RepeatLastDayAsync` (see `GetLastFlowAsync`).
   One or MORE products per day: each product gets its own
   `FlowSessionViewModel` card — stages as ordered cards, qualified-only workers per stage with equal
   auto-split + manual override, stage ranges "from stage X to Y: N pieces", live per-worker workdays

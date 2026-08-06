@@ -294,7 +294,8 @@
                                                          بلونه الأحمر أصلاً. -->
 
                                                     <!-- بطاقات المراحل -->
-                                                    <ItemsControl Grid.Row="1" ItemsSource="{Binding FlowStages}">
+                                                    <ItemsControl Grid.Row="1" ItemsSource="{Binding FlowStages}"
+                                                                  Loaded="FlowStages_Loaded" Unloaded="FlowStages_Unloaded">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
                                                                 <Border Background="{StaticResource SoftPanelBgBrush}" BorderBrush="{StaticResource SoftPanelBorderBrush}" BorderThickness="1"
@@ -397,11 +398,14 @@
                                                                                             <materialDesign:PackIcon DockPanel.Dock="Left" Kind="Magnify"
                                                                                                                     Width="13" Height="13" VerticalAlignment="Center"
                                                                                                                     Foreground="{StaticResource TextMutedBrush}" />
+                                                                                            <!-- الدوسة بتفتح القايمة: بعد كل إضافة بتتقفل،
+                                                                                                 والمستخدم هو اللي بيفتحها لما يحتاج -->
                                                                                             <TextBox Text="{Binding WorkerSearch, UpdateSourceTrigger=PropertyChanged}"
                                                                                                      Margin="5,0,0,0" BorderThickness="0" FontSize="12.5"
                                                                                                      VerticalAlignment="Center" Background="Transparent"
                                                                                                      ToolTip="اكتب أول حروف اسم العامل — الأسهم ▲▼ للاختيار وEnter للإضافة"
-                                                                                                     PreviewKeyDown="WorkerSearch_PreviewKeyDown" />
+                                                                                                     PreviewKeyDown="WorkerSearch_PreviewKeyDown"
+                                                                                                     PreviewMouseLeftButtonDown="WorkerSearch_Clicked" />
                                                                                         </DockPanel>
                                                                                         <TextBlock Text="البحث" Margin="22,0,0,0" IsHitTestVisible="False"
                                                                                                    VerticalAlignment="Center" FontSize="12.5"
@@ -431,8 +435,11 @@
                                                                                 </Button>
                                                                             </StackPanel>
 
-                                                                            <!-- الاقتراحات: بتظهر بس والفوكس جوه الخانة، فالبطاقة مبتفضلش
-                                                                                 مفرودة بقايمة ٢٠ عامل وانت مش بتدوّر أصلاً -->
+                                                                            <!-- الاقتراحات: بتظهر بس والفوكس جوه الخانة والقايمة
+                                                                                 مفتوحة، فالبطاقة مبتفضلش مفرودة بقايمة ٢٠ عامل
+                                                                                 وانت مش بتدوّر أصلاً.
+                                                                                 IsPickerOpen بتتصفّر مع كل إضافة عامل — الفوكس
+                                                                                 لوحده مكانش بيقفلها لأنه بيفضل مكانه. -->
                                                                             <Border Width="240" HorizontalAlignment="Left" Margin="0,3,0,0"
                                                                                     Background="White" CornerRadius="6"
                                                                                     BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.2">
@@ -444,6 +451,7 @@
                                                                                                 <MultiDataTrigger.Conditions>
                                                                                                     <Condition Binding="{Binding IsKeyboardFocusWithin, ElementName=WorkerPickerRoot}" Value="True" />
                                                                                                     <Condition Binding="{Binding HasSuggestions}" Value="True" />
+                                                                                                    <Condition Binding="{Binding IsPickerOpen}" Value="True" />
                                                                                                 </MultiDataTrigger.Conditions>
                                                                                                 <Setter Property="Visibility" Value="Visible" />
                                                                                             </MultiDataTrigger>
@@ -477,6 +485,17 @@
                                                                                                                Foreground="{StaticResource TextMutedBrush}"
                                                                                                                Visibility="{Binding HasMeasurement, Converter={StaticResource BoolToVis}}" />
                                                                                                 </StackPanel>
+
+                                                                                                <!-- مكلّف في مكان تاني النهارده: العناصر دي نازلة
+                                                                                                     آخر القايمة، والعلامة بتقول ليه — اختياره
+                                                                                                     هيطلّع رسالة تأكيد -->
+                                                                                                <Border Background="{StaticResource WarnBgBrush}" CornerRadius="4"
+                                                                                                        Padding="5,1" Margin="0,2,0,0" HorizontalAlignment="Left"
+                                                                                                        Visibility="{Binding IsAssignedElsewhere, Converter={StaticResource BoolToVis}}">
+                                                                                                    <TextBlock Text="{Binding AssignedElsewhereText}" FontSize="10"
+                                                                                                               TextWrapping="Wrap"
+                                                                                                               Foreground="{StaticResource WarnBrush}" />
+                                                                                                </Border>
                                                                                             </StackPanel>
                                                                                         </DataTemplate>
                                                                                     </ListBox.ItemTemplate>

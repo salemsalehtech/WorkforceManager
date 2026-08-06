@@ -56,6 +56,21 @@ namespace WorkforceManager.UI.ViewModels
         /// </summary>
         private bool _suppressCallbacks;
 
+        /// <summary>
+        /// تكليفات اليوم المحفوظة في الداتابيز، متخزّنة في الذاكرة.
+        ///
+        /// ترتيب قايمة الاقتراحات بيتنادى مع كل حرف المستخدم بيكتبه،
+        /// فمينفعش يستنى استعلام. بتتحدّث مع إعادة تحميل الرحلة وبعد
+        /// الحفظ — واللي لسه على الشاشة بيتقرا لحظيًا من الجلسات المفتوحة.
+        /// </summary>
+        private List<WorkerAssignmentDto> _savedDayAssignments = new();
+
+        /// <summary>
+        /// اتضاف عامل على المرحلة دي. الشاشة بتزحلق لها عشان اللي بعدها
+        /// يبقى باين — المستخدم كان بينزل بالماوس بعد كل عامل.
+        /// </summary>
+        public event Action<FlowStageRow>? WorkerAdded;
+
         public FlowSessionViewModel(
             IServiceScopeFactory scopeFactory,
             IReadOnlyList<ProductOption> products,
@@ -126,6 +141,12 @@ namespace WorkforceManager.UI.ViewModels
                     .ToLookup(ws => ws.ProductionStageId);
 
                 // الإنتاج المسجل بالفعل في اليوم ده على مراحل المنتج (تحذير من الإدخال المزدوج)
+                // تكليفات اليوم المحفوظة — قايمة الاقتراحات بترتّب بيها،
+                // فلازم تكون جاهزة قبل أول فلترة
+                _savedDayAssignments = (await scope.ServiceProvider
+                    .GetRequiredService<WorkerAssignmentGuard>()
+                    .GetDayAssignmentsAsync(_getEntryDate())).ToList();
+
                 var stageIds = product.Stages.Select(s => s.StageId).ToHashSet();
                 var alreadyByStage = (await productionRepo.GetByDateAsync(_getEntryDate()))
                     .Where(r => stageIds.Contains(r.ProductionStageId))
@@ -136,7 +157,7 @@ namespace WorkforceManager.UI.ViewModels
                 {
                     alreadyByStage.TryGetValue(stage.StageId, out var already);
 
-                    var row = new FlowStageRow(AddWorkerToStageAsync)
+                    var row = new FlowStageRow(AddWorkerToStageAsync, DescribeAssignedElsewhere)
                     {
                         StageId = stage.StageId,
                         DisplayOrder = stage.DisplayOrder,
@@ -547,7 +568,6 @@ namespace WorkforceManager.UI.ViewModels
 
                     stage.AssignedWorkers.Add(new FlowShareEntry(
                         stage, assignment.WorkerId, assignment.WorkerName, OnSharesEdited, RemoveWorkerShare));
-                    stage.ApplyWorkerFilter(); // اللي اتحمّل من المحفوظ يختفي من الاقتراحات
                 }
             }
             finally
@@ -555,6 +575,9 @@ namespace WorkforceManager.UI.ViewModels
                 _suppressCallbacks = false;
             }
 
+            // مرة واحدة بعد ما التوزيع كله يتحط: اللي اتحمّل يختفي من
+            // اقتراحات مرحلته وينزل تحت في المراحل التانية
+            RefreshAllWorkerPickers();
             RecomputeFlow();
         }
 
@@ -629,14 +652,34 @@ namespace WorkforceManager.UI.ViewModels
             stage.AssignedWorkers.Add(
                 new FlowShareEntry(stage, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare));
             stage.ResetWorkerPicker();
+            RefreshAllWorkerPickers();
             RecomputeFlow(); // إعادة التوزيع المتساوي بعد إضافة عامل
+
+            // الشاشة تزحلق للمرحلة دي عشان اللي بعدها يبقى باين
+            WorkerAdded?.Invoke(stage);
+        }
+
+        /// <summary>
+        /// بعد أي إضافة أو إزالة: كل قوايم الاقتراحات في كل الجلسات
+        /// بتتحدّث.
+        ///
+        /// من غير كده، العامل اللي اتكلّف دلوقتي كان هيفضل أول قايمة
+        /// المرحلة اللي بعدها لحد ما المستخدم يكتب فيها — يعني بالظبط
+        /// اللحظة اللي الترتيب المفروض يساعده فيها.
+        /// كله في الذاكرة، مفيش أي استعلام.
+        /// </summary>
+        private void RefreshAllWorkerPickers()
+        {
+            foreach (var session in _getOpenSessions())
+                foreach (var row in session.FlowStages)
+                    row.ApplyWorkerFilter();
         }
 
         /// <summary>بيتنادى من زرار ✕ اللي على شريحة العامل نفسها</summary>
         private void RemoveWorkerShare(FlowShareEntry share)
         {
             share.Parent.AssignedWorkers.Remove(share);
-            share.Parent.ApplyWorkerFilter(); // رجّعه لقايمة الاقتراحات تاني
+            RefreshAllWorkerPickers(); // رجّعه لقايمة الاقتراحات تاني، وفي كل المراحل
             // الموافقة كانت على التكليف ده بالذات — بيشيلها معاه عشان لو
             // اتضاف تاني يتسأل من جديد (مفيش "افتكر اختياري")
             _confirmedAssignments.Remove((share.Parent.StageId, share.WorkerId));
@@ -652,10 +695,28 @@ namespace WorkforceManager.UI.ViewModels
             using var scope = _scopeFactory.CreateScope();
             var guard = scope.ServiceProvider.GetRequiredService<WorkerAssignmentGuard>();
 
-            var saved = await guard.GetDayAssignmentsAsync(_getEntryDate());
+            _savedDayAssignments = (await guard.GetDayAssignmentsAsync(_getEntryDate())).ToList();
             var onScreen = _getOpenSessions().SelectMany(s => s.CurrentAssignments());
 
-            return saved.Concat(onScreen).ToList();
+            return _savedDayAssignments.Concat(onScreen).ToList();
+        }
+
+        /// <summary>
+        /// العامل ده مكلّف النهارده فين غير المرحلة دي؟ بيرجّع
+        /// "المنتج / المرحلة" أو null.
+        ///
+        /// متزامنة عن قصد: بتتنادى في فلترة القايمة مع كل حرف. المحفوظ
+        /// بيتقرا من الكاش، واللي لسه على الشاشة من الجلسات المفتوحة —
+        /// نفس المصدرين اللي القاعدة بتتقاس عليهم في
+        /// <see cref="LoadKnownAssignmentsAsync"/>.
+        /// </summary>
+        private string? DescribeAssignedElsewhere(int workerId, int exceptStageId)
+        {
+            var match = _savedDayAssignments
+                .Concat(_getOpenSessions().SelectMany(s => s.CurrentAssignments()))
+                .FirstOrDefault(a => a.WorkerId == workerId && a.ProductionStageId != exceptStageId);
+
+            return match is null ? null : $"{match.ProductName} / {match.StageName}";
         }
 
         /// <summary>تكليفات الرحلة دي زي ما هي على الشاشة دلوقتي (لسه متحفظتش)</summary>
@@ -849,6 +910,20 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>نجمتين أو أقل (بيتلوّن أصفر)</summary>
         public bool IsLowRated => Stars <= 2;
+
+        /// <summary>
+        /// مكلّف النهارده على مرحلة تانية — "المنتج / المرحلة"، أو null.
+        ///
+        /// بيتحدّد قبل ما العنصر يتحط في القايمة (اللي بتتفضى وتتملي من
+        /// الأول في كل فلترة)، فالعناصر بتتبني من جديد ومفيش لزوم لإشعار
+        /// تغيير هنا.
+        /// </summary>
+        public string? AssignedElsewhere { get; set; }
+
+        public bool IsAssignedElsewhere => AssignedElsewhere is not null;
+
+        public string AssignedElsewhereText =>
+            AssignedElsewhere is null ? "" : $"مكلّف على {AssignedElsewhere}";
     }
 
     /// <summary>حالة مرحلة في رحلة الإنتاج — بتحدد لون البطاقة ورسالتها</summary>
@@ -880,7 +955,16 @@ namespace WorkforceManager.UI.ViewModels
         // غير متزامن لأن إضافة عامل بقت بتتحقق من تكليفاته المحفوظة في اليوم
         private readonly Func<FlowStageRow, Task> _onAddWorker;
 
-        public FlowStageRow(Func<FlowStageRow, Task> onAddWorker) => _onAddWorker = onAddWorker;
+        /// <summary>(workerId, exceptStageId) → "المنتج / المرحلة" لو مكلّف في مكان تاني النهارده</summary>
+        private readonly Func<int, int, string?> _describeAssignedElsewhere;
+
+        public FlowStageRow(
+            Func<FlowStageRow, Task> onAddWorker,
+            Func<int, int, string?> describeAssignedElsewhere)
+        {
+            _onAddWorker = onAddWorker;
+            _describeAssignedElsewhere = describeAssignedElsewhere;
+        }
 
         public int StageId { get; init; }
         public int DisplayOrder { get; init; }
@@ -902,7 +986,23 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private string _workerSearch = string.Empty;
 
-        partial void OnWorkerSearchChanged(string value) => ApplyWorkerFilter();
+        partial void OnWorkerSearchChanged(string value)
+        {
+            // الكتابة معناها إنه بيدوّر — القايمة تفتح
+            IsPickerOpen = true;
+            ApplyWorkerFilter();
+        }
+
+        /// <summary>
+        /// قايمة الاقتراحات مفتوحة؟
+        ///
+        /// كانت بتتحكم بالفوكس لوحده، فبعد إضافة عامل كانت بتفضل مفتوحة
+        /// (الفوكس مكانه والاقتراحات رجعت كاملة) وبتغطي المرحلة اللي
+        /// بعدها. بقت بتتقفل مع كل إضافة، والمستخدم بيفتحها لما يدوس
+        /// على خانة البحث أو يكتب فيها.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isPickerOpen;
 
         /// <summary>العمال المعروضين في القايمة دلوقتي (بعد البحث)</summary>
         public ObservableCollection<WorkerPick> VisibleWorkers { get; } = new();
@@ -924,8 +1024,25 @@ namespace WorkforceManager.UI.ViewModels
 
             // اللي اتضاف للمرحلة خلاص مبيظهرش تاني — إضافته مرة تانية بترجع
             // من غير ما يحصل حاجة، فوجوده في القايمة كان بيوهم إن فيه مشكلة
+            var pool = matches
+                .Where(w => AssignedWorkers.All(a => a.WorkerId != w.WorkerId))
+                .ToList();
+
+            // اللي مكلّف على مرحلة تانية النهارده ينزل آخر القايمة، ومعاه
+            // علامة بتقول هو فين.
+            //
+            // مش ترتيب شكلي: العامل الواحد له تكليف واحد في اليوم
+            // (WorkerAssignmentGuard)، فاختياره بيطلّع رسالة تأكيد.
+            // تنزيله بيدّي مساحة للناس الفاضية الأول، والعلامة بتفسّر
+            // الرسالة قبل ما تحصل بدل ما تيجي مفاجأة.
+            //
+            // OrderBy في LINQ ثابت (stable)، فترتيب التقييم جوّه كل
+            // مجموعة بيفضل زي ما هو.
+            foreach (var w in pool)
+                w.AssignedElsewhere = _describeAssignedElsewhere(w.WorkerId, StageId);
+
             VisibleWorkers.Clear();
-            foreach (var w in matches.Where(w => AssignedWorkers.All(a => a.WorkerId != w.WorkerId)))
+            foreach (var w in pool.OrderBy(w => w.IsAssignedElsewhere ? 1 : 0))
                 VisibleWorkers.Add(w);
 
             OnPropertyChanged(nameof(HasSuggestions));
@@ -968,6 +1085,10 @@ namespace WorkforceManager.UI.ViewModels
             // لو النص كان فاضي أصلاً الـ setter مش بيشغّل الفلترة، والقايمة
             // محتاجة تتحدّث برضه عشان اللي اتضاف يختفي منها
             ApplyWorkerFilter();
+
+            // آخر سطر عن قصد: تفضية البحث فوق بتفتح القايمة، والقفل هنا
+            // هو الكلمة الأخيرة
+            IsPickerOpen = false;
         }
 
         // ------- حالة المرحلة (لون وعلامة على البطاقة) -------
