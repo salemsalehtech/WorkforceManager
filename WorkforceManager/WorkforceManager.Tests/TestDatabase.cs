@@ -108,6 +108,8 @@ namespace WorkforceManager.Tests
             services.AddScoped<AuthService>();
             services.AddScoped<ProductActivityService>();
             services.AddScoped<PendingWorkService>();
+            services.AddScoped<ProductionReportService>();
+            services.AddScoped<WageAdjustmentService>();
 
             _provider = services.BuildServiceProvider();
 

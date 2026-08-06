@@ -142,6 +142,33 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>تقرير عامل معين عن فترة [from, to]</summary>
+        /// <summary>
+        /// تقييم العامل على كل منتج عنده فيه مهارة، الأعلى الأول.
+        ///
+        /// المتوسط بيتحسب بـ <see cref="SkillRatingService.ProductStars"/>
+        /// مش بحساب محلي: القاعدة (المراحل اللي مالوش فيها مهارة مبتتحسبش
+        /// صفر، عشان المتخصص ميبانش ضعيف) عايشة في مكان واحد.
+        /// </summary>
+        private async Task<List<WorkerSkillSummaryDto>> BuildSkillSummaryAsync(int workerId)
+        {
+            var worker = await _workerRepo.GetWithSkillsAsync(workerId);
+            if (worker is null || worker.Skills.Count == 0) return new List<WorkerSkillSummaryDto>();
+
+            return worker.Skills
+                .Where(s => s.ProductionStage?.Product is not null)
+                .GroupBy(s => s.ProductionStage.Product!.Name)
+                .Select(g => new WorkerSkillSummaryDto
+                {
+                    ProductName = g.Key,
+                    AverageStars = SkillRatingService.ProductStars(g) ?? 0m,
+                    KnownStages = g.Count()
+                })
+                .Where(s => s.AverageStars > 0)
+                .OrderByDescending(s => s.AverageStars)
+                .ThenBy(s => s.ProductName)
+                .ToList();
+        }
+
         public async Task<WorkerProductionReportDto> GetWorkerReportAsync(int workerId, DateTime from, DateTime to)
         {
             var fromDate = from.Date;
@@ -157,6 +184,7 @@ namespace WorkforceManager.Business.Services
                 .Where(h => h.WorkerId == workerId).ToList();
             var adjustments = (await _adjustmentRepo.GetByWorkerAndRangeAsync(workerId, fromDate, toDate)).ToList();
             var lastStageIds = await GetLastStageIdsAsync();
+            var skills = await BuildSkillSummaryAsync(workerId);
 
             // الإنتاج بالمنتج/المرحلة
             var byProductStage = production
@@ -217,10 +245,14 @@ namespace WorkforceManager.Business.Services
                 DailyWageEgp = worker.DailyWageEgp,
                 From = fromDate,
                 To = toDate,
+                // مجموع القطع اللي العامل عملها بنفسه على مراحله — ده
+                // مقياس **شغله هو** مش إنتاج المنتج، فالجمع هنا صح:
+                // كل سجل شغل مختلف عمله بإيده واستحق عليه يوميته
                 TotalPieces = production.Sum(r => r.PieceCount),
                 ProducedWorkdays = producedWorkdays,
                 ByProductStage = byProductStage,
                 ByDay = byDay,
+                Skills = skills,
                 PresentDays = attendance.Count(a => a.Status == AttendanceStatus.Present),
                 AbsentWithPermissionDays = attendance.Count(a => a.Status == AttendanceStatus.AbsentWithPermission),
                 AbsentWithoutPermissionDays = absentWithoutPermission,

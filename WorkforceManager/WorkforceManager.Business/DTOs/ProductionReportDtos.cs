@@ -110,6 +110,50 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>الأجر النهائي بالجنيه = أجر اليوميات + الحوافز − السلف</summary>
         public decimal NetWageEgp => WorkdaysWageEgp + BonusEgp - AdvanceEgp;
+
+        // ------- المهارات -------
+
+        /// <summary>
+        /// تقييم العامل على المنتجات اللي عنده فيها مهارة، الأعلى الأول.
+        ///
+        /// جزء من التقرير عن قصد: "أنتج كام" لوحده مبيقولش هو شاطر في إيه.
+        /// عامل إنتاجه قليل بس تقييمه ممتاز على مرحلة صعبة صورة مختلفة
+        /// تمامًا عن عامل إنتاجه قليل وتقييمه ضعيف.
+        /// </summary>
+        public List<WorkerSkillSummaryDto> Skills { get; init; } = new();
+
+        // ------- تحذيرات -------
+
+        /// <summary>
+        /// السلف أكلت الأجر كله والصافي طلع بالسالب.
+        ///
+        /// الرقم السالب بيتعرض زي ما هو مع تحذير صريح بدل ما يتصفّر:
+        /// "العامل مدين" حقيقة محاسبية لازم تتشاف، وتصفيرها بيخفي إن
+        /// السلف اتصرفت فعلاً.
+        /// </summary>
+        public bool IsWageNegative => NetWageEgp < 0;
+
+        /// <summary>مفيش سعر يومية متسجّل — الأجر هيطلع صفر مهما أنتج</summary>
+        public bool HasNoWageRate => DailyWageEgp <= 0;
+    }
+
+    /// <summary>تقييم عامل على منتج واحد — سطر في قسم المهارات</summary>
+    public class WorkerSkillSummaryDto
+    {
+        public string ProductName { get; init; } = string.Empty;
+
+        /// <summary>متوسط نجومه على مراحل المنتج اللي بيعرفها (1–5)</summary>
+        public decimal AverageStars { get; init; }
+
+        /// <summary>عدد مراحل المنتج اللي بيعرفها</summary>
+        public int KnownStages { get; init; }
+
+        public int RoundedStars =>
+            Math.Clamp((int)Math.Round(AverageStars, MidpointRounding.AwayFromZero), 1, 5);
+
+        public string StarsText => new string('★', RoundedStars) + new string('☆', 5 - RoundedStars);
+
+        public string StagesText => $"{KnownStages} مرحلة";
     }
 
     /// <summary>سطر حركة سلفة/حافز داخل تقرير العامل وقسيمة أجره</summary>

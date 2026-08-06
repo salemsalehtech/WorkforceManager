@@ -62,8 +62,9 @@ Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output)
 - `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
   UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
 
-`WorkforceManager.Tests` (xUnit, `net8.0`, 171 tests) covers the worker-assignment rule, daily output,
-the skill-rating system, worker filtering, product activity, and the removed-field guards — run with `dotnet test`
+`WorkforceManager.Tests` (xUnit, `net8.0`, 233 tests) covers the worker-assignment rule, daily output,
+the skill-rating system, worker filtering, product activity, pending work, the worker report, and the
+removed-field guards — run with `dotnet test`
 from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
@@ -170,7 +171,21 @@ Core  <----------------------- UI
   (اليوم/الأسبوع/الشهر) + a free from/to custom range (any span works, e.g. day 1→20), all served by
   `ProductionReportService.GetGeneralReportAsync(from,to)`/`GetWorkerReportAsync(workerId,from,to)`
   (completed pieces = last-stage-per-product, same rule as the chart) with Excel export via
-  `WeeklyReportExcelService.ExportGeneralReport`/`ExportWorkerReport`. `ProductsView` is implemented with the same card language as the workers/attendance screens: summary bar,
+  `WeeklyReportExcelService.ExportGeneralReport`/`ExportWorkerReport`.
+  The **worker tab's summary is four stat tiles** (قطع شغّلها / يوميات منتجة / أيام حضور / الأجر النهائي),
+  not the two pipe-separated lines it used to be — the wage tile flips from green to red via a
+  `DataTrigger` on `WorkerIsWageNegative`, because a negative number in a green box reads as a gain.
+  **`WorkerProductionReportDto.TotalPieces` sums every stage on purpose** — unlike every product-facing
+  number in the app, this one measures *the worker's own work*, so a piece that crossed two stages he
+  worked counts twice; switching it to last-stage-only would pay everyone upstream zero. The tab also
+  carries `Skills` (his star rating per product, highest first — built by
+  `ProductionReportService.BuildSkillSummaryAsync` which delegates to `SkillRatingService.ProductStars`,
+  so "unknown stages don't count as zero" stays in one place) and two warning banners: `IsWageNegative`
+  (advances exceeded the wage — the negative is **shown**, never zeroed, since "the worker owes us" is a
+  real accounting fact) and `HasNoWageRate`. `ExportWorkerReport` mirrors all of it — skills, penalties,
+  and adjustments tables plus the same two warnings — so the printed file never says less than the screen.
+  `WorkerReportTests` covers the sum-per-stage rule, both warnings, and the skills summary.
+  `ProductsView` is implemented with the same card language as the workers/attendance screens: summary bar,
   instant search (product or stage name), `FilterChip` filters, and product cards showing stage count
   only — a `TotalQuota` stat (sum of every active stage's `PiecesPerWorkday`) was removed on purpose:
   summing quotas across sequential stages measures nothing, since a piece passes through the stages in

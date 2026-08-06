@@ -308,6 +308,14 @@ namespace WorkforceManager.Business.Services
             if (report.BonusEgp > 0) Info("الحوافز", $"+ {report.BonusEgp:N0} ج");
             if (report.AdvanceEgp > 0) Info("السلف", $"− {report.AdvanceEgp:N0} ج");
             Info("الأجر النهائي", $"{report.NetWageEgp:N0} ج");
+            sheet.Cell(row - 1, 1).Style.Fill.SetBackgroundColor(XLColor.FromHtml("#EEF2F9"));
+            sheet.Cell(row - 1, 2).Style.Font.SetBold();
+
+            // نفس تحذيرات الشاشة — الملف اللي بيتطبع لازم يقول نفس الكلام
+            if (report.IsWageNegative)
+                Info("تنبيه", "السلف أكبر من الأجر — العامل مدين بالفرق");
+            if (report.HasNoWageRate)
+                Info("تنبيه", "مفيش سعر يومية متسجّل — الأجر بيطلع صفر مهما أنتج");
 
             // تفصيل الإنتاج بالمنتج/المرحلة
             row += 1;
@@ -336,6 +344,57 @@ namespace WorkforceManager.Business.Services
                 row++;
             }
             FinishSheet(sheet, start, row - 1, 4);
+
+            // تقييمه على المنتجات — نفس اللي بيظهر في الشاشة، عشان الملف
+            // المطبوع ميقولش أقل من اللي المدير شافه
+            if (report.Skills.Count > 0)
+            {
+                row += 1;
+                WriteHeaders(sheet, row, "المنتج", "التقييم", "مراحل بيعرفها", "");
+                start = row; row++;
+                foreach (var s in report.Skills)
+                {
+                    sheet.Cell(row, 1).Value = s.ProductName;
+                    sheet.Cell(row, 2).Value = s.StarsText;
+                    sheet.Cell(row, 3).Value = s.KnownStages;
+                    row++;
+                }
+                FinishSheet(sheet, start, row - 1, 4);
+            }
+
+            // الجزاءات
+            if (report.Penalties.Count > 0)
+            {
+                row += 1;
+                WriteHeaders(sheet, row, "التاريخ", "السبب", "الخصم (يومية)", "");
+                start = row; row++;
+                foreach (var p in report.Penalties)
+                {
+                    sheet.Cell(row, 1).Value = p.Date.ToString("yyyy/MM/dd");
+                    sheet.Cell(row, 2).Value = p.Reason;
+                    sheet.Cell(row, 3).Value = p.DeductedWorkdays;
+                    row++;
+                }
+                FinishSheet(sheet, start, row - 1, 4);
+            }
+
+            // السلف والحوافز
+            if (report.Adjustments.Count > 0)
+            {
+                row += 1;
+                WriteHeaders(sheet, row, "التاريخ", "النوع", "المبلغ (ج)", "ملاحظة");
+                start = row; row++;
+                foreach (var a in report.Adjustments)
+                {
+                    sheet.Cell(row, 1).Value = a.Date.ToString("yyyy/MM/dd");
+                    sheet.Cell(row, 2).Value =
+                        a.Type == Core.Enums.WageAdjustmentType.Advance ? "سلفة" : "حافز";
+                    sheet.Cell(row, 3).Value = a.AmountEgp;
+                    sheet.Cell(row, 4).Value = a.Note ?? "";
+                    row++;
+                }
+                FinishSheet(sheet, start, row - 1, 4);
+            }
 
             sheet.Columns().AdjustToContents();
             sheet.Column(4).Width = Math.Max(sheet.Column(4).Width, 30);

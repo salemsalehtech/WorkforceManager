@@ -812,11 +812,160 @@
                     <StackPanel>
                         <TextBlock Text="{Binding WorkerReportHeader}" FontWeight="Bold" FontSize="14"
                                    Foreground="{StaticResource BrandBrush}" TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding WorkerProductionText}" FontSize="12.5" Foreground="{StaticResource TextMutedBrush}"
-                                   TextWrapping="Wrap" Margin="0,5,0,0" Visibility="{Binding HasWorkerReport, Converter={StaticResource BoolToVis}}" />
-                        <TextBlock Text="{Binding WorkerWageText}" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource SuccessBrush}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Visibility="{Binding HasWorkerReport, Converter={StaticResource BoolToVis}}" />
+                        <!-- ===== أرقام الفترة =====
+                             كانت سطرين مفصولين بـ "|" — الأجر النهائي، وهو
+                             الرقم اللي بيتصرف فعلاً، كان بيضيع وسط ٦ أرقام
+                             تانية. كل رقم بقى في مربع، وتحته السطر اللي
+                             بيفسّره. -->
+                        <Grid Margin="0,10,0,0"
+                              Visibility="{Binding HasWorkerReport, Converter={StaticResource BoolToVis}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="1.2*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
+                                    Padding="11,8" Margin="0,0,5,0">
+                                <StackPanel>
+                                    <TextBlock Text="قطع شغّلها" FontSize="10.5"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                    <TextBlock Text="{Binding WorkerPiecesText}" FontSize="21" FontWeight="Bold"
+                                               Foreground="{StaticResource BrandBrush}" />
+                                    <TextBlock Text="مجموع شغله على كل المراحل" FontSize="10"
+                                               TextWrapping="Wrap"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="1" Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
+                                    Padding="11,8" Margin="5,0">
+                                <StackPanel>
+                                    <TextBlock Text="يوميات منتجة" FontSize="10.5"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                    <TextBlock Text="{Binding WorkerWorkdaysText}" FontSize="21" FontWeight="Bold"
+                                               Foreground="{StaticResource BrandBrush}" />
+                                    <TextBlock Text="{Binding WorkerNetWorkdaysText}" FontSize="10"
+                                               TextWrapping="Wrap"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
+                                    Padding="11,8" Margin="5,0">
+                                <StackPanel>
+                                    <TextBlock Text="أيام حضور" FontSize="10.5"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                    <TextBlock Text="{Binding WorkerPresentDaysText}" FontSize="21" FontWeight="Bold"
+                                               Foreground="{StaticResource BrandBrush}" />
+                                    <TextBlock Text="{Binding WorkerAbsenceText}" FontSize="10"
+                                               TextWrapping="Wrap"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- الأجر النهائي أكبر وله لون مختلف: هو خلاصة الشاشة.
+                                 بيقلب أحمر لو طلع بالسالب — رقم سالب في مربع
+                                 أخضر بيتقري غلط. -->
+                            <Border Grid.Column="3" CornerRadius="8" Padding="11,8" Margin="5,0,0,0">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{StaticResource SuccessBgBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding WorkerIsWageNegative}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource DangerBgBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <StackPanel.Resources>
+                                        <Style x:Key="WageInk" TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding WorkerIsWageNegative}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Resources>
+                                    <TextBlock Text="الأجر النهائي" FontSize="10.5"
+                                               Style="{StaticResource WageInk}" />
+                                    <TextBlock Text="{Binding WorkerNetWageText}" FontSize="21" FontWeight="Bold"
+                                               Style="{StaticResource WageInk}" />
+                                    <TextBlock Text="{Binding WorkerWageBreakdownText}" FontSize="10"
+                                               TextWrapping="Wrap"
+                                               Foreground="{StaticResource TextMutedBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- ===== تحذيرات =====
+                             بتظهر بس لما تبقى موجودة فعلاً. الرقم السالب
+                             بيتعرض زي ما هو مش بيتصفّر: "العامل مدين"
+                             حقيقة محاسبية لازم تتشاف. -->
+                        <Border Background="{StaticResource DangerBgBrush}" CornerRadius="7"
+                                Padding="10,7" Margin="0,8,0,0"
+                                Visibility="{Binding WorkerIsWageNegative, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="AlertCircleOutline" Width="15" Height="15"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{StaticResource DangerBrush}" />
+                                <TextBlock Text="{Binding WorkerNegativeWageText}" FontSize="12" Margin="6,0,0,0"
+                                           TextWrapping="Wrap" VerticalAlignment="Center"
+                                           Foreground="{StaticResource DangerBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource WarnBgBrush}" CornerRadius="7"
+                                Padding="10,7" Margin="0,8,0,0"
+                                Visibility="{Binding WorkerHasNoWageRate, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="CashRemove" Width="15" Height="15"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{StaticResource WarnBrush}" />
+                                <TextBlock Text="مفيش سعر يومية متسجّل للعامل ده — أجره هيطلع صفر مهما أنتج. ظبّطه من شاشة العمال."
+                                           FontSize="12" Margin="6,0,0,0" TextWrapping="Wrap"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource WarnBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ===== مهاراته =====
+                             "أنتج كام" لوحده مبيقولش هو شاطر في إيه. عامل
+                             إنتاجه قليل وتقييمه ممتاز على مرحلة صعبة صورة
+                             مختلفة تمامًا عن عامل إنتاجه قليل وتقييمه ضعيف. -->
+                        <StackPanel Margin="0,10,0,0"
+                                    Visibility="{Binding HasWorkerSkills, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="تقييمه على المنتجات" FontSize="11.5" FontWeight="SemiBold"
+                                       Margin="0,0,0,5"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                            <ItemsControl ItemsSource="{Binding WorkerSkills}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="7"
+                                                Padding="9,5" Margin="0,0,6,5">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding StarsText}" FontSize="11.5"
+                                                           VerticalAlignment="Center" Foreground="#F5A623" />
+                                                <TextBlock Text="{Binding ProductName}" FontSize="12" FontWeight="SemiBold"
+                                                           Margin="6,0,0,0" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                                <TextBlock Text="{Binding StagesText}" FontSize="10.5"
+                                                           Margin="6,0,0,0" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

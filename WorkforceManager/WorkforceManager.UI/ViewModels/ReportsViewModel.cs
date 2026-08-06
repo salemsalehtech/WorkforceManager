@@ -722,13 +722,37 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private string _workerReportHeader = "اختر عامل لعرض تقريره";
 
-        /// <summary>سطر أرقام الإنتاج والحضور</summary>
-        [ObservableProperty]
-        private string _workerProductionText = "";
+        // ------- أرقام الملخص -------
+        // كانت سطرين طويلين مفصولين بـ "|" — رقم مهم زي الأجر النهائي كان
+        // بيضيع وسط ٦ أرقام تانية. بقت مربعات، كل رقم في مكانه.
 
-        /// <summary>سطر الأجر والخصومات (بارز)</summary>
+        /// <summary>قطع أنتجها العامل في الفترة</summary>
         [ObservableProperty]
-        private string _workerWageText = "";
+        private string _workerPiecesText = "0";
+
+        /// <summary>يوميات منتجة (قبل الخصومات)</summary>
+        [ObservableProperty]
+        private string _workerWorkdaysText = "0";
+
+        /// <summary>صافي اليوميات بعد الغياب والجزاءات</summary>
+        [ObservableProperty]
+        private string _workerNetWorkdaysText = "";
+
+        /// <summary>أيام الحضور</summary>
+        [ObservableProperty]
+        private string _workerPresentDaysText = "0";
+
+        /// <summary>تفصيل الغياب تحت رقم الحضور</summary>
+        [ObservableProperty]
+        private string _workerAbsenceText = "";
+
+        /// <summary>الأجر النهائي بالجنيه — الرقم اللي بيتصرف فعلاً</summary>
+        [ObservableProperty]
+        private string _workerNetWageText = "—";
+
+        /// <summary>معادلة الأجر: يوميات × سعر + حوافز − سلف</summary>
+        [ObservableProperty]
+        private string _workerWageBreakdownText = "";
 
         /// <summary>هل فيه تقرير معروض؟ (يتحكم في ظهور الأرقام)</summary>
         [ObservableProperty]
@@ -737,6 +761,28 @@ namespace WorkforceManager.UI.ViewModels
         public ObservableCollection<GeneralStageRow> WorkerByProductStage { get; } = new();
         public ObservableCollection<WorkerDayRow> WorkerByDay { get; } = new();
         public ObservableCollection<WorkerPenaltyRow> WorkerPenalties { get; } = new();
+
+        /// <summary>تقييم العامل على المنتجات — الأعلى الأول</summary>
+        public ObservableCollection<WorkerSkillSummaryDto> WorkerSkills { get; } = new();
+
+        [ObservableProperty]
+        private bool _hasWorkerSkills;
+
+        /// <summary>مفيش سعر يومية — أجره هيطلع صفر مهما أنتج</summary>
+        [ObservableProperty]
+        private bool _workerHasNoWageRate;
+
+        /// <summary>
+        /// السلف أكلت الأجر والصافي بالسالب.
+        ///
+        /// الرقم بيتعرض زي ما هو مع تحذير بدل ما يتصفّر: "العامل مدين"
+        /// حقيقة محاسبية لازم تتشاف، وتصفيرها بتخفي إن السلف اتصرفت.
+        /// </summary>
+        [ObservableProperty]
+        private bool _workerIsWageNegative;
+
+        [ObservableProperty]
+        private string _workerNegativeWageText = "";
 
         [RelayCommand]
         private Task RefreshWorkerAsync() => LoadWorkerReportAsync();
@@ -782,22 +828,48 @@ namespace WorkforceManager.UI.ViewModels
             foreach (var p in report.Penalties)
                 WorkerPenalties.Add(WorkerPenaltyRow.From(p));
 
+            // المهارات: "أنتج كام" لوحده مبيقولش هو شاطر في إيه
+            WorkerSkills.Clear();
+            foreach (var s in report.Skills) WorkerSkills.Add(s);
+            HasWorkerSkills = WorkerSkills.Count > 0;
+
+            // تحذيرات بتظهر بس لما تبقى موجودة فعلاً
+            WorkerHasNoWageRate = report.HasNoWageRate;
+            WorkerIsWageNegative = report.IsWageNegative;
+            WorkerNegativeWageText = report.IsWageNegative
+                ? $"السلف ({report.AdvanceEgp:N0} ج) أكبر من أجره — الصافي {report.NetWageEgp:N0} ج، " +
+                  "يعني العامل مدين بالفرق"
+                : "";
+
             var days = (WorkerTo.Date - WorkerFrom.Date).Days + 1;
             WorkerReportHeader =
                 $"{report.WorkerName} — {report.TypeText}   |   " +
                 $"من {report.From:yyyy/MM/dd} إلى {report.To:yyyy/MM/dd} ({days} يوم)";
-            WorkerProductionText =
-                $"إجمالي القطع: {report.TotalPieces:N0}   |   يوميات منتجة: {report.ProducedWorkdays:0.##}   |   " +
-                $"حضور: {report.PresentDays}   |   غياب بإذن: {report.AbsentWithPermissionDays}   |   " +
-                $"غياب بدون إذن: {report.AbsentWithoutPermissionDays} (خصم {report.AbsenceDeduction})";
-            // سطر الأجر: أجر اليوميات + الحوافز − السلف = الأجر النهائي
+            // القطع هنا بتتجمع على كل المراحل عن قصد: دي قياس شغل العامل
+            // نفسه مش إنتاج المنتج، فالقطعة اللي عدّت على مرحلتين شغل مرتين.
+            WorkerPiecesText = report.TotalPieces.ToString("N0");
+            WorkerWorkdaysText = report.ProducedWorkdays.ToString("0.##");
+            WorkerNetWorkdaysText = report.NetWorkdays != report.ProducedWorkdays
+                ? $"الصافي بعد الخصومات: {report.NetWorkdays:0.##}"
+                : "مفيش خصومات";
+
+            WorkerPresentDaysText = report.PresentDays.ToString();
+            var absences = new List<string>();
+            if (report.AbsentWithPermissionDays > 0)
+                absences.Add($"غياب بإذن {report.AbsentWithPermissionDays}");
+            if (report.AbsentWithoutPermissionDays > 0)
+                absences.Add($"بدون إذن {report.AbsentWithoutPermissionDays} (خصم {report.AbsenceDeduction:0.##})");
+            WorkerAbsenceText = absences.Count > 0 ? string.Join(" · ", absences) : "مفيش غياب";
+
+            // معادلة الأجر كاملة: يوميات × سعر + حوافز − سلف
+            WorkerNetWageText = report.DailyWageEgp > 0 ? $"{report.NetWageEgp:N0} ج" : "—";
             var adjParts = "";
-            if (report.BonusEgp > 0) adjParts += $"   +   حوافز {report.BonusEgp:N0} ج";
-            if (report.AdvanceEgp > 0) adjParts += $"   −   سلف {report.AdvanceEgp:N0} ج";
-            WorkerWageText = report.DailyWageEgp > 0
-                ? $"أجر اليوميات: {report.NetWorkdays:0.##} × {report.DailyWageEgp:N0} = {report.WorkdaysWageEgp:N0} ج{adjParts}   =   " +
-                  $"الأجر النهائي {report.NetWageEgp:N0} ج   (خصم جزاءات: {report.PenaltyDeduction})"
-                : $"صافي اليوميات: {report.NetWorkdays:0.##}   (خصم جزاءات: {report.PenaltyDeduction}){adjParts}   |   سعر اليومية غير محدد";
+            if (report.BonusEgp > 0) adjParts += $" + حوافز {report.BonusEgp:N0}";
+            if (report.AdvanceEgp > 0) adjParts += $" − سلف {report.AdvanceEgp:N0}";
+            if (report.PenaltyDeduction > 0) adjParts += $" (خصم جزاءات {report.PenaltyDeduction:0.##} يومية)";
+            WorkerWageBreakdownText = report.DailyWageEgp > 0
+                ? $"{report.NetWorkdays:0.##} × {report.DailyWageEgp:N0}{adjParts}"
+                : $"صافي اليوميات {report.NetWorkdays:0.##}{adjParts}";
             HasWorkerReport = true;
         }
 
