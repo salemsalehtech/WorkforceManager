@@ -105,6 +105,64 @@ namespace WorkforceManager.UI.ViewModels
             $"النسخ الأقدم من {RetentionDays} يوم بتتمسح تلقائيًا " +
             $"(من {DatabaseBackupService.MinRetentionDays} لـ {DatabaseBackupService.MaxRetentionDays} يوم)";
 
+        // ------- تنظيف سجل العمليات -------
+        // مدتين مش واحدة: أحداث الفلوس السؤال عليها بييجي بعد شهور،
+        // وأحداث الحذف الإداري بتفقد قيمتها بسرعة.
+
+        /// <summary>مدة الاحتفاظ بأحداث الحذف الإداري (0 = التنظيف متوقف)</summary>
+        [ObservableProperty]
+        private int _logRetentionDays = AppSettings.DefaultActivityLogRetentionDays;
+
+        partial void OnLogRetentionDaysChanged(int value) =>
+            SaveLogRetention(value, isFinancial: false);
+
+        /// <summary>مدة الاحتفاظ بأحداث الفلوس (0 = التنظيف متوقف)</summary>
+        [ObservableProperty]
+        private int _logFinancialRetentionDays = AppSettings.DefaultActivityLogFinancialRetentionDays;
+
+        partial void OnLogFinancialRetentionDaysChanged(int value) =>
+            SaveLogRetention(value, isFinancial: true);
+
+        /// <summary>
+        /// الصفر مسموح ومعناه "بلاش تنظيف خالص". أي رقم تاني بيترد لحد
+        /// أدنى — سجل بيتمسح كل أسبوع مش سجل.
+        /// </summary>
+        private void SaveLogRetention(int value, bool isFinancial)
+        {
+            if (_loadingSettings) return;
+
+            var clamped = value <= 0 ? 0 : Math.Max(value, ActivityLogService.MinRetentionDays);
+            if (clamped != value)
+            {
+                if (isFinancial) LogFinancialRetentionDays = clamped;
+                else LogRetentionDays = clamped;
+                return;
+            }
+
+            var settings = AppSettingsStore.Load();
+            if (isFinancial) settings.ActivityLogFinancialRetentionDays = clamped;
+            else settings.ActivityLogRetentionDays = clamped;
+            AppSettingsStore.Save(settings);
+
+            OnPropertyChanged(nameof(LogRetentionText));
+        }
+
+        public string LogRetentionText
+        {
+            get
+            {
+                var routine = LogRetentionDays > 0
+                    ? $"أحداث الحذف بتتمسح بعد {LogRetentionDays} يوم"
+                    : "أحداث الحذف مش بتتمسح";
+                var money = LogFinancialRetentionDays > 0
+                    ? $"وأحداث الفلوس بعد {LogFinancialRetentionDays} يوم"
+                    : "وأحداث الفلوس مش بتتمسح";
+
+                return $"{routine}، {money}. صفر = بلاش تنظيف. " +
+                       $"التنظيف بيحصل عند فتح البرنامج، بعد ما النسخة الاحتياطية تكون اتاخدت.";
+            }
+        }
+
         /// <summary>النسخة التلقائية عند التشغيل شغالة؟</summary>
         [ObservableProperty]
         private bool _autoBackupOnStartup = true;
@@ -261,7 +319,10 @@ namespace WorkforceManager.UI.ViewModels
             RetentionDays = settings.BackupRetentionDays;
             AutoBackupOnStartup = settings.AutoBackupOnStartup;
             DarkMode = settings.DarkMode;
+            LogRetentionDays = settings.ActivityLogRetentionDays;
+            LogFinancialRetentionDays = settings.ActivityLogFinancialRetentionDays;
             _loadingSettings = false;
+            OnPropertyChanged(nameof(LogRetentionText));
 
             SafeAsync.Run(LoadAccountAsync);
 

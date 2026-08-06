@@ -51,6 +51,33 @@ namespace WorkforceManager.UI.ViewModels
 
         partial void OnSearchTextChanged(string value) => ApplyFilter();
 
+        /// <summary>
+        /// بيقول للمستخدم إن السجل بيقصّر لوحده وقد إيه.
+        ///
+        /// من غير السطر ده، اللي بيدوّر على حدث من ٦ شهور ومبيلاقيهوش
+        /// بيفتكر إن فيه عطل — مش إن ده إعداد هو اللي حاططه.
+        /// بيتقرا من الإعدادات كل مرة الشاشة تتفتح عشان يتمشى مع أي تغيير.
+        /// </summary>
+        public string RetentionNote
+        {
+            get
+            {
+                var settings = Data.AppSettingsStore.Load();
+                var routine = settings.ActivityLogRetentionDays;
+                var money = settings.ActivityLogFinancialRetentionDays;
+
+                if (routine <= 0 && money <= 0)
+                    return "السجل مبيتمسحش منه حاجة — كل الأحداث بتتحفظ للأبد (من الإعدادات).";
+
+                var parts = new List<string>();
+                if (routine > 0) parts.Add($"أحداث الحذف بعد {routine} يوم");
+                if (money > 0) parts.Add($"أحداث الفلوس بعد {money} يوم");
+
+                return $"السجل بيتنضّف تلقائيًا: {string.Join("، و", parts)}. " +
+                       "غيّرها من شاشة الإعدادات.";
+            }
+        }
+
         /// <summary>بيحمّل أحداث الفترة المختارة</summary>
         [RelayCommand]
         public async Task LoadAsync()
@@ -60,6 +87,7 @@ namespace WorkforceManager.UI.ViewModels
 
             _loaded = (await log.GetByRangeAsync(FromDate, ToDate)).ToList();
             ApplyFilter();
+            OnPropertyChanged(nameof(RetentionNote)); // الإعداد ممكن يكون اتغيّر من شاشة تانية
         }
 
         /// <summary>آخر 30 يوم (الافتراضي)</summary>

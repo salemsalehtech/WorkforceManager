@@ -43,6 +43,13 @@
                              VerticalContentAlignment="Center"
                              materialDesign:HintAssist.Hint="بحث بالاسم أو السبب" />
                 </WrapPanel>
+
+                <!-- السجل بيقصّر لوحده، فلازم الشاشة تقول ليه.
+                     من غير السطر ده المستخدم بيدوّر على حدث قديم
+                     ومبيلاقيهوش ويفتكر إن فيه عطل. -->
+                <TextBlock Text="{Binding RetentionNote}" FontSize="11.5" Margin="0,10,0,0"
+                           TextWrapping="Wrap"
+                           Foreground="{StaticResource TextMutedBrush}" />
             </StackPanel>
         </Border>
 

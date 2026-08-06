@@ -64,5 +64,42 @@ namespace WorkforceManager.Business.Services
         /// <summary>أحداث فترة معينة (فلترة بالتاريخ في شاشة السجل)</summary>
         public Task<IReadOnlyList<ActivityEvent>> GetByRangeAsync(DateTime from, DateTime to) =>
             _events.GetByRangeAsync(from, to);
+
+        // ------- التنظيف التلقائي -------
+
+        /// <summary>أقل مدة احتفاظ مسموح بيها — أقل من كده السجل بيبقى بلا معنى</summary>
+        public const int MinRetentionDays = 30;
+
+        /// <summary>
+        /// يمسح الأحداث اللي عدّت مدة الاحتفاظ. بيتنادى مرة عند تشغيل
+        /// البرنامج، بعد ما النسخة الاحتياطية تكون اتاخدت — فأي حاجة
+        /// اتمسحت هنا لسه موجودة في نسخة اليوم.
+        ///
+        /// مدتين مش واحدة: أحداث الفلوس بتعيش أطول لأن السؤال عليها
+        /// بييجي متأخر ("ليه خصمت مني في أغسطس؟")، وأحداث الحذف الإداري
+        /// بتفقد قيمتها بسرعة. التقسيم في
+        /// <see cref="Core.Enums.ActivityEventRetention"/>.
+        ///
+        /// صفر في أي مدة = التنظيف متوقف للنوع ده (اختيار المستخدم من
+        /// الإعدادات)، مش "امسح كل حاجة".
+        /// </summary>
+        /// <returns>عدد الأحداث اللي اتمسحت</returns>
+        public async Task<int> PurgeExpiredAsync(int shortLivedDays, int longLivedDays)
+        {
+            var today = DateTime.Today;
+            var deleted = 0;
+
+            if (shortLivedDays > 0)
+                deleted += await _events.DeleteOlderThanAsync(
+                    today.AddDays(-Math.Max(shortLivedDays, MinRetentionDays)),
+                    ActivityEventRetention.ShortLivedTypes);
+
+            if (longLivedDays > 0)
+                deleted += await _events.DeleteOlderThanAsync(
+                    today.AddDays(-Math.Max(longLivedDays, MinRetentionDays)),
+                    ActivityEventRetention.LongLivedTypes);
+
+            return deleted;
+        }
     }
 }

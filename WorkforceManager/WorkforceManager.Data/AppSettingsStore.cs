@@ -49,8 +49,29 @@ namespace WorkforceManager.Data
         /// </summary>
         public bool DarkMode { get; set; }
 
+        // ------- تنظيف سجل العمليات -------
+
+        /// <summary>
+        /// مدة الاحتفاظ بأحداث الحذف الإداري (مسح يوم/سجل/عامل/منتج/مرحلة).
+        /// صفر = التنظيف متوقف.
+        /// </summary>
+        public int ActivityLogRetentionDays { get; set; } = DefaultActivityLogRetentionDays;
+
+        /// <summary>
+        /// مدة الاحتفاظ بأحداث الفلوس (أجر/جزاء/سلفة/تصحيح قطع) وكلمة سر
+        /// العمليات. أطول عن قصد — السؤال عليها بييجي بعد شهور.
+        /// صفر = التنظيف متوقف.
+        /// </summary>
+        public int ActivityLogFinancialRetentionDays { get; set; } = DefaultActivityLogFinancialRetentionDays;
+
         /// <summary>الافتراضي: أسبوعين — كفاية للرجوع من غلطة، ومش بيكبّر المجلد</summary>
         public const int DefaultBackupRetentionDays = 14;
+
+        /// <summary>الافتراضي: 3 شهور — كفاية لمراجعة اللي فات من غير ما الشاشة تتخم</summary>
+        public const int DefaultActivityLogRetentionDays = 90;
+
+        /// <summary>الافتراضي: سنة — الخلاف على أجر بييجي بعد موسم كامل</summary>
+        public const int DefaultActivityLogFinancialRetentionDays = 365;
     }
 
     /// <summary>

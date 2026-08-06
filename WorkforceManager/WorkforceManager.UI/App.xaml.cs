@@ -174,6 +174,27 @@ namespace WorkforceManager.UI
                     return;
                 }
 
+                // تنظيف سجل العمليات من اللي عدّى مدة الاحتفاظ.
+                //
+                // بعد النسخة الاحتياطية عن قصد (اللي فوق): أي حدث بيتمسح
+                // هنا لسه موجود في نسخة النهارده، فالغلط بيرجع.
+                //
+                // فشله عمره ما يمنع البرنامج من الفتح — ده تنظيف، مش شرط
+                // تشغيل. نفس مبدأ النسخ الخارجي.
+                try
+                {
+                    using var purgeScope = AppHost.Services.CreateScope();
+                    var settings = AppSettingsStore.Load();
+                    await purgeScope.ServiceProvider.GetRequiredService<ActivityLogService>()
+                        .PurgeExpiredAsync(
+                            settings.ActivityLogRetentionDays,
+                            settings.ActivityLogFinancialRetentionDays);
+                }
+                catch
+                {
+                    // متجاهَل عن قصد — شوف الكومنت فوق
+                }
+
                 var mainWindow = AppHost.Services.GetRequiredService<MainWindow>();
                 MainWindow = mainWindow;
                 ShutdownMode = ShutdownMode.OnMainWindowClose;

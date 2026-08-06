@@ -62,9 +62,9 @@ Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output)
 - `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
   UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
 
-`WorkforceManager.Tests` (xUnit, `net8.0`, 233 tests) covers the worker-assignment rule, daily output,
-the skill-rating system, worker filtering, product activity, pending work, the worker report, and the
-removed-field guards — run with `dotnet test`
+`WorkforceManager.Tests` (xUnit, `net8.0`, 242 tests) covers the worker-assignment rule, daily output,
+the skill-rating system, worker filtering, product activity, pending work, the worker report,
+activity-log retention, and the removed-field guards — run with `dotnet test`
 from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
@@ -487,6 +487,20 @@ Core  <----------------------- UI
   `AppSettingsStore`/settings.json, external failures never block startup), `BackupNow` (manual, errors
   loudly), `RestoreBackup` (safety-copies current db first, then overwrite + app restart). Cleanup is
   filename-date based; `AppPaths` centralizes all file locations. UI in `SettingsView` (5th nav item).
+- **Activity-log retention** (`ActivityLogService.PurgeExpiredAsync`, run once per startup from
+  `App.OnStartup` **after** the backup, so anything it deletes is still in today's backup; its failure is
+  swallowed — a cleanup is not a startup prerequisite). **Two windows, not one**, because this log has no
+  routine noise: every one of its 11 event types is either a deletion or a money movement.
+  `ActivityEventRetention` (Core) lists only the **short-lived** types — the five administrative deletions
+  (day / record / worker / product / stage) — and everything else gets the long window **by default**, so
+  a new event type added later can't silently inherit a 90-day life just because someone forgot to list
+  it. `ActivityLogRetentionTests` asserts exactly that inversion. Defaults: 90 days for deletions, 365 for
+  money + `OperationsPasswordChanged` (it's the gate protecting the money operations, so "who changed it"
+  belongs to the same question). Both are editable in Settings; **0 means off, never "delete everything"**,
+  and anything else is raised to `MinRetentionDays` (30). Deleting is a bulk `ExecuteDeleteAsync` on the
+  indexed `OccurredAt` — the rows never load into memory. `ActivityLogViewModel.RetentionNote` prints the
+  live policy on the log screen: a log that shrinks on its own must say so, or the first person who can't
+  find a six-month-old event reports it as a bug.
 - `WeeklySummaryService` is the heart of weekly math. The work week runs **Thursday → Wednesday**
   (`GetWorkWeekRange`). Weekly counters are computed on the fly from `DailyProduction`/`Attendance`/
   `Penalty` records — nothing weekly is stored, so "a new week starts fresh" while all history stays
