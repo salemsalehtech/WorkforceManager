@@ -76,6 +76,10 @@ namespace WorkforceManager.UI.ViewModels
         partial void OnPeriodFromChanged(DateTime value) => SafeAsync.Run(LoadAsync);
         partial void OnPeriodToChanged(DateTime value) => SafeAsync.Run(LoadAsync);
 
+        /// <summary>قائمة المدة مفتوحة — الاختيار بيقفلها بنفسه</summary>
+        [ObservableProperty]
+        private bool _isPeriodMenuOpen;
+
         /// <summary>يرجّع الفترة لأسبوع الشغل الحالي</summary>
         [RelayCommand]
         private void UseCurrentWeek()
@@ -83,6 +87,17 @@ namespace WorkforceManager.UI.ViewModels
             var (from, to) = ProductActivityService.CurrentWeek(DateTime.Today);
             PeriodFrom = from;
             PeriodTo = to;
+            IsPeriodMenuOpen = false;
+        }
+
+        /// <summary>الشهر الجاري: من أول يوم فيه لحد النهارده</summary>
+        [RelayCommand]
+        private void UseThisMonth()
+        {
+            var today = DateTime.Today;
+            PeriodFrom = new DateTime(today.Year, today.Month, 1);
+            PeriodTo = today;
+            IsPeriodMenuOpen = false;
         }
 
         /// <summary>يوسّع الفترة لآخر 30 يوم</summary>
@@ -91,12 +106,30 @@ namespace WorkforceManager.UI.ViewModels
         {
             PeriodFrom = DateTime.Today.AddDays(-30);
             PeriodTo = DateTime.Today;
+            IsPeriodMenuOpen = false;
         }
 
-        /// <summary>وصف الفترة المعروضة — كل إحصائية بتقول هي بتقيس إيه</summary>
+        /// <summary>وصف الفترة الكامل — بيتعرض جوّه قائمة المدة مش على الشاشة</summary>
         public string PeriodText => IsCurrentWeek
             ? $"أسبوع الشغل الحالي (الخميس {PeriodFrom:dd/MM} → الأربع {PeriodTo:dd/MM})"
             : $"من {PeriodFrom:yyyy/MM/dd} إلى {PeriodTo:yyyy/MM/dd}";
+
+        /// <summary>
+        /// اسم الفترة على زرارها — كلمتين مش تاريخين.
+        ///
+        /// التاريخ الكامل عايش جوّه القائمة، فالزرار بيقول "إيه المدة"
+        /// والقائمة بتقول "من امتى لامتى" — كل معلومة في مكان واحد.
+        /// </summary>
+        public string PeriodLabel
+        {
+            get
+            {
+                if (IsCurrentWeek) return "الأسبوع ده";
+                if (IsThisMonth) return "الشهر ده";
+                if (IsLast30Days) return "آخر 30 يوم";
+                return $"{PeriodFrom:dd/MM} → {PeriodTo:dd/MM}";
+            }
+        }
 
         public bool IsCurrentWeek
         {
@@ -107,10 +140,18 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        /// <summary>اسم فلتر "شغّالين" بيتغيّر مع الفترة عشان ميكدبش</summary>
-        public string WorkedFilterLabel => IsCurrentWeek
-            ? "شغّالين الأسبوع ده على"
-            : "شغّالين في الفترة دي";
+        public bool IsThisMonth
+        {
+            get
+            {
+                var today = DateTime.Today;
+                return PeriodFrom.Date == new DateTime(today.Year, today.Month, 1) &&
+                       PeriodTo.Date == today;
+            }
+        }
+
+        public bool IsLast30Days =>
+            PeriodFrom.Date == DateTime.Today.AddDays(-30) && PeriodTo.Date == DateTime.Today;
 
         // ------- عدّادات الملخص -------
 
@@ -169,8 +210,10 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(LeastActivePieces));
             OnPropertyChanged(nameof(HasSingleWorkedProduct));
             OnPropertyChanged(nameof(PeriodText));
+            OnPropertyChanged(nameof(PeriodLabel));
             OnPropertyChanged(nameof(IsCurrentWeek));
-            OnPropertyChanged(nameof(WorkedFilterLabel));
+            OnPropertyChanged(nameof(IsThisMonth));
+            OnPropertyChanged(nameof(IsLast30Days));
             OnPropertyChanged(nameof(ResultsText));
             OnPropertyChanged(nameof(NoResults));
         }
@@ -205,10 +248,22 @@ namespace WorkforceManager.UI.ViewModels
             new(ProductVolumeSort.LowestFirst, "الأقل إنتاجًا الأول")
         };
 
-        public bool HasExtraFilters =>
-            SelectedStageFilter?.StageName is not null ||
-            SelectedWorkerFilter?.WorkerId is not null ||
-            (SelectedVolumeFilter?.Sort ?? ProductVolumeSort.None) != ProductVolumeSort.None;
+        /// <summary>لوحة الفلاتر مفتوحة</summary>
+        [ObservableProperty]
+        private bool _isFilterMenuOpen;
+
+        /// <summary>
+        /// كام فلتر شغّال دلوقتي — بيتعرض كرقم على زرار الفلاتر.
+        ///
+        /// الفلاتر بقت جوّه لوحة، فمن غير الرقم ده المستخدم ممكن يبص على
+        /// قايمة مفلترة ومايعرفش ليه ناقصة.
+        /// </summary>
+        public int ActiveFilterCount =>
+            (SelectedStageFilter?.StageName is not null ? 1 : 0) +
+            (SelectedWorkerFilter?.WorkerId is not null ? 1 : 0) +
+            ((SelectedVolumeFilter?.Sort ?? ProductVolumeSort.None) != ProductVolumeSort.None ? 1 : 0);
+
+        public bool HasExtraFilters => ActiveFilterCount > 0;
 
         [RelayCommand]
         private void ClearExtraFilters()
@@ -402,6 +457,7 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(ResultsText));
             OnPropertyChanged(nameof(NoResults));
             OnPropertyChanged(nameof(HasExtraFilters));
+            OnPropertyChanged(nameof(ActiveFilterCount));
         }
 
         /// <summary>يعيد التحميل من غير ما يضيّع المنتج المفتوح</summary>

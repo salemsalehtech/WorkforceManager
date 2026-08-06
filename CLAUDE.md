@@ -209,11 +209,12 @@ Core  <----------------------- UI
   `ProductActivityService` (which delegates to `WeeklySummaryService.GetWorkWeekRange` — do not define a
   second "this week" anywhere). The period controls the filter and the stats together, so the number on
   screen and the filter applied always cover the same span:
-  - The first chip is **"شغّالين الأسبوع ده على"** (`ProductFilter.WorkedThisPeriod`), and its label
-    follows the period so it never claims "this week" while a month is shown. It means *actual logged
+  - The first chip is **"شغّالين"** (`ProductFilter.WorkedThisPeriod`). It means *actual logged
     production in the period* (`ProductActivityDto.WorkedInPeriod`), **not** the `Product.IsActive` flag
     the old "نشط" chip read — a product untouched for months stayed "active" forever, so the count said
-    nothing. `IsActive` still backs the "موقوف" chip, which is a different question.
+    nothing. `IsActive` still backs the "موقوف" chip, which is a different question. The label used to
+    carry the period too ("شغّالين الأسبوع ده على") and no longer does: the period button sits right
+    next to it, so that was a fourth copy of the same fact.
   - Summary stats are **"أكتر منتج إنتاجًا" / "أقل منتج إنتاجًا"**; the old "الإجمالي" and
     "إجمالي المراحل" are gone (near-constant numbers nobody acted on). "Least active" ranks only
     products that actually worked — including the zeros would just surface the first product
@@ -221,6 +222,17 @@ Core  <----------------------- UI
   - Three more filters AND together with the chip: stage **by name** (the same stage name repeats across
     products, and the user asks "which products have لمعة?"), worker (who worked on it in the period),
     and a volume sort.
+
+  **All of the chrome lives on one row** — search, chips, result count, a "فلاتر" button, a period
+  button. It used to be three stacked rows that stated the period **four** times (two DatePickers, two
+  quick buttons, a descriptive line, and the chip's own label). Now `PeriodLabel` names the period on
+  its button ("الأسبوع ده" / "الشهر ده" / "آخر 30 يوم" / a date range) and everything else — the quick
+  choices, the custom from/to pickers, and the full `PeriodText` description — lives inside its popup.
+  The three dropdowns moved into the "فلاتر" popup with `ActiveFilterCount` shown as a badge, because a
+  filter you can't see is a list you can't explain. Both popups are driven by `IsPeriodMenuOpen` /
+  `IsFilterMenuOpen` on the ViewModel rather than code-behind, so picking a period closes its own menu.
+  `ToolbarToggle` + `ToolbarPopupCard` (App.xaml) are the shared styles for this pattern — use them
+  rather than growing another toolbar row.
   The right panel renders the product as a **production line** — one card per stage with its
   position number, quota, **how many workers are qualified for it**, and a 👤🔍 button opening
   `QualifiedWorkersDialog` (who can do this stage, best-rated first). That dialog calls

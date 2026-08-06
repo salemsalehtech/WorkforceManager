@@ -799,6 +799,63 @@
             </Style>
 
             <!--
+              زرار بيفتح لوحة صغيرة تحته (المدة، الفلاتر). بيفضل مضلّل وهو
+              مفتوح عشان يبان إن اللوحة اللي ظهرت بتخصّه.
+
+              وجوده بيخلي صفوف الأدوات المتكررة تتلمّ في زرار واحد: بدل ما
+              تلات قوايم تقعد على الشاشة طول الوقت، بتقعد جوّه وتظهر لما
+              تتطلب.
+            -->
+            <Style x:Key="ToolbarToggle" TargetType="ToggleButton">
+                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                <Setter Property="FontSize" Value="12.5" />
+                <Setter Property="FontWeight" Value="Medium" />
+                <Setter Property="Padding" Value="11,7" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Bd" Background="{StaticResource CardBgBrush}"
+                                    BorderBrush="#D5DCE8" BorderThickness="1.4" CornerRadius="10">
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource HoverBgBrush}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrandBrush}" />
+                                    <Setter Property="Foreground" Value="{StaticResource BrandBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource SelectionBgBrush}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrandBrush}" />
+                                    <Setter Property="Foreground" Value="{StaticResource BrandBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- لوحة بتنزل من زرار ToolbarToggle -->
+            <Style x:Key="ToolbarPopupCard" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource CardBgBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1.4" />
+                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="Padding" Value="14,12" />
+                <Setter Property="Margin" Value="0,6,0,10" />
+                <Setter Property="Effect">
+                    <Setter.Value>
+                        <DropShadowEffect BlurRadius="18" ShadowDepth="3" Direction="270"
+                                          Opacity="0.18" Color="#1D2733" />
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!--
               زر أيقونة شفاف — الحذف والإغلاق داخل الشرائح والجداول.
               فكرة اللون: خلفية المرور بتاخد نفس لون الأيقونة نفسها بشفافية خفيفة
               (Background مربوط بـ Foreground + Opacity متحركة) — يعني زرار الحذف

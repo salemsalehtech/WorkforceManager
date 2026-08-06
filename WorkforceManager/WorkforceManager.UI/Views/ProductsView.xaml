@@ -12,7 +12,6 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -98,12 +97,15 @@
             </DockPanel>
         </Border>
 
-        <!-- ===== البحث + الفلاتر ===== -->
-        <Grid Grid.Row="1" Margin="2,0,2,8">
+        <!-- ===== صف التحكّم الوحيد: بحث + شرايط + عدّاد + فلاتر + المدة =====
+             كان تلات صفوف فوق بعض والمدة مكتوبة فيهم أربع مرات. -->
+        <Grid Grid.Row="1" Margin="2,0,2,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="290" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Background="{StaticResource CardBgBrush}"
@@ -148,11 +150,11 @@
                 </Grid>
             </Border>
 
+            <!-- كانت "شغّالين الأسبوع ده على" — والمدة مكتوبة على زرارها
+                 جنبه على طول، فمكانش ليها لزوم تتكرر جوّه الشريط كمان -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
-                <!-- كان اسمها "النشط" وكانت بتقرا فلاج IsActive. بقت تقيس
-                     شغل فعلي في الفترة، والاسم بيتغيّر مع الفترة عشان
-                     ميقولش "الأسبوع ده" والمعروض شهر -->
-                <RadioButton Content="{Binding WorkedFilterLabel}" Style="{StaticResource FilterChip}"
+                <RadioButton Content="شغّالين" Style="{StaticResource FilterChip}"
+                             ToolTip="المنتجات اللي اتسجل عليها شغل فعلي في المدة المختارة"
                              IsChecked="{Binding IsFilterWorked, Mode=OneWay}"
                              Command="{Binding SetFilterCommand}" CommandParameter="worked" />
                 <RadioButton Content="الكل" Style="{StaticResource FilterChip}"
@@ -166,72 +168,137 @@
             <TextBlock Grid.Column="2" Text="{Binding ResultsText}" FontSize="12.5" FontWeight="SemiBold"
                        VerticalAlignment="Center" Margin="14,0,0,0"
                        Foreground="{StaticResource TextPrimaryBrush}" />
+
+            <!-- ===== زرار الفلاتر =====
+                 المرحلة والعامل والترتيب كانوا تلات قوايم قاعدين على
+                 الشاشة طول الوقت في صف لوحدهم. بقوا جوّه، والرقم على
+                 الزرار بيقول كام واحد شغّال دلوقتي — عشان المستخدم
+                 ميبصّش على قايمة ناقصة ومايعرفش ليه. -->
+            <Grid Grid.Column="3" VerticalAlignment="Center">
+                <ToggleButton x:Name="FilterToggle" Style="{StaticResource ToolbarToggle}"
+                              IsChecked="{Binding IsFilterMenuOpen, Mode=TwoWay}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="FilterVariant" Width="15" Height="15"
+                                                 VerticalAlignment="Center" />
+                        <TextBlock Text="فلاتر" Margin="5,0,0,0" VerticalAlignment="Center" />
+                        <Border Background="{StaticResource BrandBrush}" CornerRadius="8"
+                                Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                Visibility="{Binding HasExtraFilters, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{Binding ActiveFilterCount}" FontSize="10.5"
+                                       FontWeight="Bold" Foreground="White" />
+                        </Border>
+                        <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                 Margin="4,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
+
+                <Popup IsOpen="{Binding IsFilterMenuOpen, Mode=TwoWay}" StaysOpen="False"
+                       PlacementTarget="{Binding ElementName=FilterToggle}" Placement="Bottom"
+                       AllowsTransparency="True" PopupAnimation="Fade">
+                    <Border Style="{StaticResource ToolbarPopupCard}" FlowDirection="RightToLeft" Width="290">
+                        <StackPanel>
+                            <TextBlock Text="المرحلة" FontSize="11" Margin="0,0,0,3"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                            <ComboBox ItemsSource="{Binding StageFilterOptions}"
+                                      SelectedItem="{Binding SelectedStageFilter}"
+                                      DisplayMemberPath="Display" FontSize="12.5"
+                                      ToolTip="المنتجات اللي فيها المرحلة دي" />
+
+                            <TextBlock Text="العامل" FontSize="11" Margin="0,10,0,3"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                            <ComboBox ItemsSource="{Binding WorkerFilterOptions}"
+                                      SelectedItem="{Binding SelectedWorkerFilter}"
+                                      DisplayMemberPath="Display" FontSize="12.5"
+                                      ToolTip="المنتجات اللي العامل ده اشتغل عليها في المدة" />
+
+                            <!-- ده ترتيب مش فلتر، بس بيغيّر اللي المستخدم
+                                 شايفه فمكانه معاهم -->
+                            <TextBlock Text="الترتيب" FontSize="11" Margin="0,10,0,3"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                            <ComboBox ItemsSource="{Binding VolumeFilterOptions}"
+                                      SelectedItem="{Binding SelectedVolumeFilter}"
+                                      DisplayMemberPath="Display" FontSize="12.5"
+                                      ToolTip="ترتيب المنتجات بحجم إنتاجها في المدة" />
+
+                            <Button Command="{Binding ClearExtraFiltersCommand}"
+                                    Style="{StaticResource GhostButton}" Padding="11,6"
+                                    HorizontalAlignment="Left" Margin="0,12,0,0"
+                                    Visibility="{Binding HasExtraFilters, Converter={StaticResource BoolToVis}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FilterRemove" Width="14" Height="14"
+                                                             VerticalAlignment="Center" />
+                                    <TextBlock Text="شيل الفلاتر" Margin="5,0,0,0" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+            </Grid>
+
+            <!-- ===== زرار المدة =====
+                 المدة كانت مكتوبة أربع مرات: داتتين + زرارين + سطر وصفي
+                 + اسم الشريط. بقت مكتوبة مرة على الزرار، والتفاصيل
+                 (والمدة المخصصة) جوّه. المدة بتحكم "شغّال ولا لأ"
+                 والإحصائيات فوق مع بعض. -->
+            <Grid Grid.Column="4" VerticalAlignment="Center" Margin="8,0,0,0">
+                <ToggleButton x:Name="PeriodToggle" Style="{StaticResource ToolbarToggle}"
+                              IsChecked="{Binding IsPeriodMenuOpen, Mode=TwoWay}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="CalendarRange" Width="15" Height="15"
+                                                 VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding PeriodLabel}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                 Margin="4,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
+
+                <Popup IsOpen="{Binding IsPeriodMenuOpen, Mode=TwoWay}" StaysOpen="False"
+                       PlacementTarget="{Binding ElementName=PeriodToggle}" Placement="Bottom"
+                       AllowsTransparency="True" PopupAnimation="Fade">
+                    <Border Style="{StaticResource ToolbarPopupCard}" FlowDirection="RightToLeft" Width="290">
+                        <StackPanel>
+                            <Button Command="{Binding UseCurrentWeekCommand}" Content="الأسبوع ده"
+                                    Style="{StaticResource GhostButton}" Padding="11,7"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
+                                    FontSize="12.5" />
+                            <Button Command="{Binding UseThisMonthCommand}" Content="الشهر ده"
+                                    Style="{StaticResource GhostButton}" Padding="11,7" Margin="0,6,0,0"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
+                                    FontSize="12.5" />
+                            <Button Command="{Binding UseLastMonthCommand}" Content="آخر 30 يوم"
+                                    Style="{StaticResource GhostButton}" Padding="11,7" Margin="0,6,0,0"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
+                                    FontSize="12.5" />
+
+                            <Border Height="1" Background="{StaticResource CardBorderBrush}" Margin="0,12,0,10" />
+
+                            <TextBlock Text="مدة مخصوصة" FontSize="11" Margin="0,0,0,5"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="من" FontSize="12" VerticalAlignment="Center"
+                                           Margin="0,0,5,0" Foreground="{StaticResource TextMutedBrush}" />
+                                <DatePicker Grid.Column="1" SelectedDate="{Binding PeriodFrom}" FontSize="12.5" />
+                                <TextBlock Grid.Column="2" Text="إلى" FontSize="12" VerticalAlignment="Center"
+                                           Margin="8,0,5,0" Foreground="{StaticResource TextMutedBrush}" />
+                                <DatePicker Grid.Column="3" SelectedDate="{Binding PeriodTo}" FontSize="12.5" />
+                            </Grid>
+
+                            <TextBlock Text="{Binding PeriodText}" FontSize="11" Margin="0,10,0,0"
+                                       TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
+            </Grid>
         </Grid>
 
-        <!-- ===== الفترة + الفلاتر المركّبة =====
-             الفترة بتحكم "شغّال ولا لأ" والإحصائيات فوق مع بعض، عشان
-             الرقم اللي المستخدم شايفه والفلتر اللي مطبّقه يبقوا على نفس
-             المدى دايمًا. -->
-        <Border Grid.Row="2" Style="{StaticResource ToolbarCard}" Padding="12,9" Margin="0,0,0,10">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="CalendarRange" Width="16" Height="16"
-                                             VerticalAlignment="Center" Margin="0,0,8,0"
-                                             Foreground="{StaticResource TextMutedBrush}" />
-                    <TextBlock Text="من" FontSize="12" VerticalAlignment="Center" Margin="0,0,5,0"
-                               Foreground="{StaticResource TextMutedBrush}" />
-                    <DatePicker SelectedDate="{Binding PeriodFrom}" Width="130" FontSize="12.5" />
-                    <TextBlock Text="إلى" FontSize="12" VerticalAlignment="Center" Margin="8,0,5,0"
-                               Foreground="{StaticResource TextMutedBrush}" />
-                    <DatePicker SelectedDate="{Binding PeriodTo}" Width="130" FontSize="12.5" />
-
-                    <Button Command="{Binding UseCurrentWeekCommand}" Content="الأسبوع ده"
-                            Style="{StaticResource GhostButton}" Padding="11,6" Margin="8,0,0,0"
-                            FontSize="12" VerticalAlignment="Center" />
-                    <Button Command="{Binding UseLastMonthCommand}" Content="آخر 30 يوم"
-                            Style="{StaticResource GhostButton}" Padding="11,6" Margin="6,0,0,0"
-                            FontSize="12" VerticalAlignment="Center" />
-
-                    <TextBlock Text="{Binding PeriodText}" FontSize="11" VerticalAlignment="Center"
-                               Margin="12,0,0,0" TextTrimming="CharacterEllipsis"
-                               Foreground="{StaticResource TextMutedBrush}" />
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
-                    <materialDesign:PackIcon Kind="FilterVariant" Width="16" Height="16"
-                                             VerticalAlignment="Center" Margin="0,0,8,0"
-                                             Foreground="{StaticResource TextMutedBrush}" />
-
-                    <ComboBox ItemsSource="{Binding StageFilterOptions}"
-                              SelectedItem="{Binding SelectedStageFilter}"
-                              DisplayMemberPath="Display" Width="170" FontSize="12.5"
-                              ToolTip="المنتجات اللي فيها المرحلة دي" Margin="0,0,8,0" />
-
-                    <ComboBox ItemsSource="{Binding WorkerFilterOptions}"
-                              SelectedItem="{Binding SelectedWorkerFilter}"
-                              DisplayMemberPath="Display" Width="190" FontSize="12.5"
-                              ToolTip="المنتجات اللي العامل ده اشتغل عليها في الفترة" Margin="0,0,8,0" />
-
-                    <ComboBox ItemsSource="{Binding VolumeFilterOptions}"
-                              SelectedItem="{Binding SelectedVolumeFilter}"
-                              DisplayMemberPath="Display" Width="165" FontSize="12.5"
-                              ToolTip="ترتيب المنتجات بحجم إنتاجها في الفترة" Margin="0,0,8,0" />
-
-                    <Button Command="{Binding ClearExtraFiltersCommand}"
-                            Style="{StaticResource GhostButton}" Padding="11,6"
-                            VerticalAlignment="Center"
-                            Visibility="{Binding HasExtraFilters, Converter={StaticResource BoolToVis}}">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="FilterRemove" Width="14" Height="14"
-                                                     VerticalAlignment="Center" />
-                            <TextBlock Text="شيل الفلاتر" Margin="5,0,0,0" FontSize="12" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </StackPanel>
-        </Border>
-
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="380" />
                 <ColumnDefinition Width="500" />
