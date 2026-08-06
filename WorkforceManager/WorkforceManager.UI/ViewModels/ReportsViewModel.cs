@@ -451,8 +451,7 @@ namespace WorkforceManager.UI.ViewModels
                         Height = Math.Max(3,
                             (double)p.CompletedPieces / maxWeekTotal * MaxBarHeight - SegmentGap),
                         Tooltip = $"{p.ProductName}\nأسبوع {week:dd/MM} → {weekEnd:dd/MM}\n" +
-                                  $"{p.CompletedPieces:N0} قطعة مكتملة",
-                        SegmentGap = SegmentGap
+                                  $"{p.CompletedPieces:N0} قطعة مكتملة"
                     }).ToList()
                 });
             }
@@ -994,9 +993,6 @@ namespace WorkforceManager.UI.ViewModels
         public string Color { get; init; } = "#2563EB";
         public double Height { get; init; }
         public string Tooltip { get; init; } = "";
-
-        /// <summary>الفاصل تحت الشريحة — بيخلي حدود المنتجات تبان</summary>
-        public double SegmentGap { get; init; }
     }
 
     /// <summary>عنصر في مفتاح ألوان الرسم: المنتج ولونه وإجماليه في الفترة</summary>

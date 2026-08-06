@@ -511,15 +511,14 @@
                                                               HorizontalAlignment="Center">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate>
-                                                            <!-- الفاصل تحت كل شريحة بيخلي حدود
-                                                                 المنتجات تبان من غير خط إضافي -->
+                                                            <!-- الفاصل تحت كل شريحة بيخلي حدود المنتجات
+                                                                 تبان من غير خط إضافي. رقم ثابت مش Binding:
+                                                                 Thickness نوع قيمة مش عنصر، فالربط عليه
+                                                                 بيكسر القالب كله وقت التشغيل. -->
                                                             <Border Width="26" Height="{Binding Height}"
                                                                     Background="{Binding Color}" CornerRadius="3"
-                                                                    ToolTip="{Binding Tooltip}">
-                                                                <Border.Margin>
-                                                                    <Thickness Bottom="{Binding SegmentGap}" />
-                                                                </Border.Margin>
-                                                            </Border>
+                                                                    Margin="0,0,0,2"
+                                                                    ToolTip="{Binding Tooltip}" />
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>
                                                 </ItemsControl>
