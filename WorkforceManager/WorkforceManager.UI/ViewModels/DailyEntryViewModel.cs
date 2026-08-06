@@ -268,9 +268,32 @@ namespace WorkforceManager.UI.ViewModels
 
         // ------- ملخص اليوم (فوق تبويب تسجيل الإنتاج) -------
 
-        /// <summary>إجمالي القطع المسجلة النهارده على كل المنتجات</summary>
+        /// <summary>
+        /// القطع اللي خلصت الخط كامل النهارده = المنتج التام.
+        ///
+        /// **مش مجموع القطع على كل المراحل.** القطعة بتعدّي المراحل
+        /// بالترتيب مش بالتوازي، فـ 5,000 قطعة على منتج من 11 مرحلة كانت
+        /// بتطلع 55,000 — نفس القطعة متحسوبة 11 مرة.
+        /// </summary>
         [ObservableProperty]
         private int _dayTotalPieces;
+
+        /// <summary>القطع اللي دخلت أول مرحلة النهارده</summary>
+        [ObservableProperty]
+        private int _dayStartedPieces;
+
+        /// <summary>
+        /// شغل اتسجل النهارده بس مفيش منه حاجة خلصت الخط — الملخص بيقول
+        /// "دخل الخط" بدل ما يقول صفر ويوحي إن اليوم فاضي.
+        /// </summary>
+        public bool DayHasOnlyStarted => DayTotalPieces == 0 && DayStartedPieces > 0;
+
+        public string DayPiecesLabel => DayHasOnlyStarted
+            ? "قطعة دخلت الخط النهارده"
+            : "قطعة خلصت الخط النهارده";
+
+        /// <summary>الرقم المعروض: التام، أو الداخل لو مفيش تام</summary>
+        public int DayHeadlinePieces => DayTotalPieces > 0 ? DayTotalPieces : DayStartedPieces;
 
         /// <summary>إجمالي اليوميات المحسوبة من الإنتاج المسجل</summary>
         [ObservableProperty]
@@ -285,19 +308,36 @@ namespace WorkforceManager.UI.ViewModels
         private int _dayProductsCount;
 
         /// <summary>مفيش أي إنتاج مسجل لسه (بيخفي أرقام الملخص)</summary>
-        public bool DayHasNoProduction => DayTotalPieces == 0;
+        public bool DayHasNoProduction => DayRecords.Count == 0;
 
-        partial void OnDayTotalPiecesChanged(int value) => OnPropertyChanged(nameof(DayHasNoProduction));
+        private void RefreshDaySummaryFlags()
+        {
+            OnPropertyChanged(nameof(DayHasNoProduction));
+            OnPropertyChanged(nameof(DayHasOnlyStarted));
+            OnPropertyChanged(nameof(DayPiecesLabel));
+            OnPropertyChanged(nameof(DayHeadlinePieces));
+        }
+
+        partial void OnDayTotalPiecesChanged(int value) => RefreshDaySummaryFlags();
+        partial void OnDayStartedPiecesChanged(int value) => RefreshDaySummaryFlags();
 
         private async Task LoadDayRecordsAsync()
         {
             using var scope = _scopeFactory.CreateScope();
             var productionRepo = scope.ServiceProvider.GetRequiredService<IDailyProductionRepository>();
+            var reportService = scope.ServiceProvider.GetRequiredService<DailyProductionReportService>();
 
             var records = await productionRepo.GetByDateAsync(EntryDate);
 
-            // ملخص اليوم من نفس السجلات المحمّلة — من غير أي استعلام زيادة
-            DayTotalPieces = records.Sum(r => r.PieceCount);
+            // القطع التامة من DailyProductionReportService — **المكان الوحيد**
+            // اللي بيعرف يفرّق بين "شغل اتعمل" و"منتج خرج". جمع السجلات
+            // هنا كان بيحسب القطعة مرة لكل مرحلة عدّت عليها.
+            var report = await reportService.GetAsync(EntryDate);
+            DayTotalPieces = report.TotalCompletedPieces;
+            DayStartedPieces = report.TotalStartedPieces;
+
+            // الباقي مقاييس شغل مش إنتاج، فمجموع السجلات صح فيها:
+            // اليومية بتتحسب على اللي العامل عمله فعلاً على مرحلته
             DayTotalWorkdays = Math.Round(records.Sum(r => r.WorkdaysCompleted), 2);
             DayWorkersCount = records.Select(r => r.WorkerId).Distinct().Count();
             DayProductsCount = records.Select(r => r.ProductionStage.ProductId).Distinct().Count();
@@ -315,6 +355,10 @@ namespace WorkforceManager.UI.ViewModels
                     Workdays = r.WorkdaysCompleted
                 });
             }
+
+            // "اليوم فاضي" بقى معناه مفيش سجلات خالص — مش إن التام صفر.
+            // يوم شغل كامل في نص الخط تامه صفر وهو مش فاضي.
+            RefreshDaySummaryFlags();
         }
 
         [RelayCommand]

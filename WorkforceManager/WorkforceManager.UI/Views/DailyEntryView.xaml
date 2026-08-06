@@ -139,11 +139,16 @@
                                     </Style>
                                 </StackPanel.Style>
 
+                                <!-- الرقم ده **مش** مجموع القطع على كل المراحل:
+                                     القطعة بتعدّي المراحل بالترتيب، فـ 5,000 قطعة
+                                     على منتج من 11 مرحلة كانت بتطلع 55,000.
+                                     بيعرض التام، ولو مفيش تام بيعرض اللي دخل الخط
+                                     بدل ما يقول صفر ويوحي إن اليوم فاضي. -->
                                 <StackPanel Style="{StaticResource SummaryStat}">
-                                    <TextBlock Text="{Binding DayTotalPieces, StringFormat={}{0:N0}}"
+                                    <TextBlock Text="{Binding DayHeadlinePieces, StringFormat={}{0:N0}}"
                                                Style="{StaticResource SummaryNumber}"
                                                Foreground="{StaticResource TextPrimaryBrush}" />
-                                    <TextBlock Text="قطعة النهارده" Style="{StaticResource SummaryLabel}" />
+                                    <TextBlock Text="{Binding DayPiecesLabel}" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
 
                                 <Border Style="{StaticResource SummaryDivider}" />
