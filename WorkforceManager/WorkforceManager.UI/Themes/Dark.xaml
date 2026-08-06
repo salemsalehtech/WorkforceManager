@@ -1,0 +1,54 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ===================================================================
+         الوضع الليلي — نفس مفاتيح الألوان اللي في App.xaml بقيم داكنة.
+         بيتدمج **بعد** App.xaml عند بدء التشغيل، فبيدوس على القيم الفاتحة.
+
+         ليه ملف منفصل مش DataTrigger: الشاشات بتقرا الألوان بـ
+         StaticResource اللي بتتحل مرة واحدة وقت التحميل، والتبديل بينهم
+         بيحصل قبل ما أي شاشة تتبني.
+
+         **الألوان دي مبدئية** — إعادة تصميم الواجهة هتظبط اللوحة كاملة.
+         اللي متعمل هنا هو الآلية (ملف + تبديل + حفظ)، وهي اللي بتخلي
+         تظبيط الألوان بعدين تغيير قيم مش تغيير هيكل.
+
+         القاعدة المتبعة: الخلفيات بتفتح مع القرب من العين (الصفحة أغمق
+         من الكارت)، والنصوص والحالات بتفتح عن نسختها الفاتحة عشان تفضل
+         مقروءة على خلفية غامقة.
+         =================================================================== -->
+
+    <!-- الهوية -->
+    <SolidColorBrush x:Key="BrandBrush" Color="#5B8DEF" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#F2A93B" />
+
+    <!-- الخلفيات والبطاقات -->
+    <SolidColorBrush x:Key="PageBgBrush" Color="#12161D" />
+    <SolidColorBrush x:Key="CardBgBrush" Color="#1A1F28" />
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#2A313D" />
+    <SolidColorBrush x:Key="SubtleBgBrush" Color="#222834" />
+    <SolidColorBrush x:Key="SoftPanelBgBrush" Color="#1E242E" />
+    <SolidColorBrush x:Key="SoftPanelBorderBrush" Color="#2A313D" />
+
+    <!-- النصوص -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E8ECF2" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="#9AA5B4" />
+
+    <!-- الحالات: أفتح من نسختها الفاتحة عشان تبان على خلفية غامقة -->
+    <SolidColorBrush x:Key="SuccessBrush" Color="#4ECC9A" />
+    <SolidColorBrush x:Key="SuccessBgBrush" Color="#17302A" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#FF6B7A" />
+    <SolidColorBrush x:Key="DangerBgBrush" Color="#33191F" />
+    <SolidColorBrush x:Key="DangerBorderBrush" Color="#4A2730" />
+    <SolidColorBrush x:Key="WarnBrush" Color="#E8B54B" />
+    <SolidColorBrush x:Key="WarnBgBrush" Color="#332B18" />
+
+    <!-- تفاعل الجداول والشرائح -->
+    <SolidColorBrush x:Key="HoverBgBrush" Color="#232A36" />
+    <SolidColorBrush x:Key="SelectionBgBrush" Color="#243247" />
+    <SolidColorBrush x:Key="ChipBgBrush" Color="#252C39" />
+    <SolidColorBrush x:Key="GridLineBrush" Color="#252C37" />
+
+    <!-- تحديد النص جوه الحقول: أفتح شوية عشان يبان على خلفية غامقة -->
+    <SolidColorBrush x:Key="TextSelectionBrush" Color="#5B8DEF" />
+</ResourceDictionary>

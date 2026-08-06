@@ -16,6 +16,12 @@ namespace WorkforceManager.Business.Services
         public const string DefaultUsername = "admin";
         public const string DefaultPassword = "admin";
 
+        /// <summary>أقل طول لاسم المستخدم</summary>
+        public const int MinUsernameLength = 3;
+
+        /// <summary>أقل طول لكلمة المرور — نفس الحد في كل مسارات التغيير</summary>
+        public const int MinPasswordLength = 4;
+
         private readonly IGenericRepository<AppUser> _users;
 
         public AuthService(IGenericRepository<AppUser> users)
@@ -66,8 +72,9 @@ namespace WorkforceManager.Business.Services
         /// </summary>
         public async Task ChangePasswordAsync(string username, string currentPassword, string newPassword)
         {
-            if (string.IsNullOrEmpty(newPassword) || newPassword.Length < 4)
-                throw new InvalidOperationException("كلمة المرور الجديدة لازم تكون 4 حروف/أرقام على الأقل");
+            if (string.IsNullOrEmpty(newPassword) || newPassword.Length < MinPasswordLength)
+                throw new InvalidOperationException(
+                    $"كلمة المرور الجديدة لازم تكون {MinPasswordLength} حروف/أرقام على الأقل");
 
             var user = await ValidateLoginAsync(username, currentPassword)
                 ?? throw new InvalidOperationException("اسم المستخدم أو كلمة المرور الحالية غير صحيحة");
@@ -79,6 +86,87 @@ namespace WorkforceManager.Business.Services
 
             _users.Update(user);
             await _users.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// يغيّر اسم دخول مستخدم بعد التحقق من كلمة مروره الحالية.
+        ///
+        /// كلمة المرور مطلوبة رغم إن العملية مش بتلمس فلوس: تغيير اسم
+        /// الدخول من جهاز مفتوح ومسيّب معناه إن صاحب الحساب يقفل بره
+        /// حسابه من غير ما يعرف السبب.
+        /// </summary>
+        public async Task<AppUser> ChangeUsernameAsync(
+            string currentUsername, string currentPassword, string newUsername)
+        {
+            var trimmed = (newUsername ?? "").Trim();
+            if (trimmed.Length < MinUsernameLength)
+                throw new InvalidOperationException(
+                    $"اسم المستخدم لازم يكون {MinUsernameLength} حروف على الأقل");
+
+            var user = await ValidateLoginAsync(currentUsername, currentPassword)
+                ?? throw new InvalidOperationException("اسم المستخدم أو كلمة المرور الحالية غير صحيحة");
+
+            if (string.Equals(user.Username, trimmed, StringComparison.OrdinalIgnoreCase))
+                return user; // نفس الاسم — مفيش حاجة تتعمل
+
+            await EnsureUsernameIsFreeAsync(trimmed);
+
+            user.Username = trimmed;
+            _users.Update(user);
+            await _users.SaveChangesAsync();
+            return user;
+        }
+
+        /// <summary>
+        /// يضيف حساب دخول تاني.
+        ///
+        /// حساب عادي زي الأول بالظبط — **مفيش أدوار ولا صلاحيات**. اللي
+        /// بيحمي العمليات الخطيرة هو كلمة سر العمليات مش نوع الحساب،
+        /// فحساب بصلاحيات أقل كان هيدّي إحساس أمان مش موجود.
+        /// </summary>
+        public async Task<AppUser> AddUserAsync(string username, string password, string? displayName = null)
+        {
+            var trimmed = (username ?? "").Trim();
+            if (trimmed.Length < MinUsernameLength)
+                throw new InvalidOperationException(
+                    $"اسم المستخدم لازم يكون {MinUsernameLength} حروف على الأقل");
+
+            if (string.IsNullOrEmpty(password) || password.Length < MinPasswordLength)
+                throw new InvalidOperationException(
+                    $"كلمة المرور لازم تكون {MinPasswordLength} حروف/أرقام على الأقل");
+
+            await EnsureUsernameIsFreeAsync(trimmed);
+
+            var (hash, salt) = HashPassword(password);
+            var user = new AppUser
+            {
+                Username = trimmed,
+                PasswordHash = hash,
+                PasswordSalt = salt,
+                DisplayName = string.IsNullOrWhiteSpace(displayName) ? trimmed : displayName.Trim()
+            };
+
+            await _users.AddAsync(user);
+            await _users.SaveChangesAsync();
+            return user;
+        }
+
+        /// <summary>كل حسابات الدخول (لعرضها في الإعدادات)</summary>
+        public async Task<IReadOnlyList<AppUser>> GetUsersAsync() =>
+            (await _users.GetAllAsync()).OrderBy(u => u.Username).ToList();
+
+        /// <summary>
+        /// الاسم متاح؟ المقارنة بتتجاهل حالة الحروف عشان "Admin" و"admin"
+        /// ميبقوش حسابين مختلفين — والمستخدم اللي هيكتب واحد منهم
+        /// مش هيعرف ليه مش بيدخل.
+        /// </summary>
+        private async Task EnsureUsernameIsFreeAsync(string username)
+        {
+            var taken = (await _users.GetAllAsync())
+                .Any(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase));
+
+            if (taken)
+                throw new InvalidOperationException($"اسم المستخدم \"{username}\" مستخدم بالفعل");
         }
 
         // التشفير كله في PasswordHasher — مشترك مع كلمة سر العمليات عشان

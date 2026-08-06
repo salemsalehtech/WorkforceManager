@@ -20,6 +20,37 @@ namespace WorkforceManager.Data
         /// null = عمره ما راجع (بيتعرض التذكير أول ما يبقى فيه اقتراحات).
         /// </summary>
         public DateTime? LastSkillReviewAt { get; set; }
+
+        // ------- إعدادات النسخ الاحتياطي -------
+
+        /// <summary>
+        /// عدد أيام الاحتفاظ بالنسخ القديمة. النسخة بتتاخد كل تشغيل،
+        /// فمن غير حد أقصى المجلد بيكبر للأبد.
+        /// </summary>
+        public int BackupRetentionDays { get; set; } = DefaultBackupRetentionDays;
+
+        /// <summary>
+        /// النسخة التلقائية عند التشغيل شغالة؟
+        ///
+        /// إيقافها قرار المستخدم، بس هو بيتحمّل نتيجته — عشان كده
+        /// الشاشة بتحذّر لما يقفلها بدل ما تعدّيها بصمت.
+        /// </summary>
+        public bool AutoBackupOnStartup { get; set; } = true;
+
+        // ------- المظهر -------
+
+        /// <summary>
+        /// الوضع الليلي شغال؟ بيتطبّق عند فتح البرنامج.
+        ///
+        /// **التبديل محتاج إعادة تشغيل**: كل الشاشات بتقرا الألوان بـ
+        /// StaticResource (بتتحل مرة واحدة وقت التحميل)، وتحويلها كلها
+        /// لـ DynamicResource تغيير ميكانيكي في كل ملف XAML — وده هيتعمل
+        /// مع إعادة تصميم الواجهة اللي هتلمس نفس الملفات أصلاً.
+        /// </summary>
+        public bool DarkMode { get; set; }
+
+        /// <summary>الافتراضي: أسبوعين — كفاية للرجوع من غلطة، ومش بيكبّر المجلد</summary>
+        public const int DefaultBackupRetentionDays = 14;
     }
 
     /// <summary>

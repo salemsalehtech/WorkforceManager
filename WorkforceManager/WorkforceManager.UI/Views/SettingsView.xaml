@@ -40,6 +40,35 @@
                             </StackPanel>
                         </Button>
                     </StackPanel>
+
+                    <!-- ===== خيارات النسخ ===== -->
+                    <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
+                            Padding="12,10" Margin="0,12,0,0">
+                        <StackPanel>
+                            <DockPanel>
+                                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding AutoBackupOnStartup}"
+                                          VerticalAlignment="Center" />
+                                <StackPanel Margin="8,0,0,0">
+                                    <TextBlock Text="نسخة تلقائية عند فتح البرنامج" FontSize="12.5" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock Text="مرة واحدة في اليوم مهما فتحت البرنامج، وقبل أي تعديل على قاعدة البيانات."
+                                               Style="{StaticResource HintText}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock Text="احتفظ بالنسخ لمدة:" FontSize="12.5" VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                <TextBox Text="{Binding RetentionDays, UpdateSourceTrigger=LostFocus}"
+                                         Width="60" Margin="8,0,6,0" Padding="6,4" FontSize="13"
+                                         VerticalContentAlignment="Center" />
+                                <TextBlock Text="يوم" FontSize="12.5" VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding RetentionText}" Style="{StaticResource HintText}"
+                                       Margin="0,4,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Border>
 
@@ -78,6 +107,86 @@
                             </Button.Style>
                         </Button>
                     </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== الحساب: اسم الدخول وكلمة مروره وحسابات إضافية ===== -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="AccountCircleOutline" Width="18" Height="18"
+                                                 Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="الحساب" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10"
+                               Text="كلمة الدخول بتفتح البرنامج. كلمة سر العمليات (تحت) هي اللي بتحمي الحذف والأجور — الاتنين منفصلين عن قصد." />
+
+                    <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="8" Padding="12,9"
+                            Margin="0,0,0,10">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="داخل باسم:" FontSize="12.5"
+                                           Foreground="{StaticResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding CurrentUsername}" FontSize="13" FontWeight="Bold"
+                                           Margin="6,0,0,0"
+                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding AccountsSummary}" FontSize="11.5" Margin="0,3,0,0"
+                                       TextWrapping="Wrap"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Command="{Binding ChangeUsernameCommand}"
+                                Style="{StaticResource GhostButton}" Padding="14,8" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="AccountEditOutline" Width="15" Height="15"
+                                                         VerticalAlignment="Center" />
+                                <TextBlock Text="غيّر اسم المستخدم" Margin="6,0,0,0" FontSize="12.5" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Command="{Binding ChangeLoginPasswordCommand}"
+                                Style="{StaticResource GhostButton}" Padding="14,8" Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="FormTextboxPassword" Width="15" Height="15"
+                                                         VerticalAlignment="Center" />
+                                <TextBlock Text="غيّر كلمة الدخول" Margin="6,0,0,0" FontSize="12.5" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Command="{Binding AddAccountCommand}"
+                                Style="{StaticResource PrimaryButton}" Padding="14,8">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="AccountPlusOutline" Width="15" Height="15"
+                                                         VerticalAlignment="Center" />
+                                <TextBlock Text="ضيف حساب دخول" Margin="6,0,0,0" FontSize="12.5" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ===== المظهر ===== -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ThemeLightDark" Width="18" Height="18"
+                                                 Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="المظهر" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                    </StackPanel>
+
+                    <DockPanel Margin="0,8,0,0">
+                        <CheckBox DockPanel.Dock="Left" IsChecked="{Binding DarkMode}"
+                                  VerticalAlignment="Center" />
+                        <StackPanel Margin="8,0,0,0">
+                            <TextBlock Text="الوضع الليلي" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="ألوان غامقة أريح للعين في الإضاءة الواطية. بيتفعّل بعد إعادة تشغيل البرنامج."
+                                       Style="{StaticResource HintText}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DockPanel>
                 </StackPanel>
             </Border>
 

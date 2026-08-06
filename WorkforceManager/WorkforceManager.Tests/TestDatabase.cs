@@ -81,6 +81,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<IWorkerSkillRepository, WorkerSkillRepository>();
             services.AddScoped<IGenericRepository<OperationsCredential>, GenericRepository<OperationsCredential>>();
             services.AddScoped<IGenericRepository<WorkerSkill>, GenericRepository<WorkerSkill>>();
+            services.AddScoped<IGenericRepository<AppUser>, GenericRepository<AppUser>>();
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
             services.AddScoped<WorkerAssignmentGuard>();
@@ -104,6 +105,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<ActivityLogService>();
             services.AddScoped<SoftDeleteService>();
             services.AddScoped<SkillRatingService>();
+            services.AddScoped<AuthService>();
             services.AddScoped<ProductActivityService>();
 
             _provider = services.BuildServiceProvider();

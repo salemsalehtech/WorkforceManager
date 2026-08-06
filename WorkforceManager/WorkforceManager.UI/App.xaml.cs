@@ -128,6 +128,11 @@ namespace WorkforceManager.UI
                 args.Handled = true; // منع إغلاق البرنامج بسبب الخطأ
             };
 
+            // المظهر بيتحدد قبل ما أي شاشة تتبني: الشاشات بتقرا الألوان
+            // بـ StaticResource اللي بتتحل مرة واحدة وقت التحميل، فالتبديل
+            // لازم يحصل هنا مش بعدين
+            ApplyTheme(AppSettingsStore.Load().DarkMode);
+
             try
             {
                 await AppHost.StartAsync();
@@ -140,7 +145,12 @@ namespace WorkforceManager.UI
                     // الـ Migration فشل لأي سبب تفضل عندنا نسخة سليمة من قبل التعديل —
                     // محليًا + خارجيًا لو المستخدم مفعّل مجلد خارجي من الإعدادات
                     var settings = AppSettingsStore.Load();
-                    DatabaseBackupService.RunDailyBackup(AppPaths.DbPath, settings.ExternalBackupFolder);
+
+                    // المستخدم يقدر يقفل النسخة التلقائية من الإعدادات —
+                    // قراره، وهو اللي بيتحمّل نتيجته
+                    if (settings.AutoBackupOnStartup)
+                        DatabaseBackupService.RunDailyBackup(
+                            AppPaths.DbPath, settings.ExternalBackupFolder, settings.BackupRetentionDays);
 
                     // تطبيق أي Migration جديدة تلقائيًا (بيُنشئ قاعدة البيانات من الصفر
                     // لو مش موجودة أصلاً) — بديل EnsureCreatedAsync عشان تحديثات
@@ -180,6 +190,32 @@ namespace WorkforceManager.UI
                     "خطأ في بدء التشغيل", MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown(-1);
             }
+        }
+
+        /// <summary>
+        /// بيدمج ملف الوضع الليلي فوق الألوان الفاتحة، أو بيشيله.
+        ///
+        /// الدمج بيدوس على المفاتيح اللي في App.xaml بنفس الأسماء — يعني
+        /// أي شاشة بتقرا BrandBrush بتاخد النسخة الداكنة من غير ما تعرف
+        /// إن فيه وضع تاني أصلاً.
+        /// </summary>
+        private void ApplyTheme(bool darkMode)
+        {
+            var existing = Resources.MergedDictionaries
+                .FirstOrDefault(d => d.Source?.OriginalString.Contains("Dark.xaml") == true);
+
+            if (!darkMode)
+            {
+                if (existing is not null) Resources.MergedDictionaries.Remove(existing);
+                return;
+            }
+
+            if (existing is not null) return; // متطبّق خلاص
+
+            Resources.MergedDictionaries.Add(new ResourceDictionary
+            {
+                Source = new Uri("Themes/Dark.xaml", UriKind.Relative)
+            });
         }
 
         protected override async void OnExit(ExitEventArgs e)

@@ -45,6 +45,178 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private bool _hasExternal;
 
+        // ======================= المظهر وإعدادات النسخ =======================
+
+        /// <summary>بيمنع الحفظ وإحنا بنملا القيم من الملف</summary>
+        private bool _loadingSettings;
+
+        /// <summary>
+        /// الوضع الليلي. بيتحفظ فورًا، وبيتطبّق عند فتح البرنامج.
+        ///
+        /// **مش بيتبدّل في اللحظة**: كل الشاشات بتقرا الألوان بـ
+        /// StaticResource اللي بتتحل مرة واحدة وقت التحميل. تحويلها
+        /// لـ DynamicResource تغيير ميكانيكي في كل ملف XAML، وهيتعمل مع
+        /// إعادة تصميم الواجهة اللي هتلمس نفس الملفات أصلاً.
+        /// </summary>
+        [ObservableProperty]
+        private bool _darkMode;
+
+        partial void OnDarkModeChanged(bool value)
+        {
+            if (_loadingSettings) return;
+
+            var settings = AppSettingsStore.Load();
+            settings.DarkMode = value;
+            AppSettingsStore.Save(settings);
+
+            MessageBox.Show(
+                value
+                    ? "الوضع الليلي هيتفعّل أول ما تقفل البرنامج وتفتحه تاني."
+                    : "الوضع العادي هيرجع أول ما تقفل البرنامج وتفتحه تاني.",
+                "محتاج إعادة تشغيل", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        /// <summary>عدد أيام الاحتفاظ بالنسخ الاحتياطية</summary>
+        [ObservableProperty]
+        private int _retentionDays = AppSettings.DefaultBackupRetentionDays;
+
+        partial void OnRetentionDaysChanged(int value)
+        {
+            if (_loadingSettings) return;
+
+            var clamped = Math.Clamp(value,
+                DatabaseBackupService.MinRetentionDays, DatabaseBackupService.MaxRetentionDays);
+
+            // القيمة المعروضة بتترد للحد لو المستخدم كتب رقم بره النطاق —
+            // من غير كده الخانة بتقول رقم والملف بيقول رقم تاني
+            if (clamped != value)
+            {
+                RetentionDays = clamped;
+                return;
+            }
+
+            var settings = AppSettingsStore.Load();
+            settings.BackupRetentionDays = clamped;
+            AppSettingsStore.Save(settings);
+            OnPropertyChanged(nameof(RetentionText));
+        }
+
+        public string RetentionText =>
+            $"النسخ الأقدم من {RetentionDays} يوم بتتمسح تلقائيًا " +
+            $"(من {DatabaseBackupService.MinRetentionDays} لـ {DatabaseBackupService.MaxRetentionDays} يوم)";
+
+        /// <summary>النسخة التلقائية عند التشغيل شغالة؟</summary>
+        [ObservableProperty]
+        private bool _autoBackupOnStartup = true;
+
+        partial void OnAutoBackupOnStartupChanged(bool value)
+        {
+            if (_loadingSettings) return;
+
+            var settings = AppSettingsStore.Load();
+            settings.AutoBackupOnStartup = value;
+            AppSettingsStore.Save(settings);
+
+            // الإيقاف قرار المستخدم، بس لازم يعرف نتيجته بدل ما يعدّي بصمت
+            if (!value)
+                MessageBox.Show(
+                    "النسخة التلقائية اتوقفت. مفيش نسخة هتتاخد لوحدها عند فتح البرنامج — " +
+                    "لازم تاخدها بنفسك من زرار \"خد نسخة دلوقتي\".",
+                    "تنبيه", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        // ======================= الحساب والأمان =======================
+
+        /// <summary>اسم المستخدم الحالي (بيتعرض في قسم الحساب)</summary>
+        [ObservableProperty]
+        private string _currentUsername = "";
+
+        /// <summary>ملخص حسابات الدخول ("حسابين")</summary>
+        [ObservableProperty]
+        private string _accountsSummary = "";
+
+        /// <summary>
+        /// بينفّذ عملية حساب: بيفتح النافذة، ينادي الخدمة، ويعرض النتيجة.
+        ///
+        /// التلات عمليات بيمشوا في الدالة دي عشان معالجة الخطأ ورسالة
+        /// النجاح وإعادة التحميل يبقوا مكتوبين مرة واحدة.
+        /// </summary>
+        private async Task RunAccountActionAsync(AccountAction action)
+        {
+            var input = AccountActionDialog.Ask(
+                Application.Current.MainWindow, action, CurrentUsername);
+
+            if (input is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var auth = scope.ServiceProvider.GetRequiredService<AuthService>();
+                var currentUser = scope.ServiceProvider.GetRequiredService<CurrentUserContext>();
+
+                string message;
+                switch (action)
+                {
+                    case AccountAction.ChangeUsername:
+                        var updated = await auth.ChangeUsernameAsync(
+                            CurrentUsername, input.EnteredCurrentPassword, input.EnteredUsername);
+
+                        // الجلسة الحالية لازم تعرف الاسم الجديد — السجلات
+                        // بتتكتب باسم اللي عملها، ومن غير التحديث ده هتفضل
+                        // بتسجّل الاسم القديم لحد ما يقفل ويفتح
+                        currentUser.SignIn(updated.Username, updated.DisplayName);
+                        message = $"اسم المستخدم بقى \"{updated.Username}\".";
+                        break;
+
+                    case AccountAction.ChangeLoginPassword:
+                        await auth.ChangePasswordAsync(
+                            CurrentUsername, input.EnteredCurrentPassword, input.EnteredNewPassword);
+                        message = "كلمة مرور الدخول اتغيّرت.";
+                        break;
+
+                    default:
+                        // التحقق من كلمة مرور صاحب الجلسة قبل إضافة حساب —
+                        // عشان محدش يضيف حساب من جهاز مسيّب مفتوح
+                        _ = await auth.ValidateLoginAsync(CurrentUsername, input.EnteredCurrentPassword)
+                            ?? throw new InvalidOperationException("كلمة مرورك الحالية غير صحيحة");
+
+                        var created = await auth.AddUserAsync(
+                            input.EnteredUsername, input.EnteredNewPassword);
+                        message = $"اتضاف حساب \"{created.Username}\". يقدر يدخل بيه على طول.";
+                        break;
+                }
+
+                await LoadAccountAsync();
+                MessageBox.Show(message, "تم", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        [RelayCommand]
+        private Task ChangeUsername() => RunAccountActionAsync(AccountAction.ChangeUsername);
+
+        [RelayCommand]
+        private Task ChangeLoginPassword() => RunAccountActionAsync(AccountAction.ChangeLoginPassword);
+
+        [RelayCommand]
+        private Task AddAccount() => RunAccountActionAsync(AccountAction.AddAccount);
+
+        /// <summary>يقرا اسم المستخدم الحالي وعدد الحسابات</summary>
+        private async Task LoadAccountAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+
+            CurrentUsername = scope.ServiceProvider.GetRequiredService<CurrentUserContext>().Username ?? "";
+
+            var users = await scope.ServiceProvider.GetRequiredService<AuthService>().GetUsersAsync();
+            AccountsSummary = users.Count == 1
+                ? "حساب دخول واحد"
+                : $"{users.Count} حسابات دخول: {string.Join("، ", users.Select(u => u.Username))}";
+        }
+
         // ------- كلمة سر العمليات -------
 
         /// <summary>
@@ -82,6 +254,16 @@ namespace WorkforceManager.UI.ViewModels
             // النسخ الخارجي
             var settings = AppSettingsStore.Load();
             HasExternal = !string.IsNullOrWhiteSpace(settings.ExternalBackupFolder);
+
+            // إعدادات المستخدم — بتتقرا من غير ما تشغّل الحفظ (الأعلام
+            // بتمنع الحفظ أثناء التحميل)
+            _loadingSettings = true;
+            RetentionDays = settings.BackupRetentionDays;
+            AutoBackupOnStartup = settings.AutoBackupOnStartup;
+            DarkMode = settings.DarkMode;
+            _loadingSettings = false;
+
+            SafeAsync.Run(LoadAccountAsync);
 
             if (!HasExternal)
             {
@@ -168,7 +350,7 @@ namespace WorkforceManager.UI.ViewModels
             try
             {
                 var settings = AppSettingsStore.Load();
-                var (localPath, externalPath) = DatabaseBackupService.BackupNow(AppPaths.DbPath, settings.ExternalBackupFolder);
+                var (localPath, externalPath) = DatabaseBackupService.BackupNow(AppPaths.DbPath, settings.ExternalBackupFolder, settings.BackupRetentionDays);
 
                 var externalLine = externalPath is not null
                     ? $"\n✔ نسخة خارجية: {externalPath}"
@@ -200,7 +382,7 @@ namespace WorkforceManager.UI.ViewModels
             // نسخة فورية على طول — المستخدم يشوف بعينه إن النسخ الخارجي شغال
             try
             {
-                DatabaseBackupService.BackupNow(AppPaths.DbPath, dialog.FolderName);
+                DatabaseBackupService.BackupNow(AppPaths.DbPath, dialog.FolderName, AppSettingsStore.Load().BackupRetentionDays);
                 MessageBox.Show($"تم تفعيل النسخ الخارجي على:\n{dialog.FolderName}\n\nواتاخدت أول نسخة بنجاح ✔\nمن دلوقتي هتتاخد نسخة تلقائيًا هناك كل يوم.",
                     "تم التفعيل", MessageBoxButton.OK, MessageBoxImage.Information);
             }

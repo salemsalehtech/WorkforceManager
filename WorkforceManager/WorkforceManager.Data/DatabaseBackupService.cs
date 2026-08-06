@@ -16,8 +16,21 @@ namespace WorkforceManager.Data
     /// </summary>
     public static class DatabaseBackupService
     {
-        /// <summary>عدد أيام الاحتفاظ بالنسخ الاحتياطية قبل حذف الأقدم منها تلقائيًا</summary>
-        private const int RetentionDays = 30;
+        /// <summary>
+        /// عدد أيام الاحتفاظ بالنسخ قبل حذف الأقدم تلقائيًا.
+        ///
+        /// بقى قابل للضبط من الإعدادات بدل ما يكون ثابت: مصنع بيتنقل فيه
+        /// شغل كتير عايز مدة أطول، وجهاز مساحته ضيقة عايز أقصر. القيمة
+        /// بتتمرّر من اللي بينادي عشان الخدمة تفضل ساكنة (static) من غير
+        /// ما تقرا ملف الإعدادات بنفسها.
+        /// </summary>
+        private const int FallbackRetentionDays = 14;
+
+        /// <summary>أقل مدة احتفاظ مسموح بيها — يوم واحد يعني نسخة واحدة بس</summary>
+        public const int MinRetentionDays = 3;
+
+        /// <summary>أقصى مدة — بعد كده المجلد بيكبر من غير فايدة</summary>
+        public const int MaxRetentionDays = 180;
 
         /// <summary>بادئة اسم ملف النسخة الاحتياطية (يتبعها التاريخ بصيغة yyyy-MM-dd)</summary>
         private const string BackupPrefix = "workforce_";
@@ -26,7 +39,7 @@ namespace WorkforceManager.Data
         /// النسخة اليومية التلقائية عند بدء التطبيق: مرة واحدة في اليوم مهما
         /// اتفتح البرنامج، محليًا + خارجيًا لو فيه مجلد خارجي متفعّل.
         /// </summary>
-        public static void RunDailyBackup(string dbPath, string? externalFolder = null)
+        public static void RunDailyBackup(string dbPath, string? externalFolder = null, int? retentionDays = null)
         {
             if (!File.Exists(dbPath))
                 return; // أول تشغيل للتطبيق: قاعدة البيانات لسه ما اتعملتش، مفيش حاجة نعمل لها باك أب
@@ -40,8 +53,8 @@ namespace WorkforceManager.Data
                 File.Copy(dbPath, todayBackupPath);
             }
 
-            CleanupOldBackups(backupsFolder);
-            TryCopyToExternal(todayBackupPath, externalFolder);
+            CleanupOldBackups(backupsFolder, retentionDays);
+            TryCopyToExternal(todayBackupPath, externalFolder, retentionDays);
         }
 
         /// <summary>
@@ -50,7 +63,7 @@ namespace WorkforceManager.Data
         /// وبيرمي استثناء واضح لو المجلد الخارجي متفعّل لكن مش متاح —
         /// المستخدم ضغط الزرار بنفسه فلازم يعرف إن الخارجية ما اتعملتش.
         /// </summary>
-        public static (string LocalPath, string? ExternalPath) BackupNow(string dbPath, string? externalFolder = null)
+        public static (string LocalPath, string? ExternalPath) BackupNow(string dbPath, string? externalFolder = null, int? retentionDays = null)
         {
             if (!File.Exists(dbPath))
                 throw new InvalidOperationException("ملف قاعدة البيانات غير موجود");
@@ -63,7 +76,7 @@ namespace WorkforceManager.Data
 
             var localPath = Path.Combine(backupsFolder, TodayBackupName());
             File.Copy(dbPath, localPath, overwrite: true);
-            CleanupOldBackups(backupsFolder);
+            CleanupOldBackups(backupsFolder, retentionDays);
 
             string? externalPath = null;
             if (!string.IsNullOrWhiteSpace(externalFolder))
@@ -74,7 +87,7 @@ namespace WorkforceManager.Data
 
                 externalPath = Path.Combine(externalFolder, TodayBackupName());
                 File.Copy(localPath, externalPath, overwrite: true);
-                CleanupOldBackups(externalFolder);
+                CleanupOldBackups(externalFolder, retentionDays);
             }
 
             return (localPath, externalPath);
@@ -119,7 +132,7 @@ namespace WorkforceManager.Data
         /// فلاشة مش موصلة الصبح مينفعش تمنع البرنامج من الفتح. النسخ اليدوي
         /// من الزرار (BackupNow) هو اللي بيبلّغ عن الفشل بوضوح.
         /// </summary>
-        private static void TryCopyToExternal(string localBackupPath, string? externalFolder)
+        private static void TryCopyToExternal(string localBackupPath, string? externalFolder, int? retentionDays)
         {
             if (string.IsNullOrWhiteSpace(externalFolder)) return;
 
@@ -129,7 +142,7 @@ namespace WorkforceManager.Data
 
                 var target = Path.Combine(externalFolder, Path.GetFileName(localBackupPath));
                 File.Copy(localBackupPath, target, overwrite: true);
-                CleanupOldBackups(externalFolder);
+                CleanupOldBackups(externalFolder, retentionDays);
             }
             catch
             {
@@ -144,9 +157,10 @@ namespace WorkforceManager.Data
         /// موثوق (بيتغير عند النسخ/الاستعادة، وفيه ظاهرة File System Tunneling
         /// اللي بتخلي ملف جديد يورث تاريخ ملف قديم بنفس الاسم).
         /// </summary>
-        private static void CleanupOldBackups(string backupsFolder)
+        private static void CleanupOldBackups(string backupsFolder, int? retentionDays)
         {
-            var cutoffDate = DateTime.Today.AddDays(-RetentionDays);
+            var days = Math.Clamp(retentionDays ?? FallbackRetentionDays, MinRetentionDays, MaxRetentionDays);
+            var cutoffDate = DateTime.Today.AddDays(-days);
 
             foreach (var file in Directory.GetFiles(backupsFolder, $"{BackupPrefix}*.db"))
             {
