@@ -527,6 +527,92 @@
                                                         BorderBrush="{StaticResource SoftPanelBorderBrush}" BorderThickness="1"
                                                         CornerRadius="10" Margin="8,0,0,0" Padding="12">
                                                     <StackPanel>
+                                                        <!-- ===== الشغل الواقف من أيام فاتت =====
+                                                             قطع دخلت الخط ولسه ماخرجتش منه. الرقم محسوب من
+                                                             سجلات الإنتاج نفسها (PendingWorkService) — مفيش
+                                                             جدول بيتتبّع القطع ومفيش خطوة ترحيل.
+                                                             الزرار بيملا النطاق بالعدد الواقف، والعمال
+                                                             بيتحطوا بإيد المستخدم. -->
+                                                        <Border Background="{StaticResource WarnBgBrush}" CornerRadius="9"
+                                                                Padding="11,9" Margin="0,0,0,10"
+                                                                Visibility="{Binding HasPendingWork, Converter={StaticResource BoolToVis}}">
+                                                            <StackPanel>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <materialDesign:PackIcon Kind="PackageVariantClosed" Width="15" Height="15"
+                                                                                            VerticalAlignment="Center"
+                                                                                            Foreground="{StaticResource WarnBrush}" />
+                                                                    <TextBlock Text="شغل واقف في نص الخط" FontWeight="Bold" FontSize="13"
+                                                                               Margin="6,0,0,0" VerticalAlignment="Center"
+                                                                               Foreground="{StaticResource WarnBrush}" />
+                                                                </StackPanel>
+                                                                <TextBlock Text="{Binding PendingSummaryText}" FontSize="11"
+                                                                           Margin="0,2,0,7"
+                                                                           Foreground="{StaticResource WarnBrush}" />
+
+                                                                <ItemsControl ItemsSource="{Binding PendingStages}">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Border Background="{StaticResource CardBgBrush}" CornerRadius="7"
+                                                                                    Padding="9,7" Margin="0,0,0,5">
+                                                                                <DockPanel>
+                                                                                    <Button DockPanel.Dock="Left"
+                                                                                            Style="{StaticResource PrimaryButton}" Padding="10,5"
+                                                                                            VerticalAlignment="Center"
+                                                                                            ToolTip="يجهّز نطاق من المرحلة دي لآخر الخط بالعدد الواقف"
+                                                                                            Command="{Binding DataContext.ResumePendingCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                                            CommandParameter="{Binding}">
+                                                                                        <TextBlock Text="كمّل من هنا" FontSize="11.5" />
+                                                                                    </Button>
+                                                                                    <StackPanel Margin="0,0,9,0" VerticalAlignment="Center">
+                                                                                        <TextBlock Text="{Binding PendingText}" FontSize="12" FontWeight="SemiBold"
+                                                                                                   TextWrapping="Wrap"
+                                                                                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                                                                                        <TextBlock FontSize="10.5" Margin="0,1,0,0"
+                                                                                                   Foreground="{StaticResource TextMutedBrush}">
+                                                                                            <Run Text="خلصت" />
+                                                                                            <Run Text="{Binding PreviousStageName, Mode=OneWay}" FontWeight="SemiBold" />
+                                                                                            <Run Text="ولسه" />
+                                                                                        </TextBlock>
+                                                                                    </StackPanel>
+                                                                                </DockPanel>
+                                                                            </Border>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <!-- ===== غلط إدخال =====
+                                                             مرحلة اتسجل عليها أكتر من اللي قبلها — مستحيل
+                                                             فيزيائيًا. بيتعرض صريح بدل ما يعدّي بصمت، لأنه
+                                                             بيخلي حساب الواقف كله مش موثوق. -->
+                                                        <Border Background="{StaticResource DangerBgBrush}" CornerRadius="9"
+                                                                Padding="11,9" Margin="0,0,0,10"
+                                                                Visibility="{Binding HasPendingErrors, Converter={StaticResource BoolToVis}}">
+                                                            <StackPanel>
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <materialDesign:PackIcon Kind="AlertCircleOutline" Width="15" Height="15"
+                                                                                            VerticalAlignment="Center"
+                                                                                            Foreground="{StaticResource DangerBrush}" />
+                                                                    <TextBlock Text="أرقام متناقضة — محتاجة مراجعة" FontWeight="Bold" FontSize="13"
+                                                                               Margin="6,0,0,0" VerticalAlignment="Center"
+                                                                               Foreground="{StaticResource DangerBrush}" />
+                                                                </StackPanel>
+                                                                <ItemsControl ItemsSource="{Binding PendingErrors}" Margin="0,6,0,0">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <TextBlock Text="{Binding ErrorText}" FontSize="11.5"
+                                                                                       TextWrapping="Wrap" Margin="0,0,0,4"
+                                                                                       Foreground="{StaticResource DangerBrush}" />
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                                <TextBlock Text="صحّح السجلات من تبويب &quot;سجلات اليوم&quot; — المرحلة دي مش هتظهر في الشغل الواقف لحد ما أرقامها تتظبط."
+                                                                           FontSize="10.5" TextWrapping="Wrap" Margin="0,3,0,0"
+                                                                           Foreground="{StaticResource DangerBrush}" />
+                                                            </StackPanel>
+                                                        </Border>
+
                                                         <TextBlock Text="توزيع الإنتاج على المراحل" FontWeight="Bold"
                                                                    FontSize="14" Foreground="{StaticResource BrandBrush}" />
                                                         <TextBlock Foreground="{StaticResource TextMutedBrush}" FontSize="11.5" TextWrapping="Wrap" Margin="0,2,0,8"
