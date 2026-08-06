@@ -59,7 +59,7 @@ namespace WorkforceManager.UI.Views
         /// <summary>ضغطة واحدة على اسم في القايمة بتضيفه — من غير ما يدوّر على زرار</summary>
         private void Suggestions_Click(object sender, MouseButtonEventArgs e)
         {
-            if (sender is not ListBox { DataContext: FlowStageRow stage } list) return;
+            if (sender is not ListBox { DataContext: FlowStageRow stage }) return;
             // الدوس على شريط التمرير مش اختيار عامل
             if (FindAncestor<ListBoxItem>(e.OriginalSource as DependencyObject) is null) return;
             if (stage.SelectedWorkerToAdd is null) return;
@@ -67,9 +67,9 @@ namespace WorkforceManager.UI.Views
             TryAddWorker(stage);
             e.Handled = true;
 
-            // الفوكس رجع للخانة عشان يكتب اسم العامل اللي بعده علطول
-            FindAncestor<StackPanel>(list)?.MoveFocus(
-                new TraversalRequest(FocusNavigationDirection.First));
+            // الفوكس مش بيترجّع هنا: OnWorkerAdded بيوديه لخانة المرحلة
+            // اللي بعدها — مكان واحد بيقرر يروح فين، سواء الإضافة كانت
+            // بالماوس أو بـ Enter
         }
 
         /// <summary>الاختيار بالسهمين لازم يفضل باين لو القايمة أطول من الإطار</summary>
@@ -126,13 +126,55 @@ namespace WorkforceManager.UI.Views
 
         private void OnWorkerAdded(FlowStageRow stage)
         {
-            var list = _stageLists.FirstOrDefault(pair => pair.Key.FlowStages.Contains(stage)).Value;
-            if (list is null) return;
+            var session = _stageLists.Keys.FirstOrDefault(s => s.FlowStages.Contains(stage));
+            if (session is null || !_stageLists.TryGetValue(session, out var list)) return;
+
+            // أول مرحلة بعدها ليها عمال مؤهلين: المرحلة اللي مالهاش
+            // مؤهلين خانتها مخفية أصلاً، فالمؤشر كان هيروح لمكان مسدود
+            var next = session.FlowStages
+                .SkipWhile(row => row != stage)
+                .Skip(1)
+                .FirstOrDefault(row => !row.HasNoQualified);
 
             // بعد ما التخطيط يخلص: شريحة العامل لسه بتتضاف والقايمة
             // بتتقفل، والارتفاع بيتغير — الزحلقة قبل كده بتحسب مكان قديم
-            Dispatcher.BeginInvoke(
-                new Action(() => ScrollStageToTop(list, stage)), DispatcherPriority.Loaded);
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // الترتيب مهم: تركيز الفوكس بيخلي WPF يزحلق لوحده عشان
+                // يبيّن الخانة، فبنسيبه يعمل كده الأول وبعدين نزحلق إحنا
+                // للمكان اللي إحنا عايزينه — آخر زحلقة هي اللي بتفضل
+                if (next is not null) FocusStageSearch(list, next);
+                ScrollStageToTop(list, stage);
+            }), DispatcherPriority.Loaded);
+        }
+
+        /// <summary>
+        /// بيحط المؤشر في خانة بحث المرحلة دي من غير ما يفتح قايمتها.
+        ///
+        /// عشان اللي بيوزّع على خط ١١ مرحلة يكتب اسم + Enter، اسم +
+        /// Enter، من غير ما يمسك الماوس. القايمة مبتفتحش بالفوكس — أول
+        /// حرف بيكتبه هو اللي بيفتحها.
+        /// </summary>
+        private static void FocusStageSearch(ItemsControl list, FlowStageRow stage)
+        {
+            if (list.ItemContainerGenerator.ContainerFromItem(stage) is not DependencyObject container)
+                return;
+
+            if (FindDescendant<TextBox>(container, "WorkerSearchBox") is { } box)
+                box.Focus();
+        }
+
+        private static T? FindDescendant<T>(DependencyObject root, string name) where T : FrameworkElement
+        {
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+
+                if (child is T match && match.Name == name) return match;
+                if (FindDescendant<T>(child, name) is { } deeper) return deeper;
+            }
+
+            return null;
         }
 
         private void ScrollStageToTop(ItemsControl list, FlowStageRow stage)

@@ -400,7 +400,8 @@
                                                                                                                     Foreground="{StaticResource TextMutedBrush}" />
                                                                                             <!-- الدوسة بتفتح القايمة: بعد كل إضافة بتتقفل،
                                                                                                  والمستخدم هو اللي بيفتحها لما يحتاج -->
-                                                                                            <TextBox Text="{Binding WorkerSearch, UpdateSourceTrigger=PropertyChanged}"
+                                                                                            <TextBox x:Name="WorkerSearchBox"
+                                                                                                     Text="{Binding WorkerSearch, UpdateSourceTrigger=PropertyChanged}"
                                                                                                      Margin="5,0,0,0" BorderThickness="0" FontSize="12.5"
                                                                                                      VerticalAlignment="Center" Background="Transparent"
                                                                                                      ToolTip="اكتب أول حروف اسم العامل — الأسهم ▲▼ للاختيار وEnter للإضافة"

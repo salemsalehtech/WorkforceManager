@@ -172,9 +172,13 @@ Core  <----------------------- UI
   Focus alone couldn't close it — focus stays in the box, so the list re-opened over the next stage. The
   user re-opens it by clicking the box or typing; `WorkerSearch_Clicked` is bound to mouse-down and **not**
   to `GotKeyboardFocus`, because the click-to-add path restores focus to the box and that would re-open it.
-  (3) the view then **scrolls the just-filled stage to the top** (`WorkerAdded` event → `ScrollStageToTop`,
-  dispatched at `Loaded` priority so the new chip and the closed list are already laid out). Top, not
-  past it: a stage may need a second worker, and scrolling past would force a scroll back.
+  (3) the view then **moves the caret to the next stage's search box and scrolls the just-filled stage to
+  the top** (`WorkerAdded` event → `FocusStageSearch` + `ScrollStageToTop`, dispatched at `Loaded` priority
+  so the new chip and the closed list are already laid out). Focus first, scroll second — focusing makes
+  WPF bring the box into view on its own, so our scroll has to be the last word. The next stage skips any
+  with no qualified workers (their picker is collapsed, so the caret would land nowhere). Top, not past it:
+  a stage may need a second worker, and scrolling past would force a scroll back. Focus is decided **only**
+  here, never in `Suggestions_Click`, so mouse-add and Enter-add behave identically.
   "كرّر يوم فات" is `RepeatLastDayAsync` (see `GetLastFlowAsync`).
   One or MORE products per day: each product gets its own
   `FlowSessionViewModel` card — stages as ordered cards, qualified-only workers per stage with equal
