@@ -16,15 +16,18 @@ namespace WorkforceManager.Business.Services
         private readonly IProductRepository _productRepo;
         private readonly IGenericRepository<ProductionStage> _stageRepo;
         private readonly SoftDeleteService _softDelete;
+        private readonly DeletionScopeService _scope;
 
         public ProductManagementService(
             IProductRepository productRepo,
             IGenericRepository<ProductionStage> stageRepo,
-            SoftDeleteService softDelete)
+            SoftDeleteService softDelete,
+            DeletionScopeService scope)
         {
             _productRepo = productRepo;
             _stageRepo = stageRepo;
             _softDelete = softDelete;
+            _scope = scope;
         }
 
         // ======================= المنتجات =======================
@@ -122,12 +125,17 @@ namespace WorkforceManager.Business.Services
                     EntityName = product.Name
                 },
                 operationsPassword,
-                reason);
+                reason,
+                // مفيش إنتاج على أي مرحلة من مراحله = يتمسح خالص
+                // (ومراحله معاه بالـ Cascade)
+                removePermanently: await _scope.CanRemoveProductAsync(product.Id)
+                    ? () => _productRepo.Remove(product)
+                    : null);
 
             // نفس قاعدة العامل: الإخفاء من القوايم بالعلامة اللي كل
             // الشاشات بتحترمها أصلاً، لأن الفلتر العام مش على المنتج
             // (عشان التقارير التاريخية تفضل شغالة)
-            if (result.IsDeleted && product.IsActive)
+            if (result.IsDeleted && !result.WasPermanent && product.IsActive)
             {
                 product.IsActive = false;
                 _productRepo.Update(product);
@@ -284,9 +292,15 @@ namespace WorkforceManager.Business.Services
                     Details = $"اليومية وقت الحذف: {stage.PiecesPerWorkday} قطعة"
                 },
                 operationsPassword,
-                reason);
+                reason,
+                // مفيش إنتاج اتسجّل عليها = تتمسح خالص (ومهارات العمال
+                // عليها بتروح معاها بالـ Cascade — مهارة على مرحلة
+                // مامعدش ليها وجود مالهاش أي معنى)
+                removePermanently: await _scope.CanRemoveStageAsync(stage.Id)
+                    ? () => _stageRepo.Remove(stage)
+                    : null);
 
-            if (result.IsDeleted && stage.IsActive)
+            if (result.IsDeleted && !result.WasPermanent && stage.IsActive)
             {
                 stage.IsActive = false;
                 _stageRepo.Update(stage);

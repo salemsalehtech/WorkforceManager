@@ -75,6 +75,7 @@ namespace WorkforceManager.UI
                     services.AddScoped<OperationsPasswordService>();
                     services.AddScoped<ActivityLogService>();
                     services.AddScoped<SoftDeleteService>();
+                    services.AddScoped<DeletionScopeService>();
                     services.AddScoped<SkillRatingService>();
                     services.AddScoped<AuthService>();
                     // خدمة التصدير Singleton لأنها بدون حالة ولا بتلمس قاعدة البيانات
@@ -189,6 +190,11 @@ namespace WorkforceManager.UI
                         .PurgeExpiredAsync(
                             settings.ActivityLogRetentionDays,
                             settings.ActivityLogFinancialRetentionDays);
+
+                    // الصفوف اللي اتشالت أيام ما الحذف كان بيعلّم بس —
+                    // بتتنضّف بنفس قاعدة الحذف الحالية
+                    await DeletedRowsCleaner.PurgeAsync(
+                        purgeScope.ServiceProvider.GetRequiredService<AppDbContext>());
                 }
                 catch
                 {

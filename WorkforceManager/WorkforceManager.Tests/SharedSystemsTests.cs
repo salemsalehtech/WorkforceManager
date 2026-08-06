@@ -185,7 +185,7 @@ namespace WorkforceManager.Tests
         // ======================= نظام 2: الحذف الناعم =======================
 
         [Fact]
-        public async Task Deleting_a_record_keeps_the_row_and_records_who_when_why()
+        public async Task Deleting_a_record_removes_the_row_and_the_log_keeps_who_when_why()
         {
             await ConfigurePasswordAsync();
             var recordId = await RecordProductionAsync();
@@ -200,14 +200,15 @@ namespace WorkforceManager.Tests
             using var check = _db.CreateScope();
             var db = _db.GetService<AppDbContext>(check);
 
-            // الصف موجود في الداتابيز — مش اتشال فعليًا
-            var raw = await db.DailyProductions.IgnoreQueryFilters()
-                .AsNoTracking().SingleAsync(r => r.Id == recordId);
+            // الصف اتشال من الجدول خالص — محدش بيشاور عليه فمفيش
+            // سبب يفضل قاعد
+            Assert.Empty(await db.DailyProductions.IgnoreQueryFilters()
+                .AsNoTracking().Where(r => r.Id == recordId).ToListAsync());
 
-            Assert.True(raw.IsDeleted);
-            Assert.Equal("مدير القسم", raw.DeletedBy);
-            Assert.Equal("اتسجل مرتين بالغلط", raw.DeletionReason);
-            Assert.NotNull(raw.DeletedAt);
+            // ومين/إمتى/ليه عايشين في سجل العمليات
+            var logged = await db.ActivityEvents.AsNoTracking().SingleAsync();
+            Assert.Equal("مدير القسم", logged.Actor);
+            Assert.Equal("اتسجل مرتين بالغلط", logged.Reason);
         }
 
         [Fact]
@@ -422,10 +423,9 @@ namespace WorkforceManager.Tests
             using var check = _db.CreateScope();
             var db = _db.GetService<AppDbContext>(check);
 
-            // الاتنين موجودين — الحذف والحدث في معاملة واحدة
-            var deleted = await db.DailyProductions.IgnoreQueryFilters()
-                .AsNoTracking().SingleAsync();
-            Assert.True(deleted.IsDeleted);
+            // الاتنين حصلوا — الحذف والحدث في معاملة واحدة
+            Assert.Empty(await db.DailyProductions.IgnoreQueryFilters()
+                .AsNoTracking().ToListAsync());
             Assert.Equal(1, await db.ActivityEvents.CountAsync());
         }
 
@@ -787,7 +787,7 @@ namespace WorkforceManager.Tests
         // ======================= التدفق المشترك =======================
 
         [Fact]
-        public async Task One_deletion_runs_gate_then_soft_delete_then_event()
+        public async Task One_deletion_runs_gate_then_removal_then_event()
         {
             await ConfigurePasswordAsync();
             var recordId = await RecordProductionAsync();
@@ -804,9 +804,8 @@ namespace WorkforceManager.Tests
             using var check = _db.CreateScope();
             var db = _db.GetService<AppDbContext>(check);
 
-            var raw = await db.DailyProductions.IgnoreQueryFilters().AsNoTracking().SingleAsync();
-            Assert.True(raw.IsDeleted);                   // 2) حذف ناعم مش فعلي
-            Assert.Equal("تصحيح إدخال", raw.DeletionReason);
+            Assert.Empty(await db.DailyProductions.IgnoreQueryFilters()
+                .AsNoTracking().ToListAsync());           // 2) اتشال خالص
 
             var logged = await db.ActivityEvents.AsNoTracking().SingleAsync();
             Assert.Equal("مدير القسم", logged.Actor);     // 3) الحدث اتسجل

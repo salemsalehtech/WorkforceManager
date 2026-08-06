@@ -33,5 +33,8 @@ namespace WorkforceManager.Data.Repositories
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
         }
+
+        public Task<bool> HasAnyForWorkerAsync(int workerId) =>
+            DbSet.AnyAsync(a => a.WorkerId == workerId);
     }
 }

@@ -15,15 +15,18 @@ namespace WorkforceManager.Business.Services
         private readonly IWorkerRepository _workerRepo;
         private readonly IGenericRepository<WorkerSkill> _skillRepo;
         private readonly SoftDeleteService _softDelete;
+        private readonly DeletionScopeService _scope;
 
         public WorkerManagementService(
             IWorkerRepository workerRepo,
             IGenericRepository<WorkerSkill> skillRepo,
-            SoftDeleteService softDelete)
+            SoftDeleteService softDelete,
+            DeletionScopeService scope)
         {
             _workerRepo = workerRepo;
             _skillRepo = skillRepo;
             _softDelete = softDelete;
+            _scope = scope;
         }
 
         /// <summary>
@@ -155,12 +158,18 @@ namespace WorkforceManager.Business.Services
                     EntityName = worker.FullName
                 },
                 operationsPassword,
-                reason);
+                reason,
+                // مفيش تاريخ أجور عليه = يتمسح من الجدول خالص. عليه
+                // تاريخ = يتعلّم بس، عشان كشوف أجوره القديمة تفضل تقرا
+                // اسمه بدل ما تبقى أرقام من غير أصحاب
+                removePermanently: await _scope.CanRemoveWorkerAsync(worker.Id)
+                    ? () => _workerRepo.Remove(worker)
+                    : null);
 
             // العامل المشال ميظهرش في القوايم النشطة كمان: الحذف الناعم
             // مالوش فلتر عام على العامل (عشان التقارير التاريخية)، فالإخفاء
             // بيتم بنفس العلامة اللي كل الشاشات بتحترمها أصلاً
-            if (result.IsDeleted && worker.IsActive)
+            if (result.IsDeleted && !result.WasPermanent && worker.IsActive)
             {
                 worker.IsActive = false;
                 _workerRepo.Update(worker);

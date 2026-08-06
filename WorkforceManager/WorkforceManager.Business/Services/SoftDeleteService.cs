@@ -5,16 +5,31 @@ using WorkforceManager.Core.Models;
 namespace WorkforceManager.Business.Services
 {
     /// <summary>
-    /// الحذف الناعم — المكان الوحيد اللي بيشيل أي حاجة في البرنامج.
+    /// الحذف — المكان الوحيد اللي بيشيل أي حاجة في البرنامج.
     ///
     /// كل عملية حذف بتمر من هنا بتعمل تلات حاجات **في معاملة واحدة**:
     ///   1. تتحقق من كلمة سر العمليات (نظام 1)
-    ///   2. تعلّم الكيان محذوف وتسجّل مين/إمتى/ليه + لقطة الاسم (نظام 2)
+    ///   2. تشيل الكيان (نظام 2)
     ///   3. تكتب الحدث في سجل العمليات (نظام 3)
     ///
     /// التلاتة مع بعض عن قصد: حذف من غير سبب مسجّل بيخلي السؤال "الشغل
     /// ده راح فين؟" مالوش إجابة، وحذف اتسجل من غير ما يتنفّذ (أو العكس)
     /// بيخلي السجل يكدب. فيا كله يا مفيش.
+    ///
+    /// **الخطوة 2 ليها شكلين، واللي بينادي هو اللي بيقرر أنهي واحد:**
+    ///
+    /// • **حذف نهائي** لما مفيش حاجة بتشاور على الصف. الصف بيختفي من
+    ///   الجدول خالص. ده الوضع الطبيعي — منتج اتضاف بالغلط، عامل
+    ///   اتسجّل مرتين، سجل إنتاج اتصحّح. من غيره الجداول بتفضل مليانة
+    ///   صفوف ميتة للأبد، وكل استعلام بيعدّي عليها.
+    ///
+    /// • **حذف ناعم** (علامة + مين/إمتى/ليه + لقطة الاسم) لما الصف
+    ///   عليه تاريخ أجور. عامل اشتغل شهور مينفعش يختفي: كشوف أجوره
+    ///   وتقارير الشهور اللي فاتت بتشاور عليه بالاسم، ومسحه بيحوّلها
+    ///   لأرقام من غير أصحاب — أو يفشل أصلاً على قيد المفتاح الأجنبي.
+    ///
+    /// السجل بيتكتب في الحالتين: هو الأثر المقصود، وعايش في جدوله
+    /// بمدة احتفاظ محددة — مش صفوف ميتة في جداول الشغل.
     ///
     /// اللي بينادي الخدمة دي **مبيلمسش** الكيان ولا السجل بنفسه.
     /// </summary>
@@ -53,12 +68,18 @@ namespace WorkforceManager.Business.Services
         /// false لو اللي بينادي ماسك معاملة أكبر وهيحفظ بنفسه (زي حذف يوم
         /// إنتاج كامل: كل سجلاته بتتشال مع بعض في حفظة واحدة).
         /// </param>
+        /// <param name="removePermanently">
+        /// لما تتبعت، الكيان بيتشال من الجدول خالص بدل ما يتعلّم. اللي
+        /// بينادي هو اللي بيمرّرها لأنه هو الوحيد اللي يعرف إيه اللي
+        /// بيشاور على الصف ده — الدالة دي بتنفّذ القرار مش بتاخده.
+        /// </param>
         public async Task<SoftDeleteResult> DeleteAsync<TEntity>(
             TEntity entity,
             DeletionDescriptor descriptor,
             string password,
             string reason,
-            bool saveChanges = true)
+            bool saveChanges = true,
+            Action? removePermanently = null)
             where TEntity : class, ISoftDeletable
         {
             if (string.IsNullOrWhiteSpace(reason))
@@ -71,11 +92,19 @@ namespace WorkforceManager.Business.Services
             if (!gate.IsAllowed)
                 return SoftDeleteResult.Fail(gate.Message);
 
+            var wasPermanent = removePermanently is not null;
+
+            void Remove()
+            {
+                if (removePermanently is not null) removePermanently();
+                else Apply(entity, descriptor, reason);
+            }
+
             // من هنا ورايح: الكيان والسجل لازم يتحفظوا مع بعض
             if (saveChanges)
             {
                 await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
-                Apply(entity, descriptor, reason);
+                Remove();
                 await _log.LogAsync(
                     descriptor.EventType, descriptor.EntityType, descriptor.EntityId,
                     descriptor.EntityName, reason, descriptor.Details, saveChanges: false);
@@ -85,13 +114,13 @@ namespace WorkforceManager.Business.Services
             }
             else
             {
-                Apply(entity, descriptor, reason);
+                Remove();
                 await _log.LogAsync(
                     descriptor.EventType, descriptor.EntityType, descriptor.EntityId,
                     descriptor.EntityName, reason, descriptor.Details, saveChanges: false);
             }
 
-            return SoftDeleteResult.Success(gate.IsNotConfigured);
+            return SoftDeleteResult.Success(gate.IsNotConfigured, wasPermanent);
         }
 
         /// <summary>بيعلّم حقول الحذف على الكيان — الخطوة الوحيدة اللي بتلمسه</summary>
@@ -140,8 +169,15 @@ namespace WorkforceManager.Business.Services
         /// <summary>اتنفّذ من غير كلمة سر لأن مفيش واحدة متسجّلة — الشاشة بتنبّه</summary>
         public bool PasswordNotConfigured { get; private init; }
 
-        public static SoftDeleteResult Success(bool passwordNotConfigured = false) =>
-            new() { IsDeleted = true, PasswordNotConfigured = passwordNotConfigured };
+        /// <summary>
+        /// اتشال من الجدول خالص (مكانش عليه أي تاريخ). الشاشة بتقول
+        /// للمستخدم حصل إيه بالظبط: "اتمسح نهائي" مختلفة عن "اتشال
+        /// وسجلاته القديمة فاضلة".
+        /// </summary>
+        public bool WasPermanent { get; private init; }
+
+        public static SoftDeleteResult Success(bool passwordNotConfigured = false, bool wasPermanent = false) =>
+            new() { IsDeleted = true, PasswordNotConfigured = passwordNotConfigured, WasPermanent = wasPermanent };
 
         public static SoftDeleteResult Fail(string message) =>
             new() { IsDeleted = false, Message = message };

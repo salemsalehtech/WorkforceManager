@@ -152,14 +152,17 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
-        /// يشيل سجل إنتاج اتسجل بالغلط — **حذف ناعم** بكلمة سر وسبب.
+        /// يشيل سجل إنتاج اتسجل بالغلط — بكلمة سر وسبب مكتوب.
         ///
-        /// كان حذف فعلي قبل كده. اتغيّر لأن السجل ده أساس أجر عامل: لو
-        /// اتشال فعليًا، السؤال "الأجر نقص ليه الأسبوع ده؟" مبقاش ليه
-        /// إجابة في أي مكان — ولا حتى مين شاله ولا إمتى.
+        /// السؤال "الأجر نقص ليه الأسبوع ده؟" لازم تبقى ليه إجابة، وهي
+        /// في سجل العمليات: مين شال السجل وإمتى وليه وكام قطعة كانت
+        /// عليه. الإجابة دي مش محتاجة الصف نفسه يفضل قاعد في الجدول.
         ///
-        /// السجل المشال بيختفي من كل الحسابات (فلتر عام على
-        /// DailyProduction) بس بيفضل موجود للمراجعة.
+        /// **بيتمسح من الجدول خالص.** مفيش أي مفتاح أجنبي بيشاور على
+        /// سجل الإنتاج، فمفيش حاجة بتتكسر بمسحه — وكان بيتعلّم محذوف
+        /// ويفضل قاعد في الجدول للأبد، كل استعلام بيعدّي عليه وهو
+        /// مستبعد بفلتر. اللي بيفضل هو حدث السجل: مين مسحه، إمتى،
+        /// وليه، وكام قطعة كانت عليه.
         /// </summary>
         public async Task<SoftDeleteResult> DeleteProductionAsync(
             int recordId, string operationsPassword, string reason)
@@ -184,7 +187,8 @@ namespace WorkforceManager.Business.Services
                     Details = $"يوم {record.Date:yyyy/MM/dd} — {record.PieceCount} قطعة"
                 },
                 operationsPassword,
-                reason);
+                reason,
+                removePermanently: () => _productionRepo.Remove(record));
         }
 
         /// <summary>
@@ -229,7 +233,8 @@ namespace WorkforceManager.Business.Services
                     operationsPassword,
                     reason,
                     // الحفظ مؤجّل لآخر السجل: السجلات كلها بتنزل مع بعض
-                    saveChanges: false);
+                    saveChanges: false,
+                    removePermanently: () => _productionRepo.Remove(record));
 
                 // أول رفض بيوقف كل حاجة — المعاملة بتتلغي عند الخروج
                 // من غير Commit، فمفيش سجل واحد اتشال

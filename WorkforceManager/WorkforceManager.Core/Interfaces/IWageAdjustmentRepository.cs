@@ -12,5 +12,8 @@ namespace WorkforceManager.Core.Interfaces
 
         /// <summary>تعديلات يوم معين لكل العمال (لعرضها وحذفها في شاشة التسجيل اليومي)</summary>
         Task<IReadOnlyList<WageAdjustment>> GetByDateAsync(DateTime date);
+
+        /// <summary>فيه أي سلفة أو حافز للعامل ده؟</summary>
+        Task<bool> HasAnyForWorkerAsync(int workerId);
     }
 }

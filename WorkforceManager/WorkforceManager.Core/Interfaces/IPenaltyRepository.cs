@@ -9,5 +9,8 @@ namespace WorkforceManager.Core.Interfaces
 
         /// <summary>كل الجزاءات المسجّلة خلال فترة زمنية لكل العمال (للتقرير الأسبوعي المجمّع)</summary>
         Task<IReadOnlyList<Penalty>> GetByRangeAsync(DateTime from, DateTime to);
+
+        /// <summary>فيه أي جزاء على العامل ده؟</summary>
+        Task<bool> HasAnyForWorkerAsync(int workerId);
     }
 }

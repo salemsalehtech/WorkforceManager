@@ -29,5 +29,8 @@ namespace WorkforceManager.Data.Repositories
                 .OrderBy(h => h.Date)
                 .ToListAsync();
         }
+
+        public Task<bool> HasAnyForWorkerAsync(int workerId) =>
+            DbSet.AnyAsync(h => h.WorkerId == workerId);
     }
 }

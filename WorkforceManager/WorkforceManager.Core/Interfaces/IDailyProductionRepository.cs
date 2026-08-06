@@ -30,5 +30,15 @@ namespace WorkforceManager.Core.Interfaces
         /// التجميع بيتم في الداتابيز مش في الذاكرة.
         /// </summary>
         Task<IReadOnlyDictionary<int, int>> GetStageTotalsUpToAsync(DateTime date);
+
+        /// <summary>
+        /// فيه أي سجل إنتاج للعامل ده؟ **بيتجاهل فلتر الحذف الناعم**:
+        /// السجل المتشال ناعم لسه ماسك المفتاح الأجنبي، فلسه بيمنع مسح
+        /// العامل نهائيًا حتى لو مش ظاهر في أي شاشة.
+        /// </summary>
+        Task<bool> HasAnyForWorkerAsync(int workerId);
+
+        /// <summary>نفس الفكرة بالظبط بس على المرحلة</summary>
+        Task<bool> HasAnyForStageAsync(int stageId);
     }
 }

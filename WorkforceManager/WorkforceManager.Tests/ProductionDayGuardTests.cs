@@ -171,7 +171,7 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
-        public async Task Deleting_a_whole_day_soft_deletes_every_record_and_logs_it()
+        public async Task Deleting_a_whole_day_removes_every_record_and_logs_each_one()
         {
             await SetPasswordAsync();
             await RecordAsync(TestDatabase.BagStage1Id, 100, Day1, TestDatabase.WorkerAhmedId);
@@ -185,22 +185,13 @@ namespace WorkforceManager.Tests
 
             var db = _db.GetService<AppDbContext>(scope);
 
-            // مفيش سجل ظاهر في أي حساب
-            Assert.Empty(await db.DailyProductions.ToListAsync());
+            // مفيش سجل فاضل — لا ظاهر ولا متعلّم
+            Assert.Empty(await db.DailyProductions.IgnoreQueryFilters().ToListAsync());
 
-            // بس السجلات لسه موجودة بسببها ومين شالها
-            var removed = await db.DailyProductions.IgnoreQueryFilters().ToListAsync();
-            Assert.Equal(2, removed.Count);
-            Assert.All(removed, r =>
-            {
-                Assert.True(r.IsDeleted);
-                Assert.Equal("اليوم اتسجل على تاريخ غلط", r.DeletionReason);
-                Assert.NotNull(r.DeletedAt);
-            });
-
-            // وكل واحد ليه حدث في السجل
+            // وكل واحد اتشال ليه حدث في السجل بسببه
             var events = await db.ActivityEvents.ToListAsync();
             Assert.Equal(2, events.Count);
+            Assert.All(events, e => Assert.Equal("اليوم اتسجل على تاريخ غلط", e.Reason));
         }
 
         [Fact]

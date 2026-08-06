@@ -12,5 +12,8 @@ namespace WorkforceManager.Core.Interfaces
 
         /// <summary>كل سجلات الشغل بالساعة خلال فترة زمنية (للملخص الأسبوعي والتقارير)</summary>
         Task<IReadOnlyList<HourlyWorkLog>> GetByRangeAsync(DateTime from, DateTime to);
+
+        /// <summary>فيه أي شغل بالساعة مسجّل للعامل ده؟</summary>
+        Task<bool> HasAnyForWorkerAsync(int workerId);
     }
 }

@@ -62,9 +62,9 @@ Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output)
 - `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
   UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
 
-`WorkforceManager.Tests` (xUnit, `net8.0`, 260 tests) covers the worker-assignment rule, daily output,
+`WorkforceManager.Tests` (xUnit, `net8.0`, 273 tests) covers the worker-assignment rule, daily output,
 the skill-rating system, worker filtering, product activity, pending work, the worker report,
-activity-log retention, database integrity, fresh-install seeding, and the removed-field guards — run with `dotnet test`
+activity-log retention, database integrity, deletion scope, fresh-install seeding, and the removed-field guards — run with `dotnet test`
 from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
@@ -335,6 +335,25 @@ Core  <----------------------- UI
   attached to the wrong person is worse than a missing one the user can add from the screen.
   `FreshInstallSeedTests` builds a real database from scratch and asserts links exist and land on the
   right worker; that is the test that would catch this whole class of breakage.
+
+- **Deleting removes the row; soft delete is the exception, not the rule.** `DeletionScopeService` answers
+  one question — is any wage history pointing at this row? — and `SoftDeleteService.DeleteAsync` takes a
+  `removePermanently` callback from the caller that knows. A worker/product/stage with **no** production,
+  hourly log, penalty or adjustment is deleted outright (dependent skills/attendance cascade); one with
+  history is only flagged, because payroll sheets and old reports read its name and erasing it turns them
+  into numbers with no owners — and the `Restrict` FK on production would refuse the delete anyway with a
+  database error no user could act on. **`DailyProduction` is always removed**: nothing has a foreign key
+  to it, so a flagged row was pure accumulation that every query had to filter past. The audit trail is
+  the activity-log event (who/when/why/how many pieces) — that is the trace worth keeping, and it lives
+  in its own table under a retention policy instead of as dead rows in working tables.
+  Two traps this design has to respect, both covered by `DeletionScopeTests`:
+  the existence checks **must** use `IgnoreQueryFilters()`, since a flagged production row still holds its
+  foreign key and still blocks its worker; and `SoftDeleteResult.WasPermanent` tells the screen which of
+  the two actually happened, so `IsActive = false` is only applied to a row that still exists.
+- `DeletedRowsCleaner` (Data) applies that same rule once per startup to rows flagged before the rule
+  existed, right after the backup and next to the activity-log purge. It computes what is busy **before**
+  deleting anything, so there is no chain reaction — purging a flagged production row does not make its
+  worker look free in the same pass.
 
 ### Domain model relationships
 

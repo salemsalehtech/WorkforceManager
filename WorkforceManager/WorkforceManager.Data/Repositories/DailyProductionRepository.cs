@@ -56,5 +56,11 @@ namespace WorkforceManager.Data.Repositories
 
             return totals.ToDictionary(t => t.StageId, t => t.Pieces);
         }
+
+        public Task<bool> HasAnyForWorkerAsync(int workerId) =>
+            DbSet.IgnoreQueryFilters().AnyAsync(dp => dp.WorkerId == workerId);
+
+        public Task<bool> HasAnyForStageAsync(int stageId) =>
+            DbSet.IgnoreQueryFilters().AnyAsync(dp => dp.ProductionStageId == stageId);
     }
 }
