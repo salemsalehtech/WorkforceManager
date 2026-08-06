@@ -106,8 +106,11 @@ Core  <----------------------- UI
   (`WorkerRow.TopSkillProduct`) and the whole card is a button running `OpenBestWorkerCommand`, which
   clears any active filter first so the selection is actually visible. Who counts as best worker is
   still decided in `WeeklySummaryService` — the card only renders it.
-  On top of the chips sit four **composable** dropdowns (stage / product / min-stars / today's
-  attendance). All of them AND together with the chip in `WorkerFilterRules` (Business) — the chip is
+  Behind a single **"فلاتر وترتيب"** button (`ToolbarToggle` + popup, `IsFilterMenuOpen`, with
+  `ActiveFilterCount` as a badge) sit four **composable** dropdowns (stage / product / min-stars /
+  today's attendance) plus the sort — the same pattern and the same shared styles as the products
+  screen, replacing a permanent second toolbar row.
+  All of them AND together with the chip in `WorkerFilterRules` (Business) — the chip is
   the mutually-exclusive scope (`WorkerPayScope`), the dropdowns narrow it further. `null` on a
   criterion means "filter off", never "match empty"; `AverageStars <= 0` means "no skills" and is
   excluded from any stars filter rather than treated as zero stars. The rule is pure and lives in

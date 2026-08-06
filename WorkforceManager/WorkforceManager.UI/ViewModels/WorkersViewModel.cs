@@ -142,11 +142,23 @@ namespace WorkforceManager.UI.ViewModels
         };
 
         /// <summary>فيه فلتر مركّب مفعّل؟ (بيظهر زرار "شيل الفلاتر")</summary>
-        public bool HasExtraFilters =>
-            SelectedStageFilter?.StageId is not null ||
-            SelectedProductFilter?.ProductId is not null ||
-            SelectedStarsFilter?.MinStars is not null ||
-            SelectedAttendanceFilter?.Status is not null;
+        /// <summary>لوحة الفلاتر مفتوحة</summary>
+        [ObservableProperty]
+        private bool _isFilterMenuOpen;
+
+        /// <summary>
+        /// كام فلتر شغّال دلوقتي — بيتعرض كرقم على زرار الفلاتر.
+        ///
+        /// الفلاتر بقت جوّه لوحة، فمن غير الرقم ده المستخدم ممكن يبص على
+        /// قايمة مفلترة ومايعرفش ليه ناقصة.
+        /// </summary>
+        public int ActiveFilterCount =>
+            (SelectedStageFilter?.StageId is not null ? 1 : 0) +
+            (SelectedProductFilter?.ProductId is not null ? 1 : 0) +
+            (SelectedStarsFilter?.MinStars is not null ? 1 : 0) +
+            (SelectedAttendanceFilter?.Status is not null ? 1 : 0);
+
+        public bool HasExtraFilters => ActiveFilterCount > 0;
 
         /// <summary>يجمّع الفلاتر المختارة في معايير واحدة للقاعدة</summary>
         private WorkerFilterCriteria BuildCriteria() => new()
@@ -306,6 +318,7 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(ResultsText));
             OnPropertyChanged(nameof(NoResults));
             OnPropertyChanged(nameof(HasExtraFilters));
+            OnPropertyChanged(nameof(ActiveFilterCount));
         }
 
         /// <summary>يمسح البحث ويرجّع كل الفلاتر للكل</summary>
