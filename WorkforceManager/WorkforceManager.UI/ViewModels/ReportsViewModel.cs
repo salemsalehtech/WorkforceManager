@@ -70,13 +70,77 @@ namespace WorkforceManager.UI.ViewModels
 
         public ObservableCollection<DailyReportRow> DailyRows { get; } = new();
 
+        // ------- لوحة "اليوم في سطر" -------
+        // خمس حقايق المدير بيسأل عنها أول ما يفتح الشاشة: اشتغلنا على
+        // إيه، أنتجنا كام، أكتر منتج، وأحسن وأقل عامل. كلها محسوبة من
+        // سجلات اليوم — مفيش رقم مكتوب بالإيد.
+
+        /// <summary>المنتجات اللي اتشغل عليها النهارده، مرتبة بالأكتر إنتاجًا</summary>
+        public ObservableCollection<DailyProductRow> DailyProducts { get; } = new();
+
+        public bool HasDailyProducts => DailyProducts.Count > 0;
+
+        [ObservableProperty]
+        private string _dailyTotalPiecesText = "0";
+
+        [ObservableProperty]
+        private string _dailyTopProductText = "—";
+
+        [ObservableProperty]
+        private string _dailyTopProductPiecesText = "";
+
+        [ObservableProperty]
+        private string _dailyBestWorkerText = "—";
+
+        [ObservableProperty]
+        private string _dailyBestWorkerDetail = "";
+
+        [ObservableProperty]
+        private string _dailyWorstWorkerText = "—";
+
+        [ObservableProperty]
+        private string _dailyWorstWorkerDetail = "";
+
+        /// <summary>
+        /// عامل واحد بس أنتج — "الأحسن" و"الأقل" هيبقوا هو، وعرضهم
+        /// مرتين بيوحي بمقارنة محصلتش
+        /// </summary>
+        [ObservableProperty]
+        private bool _dailyHasComparison;
+
         private async Task LoadDailyAsync()
         {
             using var scope = _scopeFactory.CreateScope();
             var evaluationService = scope.ServiceProvider.GetRequiredService<PerformanceEvaluationService>();
             var penaltyService = scope.ServiceProvider.GetRequiredService<PenaltyService>();
+            var activityService = scope.ServiceProvider.GetRequiredService<ProductActivityService>();
 
             var evaluations = await evaluationService.EvaluateDayAsync(DailyDate);
+
+            // منتجات اليوم من نفس خدمة نشاط المنتجات اللي شاشة المنتجات
+            // شغالة بيها — مفيش حساب تاني موازي
+            var activity = (await activityService.GetAsync(DailyDate, DailyDate))
+                .Where(p => p.WorkedInPeriod)
+                .ToList();
+
+            DailyProducts.Clear();
+            foreach (var product in activity)
+                DailyProducts.Add(new DailyProductRow
+                {
+                    ProductName = product.ProductName,
+                    Pieces = product.PiecesProduced,
+                    WorkerCount = product.WorkerIds.Count
+                });
+
+            OnPropertyChanged(nameof(HasDailyProducts));
+
+            DailyTotalPiecesText = activity.Sum(p => p.PiecesProduced).ToString("N0");
+
+            var top = activity.FirstOrDefault(); // الخدمة بترجّعهم مرتبين بالأكتر
+            DailyTopProductText = top?.ProductName ?? "—";
+            DailyTopProductPiecesText = top is null ? "" : $"{top.PiecesProduced:N0} قطعة";
+
+            RefreshDailyExtremes(evaluations);
             // جزاءات اليوم بتتضم للعرض (مش جزء من تقييم الأداء نفسه)
             var penaltiesByWorker = (await penaltyService.GetPenaltiesByDateAsync(DailyDate))
                 .GroupBy(p => p.WorkerId)
@@ -94,6 +158,39 @@ namespace WorkforceManager.UI.ViewModels
             DailySummaryText = producers.Count == 0
                 ? "لا يوجد إنتاج مسجّل في هذا اليوم"
                 : $"عدد المنتجين: {producers.Count} عامل   |   متوسط الفريق: {producers[0].TeamAverageWorkdays:0.##} يومية";
+        }
+
+        /// <summary>
+        /// أحسن وأقل عامل في اليوم — من العمال اللي **أنتجوا فعلاً** بس.
+        ///
+        /// الغايبين واللي محصلش لهم تسجيل مستبعدين عن قصد: "أقل عامل"
+        /// اللي إنتاجه صفر لأنه أجازة مش معلومة، هي تشويش. المقارنة بين
+        /// اللي اشتغلوا هي اللي بتقول حاجة.
+        /// </summary>
+        private void RefreshDailyExtremes(IReadOnlyList<WorkerDailySummaryDto> evaluations)
+        {
+            var producers = evaluations
+                .Where(e => e.TotalPieces > 0)
+                .OrderByDescending(e => e.TotalWorkdays)
+                .ThenBy(e => e.WorkerName)
+                .ToList();
+
+            DailyHasComparison = producers.Count > 1;
+
+            if (producers.Count == 0)
+            {
+                DailyBestWorkerText = DailyWorstWorkerText = "—";
+                DailyBestWorkerDetail = DailyWorstWorkerDetail = "مفيش إنتاج مسجّل";
+                return;
+            }
+
+            var best = producers[0];
+            DailyBestWorkerText = best.WorkerName;
+            DailyBestWorkerDetail = $"{best.TotalWorkdays:0.##} يومية — {best.TotalPieces:N0} قطعة";
+
+            var worst = producers[^1];
+            DailyWorstWorkerText = worst.WorkerName;
+            DailyWorstWorkerDetail = $"{worst.TotalWorkdays:0.##} يومية — {worst.TotalPieces:N0} قطعة";
         }
 
         // ======================= تبويب إنتاج اليوم (الدفعات) =======================
@@ -680,6 +777,17 @@ namespace WorkforceManager.UI.ViewModels
 
     // ======================= نماذج العرض =======================
 
+    /// <summary>منتج اتشغل عليه في اليوم — سطر في لوحة "اليوم في سطر"</summary>
+    public class DailyProductRow
+    {
+        public string ProductName { get; init; } = "";
+        public int Pieces { get; init; }
+        public int WorkerCount { get; init; }
+
+        public string PiecesText => $"{Pieces:N0} قطعة";
+        public string WorkersText => $"{WorkerCount} عامل";
+    }
+
     /// <summary>سطر واحد في جدول تقييم اليوم، بتصنيف ملوّن جاهز للعرض</summary>
     public class DailyReportRow
     {
@@ -794,6 +902,38 @@ namespace WorkforceManager.UI.ViewModels
         public decimal AbsenceDeduction { get; private init; }
         public decimal PenaltyDeduction { get; private init; }
         public decimal NetWorkdays { get; private init; }
+
+        // ------- الأعمدة المدمجة (الكشف اتنضّف من 12 عمود لـ 9) -------
+
+        /// <summary>
+        /// الغياب كرقم واحد: "3 (منهم 1 بإذن)".
+        ///
+        /// كانوا عمودين (بإذن / بدون إذن). المدير بيسأل "غاب كام؟" الأول،
+        /// والتفصيل بيهمه بعد كده — فالرقم الكبير قدام والتفصيل جنبه.
+        /// </summary>
+        public string AbsenceText
+        {
+            get
+            {
+                var total = AbsentWithPermissionDays + AbsentWithoutPermissionDays;
+                if (total == 0) return "—";
+
+                return AbsentWithPermissionDays == 0
+                    ? total.ToString()
+                    : $"{total} (منهم {AbsentWithPermissionDays} بإذن)";
+            }
+        }
+
+        /// <summary>
+        /// إجمالي الخصم من غياب وجزاءات.
+        ///
+        /// كانوا عمودين، والاتنين أصلاً مطروحين من الصافي اللي جنبهم —
+        /// يعني نفس الأرقام معروضة مرتين. المدير محتاج يعرف "اتخصم منه
+        /// كام" مش "اتخصم منه كام من نوعين"؛ التفصيل في تقرير العامل.
+        /// </summary>
+        public decimal TotalDeduction => AbsenceDeduction + PenaltyDeduction;
+
+        public string DeductionText => TotalDeduction == 0 ? "—" : $"{TotalDeduction:0.##}";
         public string NetColor { get; private init; } = "#1F3864";
         /// <summary>أجر الأسبوع بالجنيه للعرض (فاضي لو مفيش سعر يومية)</summary>
         public string WageText { get; private init; } = "";

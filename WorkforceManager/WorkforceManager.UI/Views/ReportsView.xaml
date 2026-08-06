@@ -15,6 +15,7 @@
             <Grid Margin="10">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
@@ -28,8 +29,126 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ===== اليوم في سطر =====
+                     خمس حقايق المدير بيسأل عنها أول ما يفتح الشاشة، كلها
+                     محسوبة من سجلات اليوم. المنتجات من ProductActivityService —
+                     نفس خدمة شاشة المنتجات، مفيش حساب موازي. -->
+                <Grid Grid.Row="1" Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- إنتاج اليوم + أكتر منتج -->
+                    <Border Grid.Column="0" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,5,0">
+                        <StackPanel>
+                            <TextBlock Text="إنتاج النهارده" FontSize="11.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                            <TextBlock Text="{Binding DailyTotalPiecesText}" FontSize="26" FontWeight="Bold"
+                                       Margin="0,2,0,0" Foreground="{StaticResource BrandBrush}" />
+                            <TextBlock Text="قطعة على كل المنتجات" FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+
+                            <Border Background="{StaticResource SuccessBgBrush}" CornerRadius="7"
+                                    Padding="9,6" Margin="0,9,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="أكتر منتج شغل" FontSize="10.5"
+                                               Foreground="{StaticResource SuccessBrush}" />
+                                    <TextBlock Text="{Binding DailyTopProductText}" FontSize="13" FontWeight="Bold"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                    <TextBlock Text="{Binding DailyTopProductPiecesText}" FontSize="10.5"
+                                               Foreground="{StaticResource SuccessBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- المنتجات اللي اتشغل عليها -->
+                    <Border Grid.Column="1" Style="{StaticResource Card}" Padding="14,12" Margin="5,0">
+                        <StackPanel>
+                            <TextBlock Text="اتشغل على" FontSize="11.5" FontWeight="SemiBold" Margin="0,0,0,7"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+
+                            <TextBlock Text="مفيش شغل مسجّل النهارده" FontSize="12"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Visibility="{Binding HasDailyProducts, Converter={StaticResource InverseBoolToVis}}" />
+
+                            <ItemsControl ItemsSource="{Binding DailyProducts}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="7"
+                                                Padding="9,6" Margin="0,0,0,4">
+                                            <DockPanel>
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding PiecesText}"
+                                                           FontSize="11.5" FontWeight="Bold"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{StaticResource BrandBrush}" />
+                                                <StackPanel Margin="0,0,9,0">
+                                                    <TextBlock Text="{Binding ProductName}" FontSize="12.5" FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                                    <TextBlock Text="{Binding WorkersText}" FontSize="10.5"
+                                                               Foreground="{StaticResource TextMutedBrush}" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- أحسن وأقل عامل -->
+                    <Border Grid.Column="2" Style="{StaticResource Card}" Padding="14,12" Margin="5,0,0,0">
+                        <StackPanel>
+                            <TextBlock Text="أحسن وأقل عامل" FontSize="11.5" FontWeight="SemiBold" Margin="0,0,0,7"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+
+                            <Border Background="{StaticResource SuccessBgBrush}" CornerRadius="7" Padding="9,6">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="TrendingUp" Width="13" Height="13"
+                                                                 VerticalAlignment="Center"
+                                                                 Foreground="{StaticResource SuccessBrush}" />
+                                        <TextBlock Text="{Binding DailyBestWorkerText}" FontSize="12.5" FontWeight="Bold"
+                                                   Margin="5,0,0,0" TextTrimming="CharacterEllipsis"
+                                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding DailyBestWorkerDetail}" FontSize="10.5" Margin="0,2,0,0"
+                                               Foreground="{StaticResource SuccessBrush}" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- بيختفي لما يكون فيه عامل واحد منتج: الأحسن
+                                 والأقل هيبقوا هو، وعرضهم مرتين بيوحي بمقارنة محصلتش -->
+                            <Border Background="{StaticResource WarnBgBrush}" CornerRadius="7" Padding="9,6"
+                                    Margin="0,6,0,0"
+                                    Visibility="{Binding DailyHasComparison, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="TrendingDown" Width="13" Height="13"
+                                                                 VerticalAlignment="Center"
+                                                                 Foreground="{StaticResource WarnBrush}" />
+                                        <TextBlock Text="{Binding DailyWorstWorkerText}" FontSize="12.5" FontWeight="Bold"
+                                                   Margin="5,0,0,0" TextTrimming="CharacterEllipsis"
+                                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding DailyWorstWorkerDetail}" FontSize="10.5" Margin="0,2,0,0"
+                                               Foreground="{StaticResource WarnBrush}" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="المقارنة بين اللي أنتجوا فعلاً — الغايبين مش داخلين"
+                                       FontSize="10" TextWrapping="Wrap" Margin="0,7,0,0"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
                 <!-- جدول التقييم اليومي -->
-                <Border Grid.Row="1" Style="{StaticResource Card}" Padding="6">
+                <Border Grid.Row="2" Style="{StaticResource Card}" Padding="6" Margin="0,10,0,0">
                 <DataGrid ItemsSource="{Binding DailyRows}"
                           Style="{StaticResource ModernDataGrid}"
                           AutoGenerateColumns="False" IsReadOnly="True">
@@ -215,11 +334,15 @@
                         <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="*" />
                         <DataGridTextColumn Header="أنتج" Binding="{Binding ProducedWorkdays}" Width="65" />
                         <DataGridTextColumn Header="القطع" Binding="{Binding TotalPieces}" Width="75" />
-                        <DataGridTextColumn Header="حضور" Binding="{Binding PresentDays}" Width="60" />
-                        <DataGridTextColumn Header="غياب بإذن" Binding="{Binding AbsentWithPermissionDays}" Width="80" />
-                        <DataGridTextColumn Header="بدون إذن" Binding="{Binding AbsentWithoutPermissionDays}" Width="75" />
-                        <DataGridTextColumn Header="خصم غياب" Binding="{Binding AbsenceDeduction}" Width="80" />
-                        <DataGridTextColumn Header="خصم جزاءات" Binding="{Binding PenaltyDeduction}" Width="90" />
+                        <!-- الكشف اتنضّف من 12 عمود لـ 9:
+                             • "حضور" اتشال — الرقم مستخلص من (6 − الغياب)
+                             • "غياب بإذن" و"بدون إذن" بقوا عمود واحد
+                             • "خصم غياب" و"خصم جزاءات" بقوا عمود واحد، والاتنين
+                               أصلاً مطروحين من الصافي اللي جنبهم على طول
+                             التفصيل الكامل موجود في تقرير العامل وفي لوحة
+                             التفاصيل تحت الكشف. -->
+                        <DataGridTextColumn Header="غياب" Binding="{Binding AbsenceText}" Width="120" />
+                        <DataGridTextColumn Header="خصم" Binding="{Binding DeductionText}" Width="70" />
                         <!-- الصافي بالخط العريض وبلونه (أحمر لو سالب) -->
                         <DataGridTemplateColumn Header="الصافي" Width="70">
                             <DataGridTemplateColumn.CellTemplate>

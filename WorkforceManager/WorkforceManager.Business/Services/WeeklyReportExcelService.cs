@@ -34,7 +34,7 @@ namespace WorkforceManager.Business.Services
             sheet.RightToLeft = true; // الشيت كله يمين-لشمال زي البرنامج
 
             // ---------- صف العنوان (مدموج فوق الجدول) ----------
-            sheet.Range(1, 1, 1, 13).Merge();
+            sheet.Range(1, 1, 1, 10).Merge();
             var title = sheet.Cell(1, 1);
             title.Value = $"كشف أسبوع العمل: من الخميس {weekStart:yyyy/MM/dd} إلى الأربعاء {weekEnd:yyyy/MM/dd}";
             title.Style.Font.SetBold().Font.SetFontSize(14);
@@ -42,12 +42,14 @@ namespace WorkforceManager.Business.Services
             sheet.Row(1).Height = 26;
 
             // ---------- صف العناوين ----------
+            // **لازم يفضل مطابق لأعمدة الكشف على الشاشة.** أي عمود بيتشال
+            // من هنا أو من هناك لازم يتشال من التاني — ملف بيقول حاجة
+            // والشاشة بتقول حاجة تانية بيخلي المستخدم ميثقش في الاتنين.
             string[] headers =
             {
                 "الترتيب", "اسم العامل",
                 "اليوميات المنتجة", "إجمالي القطع",
-                "حضور", "غياب بإذن", "غياب بدون إذن",
-                "خصم الغياب", "خصم الجزاءات", "صافي اليوميات",
+                "الغياب", "إجمالي الخصم", "صافي اليوميات",
                 "سعر اليومية", "الأجر بالجنيه", "تفاصيل الجزاءات"
             };
             for (var c = 0; c < headers.Length; c++)
@@ -70,58 +72,62 @@ namespace WorkforceManager.Business.Services
                 sheet.Cell(row, 2).Value = s.IsBestWorkerOfWeek ? $"⭐ {s.WorkerName}" : s.WorkerName;
                 sheet.Cell(row, 3).Value = s.ProducedWorkdays;
                 sheet.Cell(row, 4).Value = s.TotalPieces;
-                sheet.Cell(row, 5).Value = s.PresentDays;
-                sheet.Cell(row, 6).Value = s.AbsentWithPermissionDays;
-                sheet.Cell(row, 7).Value = s.AbsentWithoutPermissionDays;
-                sheet.Cell(row, 8).Value = s.AbsenceDeduction;
-                sheet.Cell(row, 9).Value = s.PenaltyDeduction;
-                sheet.Cell(row, 10).Value = s.NetWorkdays;
-                sheet.Cell(row, 11).Value = s.DailyWageEgp;
-                sheet.Cell(row, 12).Value = s.NetWageEgp;
-                sheet.Cell(row, 13).Value = string.Join("، ",
+                // الغياب في خانة واحدة بنفس صيغة الشاشة
+                var totalAbsence = s.AbsentWithPermissionDays + s.AbsentWithoutPermissionDays;
+                sheet.Cell(row, 5).Value = totalAbsence == 0
+                    ? "—"
+                    : s.AbsentWithPermissionDays == 0
+                        ? totalAbsence.ToString()
+                        : $"{totalAbsence} (منهم {s.AbsentWithPermissionDays} بإذن)";
+
+                sheet.Cell(row, 6).Value = s.AbsenceDeduction + s.PenaltyDeduction;
+                sheet.Cell(row, 7).Value = s.NetWorkdays;
+                sheet.Cell(row, 8).Value = s.DailyWageEgp;
+                sheet.Cell(row, 9).Value = s.NetWageEgp;
+                sheet.Cell(row, 10).Value = string.Join("، ",
                     s.Penalties.Select(p => $"{p.Reason} ({p.DeductionName})"));
 
                 // الصافي بالخط العريض، وبالأحمر لو سالب (عامل عليه خصومات أكتر من إنتاجه)
-                var netCell = sheet.Cell(row, 10);
+                var netCell = sheet.Cell(row, 7);
                 netCell.Style.Font.SetBold();
                 if (s.NetWorkdays < 0)
                     netCell.Style.Font.SetFontColor(XLColor.Red);
 
                 // عمود الأجر بالخط العريض بلون أخضر — أهم رقم في الكشف
-                var wageCell = sheet.Cell(row, 12);
+                var wageCell = sheet.Cell(row, 9);
                 wageCell.Style.Font.SetBold().Font.SetFontColor(XLColor.FromHtml("#0B6E4F"));
                 wageCell.Style.NumberFormat.Format = "#,##0 \"ج\"";
 
                 // تظليل: أحسن عامل أصفر فاتح، والصفوف الزوجية رمادي خفيف (سهولة القراءة)
                 if (s.IsBestWorkerOfWeek)
-                    sheet.Range(row, 1, row, 13).Style.Fill.SetBackgroundColor(BestRowColor);
+                    sheet.Range(row, 1, row, 10).Style.Fill.SetBackgroundColor(BestRowColor);
                 else if (i % 2 == 1)
-                    sheet.Range(row, 1, row, 13).Style.Fill.SetBackgroundColor(StripeColor);
+                    sheet.Range(row, 1, row, 10).Style.Fill.SetBackgroundColor(StripeColor);
             }
 
             // ---------- صف الإجمالي (مجموع الأجور — الأهم للمحاسبة) ----------
             var totalRow = summaries.Count + 3;
             sheet.Cell(totalRow, 2).Value = "الإجمالي";
-            sheet.Cell(totalRow, 12).Value = summaries.Sum(s => s.NetWageEgp);
-            sheet.Cell(totalRow, 12).Style.NumberFormat.Format = "#,##0 \"ج\"";
-            sheet.Range(totalRow, 1, totalRow, 13).Style.Font.SetBold();
-            sheet.Range(totalRow, 1, totalRow, 13).Style.Fill.SetBackgroundColor(XLColor.FromHtml("#E8EDF7"));
+            sheet.Cell(totalRow, 9).Value = summaries.Sum(s => s.NetWageEgp);
+            sheet.Cell(totalRow, 9).Style.NumberFormat.Format = "#,##0 \"ج\"";
+            sheet.Range(totalRow, 1, totalRow, 10).Style.Font.SetBold();
+            sheet.Range(totalRow, 1, totalRow, 10).Style.Fill.SetBackgroundColor(XLColor.FromHtml("#E8EDF7"));
 
             // ---------- تنسيق عام ----------
             var lastRow = totalRow;
-            var table = sheet.Range(2, 1, lastRow, 13);
+            var table = sheet.Range(2, 1, lastRow, 10);
             table.Style.Border.SetOutsideBorder(XLBorderStyleValues.Medium);
             table.Style.Border.SetInsideBorder(XLBorderStyleValues.Thin);
             table.Style.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
 
             // الأعمدة الرقمية في النص، والأسماء والجزاءات على اليمين
             sheet.Range(3, 1, lastRow, 1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-            sheet.Range(3, 3, lastRow, 12).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+            sheet.Range(3, 3, lastRow, 9).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
             sheet.SheetView.FreezeRows(2); // العنوان والهيدر ثابتين مع التمرير
             sheet.Columns().AdjustToContents();
             sheet.Column(2).Width = Math.Max(sheet.Column(2).Width, 28);  // عمود الاسم مش بيتزنق
-            sheet.Column(13).Width = Math.Max(sheet.Column(13).Width, 30); // عمود الجزاءات كذلك
+            sheet.Column(10).Width = Math.Max(sheet.Column(10).Width, 30); // عمود الجزاءات كذلك
 
             workbook.SaveAs(filePath);
         }
