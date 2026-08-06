@@ -314,15 +314,41 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private bool _chartHasData;
 
-        /// <summary>لوحة ألوان السلاسل — كل منتج بياخد لون ثابت طول الرسمة</summary>
+        /// <summary>
+        /// ألوان سلاسل المنتجات — ترتيب ثابت، بيتوزّع على المنتجات
+        /// بالمعرّف مش بالترتيب.
+        ///
+        /// اللوحة القديمة كانت ألوان غامقة قوي (#1F3864 وإخواته): على خلفية
+        /// بيضا نصها بيقرا رمادي، ومحدش بيقدر يفرّق بين المنتجات. اللوحة دي
+        /// اتفحصت على خلفية فاتحة وغامقة: كل الألوان في نطاق الإضاءة
+        /// المقروء، فوق حد التشبّع، وبتباين كافي مع الخلفية، وأقرب لونين
+        /// متجاورين بيفضلوا مميزين لعمى الألوان.
+        ///
+        /// الترتيب نفسه مقصود: الأحمر والأخضر بعيدين عن بعض عشان أشهر
+        /// أنواع عمى الألوان (بروتان/ديوتان) بتخلط بينهم.
+        /// </summary>
         private static readonly string[] ChartPalette =
         {
-            "#1F3864", "#0B6E4F", "#B7791F", "#7A3B8F",
-            "#B00020", "#0F7B8A", "#C2563B", "#5B6B7C"
+            "#2563EB", "#D97706", "#0891B2", "#EF4444",
+            "#7C3AED", "#16A34A", "#DB2777", "#B45309"
         };
+
+        /// <summary>
+        /// لون المنتجات اللي خرجت برّه اللوحة (التاسع فما فوق).
+        ///
+        /// توليد ألوان جديدة أو لفّ اللوحة من أولها كان بيدي لونين
+        /// متطابقين لمنتجين مختلفين — والمستخدم مش هيعرف إن ده حصل.
+        /// </summary>
+        private const string OtherProductsColor = "#64748B";
+
+        /// <summary>اسم مجموعة "الباقي" في المفتاح</summary>
+        private const string OtherProductsLabel = "منتجات تانية";
 
         /// <summary>أقصى ارتفاع للعمود بالبكسل — الباقي بيتحسب نسبيًا عليه</summary>
         private const double MaxBarHeight = 190;
+
+        /// <summary>الفاصل بين شرايح العمود الواحد — بيخلي الحدود تبان</summary>
+        private const double SegmentGap = 2;
 
         private async Task LoadChartAsync()
         {
@@ -342,49 +368,155 @@ namespace WorkforceManager.UI.ViewModels
                 .OrderByDescending(x => x.Total)
                 .ToList();
 
-            var colorByProduct = productTotals
-                .Select((p, i) => (p.ProductId, Color: ChartPalette[i % ChartPalette.Length]))
+            // أول 8 منتجات بلون خاص، والباقي بيتجمّع في "منتجات تانية".
+            // اللف على اللوحة من أولها كان بيدي لونين متطابقين لمنتجين
+            // مختلفين، والمستخدم مش هيعرف إن ده حصل.
+            var namedProducts = productTotals.Take(ChartPalette.Length).ToList();
+
+            var colorByProduct = namedProducts
+                .Select((p, i) => (p.ProductId, Color: ChartPalette[i]))
                 .ToDictionary(x => x.ProductId, x => x.Color);
 
+            string ColorFor(int productId) =>
+                colorByProduct.TryGetValue(productId, out var color) ? color : OtherProductsColor;
+
+            // ترتيب الشرايح جوه العمود: نفس ترتيب المفتاح دايمًا، عشان
+            // العين تلاقي المنتج في نفس المكان من أسبوع للتاني
+            var orderByProduct = namedProducts
+                .Select((p, i) => (p.ProductId, Order: i))
+                .ToDictionary(x => x.ProductId, x => x.Order);
+
+            int OrderFor(int productId) =>
+                orderByProduct.TryGetValue(productId, out var order) ? order : ChartPalette.Length;
+
             ChartLegend.Clear();
-            foreach (var p in productTotals)
+            foreach (var p in namedProducts)
             {
                 ChartLegend.Add(new ChartLegendItem
                 {
-                    Color = colorByProduct[p.ProductId],
+                    Color = ColorFor(p.ProductId),
                     ProductName = p.ProductName,
                     TotalText = $"{p.Total:N0} قطعة"
+                });
+            }
+
+            var otherTotal = productTotals.Skip(ChartPalette.Length).Sum(p => p.Total);
+            if (otherTotal > 0)
+            {
+                ChartLegend.Add(new ChartLegendItem
+                {
+                    Color = OtherProductsColor,
+                    ProductName = $"{OtherProductsLabel} ({productTotals.Count - namedProducts.Count})",
+                    TotalText = $"{otherTotal:N0} قطعة"
                 });
             }
 
             // كل أسابيع الفترة بالترتيب الزمني (حتى الفاضية — محور الزمن لازم يكون متصل)
             var (firstWeekStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today.AddDays(-7 * (SelectedChartWeeks - 1)));
             var pointsByWeek = points.ToLookup(p => p.WeekStart);
-            var maxPieces = points.Count == 0 ? 1 : points.Max(p => p.CompletedPieces);
+
+            // المقياس بقى على **إجمالي الأسبوع** مش على أعلى منتج: الأعمدة
+            // بقت مكدّسة، فطول العمود بيمثّل إنتاج الأسبوع كله. المقياس
+            // القديم (أعلى منتج) كان هيخلي الأعمدة تطلع برّه الرسمة.
+            var weekTotals = points
+                .GroupBy(p => p.WeekStart)
+                .ToDictionary(g => g.Key, g => g.Sum(p => p.CompletedPieces));
+
+            var maxWeekTotal = weekTotals.Count == 0 ? 1 : weekTotals.Values.Max();
 
             ChartWeekGroups.Clear();
             for (var week = firstWeekStart; week <= DateTime.Today; week = week.AddDays(7))
             {
                 var weekPoints = pointsByWeek[week]
-                    .OrderBy(p => productTotals.FindIndex(t => t.ProductId == p.ProductId))
+                    .OrderBy(p => OrderFor(p.ProductId))
+                    .ThenBy(p => p.ProductName)
                     .ToList();
+
+                var weekTotal = weekPoints.Sum(p => p.CompletedPieces);
+                var weekEnd = week.AddDays(6);
 
                 ChartWeekGroups.Add(new ChartWeekGroup
                 {
                     WeekLabel = $"{week:dd/MM}",
-                    TotalText = weekPoints.Count == 0 ? "—" : $"{weekPoints.Sum(p => p.CompletedPieces):N0}",
-                    Bars = weekPoints.Select(p => new ChartBar
+                    TotalText = weekTotal == 0 ? "" : $"{weekTotal:N0}",
+                    HasWork = weekTotal > 0,
+                    // الأسبوع الحالي بيتعلّم: المقارنة بيه ناقصة لأنه لسه مكملش
+                    IsCurrentWeek = week == WeeklySummaryService.GetWorkWeekRange(DateTime.Today).WeekStart,
+                    Segments = weekPoints.Select(p => new ChartBar
                     {
-                        Color = colorByProduct[p.ProductId],
-                        // ارتفاع نسبي على أعلى قيمة في الفترة (بحد أدنى مرئي للقيم الصغيرة)
-                        Height = Math.Max(4, (double)p.CompletedPieces / maxPieces * MaxBarHeight),
-                        Tooltip = $"{p.ProductName}\nأسبوع {p.WeekStart:dd/MM} - {p.WeekEnd:dd/MM}\n{p.CompletedPieces:N0} قطعة مكتملة"
+                        Color = ColorFor(p.ProductId),
+                        // الارتفاع نسبي لإجمالي أعلى أسبوع. الفاصل بين
+                        // الشرايح بيتخصم من الارتفاع عشان مجموع العمود
+                        // يفضل مظبوط بصريًا
+                        Height = Math.Max(3,
+                            (double)p.CompletedPieces / maxWeekTotal * MaxBarHeight - SegmentGap),
+                        Tooltip = $"{p.ProductName}\nأسبوع {week:dd/MM} → {weekEnd:dd/MM}\n" +
+                                  $"{p.CompletedPieces:N0} قطعة مكتملة",
+                        SegmentGap = SegmentGap
                     }).ToList()
                 });
             }
 
             ChartHasData = points.Count > 0;
+            RefreshChartTrend();
         }
+
+        // ------- اتجاه الإنتاج -------
+
+        [ObservableProperty]
+        private string _chartTrendText = "";
+
+        [ObservableProperty]
+        private string _chartTrendColor = "#6B7686";
+
+        [ObservableProperty]
+        private bool _hasChartTrend;
+
+        /// <summary>
+        /// مقارنة آخر أسبوع **مكتمل** بالأسبوع اللي قبله.
+        ///
+        /// الأسبوع الحالي مستبعد عن قصد: لسه مكملش، فمقارنته بأسبوع كامل
+        /// بتقول "الإنتاج نازل" كل يوم أحد — وده مش صحيح.
+        /// </summary>
+        private void RefreshChartTrend()
+        {
+            var completed = ChartWeekGroups.Where(w => !w.IsCurrentWeek && w.HasWork).ToList();
+
+            HasChartTrend = completed.Count >= 2;
+            if (!HasChartTrend)
+            {
+                ChartTrendText = "";
+                return;
+            }
+
+            var last = ParseTotal(completed[^1].TotalText);
+            var previous = ParseTotal(completed[^2].TotalText);
+
+            if (previous == 0)
+            {
+                HasChartTrend = false;
+                return;
+            }
+
+            var change = (double)(last - previous) / previous * 100;
+
+            ChartTrendText = change switch
+            {
+                > 1 => $"آخر أسبوع مكتمل أعلى بـ {change:0}% عن اللي قبله",
+                < -1 => $"آخر أسبوع مكتمل أقل بـ {Math.Abs(change):0}% عن اللي قبله",
+                _ => "آخر أسبوعين مكتملين تقريبًا زي بعض"
+            };
+
+            ChartTrendColor = change switch
+            {
+                > 1 => "#16A34A",
+                < -1 => "#EF4444",
+                _ => "#6B7686"
+            };
+        }
+
+        private static int ParseTotal(string text) =>
+            int.TryParse(text.Replace(",", ""), out var value) ? value : 0;
 
         // ======================= تبويب كشف أجور الفترة (شهري) =======================
 
@@ -841,16 +973,30 @@ namespace WorkforceManager.UI.ViewModels
     public class ChartWeekGroup
     {
         public string WeekLabel { get; init; } = "";
+
+        /// <summary>إجمالي الأسبوع — بيتكتب فوق العمود كرقم واحد</summary>
         public string TotalText { get; init; } = "";
-        public List<ChartBar> Bars { get; init; } = new();
+
+        /// <summary>شرايح العمود المكدّس، بترتيب المفتاح</summary>
+        public List<ChartBar> Segments { get; init; } = new();
+
+        public bool HasWork { get; init; }
+
+        /// <summary>الأسبوع الجاري — لسه مكملش، فبيتعلّم عشان المقارنة بيه ناقصة</summary>
+        public bool IsCurrentWeek { get; init; }
+
+        public string CurrentWeekNote => IsCurrentWeek ? "لسه شغال" : "";
     }
 
-    /// <summary>عمود واحد في الرسم: منتج في أسبوع (اللون بيميز المنتج)</summary>
+    /// <summary>شريحة في العمود المكدّس: منتج في أسبوع (اللون بيميز المنتج)</summary>
     public class ChartBar
     {
-        public string Color { get; init; } = "#1F3864";
+        public string Color { get; init; } = "#2563EB";
         public double Height { get; init; }
         public string Tooltip { get; init; } = "";
+
+        /// <summary>الفاصل تحت الشريحة — بيخلي حدود المنتجات تبان</summary>
+        public double SegmentGap { get; init; }
     }
 
     /// <summary>عنصر في مفتاح ألوان الرسم: المنتج ولونه وإجماليه في الفترة</summary>
