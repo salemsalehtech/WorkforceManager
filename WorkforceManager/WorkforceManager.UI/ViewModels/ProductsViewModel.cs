@@ -328,7 +328,7 @@ namespace WorkforceManager.UI.ViewModels
                 Description = p.Description ?? "",
                 IsActive = p.IsActive,
                 ImageData = p.ImageData,
-                PiecesInPeriod = activity.GetValueOrDefault(p.Id)?.PiecesProduced ?? 0,
+                PiecesInPeriod = activity.GetValueOrDefault(p.Id)?.CompletedPieces ?? 0,
                 DaysWorkedInPeriod = activity.GetValueOrDefault(p.Id)?.DaysWorked ?? 0,
                 WorkerIds = activity.GetValueOrDefault(p.Id)?.WorkerIds ?? new HashSet<int>(),
                 Stages = p.Stages

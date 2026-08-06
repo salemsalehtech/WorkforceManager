@@ -47,7 +47,7 @@
                                        Foreground="{StaticResource TextMutedBrush}" />
                             <TextBlock Text="{Binding DailyTotalPiecesText}" FontSize="26" FontWeight="Bold"
                                        Margin="0,2,0,0" Foreground="{StaticResource BrandBrush}" />
-                            <TextBlock Text="قطعة على كل المنتجات" FontSize="11"
+                            <TextBlock Text="قطعة تامة على كل المنتجات" FontSize="11"
                                        Foreground="{StaticResource TextMutedBrush}" />
 
                             <Border Background="{StaticResource SuccessBgBrush}" CornerRadius="7"

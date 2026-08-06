@@ -51,31 +51,51 @@ namespace WorkforceManager.Tests
             var bag = Bag(activity);
             Assert.True(bag.IsActive);          // الفلاج مفعّل
             Assert.False(bag.WorkedInPeriod);   // بس مفيش شغل
-            Assert.Equal(0, bag.PiecesProduced);
+            Assert.Equal(0, bag.CompletedPieces);
         }
 
         [Fact]
-        public async Task Recorded_production_makes_the_product_working()
+        public async Task Work_that_stops_before_the_last_stage_is_not_completed_output()
         {
+            // القطع دخلت الخط بس ماوصلتش لآخره — شغل موجود، إنتاج تام لأ
             await RecordAsync(TestDatabase.BagStage1Id, 100, Today, TestDatabase.WorkerAhmedId);
 
             var bag = Bag(await ActivityAsync(Today.AddDays(-7), Today));
 
             Assert.True(bag.WorkedInPeriod);
-            Assert.Equal(100, bag.PiecesProduced);
+            Assert.Equal(0, bag.CompletedPieces);
+            Assert.Equal(100, bag.StartedPieces);
             Assert.Equal(1, bag.DaysWorked);
         }
 
         [Fact]
-        public async Task Pieces_add_up_across_stages_and_days()
+        public async Task A_piece_that_crossed_every_stage_counts_once_not_once_per_stage()
         {
+            // **العطل اللي كان موجود**: 100 قطعة عدّت 3 مراحل كانت
+            // بتتحسب 300. القطعة بتعدّي المراحل بالترتيب مش بالتوازي،
+            // فمجموع المراحل مش بيقيس إنتاج.
             await RecordAsync(TestDatabase.BagStage1Id, 100, Today, TestDatabase.WorkerAhmedId);
-            await RecordAsync(TestDatabase.BagStage2Id, 60, Today, TestDatabase.WorkerSaidId);
-            await RecordAsync(TestDatabase.BagStage1Id, 40, Today.AddDays(-1), TestDatabase.WorkerAhmedId);
+            await RecordAsync(TestDatabase.BagStage2Id, 100, Today, TestDatabase.WorkerSaidId);
+            await RecordAsync(TestDatabase.BagStage3Id, 100, Today, TestDatabase.WorkerMonaHourlyId);
 
             var bag = Bag(await ActivityAsync(Today.AddDays(-7), Today));
 
-            Assert.Equal(200, bag.PiecesProduced);
+            Assert.Equal(100, bag.CompletedPieces);   // مش 300
+            Assert.Equal(100, bag.StartedPieces);
+
+            // مجموع المراحل لسه محفوظ — بس كمقياس شغل مش إنتاج
+            Assert.Equal(300, bag.StageWorkPieces);
+        }
+
+        [Fact]
+        public async Task Completed_pieces_add_up_across_days()
+        {
+            await RecordAsync(TestDatabase.BagStage3Id, 100, Today, TestDatabase.WorkerAhmedId);
+            await RecordAsync(TestDatabase.BagStage3Id, 40, Today.AddDays(-1), TestDatabase.WorkerSaidId);
+
+            var bag = Bag(await ActivityAsync(Today.AddDays(-7), Today));
+
+            Assert.Equal(140, bag.CompletedPieces);
             Assert.Equal(2, bag.DaysWorked);
         }
 
@@ -92,7 +112,7 @@ namespace WorkforceManager.Tests
             // نفس المنتج بيبقى شغّال لو وسّعنا الفترة
             var widerPeriod = Bag(await ActivityAsync(Today.AddDays(-60), Today));
             Assert.True(widerPeriod.WorkedInPeriod);
-            Assert.Equal(100, widerPeriod.PiecesProduced);
+            Assert.Equal(100, widerPeriod.StartedPieces);
         }
 
         [Fact]
@@ -134,16 +154,19 @@ namespace WorkforceManager.Tests
         // ======================= الترتيب للإحصائيات =======================
 
         [Fact]
-        public async Task Products_come_back_sorted_by_volume_for_the_top_and_bottom_stats()
+        public async Task Products_are_sorted_by_completed_output_not_by_stage_work()
         {
-            await RecordAsync(TestDatabase.BagStage1Id, 500, Today, TestDatabase.WorkerAhmedId);
-            await RecordAsync(TestDatabase.RingStage1Id, 50, Today, TestDatabase.WorkerAhmedId);
+            // الشنطة 3 مراحل والدبلة مرحلتين. لو الترتيب بمجموع المراحل،
+            // الشنطة (100×3 = 300) هتسبق الدبلة (200×2 = 400)... غلط.
+            // الترتيب بالتام: الدبلة 200 والشنطة 100، فالدبلة الأولى.
+            await RecordAsync(TestDatabase.BagStage3Id, 100, Today, TestDatabase.WorkerAhmedId);
+            await RecordAsync(TestDatabase.RingStage2Id, 200, Today, TestDatabase.WorkerSaidId);
 
             var activity = await ActivityAsync(Today.AddDays(-7), Today);
             var worked = activity.Where(p => p.WorkedInPeriod).ToList();
 
-            Assert.Equal(TestDatabase.ProductBagId, worked.First().ProductId);
-            Assert.Equal(TestDatabase.ProductRingId, worked.Last().ProductId);
+            Assert.Equal(TestDatabase.ProductRingId, worked.First().ProductId);
+            Assert.Equal(TestDatabase.ProductBagId, worked.Last().ProductId);
         }
     }
 }

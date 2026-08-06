@@ -128,17 +128,22 @@ namespace WorkforceManager.UI.ViewModels
                 DailyProducts.Add(new DailyProductRow
                 {
                     ProductName = product.ProductName,
-                    Pieces = product.PiecesProduced,
+                    // المنتج التام = اللي خلص آخر مرحلة. جمع المراحل كان
+                    // بيحسب القطعة الواحدة مرة لكل مرحلة (5,000 قطعة على
+                    // 11 مرحلة كانت بتطلع 55,000)
+                    Pieces = product.CompletedPieces,
+                    StartedPieces = product.StartedPieces,
                     WorkerCount = product.WorkerIds.Count
                 });
 
             OnPropertyChanged(nameof(HasDailyProducts));
 
-            DailyTotalPiecesText = activity.Sum(p => p.PiecesProduced).ToString("N0");
+            DailyTotalPiecesText = activity.Sum(p => p.CompletedPieces).ToString("N0");
 
-            var top = activity.FirstOrDefault(); // الخدمة بترجّعهم مرتبين بالأكتر
+            // الأكتر إنتاجًا = الأكتر **تام**. الخدمة بترجّعهم مرتبين كده.
+            var top = activity.FirstOrDefault(p => p.CompletedPieces > 0);
             DailyTopProductText = top?.ProductName ?? "—";
-            DailyTopProductPiecesText = top is null ? "" : $"{top.PiecesProduced:N0} قطعة";
+            DailyTopProductPiecesText = top is null ? "" : $"{top.CompletedPieces:N0} قطعة";
 
             RefreshDailyExtremes(evaluations);
             // جزاءات اليوم بتتضم للعرض (مش جزء من تقييم الأداء نفسه)
@@ -912,10 +917,25 @@ namespace WorkforceManager.UI.ViewModels
     public class DailyProductRow
     {
         public string ProductName { get; init; } = "";
+
+        /// <summary>القطع اللي خلصت الخط كامل = المنتج التام</summary>
         public int Pieces { get; init; }
+
+        /// <summary>القطع اللي دخلت أول مرحلة</summary>
+        public int StartedPieces { get; init; }
+
         public int WorkerCount { get; init; }
 
-        public string PiecesText => $"{Pieces:N0} قطعة";
+        /// <summary>
+        /// الرقم على الكارت. لو مفيش تام بيقول اللي دخل الخط بدل ما
+        /// يقول صفر — اليوم مش فاضي، هو شغل لسه ماوصلش لآخر الخط.
+        /// </summary>
+        public string PiecesText => Pieces > 0
+            ? $"{Pieces:N0} تام"
+            : StartedPieces > 0
+                ? $"{StartedPieces:N0} دخلت الخط"
+                : "شغل في نص الخط";
+
         public string WorkersText => $"{WorkerCount} عامل";
     }
 

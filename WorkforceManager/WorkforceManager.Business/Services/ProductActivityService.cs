@@ -1,5 +1,6 @@
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Core.Interfaces;
+using WorkforceManager.Core.Models;
 
 namespace WorkforceManager.Business.Services
 {
@@ -55,7 +56,9 @@ namespace WorkforceManager.Business.Services
                     g => g.Key,
                     g => new
                     {
-                        Pieces = g.Sum(r => r.PieceCount),
+                        StageWork = g.Sum(r => r.PieceCount),
+                        ByStage = g.GroupBy(r => r.ProductionStageId)
+                                   .ToDictionary(s => s.Key, s => s.Sum(r => r.PieceCount)),
                         Workers = g.Select(r => r.WorkerId).ToHashSet(),
                         Days = g.Select(r => r.Date.Date).ToHashSet()
                     });
@@ -65,18 +68,30 @@ namespace WorkforceManager.Business.Services
                 {
                     byProduct.TryGetValue(product.Id, out var stats);
 
+                    // خط الإنتاج بترتيبه — نفس ترتيب DailyProductionReportService
+                    var line = DailyProductionReportService.ActiveLine(product);
+
+                    int OnStage(ProductionStage? stage) =>
+                        stage is not null && stats is not null &&
+                        stats.ByStage.TryGetValue(stage.Id, out var pieces) ? pieces : 0;
+
                     return new ProductActivityDto
                     {
                         ProductId = product.Id,
                         ProductName = product.Name,
                         IsActive = product.IsActive,
-                        PiecesProduced = stats?.Pieces ?? 0,
+                        // التام = آخر مرحلة. الداخل = أول مرحلة.
+                        CompletedPieces = OnStage(line.Count > 0 ? line[^1] : null),
+                        StartedPieces = OnStage(line.Count > 0 ? line[0] : null),
+                        StageWorkPieces = stats?.StageWork ?? 0,
                         WorkerIds = stats?.Workers ?? new HashSet<int>(),
                         DaysWorked = stats?.Days.Count ?? 0,
-                        StageIds = product.Stages.Where(s => s.IsActive).Select(s => s.Id).ToHashSet()
+                        StageIds = line.Select(s => s.Id).ToHashSet()
                     };
                 })
-                .OrderByDescending(p => p.PiecesProduced)
+                // الترتيب بالتام: "أكتر منتج إنتاجًا" معناه أكتر منتج **خرج**
+                .OrderByDescending(p => p.CompletedPieces)
+                .ThenByDescending(p => p.StageWorkPieces)
                 .ThenBy(p => p.ProductName)
                 .ToList();
         }
