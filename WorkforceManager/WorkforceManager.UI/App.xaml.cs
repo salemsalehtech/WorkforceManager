@@ -64,6 +64,7 @@ namespace WorkforceManager.UI
                     services.AddScoped<DailyProductionReportService>();
                     services.AddScoped<ProductionChartService>();
                     services.AddScoped<ProductActivityService>();
+                    services.AddScoped<PendingWorkService>();
                     services.AddScoped<HourlyWorkdayService>();
                     services.AddScoped<PayrollService>();
                     services.AddScoped<ProductionReportService>();

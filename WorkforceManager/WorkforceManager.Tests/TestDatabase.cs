@@ -107,6 +107,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<SkillRatingService>();
             services.AddScoped<AuthService>();
             services.AddScoped<ProductActivityService>();
+            services.AddScoped<PendingWorkService>();
 
             _provider = services.BuildServiceProvider();
 
