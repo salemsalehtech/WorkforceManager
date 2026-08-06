@@ -95,10 +95,7 @@ namespace WorkforceManager.Business.Services
             {
                 if (existingByWorker.TryGetValue(workerId, out var existing))
                 {
-                    // الحفظ الجماعي بيتعامل مع الحالة بس (من غير أوقات حضور/انصراف)
                     existing.Status = status;
-                    existing.CheckInTime = null;
-                    existing.CheckOutTime = null;
                     _attendanceRepo.Update(existing);
                 }
                 else

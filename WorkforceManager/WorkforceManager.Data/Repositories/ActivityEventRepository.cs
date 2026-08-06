@@ -18,8 +18,15 @@ namespace WorkforceManager.Data.Repositories
 
         public async Task<IReadOnlyList<ActivityEvent>> GetByRangeAsync(DateTime from, DateTime to)
         {
+            // OccurredAt فيه وقت مش نص الليل (بيتسجّل بـ DateTime.Now)،
+            // فالمدى مفتوح من فوق: >= بداية اليوم الأول، < بداية اليوم
+            // اللي بعد الأخير. كده أحداث آخر يوم بالكامل داخلة، والشرط
+            // بيفضل مقارنة مباشرة على العمود عشان الفهرس يشتغل.
+            var start = from.Date;
+            var end = to.Date.AddDays(1);
+
             return await DbSet
-                .Where(e => e.OccurredAt.Date >= from.Date && e.OccurredAt.Date <= to.Date)
+                .Where(e => e.OccurredAt >= start && e.OccurredAt < end)
                 .OrderByDescending(e => e.OccurredAt).ThenByDescending(e => e.Id)
                 .ToListAsync();
         }

@@ -10,9 +10,9 @@ namespace WorkforceManager.Data.Repositories
         public ProductionDayClosureRepository(AppDbContext context) : base(context) { }
 
         public async Task<ProductionDayClosure?> GetByDateAsync(DateTime date) =>
-            await DbSet.FirstOrDefaultAsync(c => c.Date.Date == date.Date);
+            await DbSet.FirstOrDefaultAsync(c => c.Date == date.Date);
 
         public async Task<bool> IsClosedAsync(DateTime date) =>
-            await DbSet.AnyAsync(c => c.Date.Date == date.Date);
+            await DbSet.AnyAsync(c => c.Date == date.Date);
     }
 }

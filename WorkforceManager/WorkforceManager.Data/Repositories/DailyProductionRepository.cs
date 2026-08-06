@@ -14,7 +14,7 @@ namespace WorkforceManager.Data.Repositories
                 .Include(dp => dp.Worker)
                 .Include(dp => dp.ProductionStage)
                     .ThenInclude(ps => ps.Product)
-                .Where(dp => dp.Date.Date == date.Date)
+                .Where(dp => dp.Date == date.Date)
                 .ToListAsync();
         }
 
@@ -23,7 +23,7 @@ namespace WorkforceManager.Data.Repositories
             return await DbSet
                 .Include(dp => dp.ProductionStage)
                     .ThenInclude(ps => ps.Product)
-                .Where(dp => dp.WorkerId == workerId && dp.Date.Date >= from.Date && dp.Date.Date <= to.Date)
+                .Where(dp => dp.WorkerId == workerId && dp.Date >= from.Date && dp.Date <= to.Date)
                 .OrderBy(dp => dp.Date)
                 .ToListAsync();
         }
@@ -34,16 +34,16 @@ namespace WorkforceManager.Data.Repositories
                 .Include(dp => dp.Worker) // اسم العامل مطلوب في تجميع الملخص الأسبوعي
                 .Include(dp => dp.ProductionStage)
                     .ThenInclude(ps => ps.Product)
-                .Where(dp => dp.Date.Date >= from.Date && dp.Date.Date <= to.Date)
+                .Where(dp => dp.Date >= from.Date && dp.Date <= to.Date)
                 .OrderBy(dp => dp.Date)
                 .ToListAsync();
         }
 
         public Task<IReadOnlyDictionary<int, int>> GetStageTotalsOnAsync(DateTime date) =>
-            StageTotalsAsync(DbSet.Where(dp => dp.Date.Date == date.Date));
+            StageTotalsAsync(DbSet.Where(dp => dp.Date == date.Date));
 
         public Task<IReadOnlyDictionary<int, int>> GetStageTotalsUpToAsync(DateTime date) =>
-            StageTotalsAsync(DbSet.Where(dp => dp.Date.Date <= date.Date));
+            StageTotalsAsync(DbSet.Where(dp => dp.Date <= date.Date));
 
         /// <summary>التجميع بيتنفذ كـ GROUP BY في الداتابيز مش في الذاكرة</summary>
         private static async Task<IReadOnlyDictionary<int, int>> StageTotalsAsync(

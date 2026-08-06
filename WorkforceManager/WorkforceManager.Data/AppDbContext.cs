@@ -107,6 +107,15 @@ namespace WorkforceManager.Data
             // بتفلتر بالتاريخ الأول — الفهارس المركّبة الموجودة بادئة بـ WorkerId
             // فمش بتخدم الاستعلامات دي، ومن غير فهرس Date كل استعلام بيلف على
             // الجدول كله (هيبان بطؤه مع تراكم شهور من البيانات)
+            //
+            // **شرط لازم عشان الفهارس دي تشتغل**: المقارنة تبقى على العمود
+            // نفسه (dp.Date >= from.Date)، مش على دالة فوقه
+            // (dp.Date.Date >= ...). التانية بتترجم لـ date(...) في SQL،
+            // وSQLite ساعتها مش بيقدر يستخدم الفهرس فبيلف على الجدول كله —
+            // يعني الفهرس بيدفع تكلفة الكتابة من غير ما يفيد أي قراءة.
+            // كل أعمدة Date بتتكتب بـ date.Date (نص الليل) في كل مسارات
+            // الكتابة، فالمقارنة المباشرة صح ومظبوطة.
+            // (ActivityEvent.OccurredAt استثناء: فيه وقت، فمداه نصف مفتوح.)
             modelBuilder.Entity<DailyProduction>()
                 .HasIndex(dp => dp.Date);
 
@@ -160,6 +169,38 @@ namespace WorkforceManager.Data
 
             modelBuilder.Entity<Product>()
                 .HasIndex(p => p.Name);
+
+            // ---------- نسبة الأداء المقاس ----------
+            // من غير النوع ده EF بيخزّن الـ decimal في SQLite كنص، والمقارنة
+            // بين النصوص أبجدية: "10.5" أقل من "9.0". النسبة دلوقتي بتتقارن
+            // في الذاكرة بس، بس عمود رقمي متخزّن كنص لغم بيستنى أول استعلام
+            // يرتّب أو يفلتر بيه. باقي الأعمدة العشرية متظبطة أصلاً.
+            modelBuilder.Entity<WorkerSkill>()
+                .Property(ws => ws.MeasuredRatio)
+                .HasColumnType("decimal(5,2)");
+
+            // ---------- قيود على مستوى قاعدة البيانات ----------
+            // الشروط دي مضمونة في الخدمات أصلاً. وجودها هنا كمان مش تكرار:
+            // الخدمة بتحمي المسار اللي بيعدّي عليها، والقيد بيحمي الجدول
+            // نفسه — من ترحيل غلط، أو أداة خارجية، أو مسار جديد حد يكتبه
+            // بعد سنين وينسى القاعدة. البيانات بتفضل صح حتى لو الكود غلط.
+            modelBuilder.Entity<WorkerSkill>().ToTable(t => t.HasCheckConstraint(
+                "CK_WorkerSkill_Stars", "[Stars] BETWEEN 1 AND 5"));
+
+            // القسمة على اليومية هي أساس حساب الأجر. صفر بيرجّع صفر في
+            // WorkdayMath بدل ما يرمي، بس صفر أصلاً مايوصلش للجدول
+            modelBuilder.Entity<ProductionStage>().ToTable(t => t.HasCheckConstraint(
+                "CK_ProductionStage_Quota", "[PiecesPerWorkday] > 0"));
+
+            modelBuilder.Entity<DailyProduction>().ToTable(t => t.HasCheckConstraint(
+                "CK_DailyProduction_Amounts",
+                "[PieceCount] >= 0 AND [PiecesPerWorkdayAtEntry] > 0"));
+
+            modelBuilder.Entity<WageAdjustment>().ToTable(t => t.HasCheckConstraint(
+                "CK_WageAdjustment_Amount", "[AmountEgp] > 0"));
+
+            modelBuilder.Entity<Worker>().ToTable(t => t.HasCheckConstraint(
+                "CK_Worker_DailyWage", "[DailyWageEgp] >= 0"));
         }
     }
 }

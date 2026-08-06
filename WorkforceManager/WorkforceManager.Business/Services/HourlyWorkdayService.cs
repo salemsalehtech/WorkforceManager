@@ -90,7 +90,7 @@ namespace WorkforceManager.Business.Services
         /// لو مالوش سجل حضور في اليوم (نفس منطق رحلة الإنتاج).
         /// </summary>
         public async Task<HourlyWorkLog> RecordHourlyWorkAsync(
-            int workerId, DateTime date, int endHour24, string? notes = null)
+            int workerId, DateTime date, int endHour24)
         {
             if (endHour24 < ShiftStartHour + 1 || endHour24 > NightEndHour)
                 throw new ArgumentException(
@@ -104,7 +104,6 @@ namespace WorkforceManager.Business.Services
             {
                 existing.EndHour24 = endHour24;
                 existing.WorkdaysCredited = workdays;
-                existing.Notes = notes;
                 _hourlyRepo.Update(existing);
                 record = existing;
             }
@@ -115,8 +114,7 @@ namespace WorkforceManager.Business.Services
                     WorkerId = workerId,
                     Date = date.Date,
                     EndHour24 = endHour24,
-                    WorkdaysCredited = workdays,
-                    Notes = notes
+                    WorkdaysCredited = workdays
                 };
                 await _hourlyRepo.AddAsync(record);
             }

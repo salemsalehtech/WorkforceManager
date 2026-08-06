@@ -37,10 +37,6 @@ namespace WorkforceManager.Core.Models
         [Required]
         public PenaltyDeduction Deduction { get; set; } = PenaltyDeduction.HalfDay;
 
-        /// <summary>ملاحظات إضافية اختيارية (تفاصيل الواقعة مثلاً)</summary>
-        [MaxLength(300)]
-        public string? Notes { get; set; }
-
         /// <summary>
         /// مين اللي سجّل الجزاء: المستخدم ولا النظام. الافتراضي "يدوي"
         /// (قيمته صفر) عشان كل الجزاءات القديمة تفضل يدوية ومحميّة من

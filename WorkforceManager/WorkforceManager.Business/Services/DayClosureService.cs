@@ -73,7 +73,7 @@ namespace WorkforceManager.Business.Services
         /// التقرير يعرف يقول "اليوم ده اتقفل بالأرقام دي" حتى لو حد صحّح
         /// سجل قديم بعد كده.
         /// </summary>
-        public async Task<ProductionDayClosure> CloseAsync(DateTime date, string? notes = null)
+        public async Task<ProductionDayClosure> CloseAsync(DateTime date)
         {
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
 
@@ -89,8 +89,7 @@ namespace WorkforceManager.Business.Services
                 Date = date.Date,
                 ClosedAt = DateTime.Now,
                 CompletedPieces = preview.CompletedPieces,
-                StartedPieces = preview.StartedPieces,
-                Notes = notes
+                StartedPieces = preview.StartedPieces
             };
 
             await _closureRepo.AddAsync(closure);

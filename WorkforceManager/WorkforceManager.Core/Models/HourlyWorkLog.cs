@@ -40,10 +40,6 @@ namespace WorkforceManager.Core.Models
         [Required]
         public decimal WorkdaysCredited { get; set; }
 
-        /// <summary>ملاحظات اختيارية</summary>
-        [MaxLength(300)]
-        public string? Notes { get; set; }
-
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         // ------- العلاقات -------

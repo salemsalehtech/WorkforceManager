@@ -35,8 +35,5 @@ namespace WorkforceManager.Core.Models
         /// سجل إنتاج قديم بعد كده.
         /// </summary>
         public int StartedPieces { get; set; }
-
-        [MaxLength(300)]
-        public string? Notes { get; set; }
     }
 }

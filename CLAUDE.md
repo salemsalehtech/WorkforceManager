@@ -62,9 +62,9 @@ Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output)
 - `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
   UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
 
-`WorkforceManager.Tests` (xUnit, `net8.0`, 242 tests) covers the worker-assignment rule, daily output,
+`WorkforceManager.Tests` (xUnit, `net8.0`, 254 tests) covers the worker-assignment rule, daily output,
 the skill-rating system, worker filtering, product activity, pending work, the worker report,
-activity-log retention, and the removed-field guards — run with `dotnet test`
+activity-log retention, database integrity, and the removed-field guards — run with `dotnet test`
 from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
@@ -296,6 +296,34 @@ Core  <----------------------- UI
   control lives inside list templates.
 - **Stored images** (product photos and worker photos) all go through `StoredImageHelper` — downscale to
   256px, re-encode as JPEG, return null for unreadable data so callers fall back to initials.
+
+### Database rules (audited — don't undo these)
+
+- **Never call `.Date` on a date column inside a query.** `dp.Date.Date >= from.Date` translates to
+  `date(...)` in SQL, which SQLite cannot answer from an index — so it scans the whole table and every
+  `Date` index becomes pure write cost for zero read benefit. Every one of the 20 date predicates in
+  `Repositories/` used to do exactly this. Compare the column directly (`dp.Date >= from.Date`); it is
+  correct because **every write path normalises with `date.Date`**, so every `Date` column holds
+  midnight. `DatabaseIntegrityTests` covers both halves: the range boundaries are inclusive, and every
+  stored `Date` equals its own `.Date`. The one exception is `ActivityEvent.OccurredAt`, which stores a
+  real time (`DateTime.Now`) — it uses a half-open range (`>= from.Date && < to.Date.AddDays(1)`).
+- **Five CHECK constraints** guard the table itself: stars 1–5, stage quota > 0, production
+  `PieceCount >= 0 AND PiecesPerWorkdayAtEntry > 0` (that column is the divisor behind every wage),
+  adjustment amount > 0, daily wage >= 0. The services already enforce all of these; the constraints
+  exist so a future code path, a bad migration, or an external tool can't put the data in a state the
+  reports would silently mis-total. They were verified against the live DB (0 violations) before being
+  added.
+- **Every `decimal` needs an explicit `HasColumnType`.** EF's SQLite provider maps `decimal` to TEXT by
+  default, and TEXT compares lexicographically — `"10.5" < "9.0"` is true. `WorkerSkill.MeasuredRatio`
+  was stored that way (the other three decimals were configured); it is now `decimal(5,2)`. A test
+  asserts the column type so a new decimal can't quietly land as text.
+- **Deleted as dead, don't reintroduce**: `Attendance.CheckInTime` / `CheckOutTime` (the only write path
+  set them to `null` explicitly; hourly work is tracked in `HourlyWorkLog`, which has a real end hour),
+  and the `Notes` column on `Attendance` / `DailyProduction` / `Penalty` / `HourlyWorkLog` /
+  `ProductionDayClosure` — no caller ever passed a value, so the optional `notes` service parameters went
+  with them. Also `IX_ActivityEvents_EventType`: no query filters on it, and 11 distinct values would
+  make it useless if one did. Contrast `Worker.EmployeeCode` and `Worker.SkillsNotes` below, which look
+  equally dead and are load-bearing for the seeder.
 
 ### Domain model relationships
 

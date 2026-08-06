@@ -11,7 +11,7 @@ namespace WorkforceManager.Data.Repositories
         public async Task<IReadOnlyList<WageAdjustment>> GetByWorkerAndRangeAsync(int workerId, DateTime from, DateTime to)
         {
             return await DbSet
-                .Where(a => a.WorkerId == workerId && a.Date.Date >= from.Date && a.Date.Date <= to.Date)
+                .Where(a => a.WorkerId == workerId && a.Date >= from.Date && a.Date <= to.Date)
                 .OrderBy(a => a.Date)
                 .ToListAsync();
         }
@@ -20,7 +20,7 @@ namespace WorkforceManager.Data.Repositories
         {
             return await DbSet
                 .Include(a => a.Worker) // اسم العامل مطلوب في كشف الأجور المجمّع
-                .Where(a => a.Date.Date >= from.Date && a.Date.Date <= to.Date)
+                .Where(a => a.Date >= from.Date && a.Date <= to.Date)
                 .OrderBy(a => a.Date)
                 .ToListAsync();
         }
@@ -29,7 +29,7 @@ namespace WorkforceManager.Data.Repositories
         {
             return await DbSet
                 .Include(a => a.Worker) // اسم العامل مطلوب في قائمة عرض اليوم
-                .Where(a => a.Date.Date == date.Date)
+                .Where(a => a.Date == date.Date)
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
         }

@@ -10,14 +10,14 @@ namespace WorkforceManager.Data.Repositories
 
         public async Task<HourlyWorkLog?> GetByWorkerAndDateAsync(int workerId, DateTime date)
         {
-            return await DbSet.FirstOrDefaultAsync(h => h.WorkerId == workerId && h.Date.Date == date.Date);
+            return await DbSet.FirstOrDefaultAsync(h => h.WorkerId == workerId && h.Date == date.Date);
         }
 
         public async Task<IReadOnlyList<HourlyWorkLog>> GetByDateAsync(DateTime date)
         {
             return await DbSet
                 .Include(h => h.Worker)
-                .Where(h => h.Date.Date == date.Date)
+                .Where(h => h.Date == date.Date)
                 .ToListAsync();
         }
 
@@ -25,7 +25,7 @@ namespace WorkforceManager.Data.Repositories
         {
             return await DbSet
                 .Include(h => h.Worker) // اسم العامل مطلوب في تجميع الملخص الأسبوعي
-                .Where(h => h.Date.Date >= from.Date && h.Date.Date <= to.Date)
+                .Where(h => h.Date >= from.Date && h.Date <= to.Date)
                 .OrderBy(h => h.Date)
                 .ToListAsync();
         }

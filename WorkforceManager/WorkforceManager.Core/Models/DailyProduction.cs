@@ -51,10 +51,6 @@ namespace WorkforceManager.Core.Models
         [NotMapped]
         public decimal WorkdaysCompleted => WorkdayMath.FromPieces(PieceCount, PiecesPerWorkdayAtEntry);
 
-        /// <summary>ملاحظات اختيارية (مثال: قطع بها عيوب، تأخير، ...إلخ)</summary>
-        [MaxLength(300)]
-        public string? Notes { get; set; }
-
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         // ------- العلاقات -------

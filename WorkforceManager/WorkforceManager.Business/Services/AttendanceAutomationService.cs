@@ -108,7 +108,6 @@ namespace WorkforceManager.Business.Services
                         workerId, date,
                         AbsenceDeductionRule.AutoAbsenceReason,
                         AbsenceDeductionRule.AbsenceDeductionAmount,
-                        notes: null,
                         source: PenaltySource.AutoAbsence,
                         saveChanges: false); // الحفظ مرة واحدة في آخر المصالحة
                     created++;

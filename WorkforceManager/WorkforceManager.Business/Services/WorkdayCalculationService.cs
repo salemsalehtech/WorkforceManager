@@ -92,7 +92,7 @@ namespace WorkforceManager.Business.Services
         /// </param>
         public async Task<DailyProduction> RecordProductionAsync(
             int workerId, int productionStageId, int pieceCount, DateTime date,
-            string? notes = null, bool confirmOverride = false)
+            bool confirmOverride = false)
         {
             if (pieceCount <= 0)
                 throw new ArgumentException("عدد القطع يجب أن يكون أكبر من صفر", nameof(pieceCount));
@@ -106,8 +106,7 @@ namespace WorkforceManager.Business.Services
                 ProductionStageId = productionStageId,
                 Date = date.Date,
                 PieceCount = pieceCount,
-                PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday, // Snapshot اليومية وقت التسجيل
-                Notes = notes
+                PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday // Snapshot اليومية وقت التسجيل
             };
 
             // نفس قاعدة رحلة الإنتاج بالظبط: تحقق وكتابة جوه معاملة واحدة.

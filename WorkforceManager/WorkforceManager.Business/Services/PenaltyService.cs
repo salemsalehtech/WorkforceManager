@@ -40,7 +40,6 @@ namespace WorkforceManager.Business.Services
         /// </param>
         public async Task<Penalty> RecordPenaltyAsync(
             int workerId, DateTime date, string reason, PenaltyDeduction deduction,
-            string? notes = null,
             PenaltySource source = PenaltySource.Manual,
             bool saveChanges = true,
             string operationsPassword = "")
@@ -56,7 +55,6 @@ namespace WorkforceManager.Business.Services
                 Date = date.Date,
                 Reason = reason.Trim(),
                 Deduction = deduction,
-                Notes = notes,
                 Source = source
             };
 
@@ -76,7 +74,7 @@ namespace WorkforceManager.Business.Services
         /// </summary>
         public async Task<Penalty> UpdatePenaltyAsync(
             int penaltyId, string reason, PenaltyDeduction deduction,
-            string? notes = null, string operationsPassword = "")
+            string operationsPassword = "")
         {
             if (string.IsNullOrWhiteSpace(reason))
                 throw new ArgumentException("سبب الجزاء مطلوب", nameof(reason));
@@ -93,7 +91,6 @@ namespace WorkforceManager.Business.Services
 
             penalty.Reason = reason.Trim();
             penalty.Deduction = deduction;
-            penalty.Notes = notes;
 
             _penaltyRepo.Update(penalty);
             await _penaltyRepo.SaveChangesAsync();
