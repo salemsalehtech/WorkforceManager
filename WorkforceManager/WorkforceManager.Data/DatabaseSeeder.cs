@@ -92,9 +92,20 @@ namespace WorkforceManager.Data
         {
             var links = WorkerSkillsSeed.BuildLinks();
 
-            var workersByCode = await db.Workers
-                .Where(w => w.EmployeeCode != null)
-                .ToDictionaryAsync(w => w.EmployeeCode!);
+            // الربط بالاسم. الكود في WorkerSkillsSeed معرّف داخلي للبذرة
+            // بس (اسم عربي من خمس كلمات مكرر 38 مرة مش مقروء)، وRealDataSeed
+            // هي اللي بتترجمه لاسم — الكود نفسه عمره ما بيتخزّن في
+            // الداتابيز. أسماء العمال الـ46 المزروعين متأكد إنها فريدة.
+            var nameByCode = RealDataSeed.NameByCode();
+
+            // الاسم المكرر بيتشال من القايمة مش بيتاخد أول واحد فيه:
+            // لو المستخدم أضاف عامل باسم عامل مزروع، التخمين هيربط
+            // المهارات بالشخص الغلط — ومهارة ناقصة بتتصلح من الشاشة،
+            // لكن مهارة على الشخص الغلط بتفضل غلط من غير ما حد ياخد باله.
+            var workersByName = (await db.Workers.ToListAsync())
+                .GroupBy(w => w.FullName)
+                .Where(g => g.Count() == 1)
+                .ToDictionary(g => g.Key, g => g.Single());
 
             var stagesByProduct = (await db.ProductionStages.Include(s => s.Product).ToListAsync())
                 .ToLookup(s => s.Product.Name);
@@ -108,7 +119,8 @@ namespace WorkforceManager.Data
             var toAdd = new List<WorkerSkill>();
             foreach (var (code, workerLinks) in links)
             {
-                if (!workersByCode.TryGetValue(code, out var worker)) continue;
+                if (!nameByCode.TryGetValue(code, out var workerName)) continue;
+                if (!workersByName.TryGetValue(workerName, out var worker)) continue;
 
                 foreach (var link in workerLinks)
                 {

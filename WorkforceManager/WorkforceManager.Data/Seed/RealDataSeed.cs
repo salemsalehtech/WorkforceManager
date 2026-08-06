@@ -1,5 +1,7 @@
 // ملف مولّد تلقائيًا من بيانات العميل الحقيقية (Salem.xlsx + اسماء الصنفرة)
 // لا تعدل يدويًا — أعد توليده من ملفات الإكسل الأصلية لو البيانات اتغيرت
+using System.Collections.Generic;
+using System.Linq;
 using WorkforceManager.Core.Models;
 
 namespace WorkforceManager.Data.Seed
@@ -165,58 +167,77 @@ namespace WorkforceManager.Data.Seed
             return products;
         }
 
-        public static List<Worker> BuildWorkers()
+        /// <summary>
+        /// كل عامل ومعاه كوده في ملف البيانات الأصلي.
+        ///
+        /// الكود ده **مش بيتخزّن في الداتابيز** — هو معرّف داخلي للبذرة
+        /// بس، عشان WorkerSkillsSeed تقدر تشاور على العامل بحاجة قصيرة
+        /// بدل اسم عربي من خمس كلمات في 38 مكان. الربط الفعلي بيتم
+        /// بالاسم عن طريق <see cref="NameByCode"/>.
+        /// </summary>
+        private static List<(string Code, Worker Worker)> BuildRoster()
         {
-            var workers = new List<Worker>();
+            var roster = new List<(string Code, Worker Worker)>();
 
-            workers.Add(new Worker { FullName = "مصطفى محمد مهدي عبد الحفيظ محمود", EmployeeCode = "W001", SkillsNotes = null, IsActive = true });
-            workers.Add(new Worker { FullName = "حسن حسين حسن حسين على", EmployeeCode = "W002", SkillsNotes = "جميع مراحل صنفره المحابس و اللوازم  /لمعه لوازم", IsActive = true });
-            workers.Add(new Worker { FullName = "ابوزيد عبدالله السيد عبدالله", EmployeeCode = "W003", SkillsNotes = "جميع مراحل صنفره المحابس و اللوازم", IsActive = true });
-            workers.Add(new Worker { FullName = "اشرف على بدوى", EmployeeCode = "W004", SkillsNotes = "جميع مراحل صنفره المحابس و اللوازم", IsActive = true });
-            workers.Add(new Worker { FullName = "ياسر كامل صوفان", EmployeeCode = "W005", SkillsNotes = "محبس GRS لفه صغيره/رقبه/دبله /بطن/بطحتين/كوع بسن كامل/وصله تي عريض خشن وناعم/محبس MG بطن ناعم /رقبه/دبله/حنفيه خلفي/محبس ماجيك كامل", IsActive = true });
-            workers.Add(new Worker { FullName = "علي بسيوني السيد بسيوني", EmployeeCode = "W006", SkillsNotes = "طقم عقله/دبله محبس", IsActive = true });
-            workers.Add(new Worker { FullName = "تامر جاد محمد علي", EmployeeCode = "W007", SkillsNotes = "جميع مراحل المحبس GRS ماعدا البطحتين/محبس MG ضيق / بطن/ضربه/دبلتين/رقبه/جميع مراحل اللوازم/ لمعه/محبس ماجيك لفات", IsActive = true });
-            workers.Add(new Worker { FullName = "حسام محمد عبد الجواد عبد الله", EmployeeCode = "W008", SkillsNotes = "جميع مراحل اللوازم/جميع مراحل المحبس GRS ماعدا البطحتين/محبس ماجيك لفات /بطن", IsActive = true });
-            workers.Add(new Worker { FullName = "خيري فراج احمد شحاتة", EmployeeCode = "W009", SkillsNotes = "جميع مراحل المحبس GRS ماعدا البطحتين/محبس MG ضيق / بطن/ضربه/دبلتين/رقبه/جميع مراحل الكوع/ وصله تي بطن و لفات/جميع مراحل ماجيك ماعدا البطحتين", IsActive = true });
-            workers.Add(new Worker { FullName = "عمرو عبد المنعم عبد القادر محمد", EmployeeCode = "W010", SkillsNotes = "جميع مراحل الكوبشه جيد", IsActive = true });
-            workers.Add(new Worker { FullName = "يوسف محمد علي عبد العاطي", EmployeeCode = "W011", SkillsNotes = "جميع مراحل الكوبشه جيد جدا", IsActive = true });
-            workers.Add(new Worker { FullName = "اسامة محمد الحسيني احمد الرفاعي", EmployeeCode = "W012", SkillsNotes = "جميع مراحل الكوبشه ممتاز", IsActive = true });
-            workers.Add(new Worker { FullName = "احمد محمد محمود الصاوي", EmployeeCode = "W013", SkillsNotes = "جميع مراحل الكوبشه ممتاز", IsActive = true });
-            workers.Add(new Worker { FullName = "صابر عبد المنعم عبد الحافظ حراز", EmployeeCode = "W014", SkillsNotes = "جميع مراحل الكوبشه جيد", IsActive = true });
-            workers.Add(new Worker { FullName = "محمد عادل ابراهيم محمد", EmployeeCode = "W015", SkillsNotes = "جميع مراحل صنفره المحابس و اللوازم", IsActive = true });
-            workers.Add(new Worker { FullName = "عبدالسلام عابدين عبد السلام", EmployeeCode = "W016", SkillsNotes = "دبله جميع المحبس/كوع بسن رايش/لمعه كتان/محبس ماجيك لفات", IsActive = true });
-            workers.Add(new Worker { FullName = "اسلام سعد الدين محمد", EmployeeCode = "W017", SkillsNotes = "جميع مراحل محبس GRS ماعدا البطحتين/ محبس MG لفه /رقبه/ضربه/محبس ماجيك بطم/ لفات", IsActive = true });
-            workers.Add(new Worker { FullName = "محمود محمد محمود", EmployeeCode = "W018", SkillsNotes = "لمعه /محبس GRS بطن خشن وناعم/دبلتين/ضربتين/لفه 400/600", IsActive = true });
-            workers.Add(new Worker { FullName = "محمد جمال مصطفى", EmployeeCode = "W019", SkillsNotes = "جميع مراحل محبس ماجيك/كوع بسن رايش/وصله تي 3 لفات/محبس GRS  دبله/رقبه/بطن/ضربتين/لفه 400/600/محبس MG دبله/ضربه/عريض/بطن 600", IsActive = true });
-            workers.Add(new Worker { FullName = "اشرف محمد اسماعيل", EmployeeCode = "W020", SkillsNotes = "لمعه /محبس GRS بطن خشن وناعم/دبله/كوع بسن رايش/تي بطن خشن /3لفات", IsActive = true });
-            workers.Add(new Worker { FullName = "محمد مصطفى احمد", EmployeeCode = "W021", SkillsNotes = "عامل تحت التدريب", IsActive = true });
-            workers.Add(new Worker { FullName = "عبدالله احمد محمد", EmployeeCode = "W022", SkillsNotes = "جميع المحابس رقبه /دبله", IsActive = true });
-            workers.Add(new Worker { FullName = "رجب حسان محمد", EmployeeCode = "W023", SkillsNotes = "لمعه لوازم/ كوع بسن رايش", IsActive = true });
-            workers.Add(new Worker { FullName = "يوسف احمد عبدالصمد", EmployeeCode = "W024", SkillsNotes = "جميع مراحل اللوازم/جميع مراحل محبس MG /محبس GRS  دبله/رقبه/بطن/ضربتين/لفه 400/600 /بطحتين", IsActive = true });
-            workers.Add(new Worker { FullName = "حمدي عبداللاه موسى", EmployeeCode = "W025", SkillsNotes = "طقم عقله/دبله محبس", IsActive = true });
-            workers.Add(new Worker { FullName = "جمال الصدام جمال", EmployeeCode = "W026", SkillsNotes = "رايش كبشه/رايش وش", IsActive = true });
-            workers.Add(new Worker { FullName = "محمود مصطفى احمد", EmployeeCode = "W027", SkillsNotes = "طقم عقله", IsActive = true });
-            workers.Add(new Worker { FullName = "خالد سعيد عوض", EmployeeCode = "W028", SkillsNotes = "طقم عقله", IsActive = true });
-            workers.Add(new Worker { FullName = "علي عادل عبدالغفار", EmployeeCode = "W029", SkillsNotes = "جميع مراحل الكوبشه جيد جدا", IsActive = true });
-            workers.Add(new Worker { FullName = "احمد عبدالعليم محمد", EmployeeCode = "W030", SkillsNotes = "جميع مراحل الكوبشه جيد جدا", IsActive = true });
-            workers.Add(new Worker { FullName = "ابراهيم علي محمد", EmployeeCode = "W031", SkillsNotes = "جميع مراحل الكوبشه جيد جدا", IsActive = true });
-            workers.Add(new Worker { FullName = "اسماعيل محمد اسماعيل", EmployeeCode = "W032", SkillsNotes = "جميع مراحل محبس ماجيك/كوع بسن رايش/وصله تي 3 لفات/محبس GRS  دبله/بطن", IsActive = true });
-            workers.Add(new Worker { FullName = "وليد احمد محمد", EmployeeCode = "W033", SkillsNotes = "جميع مراحل اللوازم/محبس GRS لفه 800/جميع مراحل محبس ماجيك", IsActive = true });
-            workers.Add(new Worker { FullName = "بدر عبدالعزيز السيد", EmployeeCode = "W034", SkillsNotes = "جميع مراحل اللوازم/محبس GRS لفه 600/جميع مراحل محبس ماجيك", IsActive = true });
-            workers.Add(new Worker { FullName = "احمد عاطف خيري", EmployeeCode = "W035", SkillsNotes = "محبس GRS لفه صغيره/رقبه/دبله /بطن/محبس MG بطن 400 /رقبه/دبله", IsActive = true });
-            workers.Add(new Worker { FullName = "عماد شعبان حريمز", EmployeeCode = "W036", SkillsNotes = "طقم عقله", IsActive = true });
-            workers.Add(new Worker { FullName = "عبدالرحمن صابر عبدالمنعم", EmployeeCode = "W037", SkillsNotes = "عامل تحت التدريب", IsActive = true });
-            workers.Add(new Worker { FullName = "احمد مرزوق", EmployeeCode = "W038", SkillsNotes = "عامل تحت التدريب", IsActive = true });
-            workers.Add(new Worker { FullName = "رمضان خميس", EmployeeCode = "W039", SkillsNotes = "عامل تحت التدريب", IsActive = true });
-            workers.Add(new Worker { FullName = "يوسف محمد حسب", EmployeeCode = "W040", SkillsNotes = "عامل رص", IsActive = true });
-            workers.Add(new Worker { FullName = "مروان سالم شحات", EmployeeCode = "W041", SkillsNotes = "عامل جوده", IsActive = true });
-            workers.Add(new Worker { FullName = "الحسن علي الجنبيهي", EmployeeCode = "W042", SkillsNotes = "عامل تحت التدريب", IsActive = true });
-            workers.Add(new Worker { FullName = "مصطفى محمود فهيم", EmployeeCode = "W043", SkillsNotes = "كوع بسن عريض/ رايش/وصله تي بطن/3لفات/جميع المحابس دبله/رقبه/ضربتين/محبس ماجيك بطن/لفات", IsActive = true });
-            workers.Add(new Worker { FullName = "سلامه تامر سلامه", EmployeeCode = "W044", SkillsNotes = "طقم عقله/دبله محبس", IsActive = true });
-            workers.Add(new Worker { FullName = "زياد عبدالرازق", EmployeeCode = "W045", SkillsNotes = "جميع مراحل محبس GRS ماعدا البطحتين/كوع بسن رايش/لمعه/وصله تي 3لفات /محبس ماجيك لفات/ بطن/محبس MG ضربه / دبله/لفه", IsActive = true });
-            workers.Add(new Worker { FullName = "زياد محمود محمد", EmployeeCode = "W046", SkillsNotes = "طقم عقله/دبله محبس", IsActive = true });
+            roster.Add(("W001", new Worker { FullName = "مصطفى محمد مهدي عبد الحفيظ محمود", SkillsNotes = null, IsActive = true }));
+            roster.Add(("W002", new Worker { FullName = "حسن حسين حسن حسين على", SkillsNotes = "جميع مراحل صنفره المحابس و اللوازم  /لمعه لوازم", IsActive = true }));
+            roster.Add(("W003", new Worker { FullName = "ابوزيد عبدالله السيد عبدالله", SkillsNotes = "جميع مراحل صنفره المحابس و اللوازم", IsActive = true }));
+            roster.Add(("W004", new Worker { FullName = "اشرف على بدوى", SkillsNotes = "جميع مراحل صنفره المحابس و اللوازم", IsActive = true }));
+            roster.Add(("W005", new Worker { FullName = "ياسر كامل صوفان", SkillsNotes = "محبس GRS لفه صغيره/رقبه/دبله /بطن/بطحتين/كوع بسن كامل/وصله تي عريض خشن وناعم/محبس MG بطن ناعم /رقبه/دبله/حنفيه خلفي/محبس ماجيك كامل", IsActive = true }));
+            roster.Add(("W006", new Worker { FullName = "علي بسيوني السيد بسيوني", SkillsNotes = "طقم عقله/دبله محبس", IsActive = true }));
+            roster.Add(("W007", new Worker { FullName = "تامر جاد محمد علي", SkillsNotes = "جميع مراحل المحبس GRS ماعدا البطحتين/محبس MG ضيق / بطن/ضربه/دبلتين/رقبه/جميع مراحل اللوازم/ لمعه/محبس ماجيك لفات", IsActive = true }));
+            roster.Add(("W008", new Worker { FullName = "حسام محمد عبد الجواد عبد الله", SkillsNotes = "جميع مراحل اللوازم/جميع مراحل المحبس GRS ماعدا البطحتين/محبس ماجيك لفات /بطن", IsActive = true }));
+            roster.Add(("W009", new Worker { FullName = "خيري فراج احمد شحاتة", SkillsNotes = "جميع مراحل المحبس GRS ماعدا البطحتين/محبس MG ضيق / بطن/ضربه/دبلتين/رقبه/جميع مراحل الكوع/ وصله تي بطن و لفات/جميع مراحل ماجيك ماعدا البطحتين", IsActive = true }));
+            roster.Add(("W010", new Worker { FullName = "عمرو عبد المنعم عبد القادر محمد", SkillsNotes = "جميع مراحل الكوبشه جيد", IsActive = true }));
+            roster.Add(("W011", new Worker { FullName = "يوسف محمد علي عبد العاطي", SkillsNotes = "جميع مراحل الكوبشه جيد جدا", IsActive = true }));
+            roster.Add(("W012", new Worker { FullName = "اسامة محمد الحسيني احمد الرفاعي", SkillsNotes = "جميع مراحل الكوبشه ممتاز", IsActive = true }));
+            roster.Add(("W013", new Worker { FullName = "احمد محمد محمود الصاوي", SkillsNotes = "جميع مراحل الكوبشه ممتاز", IsActive = true }));
+            roster.Add(("W014", new Worker { FullName = "صابر عبد المنعم عبد الحافظ حراز", SkillsNotes = "جميع مراحل الكوبشه جيد", IsActive = true }));
+            roster.Add(("W015", new Worker { FullName = "محمد عادل ابراهيم محمد", SkillsNotes = "جميع مراحل صنفره المحابس و اللوازم", IsActive = true }));
+            roster.Add(("W016", new Worker { FullName = "عبدالسلام عابدين عبد السلام", SkillsNotes = "دبله جميع المحبس/كوع بسن رايش/لمعه كتان/محبس ماجيك لفات", IsActive = true }));
+            roster.Add(("W017", new Worker { FullName = "اسلام سعد الدين محمد", SkillsNotes = "جميع مراحل محبس GRS ماعدا البطحتين/ محبس MG لفه /رقبه/ضربه/محبس ماجيك بطم/ لفات", IsActive = true }));
+            roster.Add(("W018", new Worker { FullName = "محمود محمد محمود", SkillsNotes = "لمعه /محبس GRS بطن خشن وناعم/دبلتين/ضربتين/لفه 400/600", IsActive = true }));
+            roster.Add(("W019", new Worker { FullName = "محمد جمال مصطفى", SkillsNotes = "جميع مراحل محبس ماجيك/كوع بسن رايش/وصله تي 3 لفات/محبس GRS  دبله/رقبه/بطن/ضربتين/لفه 400/600/محبس MG دبله/ضربه/عريض/بطن 600", IsActive = true }));
+            roster.Add(("W020", new Worker { FullName = "اشرف محمد اسماعيل", SkillsNotes = "لمعه /محبس GRS بطن خشن وناعم/دبله/كوع بسن رايش/تي بطن خشن /3لفات", IsActive = true }));
+            roster.Add(("W021", new Worker { FullName = "محمد مصطفى احمد", SkillsNotes = "عامل تحت التدريب", IsActive = true }));
+            roster.Add(("W022", new Worker { FullName = "عبدالله احمد محمد", SkillsNotes = "جميع المحابس رقبه /دبله", IsActive = true }));
+            roster.Add(("W023", new Worker { FullName = "رجب حسان محمد", SkillsNotes = "لمعه لوازم/ كوع بسن رايش", IsActive = true }));
+            roster.Add(("W024", new Worker { FullName = "يوسف احمد عبدالصمد", SkillsNotes = "جميع مراحل اللوازم/جميع مراحل محبس MG /محبس GRS  دبله/رقبه/بطن/ضربتين/لفه 400/600 /بطحتين", IsActive = true }));
+            roster.Add(("W025", new Worker { FullName = "حمدي عبداللاه موسى", SkillsNotes = "طقم عقله/دبله محبس", IsActive = true }));
+            roster.Add(("W026", new Worker { FullName = "جمال الصدام جمال", SkillsNotes = "رايش كبشه/رايش وش", IsActive = true }));
+            roster.Add(("W027", new Worker { FullName = "محمود مصطفى احمد", SkillsNotes = "طقم عقله", IsActive = true }));
+            roster.Add(("W028", new Worker { FullName = "خالد سعيد عوض", SkillsNotes = "طقم عقله", IsActive = true }));
+            roster.Add(("W029", new Worker { FullName = "علي عادل عبدالغفار", SkillsNotes = "جميع مراحل الكوبشه جيد جدا", IsActive = true }));
+            roster.Add(("W030", new Worker { FullName = "احمد عبدالعليم محمد", SkillsNotes = "جميع مراحل الكوبشه جيد جدا", IsActive = true }));
+            roster.Add(("W031", new Worker { FullName = "ابراهيم علي محمد", SkillsNotes = "جميع مراحل الكوبشه جيد جدا", IsActive = true }));
+            roster.Add(("W032", new Worker { FullName = "اسماعيل محمد اسماعيل", SkillsNotes = "جميع مراحل محبس ماجيك/كوع بسن رايش/وصله تي 3 لفات/محبس GRS  دبله/بطن", IsActive = true }));
+            roster.Add(("W033", new Worker { FullName = "وليد احمد محمد", SkillsNotes = "جميع مراحل اللوازم/محبس GRS لفه 800/جميع مراحل محبس ماجيك", IsActive = true }));
+            roster.Add(("W034", new Worker { FullName = "بدر عبدالعزيز السيد", SkillsNotes = "جميع مراحل اللوازم/محبس GRS لفه 600/جميع مراحل محبس ماجيك", IsActive = true }));
+            roster.Add(("W035", new Worker { FullName = "احمد عاطف خيري", SkillsNotes = "محبس GRS لفه صغيره/رقبه/دبله /بطن/محبس MG بطن 400 /رقبه/دبله", IsActive = true }));
+            roster.Add(("W036", new Worker { FullName = "عماد شعبان حريمز", SkillsNotes = "طقم عقله", IsActive = true }));
+            roster.Add(("W037", new Worker { FullName = "عبدالرحمن صابر عبدالمنعم", SkillsNotes = "عامل تحت التدريب", IsActive = true }));
+            roster.Add(("W038", new Worker { FullName = "احمد مرزوق", SkillsNotes = "عامل تحت التدريب", IsActive = true }));
+            roster.Add(("W039", new Worker { FullName = "رمضان خميس", SkillsNotes = "عامل تحت التدريب", IsActive = true }));
+            roster.Add(("W040", new Worker { FullName = "يوسف محمد حسب", SkillsNotes = "عامل رص", IsActive = true }));
+            roster.Add(("W041", new Worker { FullName = "مروان سالم شحات", SkillsNotes = "عامل جوده", IsActive = true }));
+            roster.Add(("W042", new Worker { FullName = "الحسن علي الجنبيهي", SkillsNotes = "عامل تحت التدريب", IsActive = true }));
+            roster.Add(("W043", new Worker { FullName = "مصطفى محمود فهيم", SkillsNotes = "كوع بسن عريض/ رايش/وصله تي بطن/3لفات/جميع المحابس دبله/رقبه/ضربتين/محبس ماجيك بطن/لفات", IsActive = true }));
+            roster.Add(("W044", new Worker { FullName = "سلامه تامر سلامه", SkillsNotes = "طقم عقله/دبله محبس", IsActive = true }));
+            roster.Add(("W045", new Worker { FullName = "زياد عبدالرازق", SkillsNotes = "جميع مراحل محبس GRS ماعدا البطحتين/كوع بسن رايش/لمعه/وصله تي 3لفات /محبس ماجيك لفات/ بطن/محبس MG ضربه / دبله/لفه", IsActive = true }));
+            roster.Add(("W046", new Worker { FullName = "زياد محمود محمد", SkillsNotes = "طقم عقله/دبله محبس", IsActive = true }));
 
-            return workers;
+            return roster;
         }
+
+        /// <summary>العمال زي ما بيتخزّنوا في الداتابيز — من غير أي كود</summary>
+        public static List<Worker> BuildWorkers() =>
+            BuildRoster().Select(r => r.Worker).ToList();
+
+        /// <summary>
+        /// كود البذرة → اسم العامل. مشتقة من نفس القايمة، فمستحيل
+        /// الاتنين يفرقوا عن بعض.
+        /// </summary>
+        public static Dictionary<string, string> NameByCode() =>
+            BuildRoster().ToDictionary(r => r.Code, r => r.Worker.FullName);
     }
 }

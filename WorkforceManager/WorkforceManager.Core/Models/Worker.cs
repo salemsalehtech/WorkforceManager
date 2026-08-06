@@ -19,18 +19,11 @@ namespace WorkforceManager.Core.Models
         [MaxLength(150)]
         public string FullName { get; set; } = string.Empty;
 
-        /// <summary>
-        /// كود العامل — **مش معروض في أي شاشة**، اتشال من الواجهة كلها
-        /// لأنه مكانش بيضيف حاجة للمستخدم (الاسم كافي للبحث والتمييز).
-        ///
-        /// العمود نفسه فضل موجود عن قصد لأنه المفتاح اللي بتترابط بيه
-        /// مهارات العمال وقت التهيئة الأولى
-        /// (<c>DatabaseSeeder.SeedWorkerSkillLinksAsync</c> بتطابق
-        /// <c>WorkerSkillsSeed</c> بالكود مش بالاسم). لو اتشال، أي تركيب
-        /// جديد هيطلع من غير أي مهارات مربوطة، ومحدش هيبقى مؤهل لأي مرحلة.
-        /// </summary>
-        [MaxLength(30)]
-        public string? EmployeeCode { get; set; }
+        // كود العامل (EmployeeCode) اتشال من الداتابيز خالص. كان باقي
+        // لسبب واحد: البذرة كانت بتربط مهارات العمال بالكود. دلوقتي
+        // بتربط بالاسم (RealDataSeed.NameByCode بتترجم كود البذرة
+        // الداخلي لاسم)، فالعمود مبقاش ليه أي مستهلك — لا شاشة ولا
+        // تقرير ولا تصدير ولا حساب.
 
         [MaxLength(20)]
         public string? PhoneNumber { get; set; }

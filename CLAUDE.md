@@ -62,9 +62,9 @@ Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output)
 - `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
   UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
 
-`WorkforceManager.Tests` (xUnit, `net8.0`, 254 tests) covers the worker-assignment rule, daily output,
+`WorkforceManager.Tests` (xUnit, `net8.0`, 260 tests) covers the worker-assignment rule, daily output,
 the skill-rating system, worker filtering, product activity, pending work, the worker report,
-activity-log retention, database integrity, and the removed-field guards — run with `dotnet test`
+activity-log retention, database integrity, fresh-install seeding, and the removed-field guards — run with `dotnet test`
 from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
@@ -322,8 +322,19 @@ Core  <----------------------- UI
   and the `Notes` column on `Attendance` / `DailyProduction` / `Penalty` / `HourlyWorkLog` /
   `ProductionDayClosure` — no caller ever passed a value, so the optional `notes` service parameters went
   with them. Also `IX_ActivityEvents_EventType`: no query filters on it, and 11 distinct values would
-  make it useless if one did. Contrast `Worker.EmployeeCode` and `Worker.SkillsNotes` below, which look
-  equally dead and are load-bearing for the seeder.
+  make it useless if one did. `Worker.EmployeeCode` went too — see below for what had to change first.
+  Contrast `Worker.SkillsNotes`, which looks equally dead and is load-bearing for the seeder.
+- **`Worker.EmployeeCode` is gone from the database.** It survived earlier rounds only because
+  `DatabaseSeeder.SeedWorkerSkillLinksAsync` joined `WorkerSkillsSeed` (keyed `"W001"`…) to workers by
+  code — drop the column and a fresh install comes up with products, workers and stages but **zero skill
+  links**, so nobody is qualified for any stage and daily entry is silently unusable. The codes are now
+  seed-internal identifiers only: `RealDataSeed.BuildRoster()` pairs each code with its worker in one
+  list, `NameByCode()` derives the translation from that same list (so the two can't drift), and the
+  seeder joins **by name**. Names are safe as the key because all 46 seeded names are unique — a test
+  asserts it — and a name that appears twice in the DB is **skipped rather than guessed**, since a skill
+  attached to the wrong person is worse than a missing one the user can add from the screen.
+  `FreshInstallSeedTests` builds a real database from scratch and asserts links exist and land on the
+  right worker; that is the test that would catch this whole class of breakage.
 
 ### Domain model relationships
 
@@ -340,15 +351,15 @@ Core  <----------------------- UI
   occupies the **same 44×44 slot as the initials circle**, so products without one cost no extra space.
   `Product.ProductCode` **was deleted outright** (column and all) in `AddWorkerPhotoDropProductCode`:
   nothing read it — no report, no export, no calculation; it went form → service → displayed as "—".
-  Contrast `Worker.EmployeeCode` below, which looks equally unused and is not.
+  `Worker.EmployeeCode` followed it in `DropEmployeeCode` once the seeder stopped needing it.
   `Worker.PhotoData` mirrors `Product.ImageData` exactly (same reason, same helper) and is written only
   through `WorkerManagementService.SetWorkerPhotoAsync`, kept out of `UpdateWorkerAsync` for the same
   reason the product photo is kept out of `UpdateProductAsync`.
 - `Worker.SkillsNotes` is **write-nobody, read-somebody**. Its input was removed from the add/edit form
   (replaced by the per-stage star ratings, surfaced as a rating badge on each product card), so
-  `CreateWorkerAsync`/`UpdateWorkerAsync` no longer take or touch it — exactly like `EmployeeCode`, and
-  for the same reason: leaving the parameter in place while the form stopped supplying it would have
-  made the first edit of any worker silently null the column. The column stays because
+  `CreateWorkerAsync`/`UpdateWorkerAsync` no longer take or touch it: leaving the parameter in place while
+  the form stopped supplying it would have made the first edit of any worker silently null the column.
+  The column stays because
   `DatabaseSeeder.SeedHourlyRolesAsync` parses it every startup to classify رص/جودة/تدريب workers, and
   `WorkerRow.SkillsSearchText` still searches it. `RemovedFieldsTests` guards both halves.
 - `Worker` *—* `ProductionStage` via `WorkerSkill` (join entity, unique per worker+stage): which stages a
@@ -371,16 +382,12 @@ Core  <----------------------- UI
   corrections. Date-leading index like the other by-date tables.
 - Soft-delete convention: `Worker.IsActive` / `Product.IsActive` / `ProductionStage.IsActive` flags are used
   instead of hard deletes, to preserve historical production/attendance records.
-- `Worker.EmployeeCode` is **invisible plumbing — never show it in any screen, export, or payslip**. It was
-  removed from every UI surface (workers grid + profile + add/edit dialog, both report grids, attendance
-  cards, payslip, and all four Excel sheets) because it added nothing for the user; searching is by name
-  only. The column and its seed values (`W001`–`W046`) survive on purpose: `DatabaseSeeder`
-  `.ToDictionaryAsync(w => w.EmployeeCode!)` matches `WorkerSkillsSeed` **by code, not by name**, so
-  dropping it would leave a fresh install with zero skill links and therefore nobody qualified for any
-  stage. For the same reason `WorkerManagementService.UpdateWorkerAsync` deliberately does **not** touch
-  `EmployeeCode` (an edit that nulled it would silently break re-seeding for that worker), and
-  `CreateWorkerAsync` leaves it null for new workers. Removing the Excel "الكود" column shifted every
-  later column index in `WeeklyReportExcelService` — check the whole sheet if you touch those layouts.
+- `Worker.EmployeeCode` **no longer exists** (`DropEmployeeCode`). It had already been removed from every
+  UI surface — workers grid + profile + add/edit dialog, both report grids, attendance cards, payslip and
+  all four Excel sheets — because it added nothing for the user; searching is by name only. The column
+  itself lasted longer only because the seeder joined on it; see the Database rules section for how the
+  join moved to names. Note that removing the Excel "الكود" column back then shifted every later column
+  index in `WeeklyReportExcelService` — check the whole sheet if you touch those layouts.
 - Two worker pay types: piece-rate (default) vs hourly. `Worker.HourlyRole` (nullable `HourlyRole` enum:
   Training/Racking/Quality/Other) — non-null means the worker is paid by hours, not pieces. Hourly workers
   have no `WorkerSkill` links, don't appear in production flow, and log via `HourlyWorkLog` instead.
