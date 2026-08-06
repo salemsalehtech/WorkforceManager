@@ -116,7 +116,7 @@
             <Border Style="{StaticResource Card}" Margin="0,0,0,12">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="HistoryeraserOutline" Width="18" Height="18"
+                        <materialDesign:PackIcon Kind="DeleteClockOutline" Width="18" Height="18"
                                                  Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" />
                         <TextBlock Text="تنظيف سجل العمليات" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
                     </StackPanel>
