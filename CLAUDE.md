@@ -128,10 +128,25 @@ Core  <----------------------- UI
   on every render. Skill assignment happens inside the profile: `IsAddingSkills` widens the cards to
   every product, and the star row shows on not-yet-assigned stages too (`SkillStageItem.ShowStars`) —
   clicking a star there **assigns the skill at that rating in one gesture**
-  (`SetSkillStarsCommand` → `AssignSkillAsync` then `SetStarsAsync`). The panel **never closes by
-  itself**: add/remove update the row in place instead of reloading the profile (a reload collapsed the
-  open card on every single addition), a running `RecentlyAdded` chip list shows what this session added,
-  and only the explicit "خلصت إضافة" button closes it. Also add/edit/soft-delete, plus an optional
+  (`SetSkillStarsCommand` → `AssignSkillAsync` then `SetStarsAsync`). **The panel never closes by
+  itself, and two separate mechanisms are needed to keep that true** — both were added after it broke:
+  1. `_reloadingRows` — reloading the list calls `Workers.Clear()`, and WPF drops the `Selector`'s
+     selection the instant the row is removed, so `SelectedWorker` goes null for a moment. Without the
+     guard, `OnSelectedWorkerChanged(null)` set `Detail = null`, which destroyed the very snapshot
+     `RestorePanelState` reads — so `previous` came back null and the panel rebuilt collapsed with
+     add-mode off. The guard ignores **only** a null that arrives mid-reload; a real deselection still
+     closes the panel. This also fixes removing a skill outside add-mode, which closed the open card.
+  2. `_skillRowsStale` — while `IsAddingSkills` is on, `RefreshRowsKeepingSelectionAsync` doesn't reload
+     at all; it just marks the rows stale. The skill itself is written to the DB immediately — only the
+     list card's skills counter waits. `FlushPendingRowRefreshAsync` runs it once when add-mode ends,
+     whether by the "خلصت" button (`ToggleAddSkillsAsync`) or by leaving the worker (`LoadDetailAsync`
+     turns add-mode off and flushes, then returns and lets the flush's own re-selection load the new
+     profile — one load, not two). The flag is cleared **before** the refresh so re-selection can't
+     recurse.
+
+  There is deliberately **no banner** inside add-mode: it held a hint line, a duplicate "خلصت إضافة"
+  button (the header's "إضافة مهارات"/"خلصت" toggle already does it), and a `RecentlyAdded` chip
+  counter — all removed as clutter competing with the cards themselves. Also add/edit/soft-delete, plus an optional
   profile photo. `DailyEntryView` is implemented: one shared date +
   3 tabs — production-flow entry, topped by a day summary bar (pieces / workdays / workers / products,
   derived from the records `LoadDayRecordsAsync` already loads — no extra query). Each stage card carries

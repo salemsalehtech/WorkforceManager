@@ -41,6 +41,22 @@ namespace WorkforceManager.UI.ViewModels
         /// </summary>
         private readonly List<WorkerRow> _allWorkers = new();
 
+        /// <summary>
+        /// إعادة تحميل القائمة شغالة دلوقتي — التحديد اللي بيتصفّر جوّاها
+        /// لحظي ومش خروج من البروفايل. شوف <see cref="OnSelectedWorkerChanged"/>.
+        /// </summary>
+        private bool _reloadingRows;
+
+        /// <summary>
+        /// فيه مهارات اتغيّرت والقائمة لسه ما اتحدّثتش.
+        ///
+        /// وهو في وضع الإضافة المستخدم بيضيف عشر مهارات ورا بعض، وكل
+        /// إعادة تحميل بتحرّك الصفوف تحت إيده. فالتحديث بيتأجّل لحد ما
+        /// يدوس "خلصت" — وقتها بيتعمل مرة واحدة. المهارة نفسها بتتسجّل
+        /// في الداتابيز فورًا، المؤجّل هو عدّاد الكارت في القائمة بس.
+        /// </summary>
+        private bool _skillRowsStale;
+
         /// <summary>نص البحث الموحّد: اسم عامل أو اسم مرحلة/منتج</summary>
         [ObservableProperty]
         private string _searchText = string.Empty;
@@ -319,6 +335,13 @@ namespace WorkforceManager.UI.ViewModels
         // لما العامل المحدد يتغير، حمّل تفاصيله في اللوحة الجانبية
         partial void OnSelectedWorkerChanged(WorkerRow? value)
         {
+            // إعادة تحميل القائمة بتنادي Workers.Clear()، وWPF بيصفّر
+            // التحديد أول ما الصف يتشال. ده مش خروج من البروفايل — الصف
+            // بيترجع بعدها بسطرين. من غير الحارس ده كان Detail بيتمسح في
+            // اللحظة دي، فلقطة حالة اللوحة (الكارت المفتوح + وضع الإضافة)
+            // بتضيع واللوحة بتتبني من الأول مقفولة.
+            if (_reloadingRows && value is null) return;
+
             // تحميل بروفايل العامل المحدد (وأي خطأ بيظهر مش بيضيع بصمت)
             SafeAsync.Run(() => LoadDetailAsync(value));
         }
@@ -459,6 +482,18 @@ namespace WorkforceManager.UI.ViewModels
             if (row is null)
             {
                 Detail = null;
+                await FlushPendingRowRefreshAsync();
+                return;
+            }
+
+            // ساب العامل وهو لسه في وضع الإضافة: جلسة الإضافة خلصت
+            // بمغادرته، فبننفّذ التحديث المؤجّل دلوقتي عشان عدّاد مهاراته
+            // في القائمة ميفضلش قديم. إعادة الاختيار اللي جوّه التحديث
+            // بتنادي الدالة دي تاني بالصف الجديد، فبنسيبها هي تكمّل.
+            if (_skillRowsStale && Detail is not null && Detail.WorkerId != row.WorkerId)
+            {
+                Detail.IsAddingSkills = false;
+                await FlushPendingRowRefreshAsync();
                 return;
             }
 
@@ -857,14 +892,19 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>
         /// يقلب وضع الإضافة: الكروت بتتوسّع لتشمل المنتجات اللي العامل مالوش
         /// فيها ولا مهارة، فيقدر يفتح أي منتج ويضيف منه.
+        ///
+        /// وهو شغال مفيش أي إعادة تحميل للقائمة — اللوحة بتفضل زي ما هي
+        /// بالظبط لحد ما يدوس "خلصت"، ووقتها بس بتتحدّث.
         /// </summary>
         [RelayCommand]
-        private void ToggleAddSkills()
+        private async Task ToggleAddSkillsAsync()
         {
             if (Detail is null) return;
 
             Detail.IsAddingSkills = !Detail.IsAddingSkills;
             Detail.SkillSearch = string.Empty; // البحث بتاع وضع بيلخبط في الوضع التاني
+
+            if (!Detail.IsAddingSkills) await FlushPendingRowRefreshAsync();
         }
 
         /// <summary>
@@ -894,7 +934,6 @@ namespace WorkforceManager.UI.ViewModels
 
                 stage.IsKnown = true;
                 stage.Stars = SkillRatingService.DefaultStars;
-                Detail.NoteAdded(stage.StageName);
             }
 
             // زي ToggleSkillAsync: تحديث في المكان عشان اللوحة متتبنيش من
@@ -928,11 +967,7 @@ namespace WorkforceManager.UI.ViewModels
             else await mgmt.RemoveSkillAsync(Detail.WorkerId, stage.StageId);
 
             stage.IsKnown = adding;
-            if (adding)
-            {
-                stage.Stars = SkillRatingService.DefaultStars;
-                Detail.NoteAdded(stage.StageName);
-            }
+            if (adding) stage.Stars = SkillRatingService.DefaultStars;
 
             Detail.RefreshCoverage(stage.StageId);
             await RefreshRowsKeepingSelectionAsync();
@@ -990,13 +1025,8 @@ namespace WorkforceManager.UI.ViewModels
                 // رأس الكارت محسوبة منه — فلازم تتحدّث حتى لو المهارة مش جديدة
                 Detail.RefreshCoverage(stageId);
 
-                // الإضافة كمان بتغيّر عدّادات التغطية والصف في القائمة —
-                // بس من غير ما نقفل الكارت المفتوح
-                if (wasNew)
-                {
-                    Detail.NoteAdded(item.StageName);
-                    await RefreshRowsKeepingSelectionAsync();
-                }
+                // الإضافة كمان بتغيّر عدّاد المهارات في كارت القائمة
+                if (wasNew) await RefreshRowsKeepingSelectionAsync();
             }
             catch (InvalidOperationException ex)
             {
@@ -1036,14 +1066,36 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>
         /// يعيد تحميل القائمة من غير ما يضيّع العامل المحدد ولا يقفل
         /// لوحة التفاصيل (LoadAsync لوحدها بتصفّر الاختيار).
+        ///
+        /// في وضع الإضافة بيتأجّل بالكامل — شوف <see cref="_skillRowsStale"/>.
         /// </summary>
         private async Task RefreshRowsKeepingSelectionAsync()
         {
+            if (Detail?.IsAddingSkills == true)
+            {
+                _skillRowsStale = true;
+                return;
+            }
+
             var selectedId = SelectedWorker?.WorkerId;
-            await LoadAsync();
+
+            _reloadingRows = true;
+            try { await LoadAsync(); }
+            finally { _reloadingRows = false; }
 
             if (selectedId is null) return;
             SelectedWorker = Workers.FirstOrDefault(w => w.WorkerId == selectedId.Value);
+        }
+
+        /// <summary>
+        /// ينفّذ التحديث المؤجّل لو فيه. بيصفّر العلم **قبل** ما يحدّث عشان
+        /// إعادة الاختيار اللي جوّه التحديث متنادّيش نفسها تاني.
+        /// </summary>
+        private async Task FlushPendingRowRefreshAsync()
+        {
+            if (!_skillRowsStale) return;
+            _skillRowsStale = false;
+            await RefreshRowsKeepingSelectionAsync();
         }
     }
 
@@ -1232,42 +1284,6 @@ namespace WorkforceManager.UI.ViewModels
         {
             ApplyGroupMode();
             OnPropertyChanged(nameof(SkillSearchHint));
-
-            // قايمة "اتضاف دلوقتي" بتخص جلسة إضافة واحدة — بتتصفّر لما
-            // المستخدم يقفل اللوحة، مش بتتراكم عبر الجلسات
-            if (!value) ClearRecentlyAdded();
-        }
-
-        // ------- تغذية راجعة أثناء الإضافة -------
-
-        /// <summary>
-        /// المهارات اللي اتضافت في جلسة الإضافة الحالية.
-        ///
-        /// اللوحة بتفضل مفتوحة بعد كل إضافة، فمن غير القايمة دي المستخدم
-        /// مبيعرفش هو ضاف إيه لحد دلوقتي وهو بيضيف عشرة ورا بعض.
-        /// </summary>
-        public ObservableCollection<string> RecentlyAdded { get; } = new();
-
-        public bool HasRecentlyAdded => RecentlyAdded.Count > 0;
-        public string RecentlyAddedText => $"اتضاف {RecentlyAdded.Count} مهارة في الجلسة دي";
-
-        public void NoteAdded(string stageName)
-        {
-            RecentlyAdded.Insert(0, stageName); // الأحدث فوق
-            RefreshRecentlyAdded();
-        }
-
-        public void ClearRecentlyAdded()
-        {
-            if (RecentlyAdded.Count == 0) return;
-            RecentlyAdded.Clear();
-            RefreshRecentlyAdded();
-        }
-
-        private void RefreshRecentlyAdded()
-        {
-            OnPropertyChanged(nameof(HasRecentlyAdded));
-            OnPropertyChanged(nameof(RecentlyAddedText));
         }
 
         public void ApplyGroupMode()
