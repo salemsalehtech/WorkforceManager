@@ -65,7 +65,7 @@ namespace WorkforceManager.Business.Services
         private static ProductPendingDto Describe(
             Core.Models.Product product, IReadOnlyDictionary<int, int> totals)
         {
-            var line = DailyProductionReportService.ActiveLine(product);
+            var line = ProductionLine.Active(product);
 
             var result = new ProductPendingDto
             {

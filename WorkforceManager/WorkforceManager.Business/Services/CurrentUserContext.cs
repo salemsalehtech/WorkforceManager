@@ -41,7 +41,13 @@ namespace WorkforceManager.Business.Services
             _displayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName;
         }
 
-        /// <summary>بيمسح المستخدم الحالي (تسجيل خروج / قفل الشاشة)</summary>
+        /// <summary>
+        /// بيمسح المستخدم الحالي.
+        ///
+        /// مفيش حد بينادي عليها لسه — قفل الخمول (اللي هيقفل الشاشة بعد
+        /// مدة سكون ويطلب كلمة الدخول) هو اللي هيستخدمها. متسابة عن قصد
+        /// مش سهو: حذفها وإرجاعها بعد أسبوع تغيير من غير فايدة.
+        /// </summary>
         public void SignOut()
         {
             _username = null;

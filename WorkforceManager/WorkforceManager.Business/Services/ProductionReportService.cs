@@ -45,16 +45,11 @@ namespace WorkforceManager.Business.Services
             _adjustmentRepo = adjustmentRepo;
         }
 
-        /// <summary>آخر مرحلة (أعلى ترتيب) لكل منتج — لتحديد القطع المكتملة</summary>
-        private async Task<HashSet<int>> GetLastStageIdsAsync()
-        {
-            var products = await _productRepo.GetAllWithStagesAsync();
-            return products
-                .Where(p => p.Stages.Count > 0)
-                .Select(p => (p.Stages.Any(s => s.IsActive) ? p.Stages.Where(s => s.IsActive) : p.Stages)
-                    .OrderByDescending(s => s.SortOrder).ThenByDescending(s => s.Id).First().Id)
-                .ToHashSet();
-        }
+        /// <summary>آخر مرحلة لكل منتج — القاعدة في <see cref="ProductionLine"/></summary>
+        private async Task<HashSet<int>> GetLastStageIdsAsync() =>
+            ProductionLine
+                .LastStageIdByProduct(await _productRepo.GetAllWithStagesAsync())
+                .Values.ToHashSet();
 
         /// <summary>التقرير العام للإنتاج عن فترة [from, to]</summary>
         public async Task<GeneralProductionReportDto> GetGeneralReportAsync(DateTime from, DateTime to)

@@ -53,9 +53,5 @@ namespace WorkforceManager.Business.Services
         /// <summary>كل حركات يوم معين لكل العمال (لعرضها وحذفها في شاشة التسجيل اليومي)</summary>
         public Task<IReadOnlyList<WageAdjustment>> GetByDateAsync(DateTime date)
             => _adjustmentRepo.GetByDateAsync(date);
-
-        /// <summary>كل حركات عامل خلال فترة (لعرضها في تقريره وقسيمته)</summary>
-        public Task<IReadOnlyList<WageAdjustment>> GetWorkerAdjustmentsAsync(int workerId, DateTime from, DateTime to)
-            => _adjustmentRepo.GetByWorkerAndRangeAsync(workerId, from, to);
     }
 }

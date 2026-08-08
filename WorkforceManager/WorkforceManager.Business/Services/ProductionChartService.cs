@@ -37,16 +37,10 @@ namespace WorkforceManager.Business.Services
             var (rangeStart, _) = WeeklySummaryService.GetWorkWeekRange(from);
             var (_, rangeEnd) = WeeklySummaryService.GetWorkWeekRange(to);
 
-            // آخر مرحلة لكل منتج (أعلى ترتيب بين مراحله النشطة — ولو كلها
-            // موقوفة بناخد أعلى ترتيب بين الكل عشان المنتجات القديمة تفضل تتحسب)
+            // آخر مرحلة لكل منتج — نفس القاعدة اللي التقرير العام بيستخدمها
+            // بالحرف، لأنها نفس الدالة
             var products = await _productRepo.GetAllWithStagesAsync();
-            var lastStageByProduct = products
-                .Where(p => p.Stages.Count > 0)
-                .ToDictionary(
-                    p => p.Id,
-                    p => (p.Stages.Any(s => s.IsActive) ? p.Stages.Where(s => s.IsActive) : p.Stages)
-                        .OrderByDescending(s => s.SortOrder).ThenByDescending(s => s.Id)
-                        .First().Id);
+            var lastStageByProduct = ProductionLine.LastStageIdByProduct(products);
 
             var records = await _productionRepo.GetByRangeAsync(rangeStart, rangeEnd);
 

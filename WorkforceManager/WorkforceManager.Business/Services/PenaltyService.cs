@@ -126,10 +126,6 @@ namespace WorkforceManager.Business.Services
             await _penaltyRepo.SaveChangesAsync();
         }
 
-        /// <summary>كل جزاءات عامل خلال فترة زمنية (لعرضها في بروفايله وتقريره)</summary>
-        public Task<IReadOnlyList<Penalty>> GetWorkerPenaltiesAsync(int workerId, DateTime from, DateTime to)
-            => _penaltyRepo.GetByWorkerAndRangeAsync(workerId, from, to);
-
         /// <summary>كل جزاءات يوم معين لكل العمال (لعرضها في شاشة التسجيل اليومي)</summary>
         public Task<IReadOnlyList<Penalty>> GetPenaltiesByDateAsync(DateTime date)
             => _penaltyRepo.GetByRangeAsync(date, date);

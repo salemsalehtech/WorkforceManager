@@ -69,7 +69,7 @@ namespace WorkforceManager.Business.Services
                     byProduct.TryGetValue(product.Id, out var stats);
 
                     // خط الإنتاج بترتيبه — نفس ترتيب DailyProductionReportService
-                    var line = DailyProductionReportService.ActiveLine(product);
+                    var line = ProductionLine.Active(product);
 
                     int OnStage(ProductionStage? stage) =>
                         stage is not null && stats is not null &&

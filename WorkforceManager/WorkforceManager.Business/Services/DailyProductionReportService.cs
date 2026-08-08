@@ -59,17 +59,10 @@ namespace WorkforceManager.Business.Services
             };
         }
 
-        /// <summary>مراحل المنتج النشطة بترتيب الخط — مصدر الحقيقة لكل الحسابات هنا</summary>
-        public static List<ProductionStage> ActiveLine(Product product) =>
-            product.Stages
-                .Where(s => s.IsActive)
-                .OrderBy(s => s.SortOrder).ThenBy(s => s.Id)
-                .ToList();
-
         private static DailyProductReportDto Describe(
             Product product, IReadOnlyDictionary<int, int> today)
         {
-            var line = ActiveLine(product);
+            var line = ProductionLine.Active(product);
             if (line.Count == 0)
                 return new DailyProductReportDto { ProductId = product.Id, ProductName = product.Name };
 
