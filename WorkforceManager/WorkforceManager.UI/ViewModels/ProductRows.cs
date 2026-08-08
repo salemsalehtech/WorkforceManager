@@ -8,6 +8,8 @@ using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 using WorkforceManager.UI.Views;
 
+using WorkforceManager.Core.Helpers;
+
 namespace WorkforceManager.UI.ViewModels
 {
     // صفوف شاشة المنتجات: الفلاتر والترتيب وبطاقة المنتج وصف المرحلة.
@@ -71,18 +73,7 @@ namespace WorkforceManager.UI.ViewModels
         public string StagesCountText => $"{ActiveStagesCount} مرحلة";
 
         /// <summary>أول حرفين من اسم المنتج — للدايرة على البطاقة</summary>
-        public string Initials
-        {
-            get
-            {
-                var parts = Name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 0) return "؟";
-                return parts.Length == 1
-                    ? parts[0][..Math.Min(2, parts[0].Length)]
-                    : $"{parts[0][0]}{parts[1][0]}";
-            }
-        }
-
+        public string Initials => NameInitials.From(Name);
         // ------- التنبيهات -------
 
         /// <summary>منتج من غير أي مرحلة نشطة — مينفعش يتسجل عليه إنتاج خالص</summary>

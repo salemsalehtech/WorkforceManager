@@ -564,41 +564,22 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (PayrollRows.Count == 0)
             {
-                MessageBox.Show("لا توجد بيانات في الفترة دي للتصدير", "تنبيه",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("لا توجد بيانات في الفترة دي للتصدير");
                 return;
             }
 
-            var dialog = new SaveFileDialog
-            {
-                Title = "حفظ كشف أجور الفترة",
-                Filter = "Excel (*.xlsx)|*.xlsx",
-                FileName = $"كشف أجور {PayrollFrom:yyyy-MM-dd} إلى {PayrollTo:yyyy-MM-dd}.xlsx"
-            };
-            if (dialog.ShowDialog() != true) return;
-
-            try
-            {
-                PeriodPayrollDto period;
-                using (var scope = _scopeFactory.CreateScope())
+            await ExcelExport.RunAsync(
+                "حفظ كشف أجور الفترة",
+                $"كشف أجور {PayrollFrom:yyyy-MM-dd} إلى {PayrollTo:yyyy-MM-dd}",
+                async path =>
                 {
+                    using var scope = _scopeFactory.CreateScope();
                     var payrollService = scope.ServiceProvider.GetRequiredService<PayrollService>();
                     var excelService = scope.ServiceProvider.GetRequiredService<WeeklyReportExcelService>();
-                    period = await payrollService.GetPeriodPayrollAsync(PayrollFrom, PayrollTo);
-                    excelService.ExportPeriodPayroll(period, dialog.FileName);
-                }
 
-                var open = MessageBox.Show(
-                    $"تم حفظ كشف الأجور:\n{dialog.FileName}\n\nفتح الملف الآن؟",
-                    "تم التصدير", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (open == MessageBoxResult.Yes)
-                    Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"تعذر حفظ الملف:\n{ex.Message}", "خطأ في التصدير",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
+                    var period = await payrollService.GetPeriodPayrollAsync(PayrollFrom, PayrollTo);
+                    excelService.ExportPeriodPayroll(period, path);
+                });
         }
 
         // ======================= تبويب التقرير العام للإنتاج =======================
@@ -662,38 +643,22 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (GeneralByProductStage.Count == 0 && GeneralByWorker.Count == 0)
             {
-                MessageBox.Show("لا يوجد إنتاج في الفترة دي للتصدير", "تنبيه",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("لا يوجد إنتاج في الفترة دي للتصدير");
                 return;
             }
 
-            var dialog = new SaveFileDialog
-            {
-                Title = "حفظ التقرير العام للإنتاج",
-                Filter = "Excel (*.xlsx)|*.xlsx",
-                FileName = $"تقرير إنتاج {GeneralFrom:yyyy-MM-dd} إلى {GeneralTo:yyyy-MM-dd}.xlsx"
-            };
-            if (dialog.ShowDialog() != true) return;
+            await ExcelExport.RunAsync(
+                "حفظ التقرير العام للإنتاج",
+                $"تقرير إنتاج {GeneralFrom:yyyy-MM-dd} إلى {GeneralTo:yyyy-MM-dd}",
+                async path =>
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var service = scope.ServiceProvider.GetRequiredService<ProductionReportService>();
+                    var excelService = scope.ServiceProvider.GetRequiredService<WeeklyReportExcelService>();
 
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var service = scope.ServiceProvider.GetRequiredService<ProductionReportService>();
-                var excelService = scope.ServiceProvider.GetRequiredService<WeeklyReportExcelService>();
-                var report = await service.GetGeneralReportAsync(GeneralFrom, GeneralTo);
-                excelService.ExportGeneralReport(report, dialog.FileName);
-
-                var open = MessageBox.Show(
-                    $"تم حفظ التقرير:\n{dialog.FileName}\n\nفتح الملف الآن؟",
-                    "تم التصدير", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (open == MessageBoxResult.Yes)
-                    Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"تعذر حفظ الملف:\n{ex.Message}", "خطأ في التصدير",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
+                    var report = await service.GetGeneralReportAsync(GeneralFrom, GeneralTo);
+                    excelService.ExportGeneralReport(report, path);
+                });
         }
 
         // ======================= تبويب تقرير عامل معيّن =======================
@@ -878,8 +843,7 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (SelectedWorker is null || !HasWorkerReport)
             {
-                MessageBox.Show("اختر عامل الأول عشان تطبع قسيمته", "تنبيه",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("اختر عامل الأول عشان تطبع قسيمته", "تنبيه");
                 return;
             }
 
@@ -903,38 +867,22 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (SelectedWorker is null || !HasWorkerReport)
             {
-                MessageBox.Show("اختر عامل الأول عشان تصدّر تقريره", "تنبيه",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("اختر عامل الأول عشان تصدّر تقريره");
                 return;
             }
 
-            var dialog = new SaveFileDialog
-            {
-                Title = "حفظ تقرير العامل",
-                Filter = "Excel (*.xlsx)|*.xlsx",
-                FileName = $"تقرير {SelectedWorker.Display} {WorkerFrom:yyyy-MM-dd} إلى {WorkerTo:yyyy-MM-dd}.xlsx"
-            };
-            if (dialog.ShowDialog() != true) return;
+            await ExcelExport.RunAsync(
+                "حفظ تقرير العامل",
+                $"تقرير {SelectedWorker.Display} {WorkerFrom:yyyy-MM-dd} إلى {WorkerTo:yyyy-MM-dd}",
+                async path =>
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var service = scope.ServiceProvider.GetRequiredService<ProductionReportService>();
+                    var excelService = scope.ServiceProvider.GetRequiredService<WeeklyReportExcelService>();
 
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var service = scope.ServiceProvider.GetRequiredService<ProductionReportService>();
-                var excelService = scope.ServiceProvider.GetRequiredService<WeeklyReportExcelService>();
-                var report = await service.GetWorkerReportAsync(SelectedWorker.Id, WorkerFrom, WorkerTo);
-                excelService.ExportWorkerReport(report, dialog.FileName);
-
-                var open = MessageBox.Show(
-                    $"تم حفظ التقرير:\n{dialog.FileName}\n\nفتح الملف الآن؟",
-                    "تم التصدير", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (open == MessageBoxResult.Yes)
-                    Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"تعذر حفظ الملف:\n{ex.Message}", "خطأ في التصدير",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
+                    var report = await service.GetWorkerReportAsync(SelectedWorker.Id, WorkerFrom, WorkerTo);
+                    excelService.ExportWorkerReport(report, path);
+                });
         }
 
         // ======================= تصدير Excel =======================
@@ -944,42 +892,26 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (WeeklyRows.Count == 0)
             {
-                MessageBox.Show("لا توجد بيانات في هذا الأسبوع للتصدير", "تنبيه",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("لا توجد بيانات في هذا الأسبوع للتصدير");
                 return;
             }
 
             var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(_weekAnchor);
-            var dialog = new SaveFileDialog
-            {
-                Title = "حفظ كشف الأسبوع",
-                Filter = "Excel (*.xlsx)|*.xlsx",
-                FileName = $"كشف أسبوع {weekStart:yyyy-MM-dd}.xlsx"
-            };
-            if (dialog.ShowDialog() != true) return;
 
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var weeklyService = scope.ServiceProvider.GetRequiredService<WeeklySummaryService>();
-                var excelService = scope.ServiceProvider.GetRequiredService<WeeklyReportExcelService>();
+            await ExcelExport.RunAsync(
+                "حفظ كشف الأسبوع",
+                $"كشف أسبوع {weekStart:yyyy-MM-dd}",
+                async path =>
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var weeklyService = scope.ServiceProvider.GetRequiredService<WeeklySummaryService>();
+                    var excelService = scope.ServiceProvider.GetRequiredService<WeeklyReportExcelService>();
 
-                // بنجيب البيانات طازة وقت التصدير (مش من صفوف العرض) — مصدر حقيقة واحد
-                var summaries = await weeklyService.GetTeamWeeklySummaryAsync(_weekAnchor);
-                excelService.ExportWeeklySummary(summaries, dialog.FileName);
-
-                // عرض النتيجة مع خيار فتح الملف فورًا
-                var open = MessageBox.Show(
-                    $"تم حفظ الكشف بنجاح:\n{dialog.FileName}\n\nفتح الملف الآن؟",
-                    "تم التصدير", MessageBoxButton.YesNo, MessageBoxImage.Information);
-                if (open == MessageBoxResult.Yes)
-                    Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"تعذر حفظ الملف:\n{ex.Message}", "خطأ في التصدير",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
+                    // البيانات بتتجاب طازة وقت التصدير مش من صفوف العرض —
+                    // مصدر حقيقة واحد
+                    var summaries = await weeklyService.GetTeamWeeklySummaryAsync(_weekAnchor);
+                    excelService.ExportWeeklySummary(summaries, path);
+                });
         }
     }
 }

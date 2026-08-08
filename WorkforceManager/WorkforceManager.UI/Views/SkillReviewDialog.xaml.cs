@@ -92,7 +92,7 @@ namespace WorkforceManager.UI.Views
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "مش هينفع");
             }
         }
 

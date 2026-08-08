@@ -5,6 +5,8 @@ using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Interfaces;
 
+using WorkforceManager.Core.Helpers;
+
 namespace WorkforceManager.UI.Views
 {
     /// <summary>
@@ -89,17 +91,6 @@ namespace WorkforceManager.UI.Views
         public string StarsLabel => SkillRatingService.StarsLabel(_worker.Stars);
         public string MeasuredText => _worker.MeasuredTooltip;
 
-        /// <summary>أول حرفين من الاسم — نفس قاعدة باقي الشاشات</summary>
-        public string Initials
-        {
-            get
-            {
-                var parts = WorkerName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 0) return "؟";
-                return parts.Length == 1
-                    ? parts[0][..Math.Min(2, parts[0].Length)]
-                    : $"{parts[0][0]}{parts[1][0]}";
-            }
-        }
+        public string Initials => NameInitials.From(WorkerName);
     }
 }

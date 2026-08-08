@@ -723,7 +723,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "خطأ في إضافة العامل", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "خطأ في إضافة العامل");
             }
         }
 
@@ -760,7 +760,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "خطأ في تعديل العامل", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "خطأ في تعديل العامل");
             }
         }
 
@@ -775,7 +775,7 @@ namespace WorkforceManager.UI.ViewModels
                 ? $"إيقاف العامل \"{SelectedWorker.FullName}\"؟\nهيختفي من القوائم لكن كل سجلاته التاريخية هتفضل محفوظة."
                 : $"إعادة تفعيل العامل \"{SelectedWorker.FullName}\"؟";
 
-            if (MessageBox.Show(message, "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (!Notify.Ask(message, "تأكيد"))
                 return;
 
             using var scope = _scopeFactory.CreateScope();
@@ -851,9 +851,7 @@ namespace WorkforceManager.UI.ViewModels
             if (applied > 0)
             {
                 await LoadAsync();
-                MessageBox.Show(
-                    $"اتحفظ {applied} تقييم. العمال هيترتبوا بالتقييمات دي في شاشة التسجيل.",
-                    "تم", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info($"اتحفظ {applied} تقييم. العمال هيترتبوا بالتقييمات دي في شاشة التسجيل.", "تم");
             }
         }
 
@@ -890,7 +888,7 @@ namespace WorkforceManager.UI.ViewModels
 
                 if (!result.IsDeleted)
                 {
-                    MessageBox.Show(result.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Notify.Warn(result.Message, "مش هينفع");
                     return;
                 }
 
@@ -898,7 +896,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "خطأ في الحذف", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "خطأ في الحذف");
             }
         }
 
@@ -935,7 +933,7 @@ namespace WorkforceManager.UI.ViewModels
 
             var message = $"إضافة كل مراحل \"{group.ProductName}\" الناقصة للعامل؟\n" +
                           $"عدد المراحل: {missing.Count}";
-            if (MessageBox.Show(message, "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (!Notify.Ask(message, "تأكيد"))
                 return;
 
             using var scope = _scopeFactory.CreateScope();
@@ -1043,7 +1041,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "مش هينفع");
             }
         }
 

@@ -26,11 +26,11 @@ namespace WorkforceManager.UI.Views
 
         private async void Save_Click(object sender, RoutedEventArgs e)
         {
-            ErrorText.Visibility = Visibility.Collapsed;
+            ErrorText.ClearError();
 
             if (NewBox.Password != ConfirmBox.Password)
             {
-                ShowError("كلمة المرور الجديدة والتأكيد مش متطابقين");
+                ErrorText.ShowError("كلمة المرور الجديدة والتأكيد مش متطابقين");
                 ConfirmBox.Clear();
                 ConfirmBox.Focus();
                 return;
@@ -42,21 +42,15 @@ namespace WorkforceManager.UI.Views
                 var auth = scope.ServiceProvider.GetRequiredService<AuthService>();
                 await auth.ChangePasswordAsync(UsernameBox.Text.Trim(), CurrentBox.Password, NewBox.Password);
 
-                MessageBox.Show("تم تغيير كلمة المرور بنجاح", "تم",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("تم تغيير كلمة المرور بنجاح", "تم");
                 DialogResult = true;
             }
             catch (System.InvalidOperationException ex)
             {
-                ShowError(ex.Message);
+                ErrorText.ShowError(ex.Message);
             }
         }
 
-        private void ShowError(string message)
-        {
-            ErrorText.Text = message;
-            ErrorText.Visibility = Visibility.Visible;
-        }
 
         /// <summary>النافذة بلا إطار نظام — السحب من الشريط العلوي</summary>
         private void Window_Drag(object sender, MouseButtonEventArgs e)

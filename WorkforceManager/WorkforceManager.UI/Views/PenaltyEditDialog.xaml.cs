@@ -44,8 +44,7 @@ namespace WorkforceManager.UI.Views
         {
             if (PenaltyReason.Length == 0)
             {
-                ErrorText.Text = "سبب الجزاء مطلوب";
-                ErrorText.Visibility = Visibility.Visible;
+                ErrorText.ShowError("سبب الجزاء مطلوب");
                 ReasonBox.Focus();
                 return;
             }

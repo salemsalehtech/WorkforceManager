@@ -87,8 +87,7 @@ namespace WorkforceManager.UI.Views
 
         private void ShowError(string message)
         {
-            ErrorText.Text = message;
-            ErrorBox.Visibility = Visibility.Visible;
+            ErrorBox.ShowError(ErrorText, message);
         }
 
         private void Window_Drag(object sender, MouseButtonEventArgs e)

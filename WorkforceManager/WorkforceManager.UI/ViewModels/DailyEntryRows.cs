@@ -9,6 +9,8 @@ using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.UI.Views;
 
+using WorkforceManager.Core.Helpers;
+
 namespace WorkforceManager.UI.ViewModels
 {
     // صفوف شاشة التسجيل اليومي: المنتجات والسجلات والحضور والجزاءات والسلف.
@@ -173,18 +175,7 @@ namespace WorkforceManager.UI.ViewModels
         public string RoleText { get; }
 
         /// <summary>أول حرفين من الاسم — بيتعرضوا في الدايرة جنب كل عامل بدل صورة</summary>
-        public string Initials
-        {
-            get
-            {
-                var parts = FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 0) return "؟";
-                return parts.Length == 1
-                    ? parts[0][..Math.Min(2, parts[0].Length)]
-                    : $"{parts[0][0]}{parts[1][0]}";
-            }
-        }
-
+        public string Initials => NameInitials.From(FullName);
         /// <summary>لون الشريط الجانبي للبطاقة = لون الحالة المختارة (رمادي لو لسه مفيش)</summary>
         public string StatusColor => AttendanceVisuals.ColorFor(SelectedStatus);
 

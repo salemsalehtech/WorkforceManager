@@ -103,12 +103,11 @@ namespace WorkforceManager.UI.Views
                 PhotoChanged = true;
                 ShowPhotoPreview();
 
-                ErrorText.Visibility = Visibility.Collapsed;
+                ErrorText.ClearError();
             }
             catch (Exception ex)
             {
-                ErrorText.Text = ex.Message;
-                ErrorText.Visibility = Visibility.Visible;
+                ErrorText.ShowError(ex.Message);
             }
         }
 
@@ -124,8 +123,7 @@ namespace WorkforceManager.UI.Views
             // الاسم هو الحقل الإجباري الوحيد — من غيره مفيش حفظ
             if (string.IsNullOrWhiteSpace(NameBox.Text))
             {
-                ErrorText.Text = "اسم العامل مطلوب";
-                ErrorText.Visibility = Visibility.Visible;
+                ErrorText.ShowError("اسم العامل مطلوب");
                 NameBox.Focus();
                 return;
             }
@@ -134,8 +132,7 @@ namespace WorkforceManager.UI.Views
             var wageText = WageBox.Text.Trim();
             if (wageText.Length > 0 && (!decimal.TryParse(wageText, out var wage) || wage < 0))
             {
-                ErrorText.Text = "سعر اليومية لازم يكون رقم موجب (أو سيبه فاضي)";
-                ErrorText.Visibility = Visibility.Visible;
+                ErrorText.ShowError("سعر اليومية لازم يكون رقم موجب (أو سيبه فاضي)");
                 WageBox.Focus();
                 return;
             }

@@ -142,10 +142,10 @@ namespace WorkforceManager.UI.ViewModels
             {
                 if (IsDayClosed)
                 {
-                    var confirm = MessageBox.Show(
-                        $"فتح إنتاج يوم {EntryDate:yyyy/MM/dd} تاني؟\nهيرجع ينفع يتسجل عليه إنتاج ويتعدّل.",
-                        "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                    if (confirm != MessageBoxResult.Yes) return;
+                    if (!Notify.Ask(
+                            $"فتح إنتاج يوم {EntryDate:yyyy/MM/dd} تاني؟\n" +
+                            "هيرجع ينفع يتسجل عليه إنتاج ويتعدّل.", "تأكيد"))
+                        return;
 
                     await service.ReopenAsync(EntryDate);
                     await LoadClosureStateAsync();
@@ -159,14 +159,12 @@ namespace WorkforceManager.UI.ViewModels
                 await service.CloseAsync(EntryDate);
                 await LoadClosureStateAsync();
 
-                MessageBox.Show(
-                    $"اتقفل إنتاج يوم {EntryDate:yyyy/MM/dd}.\n" +
-                    $"{preview.CompletedPieces:N0} قطعة خلصت الخط، و{preview.StartedPieces:N0} دخلته.",
-                    "تم القفل", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info($"اتقفل إنتاج يوم {EntryDate:yyyy/MM/dd}.\n" +
+                    $"{preview.CompletedPieces:N0} قطعة خلصت الخط، و{preview.StartedPieces:N0} دخلته.", "تم القفل");
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "مش هينفع");
             }
         }
 
@@ -198,7 +196,7 @@ namespace WorkforceManager.UI.ViewModels
 
                 if (!result.IsDeleted)
                 {
-                    MessageBox.Show(result.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Notify.Warn(result.Message, "مش هينفع");
                     return;
                 }
 
@@ -209,13 +207,11 @@ namespace WorkforceManager.UI.ViewModels
                     ? "\n\nملحوظة: مفيش كلمة سر عمليات متسجّلة — اتنفّذ من غير تحقق. اتظبطها من الإعدادات."
                     : "";
 
-                MessageBox.Show(
-                    $"اتشال إنتاج يوم {EntryDate:yyyy/MM/dd}." + note,
-                    "تم", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info($"اتشال إنتاج يوم {EntryDate:yyyy/MM/dd}." + note, "تم");
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "مش هينفع");
             }
         }
 
@@ -247,15 +243,13 @@ namespace WorkforceManager.UI.ViewModels
             // لازم تفضل رحلة واحدة على الأقل — الشاشة من غير ولا رحلة ملهاش معنى
             if (FlowSessions.Count == 1)
             {
-                MessageBox.Show("لازم تفضل رحلة منتج واحدة على الأقل — لو عايز منتج مختلف غيّره من القائمة",
-                    "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("لازم تفضل رحلة منتج واحدة على الأقل — لو عايز منتج مختلف غيّره من القائمة", "تنبيه");
                 return;
             }
 
             // تأكيد بس لو المستخدم كتب حاجة فيها (عشان ميخسرش شغله بضغطة غلط)
             if (session.HasUserInput &&
-                MessageBox.Show($"إزالة رحلة \"{session.SelectedProduct?.Name ?? "بدون منتج"}\"؟ اللي اتكتب فيها هيضيع (اللي اتحفظ قبل كده محفوظ عادي).",
-                    "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                !Notify.Ask($"إزالة رحلة \"{session.SelectedProduct?.Name ?? "بدون منتج"}\"؟ اللي اتكتب فيها هيضيع (اللي اتحفظ قبل كده محفوظ عادي).", "تأكيد"))
                 return;
 
             FlowSessions.Remove(session);
@@ -381,7 +375,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "خطأ في التصحيح", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "خطأ في التصحيح");
             }
         }
 
@@ -411,7 +405,7 @@ namespace WorkforceManager.UI.ViewModels
 
                 if (!result.IsDeleted)
                 {
-                    MessageBox.Show(result.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Notify.Warn(result.Message, "مش هينفع");
                     return;
                 }
 
@@ -419,7 +413,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "خطأ في الحذف", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "خطأ في الحذف");
             }
         }
 
@@ -631,8 +625,7 @@ namespace WorkforceManager.UI.ViewModels
 
             if (rowsToSave.Count == 0)
             {
-                MessageBox.Show("مفيش أي حالة حضور محددة للحفظ", "تنبيه",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("مفيش أي حالة حضور محددة للحفظ", "تنبيه");
                 return;
             }
 
@@ -645,11 +638,9 @@ namespace WorkforceManager.UI.ViewModels
             if (conflicting.Count > 0)
             {
                 var names = string.Join("\n", conflicting.Select(r => $"  • {r.FullName}"));
-                MessageBox.Show(
-                    "العمال دول ليهم شغل مسجّل النهارده ومتعلّم عليهم غياب:\n" + names +
+                Notify.Warn("العمال دول ليهم شغل مسجّل النهارده ومتعلّم عليهم غياب:\n" + names +
                     "\n\nعامل شغل مينفعش يتسجل غايب في نفس اليوم. لو فعلاً كانوا غايبين، " +
-                    "امسح شغلهم الأول من تبويب \"سجلات اليوم\".",
-                    "تعارض: شغل مسجّل مع غياب", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "امسح شغلهم الأول من تبويب \"سجلات اليوم\".", "تعارض: شغل مسجّل مع غياب");
                 return;
             }
 
@@ -697,9 +688,7 @@ namespace WorkforceManager.UI.ViewModels
                 if (result.AutoPenaltiesRemoved > 0)
                     penaltyLines += $"\n✔ اتشال {result.AutoPenaltiesRemoved} جزاء غياب تلقائي (الحالة اتغيّرت)";
 
-                MessageBox.Show(
-                    $"تم حفظ حضور {result.SavedCount} عامل بتاريخ {EntryDate:yyyy/MM/dd}{penaltyLines}",
-                    "تم الحفظ", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info($"تم حفظ حضور {result.SavedCount} عامل بتاريخ {EntryDate:yyyy/MM/dd}{penaltyLines}", "تم الحفظ");
 
                 await LoadAttendanceAsync();
                 await LoadPenaltiesAsync(); // الجزاءات التلقائية تظهر/تختفي فورًا
@@ -707,7 +696,7 @@ namespace WorkforceManager.UI.ViewModels
             catch (InvalidOperationException ex)
             {
                 // قاعدة الحماية: غياب لعامل له شغل في نفس اليوم بيترفض برسالة بأسماء العمال
-                MessageBox.Show(ex.Message, "تعارض في البيانات", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "تعارض في البيانات");
                 await LoadAttendanceAsync(); // إرجاع القائمة للحالة المحفوظة الفعلية
             }
         }
@@ -751,12 +740,12 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (PenaltyWorker is null)
             {
-                MessageBox.Show("اختار العامل الأول", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("اختار العامل الأول", "تنبيه");
                 return;
             }
             if (string.IsNullOrWhiteSpace(PenaltyReason))
             {
-                MessageBox.Show("اكتب سبب الجزاء", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("اكتب سبب الجزاء", "تنبيه");
                 return;
             }
             if (SelectedDeduction is null) return;
@@ -782,7 +771,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "مش هينفع");
                 return;
             }
 
@@ -828,7 +817,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "مش هينفع");
             }
         }
 
@@ -837,8 +826,7 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (row is null) return;
 
-            if (MessageBox.Show($"حذف جزاء \"{row.Reason}\" عن {row.WorkerName}؟",
-                    "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (!Notify.Ask($"حذف جزاء \"{row.Reason}\" عن {row.WorkerName}؟", "تأكيد"))
                 return;
 
             try
@@ -850,7 +838,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "مش هينفع");
             }
         }
 
@@ -904,17 +892,17 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (AdjustmentWorker is null)
             {
-                MessageBox.Show("اختار العامل الأول", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("اختار العامل الأول", "تنبيه");
                 return;
             }
             if (SelectedAdjustmentType is null)
             {
-                MessageBox.Show("اختار النوع (سلفة/حافز)", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("اختار النوع (سلفة/حافز)", "تنبيه");
                 return;
             }
             if (!decimal.TryParse(AdjustmentAmount, out var amount) || amount <= 0)
             {
-                MessageBox.Show("اكتب مبلغ صحيح أكبر من صفر", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("اكتب مبلغ صحيح أكبر من صفر", "تنبيه");
                 return;
             }
 
@@ -935,8 +923,7 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (row is null) return;
 
-            if (MessageBox.Show($"حذف {row.TypeName} ({row.AmountText}) عن {row.WorkerName}؟",
-                    "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (!Notify.Ask($"حذف {row.TypeName} ({row.AmountText}) عن {row.WorkerName}؟", "تأكيد"))
                 return;
 
             using var scope = _scopeFactory.CreateScope();

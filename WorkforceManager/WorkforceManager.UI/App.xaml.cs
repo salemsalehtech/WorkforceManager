@@ -113,9 +113,7 @@ namespace WorkforceManager.UI
             _singleInstanceMutex = new Mutex(true, @"Local\WorkforceManager_SingleInstance", out var isFirstInstance);
             if (!isFirstInstance)
             {
-                MessageBox.Show(
-                    "البرنامج مفتوح بالفعل — استخدم النافذة المفتوحة.\n(فتح نسختين في نفس الوقت ممكن يبوّظ البيانات)",
-                    "البرنامج شغال", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("البرنامج مفتوح بالفعل — استخدم النافذة المفتوحة.\n(فتح نسختين في نفس الوقت ممكن يبوّظ البيانات)", "البرنامج شغال");
                 Shutdown();
                 return;
             }
@@ -124,9 +122,7 @@ namespace WorkforceManager.UI
             // للمستخدم برسالة واضحة بدل ما البرنامج يقفل فجأة من غير سبب مفهوم
             DispatcherUnhandledException += (_, args) =>
             {
-                MessageBox.Show(
-                    $"حصل خطأ غير متوقع:\n\n{args.Exception.Message}",
-                    "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+                Notify.Warn($"حصل خطأ غير متوقع:\n\n{args.Exception.Message}", "خطأ");
                 args.Handled = true; // منع إغلاق البرنامج بسبب الخطأ
             };
 
@@ -212,10 +208,8 @@ namespace WorkforceManager.UI
             {
                 // فشل بدء التشغيل (قاعدة بيانات مقفولة/تالفة، مساحة قرص، ...):
                 // نعرض السبب بوضوح ونقفل بأمان بدل ما البرنامج يختفي من غير رسالة
-                MessageBox.Show(
-                    $"تعذّر بدء تشغيل البرنامج:\n\n{ex.Message}\n\n" +
-                    "لو المشكلة مستمرة، فيه نسخة احتياطية من البيانات في مجلد Backups.",
-                    "خطأ في بدء التشغيل", MessageBoxButton.OK, MessageBoxImage.Error);
+                Notify.Warn($"تعذّر بدء تشغيل البرنامج:\n\n{ex.Message}\n\n" +
+                    "لو المشكلة مستمرة، فيه نسخة احتياطية من البيانات في مجلد Backups.", "خطأ في بدء التشغيل");
                 Shutdown(-1);
             }
         }

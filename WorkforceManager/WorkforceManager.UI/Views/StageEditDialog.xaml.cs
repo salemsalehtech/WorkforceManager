@@ -38,14 +38,14 @@ namespace WorkforceManager.UI.Views
         {
             if (string.IsNullOrWhiteSpace(NameBox.Text))
             {
-                ShowError("اسم المرحلة مطلوب");
+                ErrorText.ShowError("اسم المرحلة مطلوب");
                 NameBox.Focus();
                 return;
             }
 
             if (!int.TryParse(QuotaBox.Text.Trim(), out var quota) || quota <= 0)
             {
-                ShowError("اليومية لازم تكون رقم صحيح موجب (مثال: 5000)");
+                ErrorText.ShowError("اليومية لازم تكون رقم صحيح موجب (مثال: 5000)");
                 QuotaBox.Focus();
                 return;
             }
@@ -54,7 +54,7 @@ namespace WorkforceManager.UI.Views
             if (!string.IsNullOrWhiteSpace(SortOrderBox.Text) &&
                 !int.TryParse(SortOrderBox.Text.Trim(), out _))
             {
-                ShowError("الترتيب لازم يكون رقم صحيح (أو سيبه فاضي للترتيب التلقائي)");
+                ErrorText.ShowError("الترتيب لازم يكون رقم صحيح (أو سيبه فاضي للترتيب التلقائي)");
                 SortOrderBox.Focus();
                 return;
             }
@@ -62,11 +62,6 @@ namespace WorkforceManager.UI.Views
             DialogResult = true;
         }
 
-        private void ShowError(string message)
-        {
-            ErrorText.Text = message;
-            ErrorText.Visibility = Visibility.Visible;
-        }
 
         /// <summary>النافذة بلا إطار نظام — السحب من الشريط العلوي</summary>
         private void Window_Drag(object sender, MouseButtonEventArgs e)

@@ -30,8 +30,7 @@ namespace WorkforceManager.UI.Views
         {
             if (!int.TryParse(PiecesBox.Text.Trim(), out var pieces) || pieces <= 0)
             {
-                ErrorText.Text = "عدد القطع لازم يكون رقم صحيح موجب";
-                ErrorText.Visibility = Visibility.Visible;
+                ErrorText.ShowError("عدد القطع لازم يكون رقم صحيح موجب");
                 PiecesBox.Focus();
                 return;
             }

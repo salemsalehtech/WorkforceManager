@@ -130,8 +130,7 @@ namespace WorkforceManager.UI.Views
 
         private void Fail(string message, System.Windows.Controls.Control focus)
         {
-            ErrorText.Text = message;
-            ErrorBox.Visibility = Visibility.Visible;
+            ErrorBox.ShowError(ErrorText, message);
             focus.Focus();
         }
 

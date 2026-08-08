@@ -23,9 +23,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"حصل خطأ أثناء تحميل البيانات:\n\n{ex.Message}",
-                    "خطأ", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn($"حصل خطأ أثناء تحميل البيانات:\n\n{ex.Message}", "خطأ");
             }
         }
     }

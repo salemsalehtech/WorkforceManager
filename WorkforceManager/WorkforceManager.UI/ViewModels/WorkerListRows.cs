@@ -97,18 +97,7 @@ namespace WorkforceManager.UI.ViewModels
         public string TypeText => IsHourly ? HourlyRoleText : "بالإنتاج";
 
         /// <summary>أول حرفين من الاسم للدايرة (نفس أسلوب شاشة الحضور)</summary>
-        public string Initials
-        {
-            get
-            {
-                var parts = FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 0) return "؟";
-                return parts.Length == 1
-                    ? parts[0][..Math.Min(2, parts[0].Length)]
-                    : $"{parts[0][0]}{parts[1][0]}";
-            }
-        }
-
+        public string Initials => NameInitials.From(FullName);
         // سعر اليومية مقصود إنه مش معروض على الكارت — بيان حساس، بيتشاف من
         // البروفايل بس. DailyWageEgp باقي هنا للتنبيه (HasNoWage) والترتيب فقط.
         public string SkillsText => IsHourly ? "بالساعة" : $"{SkillsCount} مهارة";

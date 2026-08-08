@@ -501,7 +501,7 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (SelectedProduct is not { } product)
             {
-                MessageBox.Show("اختار المنتج الأول", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("اختار المنتج الأول", "تنبيه");
                 return;
             }
 
@@ -528,9 +528,7 @@ namespace WorkforceManager.UI.ViewModels
 
             if (last is null || last.Assignments.Count == 0)
             {
-                MessageBox.Show(
-                    $"يوم {pickedDate:yyyy/MM/dd} مبقاش فيه توزيع على \"{product.Name}\" — يمكن اتشال دلوقتي.",
-                    "مفيش حاجة تتكرر", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info($"يوم {pickedDate:yyyy/MM/dd} مبقاش فيه توزيع على \"{product.Name}\" — يمكن اتشال دلوقتي.", "مفيش حاجة تتكرر");
                 return;
             }
 
@@ -550,8 +548,7 @@ namespace WorkforceManager.UI.ViewModels
                 "\nالأعداد مش هتتنسخ — هتكتبها انت.\n" +
                 "التوزيع الحالي على الشاشة هيتمسح.";
 
-            if (MessageBox.Show(confirmMessage, "تكرار يوم سابق",
-                    MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) != MessageBoxResult.Yes)
+            if (!Notify.AskDangerous(confirmMessage, "تكرار يوم سابق"))
                 return;
 
             _suppressCallbacks = true;
@@ -631,10 +628,8 @@ namespace WorkforceManager.UI.ViewModels
             // تكرار حرفي: مسجل بالفعل على نفس المرحلة النهارده — مش حالة تأكيد
             if (check.HasDuplicates)
             {
-                MessageBox.Show(
-                    $"العامل \"{pick.Name}\" مسجل بالفعل على مرحلة \"{stage.StageName}\" النهارده.\n" +
-                    "لو عايز تعدّل عدد قطعه، استخدم تبويب \"سجلات اليوم\".",
-                    "مسجل بالفعل", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info($"العامل \"{pick.Name}\" مسجل بالفعل على مرحلة \"{stage.StageName}\" النهارده.\n" +
+                    "لو عايز تعدّل عدد قطعه، استخدم تبويب \"سجلات اليوم\".", "مسجل بالفعل");
                 stage.ResetWorkerPicker();
                 return;
             }
@@ -760,12 +755,9 @@ namespace WorkforceManager.UI.ViewModels
         {
             var question = string.Join("\n\n", conflicts.Select(c => c.ConfirmationQuestion));
 
-            return MessageBox.Show(
+            return Notify.AskDangerous(
                 question + "\n\n(عامل واحد المفروض ميشتغلش على أكتر من مرحلة في نفس الوقت)",
-                "تأكيد تكليف إضافي",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning,
-                MessageBoxResult.No) == MessageBoxResult.Yes;
+                "تأكيد تكليف إضافي");
         }
 
         [RelayCommand]
@@ -773,7 +765,7 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (SelectedProduct is null)
             {
-                MessageBox.Show("اختار المنتج الأول", "تنبيه", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("اختار المنتج الأول", "تنبيه");
                 return;
             }
 
@@ -841,12 +833,10 @@ namespace WorkforceManager.UI.ViewModels
                     result.CompletedPieces > 0 ? $"  ✔ {result.CompletedPieces:N0} قطعة خلصت آخر مرحلة" : ""
                 }.Where(line => line.Length > 0));
 
-                MessageBox.Show(
-                    $"تم حفظ رحلة إنتاج \"{SelectedProduct.Name}\" بتاريخ {entryDate:yyyy/MM/dd}\n" +
+                Notify.Info($"تم حفظ رحلة إنتاج \"{SelectedProduct.Name}\" بتاريخ {entryDate:yyyy/MM/dd}\n" +
                     $"({result.RecordsCount} سجل على {result.StagesCovered} مراحل)\n\n" +
                     (outputLines.Length > 0 ? $"حالة الإنتاج:\n{outputLines}\n\n" : "") +
-                    $"يوميات العمال:\n{totalsLines}{attendanceLine}",
-                    "تم الحفظ", MessageBoxButton.OK, MessageBoxImage.Information);
+                    $"يوميات العمال:\n{totalsLines}{attendanceLine}", "تم الحفظ");
 
                 // إعادة تحميل الرحلة ("مسجل اليوم" بيتحدث وبتبدأ نظيفة) + إبلاغ الشاشة الأم (تحديث الحضور)
                 await ReloadAsync();
@@ -856,7 +846,7 @@ namespace WorkforceManager.UI.ViewModels
             {
                 // رسائل التحقق العربية الواضحة من الخدمة بتوصل للمستخدم زي ما هي
                 // (AssignmentConfirmationRequiredException اتمسك فوق، فمبيوصلش هنا)
-                MessageBox.Show(ex.Message, "راجع بيانات الرحلة", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "راجع بيانات الرحلة");
             }
 
             // نداء واحد للخدمة بنفس المدخلات — الفرق بين المحاولة والتأكيد

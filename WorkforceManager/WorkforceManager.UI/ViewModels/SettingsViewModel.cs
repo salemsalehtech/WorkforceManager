@@ -69,11 +69,9 @@ namespace WorkforceManager.UI.ViewModels
             settings.DarkMode = value;
             AppSettingsStore.Save(settings);
 
-            MessageBox.Show(
-                value
+            Notify.Info(value
                     ? "الوضع الليلي هيتفعّل أول ما تقفل البرنامج وتفتحه تاني."
-                    : "الوضع العادي هيرجع أول ما تقفل البرنامج وتفتحه تاني.",
-                "محتاج إعادة تشغيل", MessageBoxButton.OK, MessageBoxImage.Information);
+                    : "الوضع العادي هيرجع أول ما تقفل البرنامج وتفتحه تاني.", "محتاج إعادة تشغيل");
         }
 
         /// <summary>عدد أيام الاحتفاظ بالنسخ الاحتياطية</summary>
@@ -177,10 +175,8 @@ namespace WorkforceManager.UI.ViewModels
 
             // الإيقاف قرار المستخدم، بس لازم يعرف نتيجته بدل ما يعدّي بصمت
             if (!value)
-                MessageBox.Show(
-                    "النسخة التلقائية اتوقفت. مفيش نسخة هتتاخد لوحدها عند فتح البرنامج — " +
-                    "لازم تاخدها بنفسك من زرار \"خد نسخة دلوقتي\".",
-                    "تنبيه", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn("النسخة التلقائية اتوقفت. مفيش نسخة هتتاخد لوحدها عند فتح البرنامج — " +
+                    "لازم تاخدها بنفسك من زرار \"خد نسخة دلوقتي\".", "تنبيه");
         }
 
         // ======================= الحساب والأمان =======================
@@ -245,11 +241,11 @@ namespace WorkforceManager.UI.ViewModels
                 }
 
                 await LoadAccountAsync();
-                MessageBox.Show(message, "تم", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info(message, "تم");
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "مش هينفع");
             }
         }
 
@@ -388,13 +384,11 @@ namespace WorkforceManager.UI.ViewModels
 
                 await LoadOperationsStateAsync();
 
-                MessageBox.Show(
-                    "كلمة سر العمليات اتسجّلت. من دلوقتي أي حذف أو تعديل مالي هيطلبها.",
-                    "تم", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info("كلمة سر العمليات اتسجّلت. من دلوقتي أي حذف أو تعديل مالي هيطلبها.", "تم");
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(ex.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "مش هينفع");
             }
         }
 
@@ -416,12 +410,11 @@ namespace WorkforceManager.UI.ViewModels
                 var externalLine = externalPath is not null
                     ? $"\n✔ نسخة خارجية: {externalPath}"
                     : "";
-                MessageBox.Show($"تمت النسخة الاحتياطية بنجاح:\n✔ نسخة محلية: {localPath}{externalLine}",
-                    "تم النسخ", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info($"تمت النسخة الاحتياطية بنجاح:\n✔ نسخة محلية: {localPath}{externalLine}", "تم النسخ");
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(ex.Message, "تنبيه", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "تنبيه");
             }
 
             LoadInfo();
@@ -444,12 +437,11 @@ namespace WorkforceManager.UI.ViewModels
             try
             {
                 DatabaseBackupService.BackupNow(AppPaths.DbPath, dialog.FolderName, AppSettingsStore.Load().BackupRetentionDays);
-                MessageBox.Show($"تم تفعيل النسخ الخارجي على:\n{dialog.FolderName}\n\nواتاخدت أول نسخة بنجاح ✔\nمن دلوقتي هتتاخد نسخة تلقائيًا هناك كل يوم.",
-                    "تم التفعيل", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info($"تم تفعيل النسخ الخارجي على:\n{dialog.FolderName}\n\nواتاخدت أول نسخة بنجاح ✔\nمن دلوقتي هتتاخد نسخة تلقائيًا هناك كل يوم.", "تم التفعيل");
             }
             catch (InvalidOperationException ex)
             {
-                MessageBox.Show(ex.Message, "تنبيه", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "تنبيه");
             }
 
             LoadInfo();
@@ -458,8 +450,7 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand]
         private void DisableExternal()
         {
-            if (MessageBox.Show("إيقاف النسخ الخارجي؟ النسخ الموجودة في المجلد الخارجي هتفضل زي ما هي.",
-                    "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (!Notify.Ask("إيقاف النسخ الخارجي؟ النسخ الموجودة في المجلد الخارجي هتفضل زي ما هي.", "تأكيد"))
                 return;
 
             var settings = AppSettingsStore.Load();
@@ -479,22 +470,21 @@ namespace WorkforceManager.UI.ViewModels
             };
             if (dialog.ShowDialog() != true) return;
 
-            // تأكيد صارم — دي عملية بتستبدل كل البيانات الحالية
-            var confirm = MessageBox.Show(
-                $"هتسترجع النسخة:\n{dialog.FileName}\n\n" +
-                "⚠ كل البيانات الحالية هتتستبدل ببيانات النسخة دي.\n" +
-                "(هناخد نسخة أمان من البيانات الحالية الأول تلقائيًا)\n\n" +
-                "البرنامج هيعيد تشغيل نفسه بعد الاسترجاع. نكمل؟",
-                "تأكيد الاسترجاع", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (confirm != MessageBoxResult.Yes) return;
+            // AskDangerous مش Ask: الافتراضي "لأ" لأن دي عملية بتستبدل
+            // كل البيانات الحالية ومش بترجع
+            if (!Notify.AskDangerous(
+                    $"هتسترجع النسخة:\n{dialog.FileName}\n\n" +
+                    "⚠ كل البيانات الحالية هتتستبدل ببيانات النسخة دي.\n" +
+                    "(هناخد نسخة أمان من البيانات الحالية الأول تلقائيًا)\n\n" +
+                    "البرنامج هيعيد تشغيل نفسه بعد الاسترجاع. نكمل؟",
+                    "تأكيد الاسترجاع"))
+                return;
 
             try
             {
                 var safetyPath = DatabaseBackupService.RestoreBackup(AppPaths.DbPath, dialog.FileName);
 
-                MessageBox.Show(
-                    $"تم الاسترجاع بنجاح ✔\nنسخة الأمان من بياناتك السابقة:\n{safetyPath}\n\nهيعاد تشغيل البرنامج دلوقتي.",
-                    "تم الاسترجاع", MessageBoxButton.OK, MessageBoxImage.Information);
+                Notify.Info($"تم الاسترجاع بنجاح ✔\nنسخة الأمان من بياناتك السابقة:\n{safetyPath}\n\nهيعاد تشغيل البرنامج دلوقتي.", "تم الاسترجاع");
 
                 // إعادة تشغيل نظيفة — عشان كل الاتصالات والشاشات تفتح على البيانات المسترجعة
                 Process.Start(new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = true });
@@ -502,7 +492,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"تعذر الاسترجاع:\n{ex.Message}", "خطأ", MessageBoxButton.OK, MessageBoxImage.Error);
+                Notify.Warn($"تعذر الاسترجاع:\n{ex.Message}", "خطأ");
             }
         }
     }

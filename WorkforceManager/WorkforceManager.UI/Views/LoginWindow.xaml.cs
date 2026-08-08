@@ -23,14 +23,14 @@ namespace WorkforceManager.UI.Views
 
         private async void Login_Click(object sender, RoutedEventArgs e)
         {
-            ErrorText.Visibility = Visibility.Collapsed;
+            ErrorText.ClearError();
 
             var username = UsernameBox.Text.Trim();
             var password = PasswordBox.Password;
 
             if (username.Length == 0 || password.Length == 0)
             {
-                ShowError("اكتب اسم المستخدم وكلمة المرور الأول");
+                ErrorText.ShowError("اكتب اسم المستخدم وكلمة المرور الأول");
                 return;
             }
 
@@ -41,7 +41,7 @@ namespace WorkforceManager.UI.Views
             if (user is null)
             {
                 // رسالة واحدة للحالتين عمدًا — مش بنقول للمتطفل أنهي جزء الغلط
-                ShowError("اسم المستخدم أو كلمة المرور غير صحيحة");
+                ErrorText.ShowError("اسم المستخدم أو كلمة المرور غير صحيحة");
                 PasswordBox.Clear();
                 PasswordBox.Focus();
                 return;
@@ -65,11 +65,6 @@ namespace WorkforceManager.UI.Views
             dialog.ShowDialog();
         }
 
-        private void ShowError(string message)
-        {
-            ErrorText.Text = message;
-            ErrorText.Visibility = Visibility.Visible;
-        }
 
         /// <summary>النافذة بلا إطار نظام — السحب من أي مكان فاضي فيها</summary>
         private void Window_Drag(object sender, MouseButtonEventArgs e)

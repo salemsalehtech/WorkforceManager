@@ -75,12 +75,11 @@ namespace WorkforceManager.UI.Views
                 ImageChanged = true;
                 ShowImagePreview();
 
-                ErrorText.Visibility = Visibility.Collapsed;
+                ErrorText.ClearError();
             }
             catch (Exception ex)
             {
-                ErrorText.Text = ex.Message;
-                ErrorText.Visibility = Visibility.Visible;
+                ErrorText.ShowError(ex.Message);
             }
         }
 
@@ -95,8 +94,7 @@ namespace WorkforceManager.UI.Views
         {
             if (string.IsNullOrWhiteSpace(NameBox.Text))
             {
-                ErrorText.Text = "اسم المنتج مطلوب";
-                ErrorText.Visibility = Visibility.Visible;
+                ErrorText.ShowError("اسم المنتج مطلوب");
                 NameBox.Focus();
                 return;
             }

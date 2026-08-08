@@ -493,7 +493,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "خطأ في إضافة المنتج", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "خطأ في إضافة المنتج");
             }
         }
 
@@ -523,7 +523,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "خطأ في تعديل المنتج", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "خطأ في تعديل المنتج");
             }
         }
 
@@ -537,7 +537,7 @@ namespace WorkforceManager.UI.ViewModels
                 ? $"إيقاف المنتج \"{SelectedProduct.Name}\"؟\nهيختفي هو ومراحله من شاشة التسجيل، وكل السجلات التاريخية هتفضل محفوظة."
                 : $"إعادة تفعيل المنتج \"{SelectedProduct.Name}\"؟";
 
-            if (MessageBox.Show(message, "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (!Notify.Ask(message, "تأكيد"))
                 return;
 
             using var scope = _scopeFactory.CreateScope();
@@ -579,7 +579,7 @@ namespace WorkforceManager.UI.ViewModels
 
                 if (!result.IsDeleted)
                 {
-                    MessageBox.Show(result.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Notify.Warn(result.Message, "مش هينفع");
                     return;
                 }
 
@@ -587,7 +587,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "خطأ في الحذف", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "خطأ في الحذف");
             }
         }
 
@@ -611,7 +611,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "خطأ في إضافة المرحلة", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "خطأ في إضافة المرحلة");
             }
         }
 
@@ -651,7 +651,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "خطأ في تعديل المرحلة", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "خطأ في تعديل المرحلة");
             }
         }
 
@@ -686,7 +686,7 @@ namespace WorkforceManager.UI.ViewModels
                 ? $"إيقاف مرحلة \"{stage.StageName}\"؟\nهتختفي من شاشة التسجيل وسجلاتها التاريخية هتفضل محفوظة."
                 : $"إعادة تفعيل مرحلة \"{stage.StageName}\"؟";
 
-            if (MessageBox.Show(message, "تأكيد", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            if (!Notify.Ask(message, "تأكيد"))
                 return;
 
             using var scope = _scopeFactory.CreateScope();
@@ -724,7 +724,7 @@ namespace WorkforceManager.UI.ViewModels
 
                 if (!result.IsDeleted)
                 {
-                    MessageBox.Show(result.Message, "مش هينفع", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Notify.Warn(result.Message, "مش هينفع");
                     return;
                 }
 
@@ -732,7 +732,7 @@ namespace WorkforceManager.UI.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "خطأ في الحذف", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Notify.Warn(ex.Message, "خطأ في الحذف");
             }
         }
     }
