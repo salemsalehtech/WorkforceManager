@@ -69,6 +69,7 @@ namespace WorkforceManager.UI
                     services.AddScoped<PayrollService>();
                     services.AddScoped<ProductionReportService>();
                     services.AddScoped<WageAdjustmentService>();
+                    services.AddScoped<ReportBuilderService>();
                     // الهوية المشتركة: مصدر واحد لـ"مين عمل كده" — الحذف الناعم
                     // وسجل العمليات الاتنين بيقروا منه
                     services.AddSingleton<CurrentUserContext>();
@@ -80,6 +81,7 @@ namespace WorkforceManager.UI
                     services.AddScoped<AuthService>();
                     // خدمة التصدير Singleton لأنها بدون حالة ولا بتلمس قاعدة البيانات
                     services.AddSingleton<WeeklyReportExcelService>();
+                    services.AddSingleton<ReportTableExcelService>();
 
                     // Windows / Views
                     services.AddSingleton<MainWindow>();
