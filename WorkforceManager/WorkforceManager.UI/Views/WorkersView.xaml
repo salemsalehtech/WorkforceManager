@@ -1053,7 +1053,7 @@
                                                                                 </Style>
                                                                             </Border.Style>
                                                                             <TextBlock Text="{Binding Position}" FontSize="10.5" FontWeight="Bold"
-                                                                                       Foreground="White" HorizontalAlignment="Center"
+                                                                                       Foreground="{DynamicResource SidebarInkBrush}" HorizontalAlignment="Center"
                                                                                        VerticalAlignment="Center" />
                                                                         </Border>
 
@@ -1240,7 +1240,7 @@
                             <ItemsControl ItemsSource="{Binding WeeklyHistory}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border CornerRadius="{DynamicResource RadiusSmall}" Margin="0,0,0,6" Background="White"
+                                        <Border CornerRadius="{DynamicResource RadiusSmall}" Margin="0,0,0,6" Background="{DynamicResource SurfaceBrush}"
                                                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1.4">
                                             <StackPanel>
                                                 <!-- ===== رأس الكارت ===== -->
@@ -1406,7 +1406,7 @@
                                                             <ItemsControl ItemsSource="{Binding Breakdown}">
                                                                 <ItemsControl.ItemTemplate>
                                                                     <DataTemplate>
-                                                                        <Border Background="White" CornerRadius="6" Padding="7,4" Margin="0,1.5">
+                                                                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6" Padding="7,4" Margin="0,1.5">
                                                                             <DockPanel>
                                                                                 <TextBlock DockPanel.Dock="Left" Text="{Binding PiecesText}"
                                                                                            FontSize="11.5" FontWeight="Bold"

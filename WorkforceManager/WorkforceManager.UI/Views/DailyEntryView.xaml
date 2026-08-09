@@ -309,9 +309,9 @@
                                                                     <StackPanel Margin="10,8">
                                                                         <!-- رأس البطاقة: رقم الترتيب + الاسم + اليومية + إنتاج المرحلة المحسوب -->
                                                                         <DockPanel>
-                                                                            <Border DockPanel.Dock="Left" Background="{DynamicResource BrandBrush}" CornerRadius="12"
+                                                                            <Border DockPanel.Dock="Left" Background="{DynamicResource SidebarBrush}" CornerRadius="12"
                                                                                     Width="24" Height="24" VerticalAlignment="Center">
-                                                                                <TextBlock Text="{Binding DisplayOrder}" Foreground="White" FontSize="12"
+                                                                                <TextBlock Text="{Binding DisplayOrder}" Foreground="{DynamicResource SidebarInkBrush}" FontSize="12"
                                                                                            FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                                             </Border>
 
@@ -443,7 +443,7 @@
                                                                                  IsPickerOpen بتتصفّر مع كل إضافة عامل — الفوكس
                                                                                  لوحده مكانش بيقفلها لأنه بيفضل مكانه. -->
                                                                             <Border Width="240" HorizontalAlignment="Left" Margin="0,3,0,0"
-                                                                                    Background="White" CornerRadius="6"
+                                                                                    Background="{DynamicResource SurfaceBrush}" CornerRadius="6"
                                                                                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1.2">
                                                                                 <Border.Style>
                                                                                     <Style TargetType="Border">

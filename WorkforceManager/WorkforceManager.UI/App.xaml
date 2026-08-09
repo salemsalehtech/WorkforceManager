@@ -209,7 +209,10 @@
               (بيتنفذوا على مستوى الـ composition من غير إعادة رسم للـ layout)
             -->
             <Style x:Key="BaseActionButton" TargetType="Button">
-                <Setter Property="Foreground" Value="White" />
+                <!-- اللون اللي بيتكتب فوق الأكسنت، مش أبيض ثابت: الأبيض
+                     الثابت كان بيختفي تمامًا أول ما خلفية الزرار تبقى
+                     فاتحة في الثيم الأسود -->
+                <Setter Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
                 <Setter Property="FontWeight" Value="Bold" />
                 <Setter Property="FontSize" Value="13.5" />
                 <Setter Property="Padding" Value="18,10" />
@@ -251,11 +254,11 @@
                                 </Border>
 
                                 <!-- 3) تفتيح المرور -->
-                                <Border x:Name="Glow" CornerRadius="10" Background="White"
+                                <Border x:Name="Glow" CornerRadius="10" Background="{DynamicResource SurfaceBrush}"
                                         Opacity="0" IsHitTestVisible="False" />
 
                                 <!-- 4) نبضة الضغط -->
-                                <Border x:Name="Pulse" CornerRadius="10" Background="White"
+                                <Border x:Name="Pulse" CornerRadius="10" Background="{DynamicResource SurfaceBrush}"
                                         Opacity="0" IsHitTestVisible="False"
                                         RenderTransformOrigin="0.5,0.5">
                                     <Border.RenderTransform>
@@ -391,18 +394,28 @@
             </Style>
 
             <!-- الزر الرئيسي (كحلي) — الفعل الأساسي في أي شاشة -->
+            <!-- الفعل الرئيسي: **دهبي**، مش لون الحبر. كان BrandBrush
+                 اللي هو الحبر نفسه — وفي الثيم الأسود الحبر #EDEDED،
+                 فالزرار كان بيطلع مستطيل أبيض بنص أبيض عليه. والدهبي
+                 هو أصلاً لون الفعل الرئيسي في الهوية دي. -->
             <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource BaseActionButton}">
-                <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+                <Setter Property="Background" Value="{DynamicResource GoldGradientBrush}" />
             </Style>
 
-            <!-- زر النجاح (أخضر) — إضافة/تصدير -->
+            <!-- إضافة/تصدير — نفس الدهبي: في هوية لونها واحد، "أيوه"
+                 لون واحد. الأخضر القديم اتشال مع باقي الألوان الغريبة. -->
             <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource BaseActionButton}">
-                <Setter Property="Background" Value="{DynamicResource SuccessBrush}" />
+                <Setter Property="Background" Value="{DynamicResource GoldGradientBrush}" />
             </Style>
 
-            <!-- زر الخطر (أحمر) — جزاءات وما شابه -->
+            <!-- الخطر: **مملوء بالتظليل مش باللون المصمت.** اللون
+                 المصمت محتاج نص فاتح في الثيم الفاتح وغامق في الأسود
+                 (الطوبي بيتقلب) — والتظليل بيحل ده لوحده: الخلفية
+                 والنص الاتنين من نفس اللوحة فالتباين مضمون في الحالتين،
+                 والزرار فاضل مميز عن الأساسي من غير ما يصرّخ. -->
             <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource BaseActionButton}">
-                <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
+                <Setter Property="Background" Value="{DynamicResource DangerTintBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
             </Style>
 
             <!--
@@ -690,7 +703,7 @@
 
                                 <!-- نبضة الضغط (نفس فكرة الزر الأساسي بس بلون البراند) -->
                                 <Border x:Name="Pulse" CornerRadius="10" Opacity="0"
-                                        Background="{DynamicResource BrandBrush}" IsHitTestVisible="False"
+                                        Background="{DynamicResource SidebarBrush}" IsHitTestVisible="False"
                                         RenderTransformOrigin="0.5,0.5">
                                     <Border.RenderTransform>
                                         <ScaleTransform x:Name="PulseScale" ScaleX="0.75" ScaleY="0.75" />

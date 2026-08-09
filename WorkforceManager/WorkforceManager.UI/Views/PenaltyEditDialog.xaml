@@ -9,7 +9,7 @@
 
     <!-- تعديل سبب الجزاء وخصمه. الجزاءات التلقائية بترفضها الخدمة نفسها،
          فالنافذة دي مش محتاجة تعرف الفرق. -->
-    <Border CornerRadius="18" Background="White">
+    <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
         <Border.Effect>
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
@@ -17,13 +17,13 @@
             <Border DockPanel.Dock="Top" Background="{DynamicResource DangerBrush}"
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
-                    <Button DockPanel.Dock="Left" Foreground="White"
+                    <Button DockPanel.Dock="Left" Foreground="{DynamicResource SidebarInkBrush}"
                             Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
                             ToolTip="إغلاق">
                         <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
                     </Button>
                     <StackPanel>
-                        <TextBlock Text="تعديل جزاء" Foreground="White" FontSize="15.5" FontWeight="Bold" />
+                        <TextBlock Text="تعديل جزاء" Foreground="{DynamicResource SidebarInkBrush}" FontSize="15.5" FontWeight="Bold" />
                         <TextBlock x:Name="WorkerText" Foreground="{DynamicResource SidebarInkBrush}" FontSize="12" Margin="0,2,0,0" />
                     </StackPanel>
                 </DockPanel>

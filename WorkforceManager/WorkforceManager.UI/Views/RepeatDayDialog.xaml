@@ -10,21 +10,21 @@
     <!-- اختيار اليوم اللي التوزيع هيتنسخ منه.
          قايمة بالأيام اللي فيها شغل فعلاً مش منتقي تاريخ فاضي: المستخدم
          مش لازم يخمّن ويلاقي "مفيش شغل في اليوم ده" كذا مرة. -->
-    <Border CornerRadius="18" Background="White">
+    <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
         <Border.Effect>
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
-            <Border DockPanel.Dock="Top" Background="{DynamicResource BrandBrush}"
+            <Border DockPanel.Dock="Top" Background="{DynamicResource SidebarBrush}"
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
-                    <Button DockPanel.Dock="Left" Foreground="White"
+                    <Button DockPanel.Dock="Left" Foreground="{DynamicResource SidebarInkBrush}"
                             Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
                             ToolTip="إغلاق">
                         <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
                     </Button>
                     <StackPanel>
-                        <TextBlock Text="كرّر توزيع يوم فات" Foreground="White"
+                        <TextBlock Text="كرّر توزيع يوم فات" Foreground="{DynamicResource SidebarInkBrush}"
                                    FontSize="15.5" FontWeight="Bold" />
                         <TextBlock x:Name="SubtitleText" Foreground="{DynamicResource SidebarInkBrush}" FontSize="12"
                                    Margin="0,2,0,0" TextWrapping="Wrap" />

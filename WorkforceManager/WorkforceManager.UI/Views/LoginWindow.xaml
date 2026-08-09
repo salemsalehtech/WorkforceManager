@@ -12,7 +12,7 @@
 
     <!-- شاشة الدخول الترحيبية: بطاقة عائمة بلا إطار نظام —
          يمين: لوحة الهوية بالتدرج الكحلي، شمال: فورم الدخول -->
-    <Border CornerRadius="20" Background="White" MouseLeftButtonDown="Window_Drag">
+    <Border CornerRadius="20" Background="{DynamicResource SurfaceBrush}" MouseLeftButtonDown="Window_Drag">
         <Border.Effect>
             <DropShadowEffect BlurRadius="30" ShadowDepth="0" Opacity="0.25" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
@@ -44,7 +44,7 @@
                                 HorizontalAlignment="Right">
                             <TextBlock Text="🏭" FontSize="38" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Text="إدارة الإنتاجية" Foreground="White" FontSize="26" FontWeight="Bold"
+                        <TextBlock Text="إدارة الإنتاجية" Foreground="{DynamicResource SidebarInkBrush}" FontSize="26" FontWeight="Bold"
                                    Margin="0,18,0,4" />
                         <TextBlock Text="نظام اليوميات والأجور والتقييم" Foreground="{DynamicResource SidebarInkBrush}" FontSize="14" />
                         <Border Height="3" Width="52" CornerRadius="2" Background="{DynamicResource GoldBrush}"

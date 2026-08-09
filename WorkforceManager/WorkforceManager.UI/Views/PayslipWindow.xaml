@@ -9,7 +9,7 @@
 
     <DockPanel Margin="0">
         <!-- شريط الأدوات (مش بيتطبع) -->
-        <Border DockPanel.Dock="Top" Background="{DynamicResource BrandBrush}" Padding="14,10">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource SidebarBrush}" Padding="14,10">
             <DockPanel LastChildFill="False">
                 <Button DockPanel.Dock="Left" Click="Print_Click"
                         Style="{StaticResource SuccessButton}">
@@ -19,7 +19,7 @@
                     </StackPanel>
                 </Button>
                 <Button DockPanel.Dock="Left" Content="إغلاق" Click="Close_Click"
-                        Style="{StaticResource GhostButton}" Foreground="White" Margin="8,0,0,0" />
+                        Style="{StaticResource GhostButton}" Foreground="{DynamicResource SidebarInkBrush}" Margin="8,0,0,0" />
                 <TextBlock DockPanel.Dock="Right" Text="معاينة قبل الطباعة" Foreground="{DynamicResource SidebarInkBrush}"
                            VerticalAlignment="Center" FontSize="12.5" />
             </DockPanel>

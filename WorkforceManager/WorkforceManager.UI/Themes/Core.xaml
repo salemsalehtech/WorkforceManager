@@ -440,121 +440,33 @@
         <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
         <Setter Property="BorderThickness" Value="1" />
     </Style>
-
     <!-- ============ القايمة المنسدلة ============
 
-         الـ 22 ComboBox في البرنامج كانوا شايلين **قالب ويندوز
-         الافتراضي** (Aero): خلفية بيضا متدرجة وسهم رمادي، مكتوبة جوه
-         النظام ومش بتسمع لأي لوحة ألوان. في الثيم الفاتح عدّت، وفي
-         الأسود بقت مستطيل أبيض ناصع وسط الشاشة. ولا MaterialDesign
-         ولا اللوحة بتاعتنا كانوا بيوصلوها — لازم قالب من عندنا. -->
-    <Style x:Key="ComboItem" TargetType="ComboBoxItem">
+         **بترث قالب MaterialDesign بدل قالب من عندنا.** كتبت قالب
+         كامل الأول وطلع فيه عيب خطير: الـ ContentPresenter بتاع
+         الاختيار مبيحترمش DisplayMemberPath، وكل القوايم في البرنامج
+         بتستخدمه — فبدل ما يظهر اسم المرحلة كان بيظهر ToString بتاع
+         الكائن نفسه:
+             StageFilterOption { StageId = 1, Display = GRS }
+         منطق اختيار قالب العنصر في WPF أعقد من ContentPresenter واحد،
+         وقالب المكتبة متعامل معاه صح من زمان. مفيش داعي نعيد كتابته
+         عشان شكل الحدود.
+
+         Outlined عن قصد مش الافتراضي (اللي بخط تحتاني): ده اللي بيدي
+         حقل بحدود وزوايا مدوّرة زي باقي حقول البرنامج.
+
+         الألوان بترجع للوحتنا بعد الوراثة، وثيم المكتبة بقى بيمشي مع
+         ثيمنا (شوف ApplyTheme)، فالنتيجة قالبهم بهويتنا. -->
+    <Style TargetType="ComboBox" BasedOn="{StaticResource MaterialDesignOutlinedComboBox}">
         <Setter Property="FontFamily" Value="{DynamicResource AppFont}" />
         <Setter Property="FontSize" Value="{DynamicResource FontSmall}" />
         <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
-        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ComboBoxItem">
-                    <Border x:Name="Bd" Background="Transparent" Padding="{TemplateBinding Padding}"
-                            CornerRadius="6" Margin="3,1">
-                        <ContentPresenter />
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SelectedBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource GoldDeepBrush}" />
-                            <Setter Property="FontWeight" Value="SemiBold" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
+        <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
-    <Style TargetType="ComboBox">
-        <Setter Property="FontFamily" Value="{DynamicResource AppFont}" />
-        <Setter Property="FontSize" Value="{DynamicResource FontSmall}" />
-        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
-        <Setter Property="Padding" Value="10,7" />
-        <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-        <Setter Property="ItemContainerStyle" Value="{StaticResource ComboItem}" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="ComboBox">
-                    <Grid>
-                        <!--
-                          **Style="{x:Null}" مش رفاهية.** MaterialDesign
-                          عندها نمط ضمني للـ ToggleButton بيرسمه **مفتاح
-                          تبديل** (سويتش) — شريط بيضاوي فاتح بكبسولة —
-                          وده كان بيتطبّق على الزرار ده ويرسم كبسولة فاتحة
-                          جوه القايمة المنسدلة في الثيمين. تصفير النمط
-                          بيمنع الوراثة دي من غير الآثار الجانبية بتاعة
-                          OverridesDefaultStyle (اللي بتلغي محاذاة
-                          الامتداد كمان فالزرار بيقلّ لحجم محتواه).
-                        -->
-                        <ToggleButton x:Name="Toggle" Focusable="False" ClickMode="Press"
-                                      Style="{x:Null}" Background="Transparent"
-                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
-                            <ToggleButton.Template>
-                                <ControlTemplate TargetType="ToggleButton">
-                                    <Border x:Name="Bd" CornerRadius="{DynamicResource RadiusSmall}"
-                                            Background="{DynamicResource SurfaceBrush}"
-                                            BorderBrush="{DynamicResource LineStrongBrush}" BorderThickness="1">
-                                        <!-- السهم على الشمال: الشاشة من اليمين للشمال -->
-                                        <Path x:Name="Arrow" HorizontalAlignment="Left" VerticalAlignment="Center"
-                                              Margin="11,0,0,0" Data="M 0 0 L 4.5 4.5 L 9 0" StrokeThickness="1.6"
-                                              Stroke="{DynamicResource InkFaintBrush}" />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GoldBrush}" />
-                                            <Setter TargetName="Arrow" Property="Stroke" Value="{DynamicResource GoldBrush}" />
-                                        </Trigger>
-                                        <Trigger Property="IsChecked" Value="True">
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GoldBrush}" />
-                                            <Setter TargetName="Arrow" Property="Stroke" Value="{DynamicResource GoldBrush}" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </ToggleButton.Template>
-                        </ToggleButton>
-
-                        <ContentPresenter x:Name="Sel" IsHitTestVisible="False"
-                                          Margin="{TemplateBinding Padding}"
-                                          Content="{TemplateBinding SelectionBoxItem}"
-                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
-                                          VerticalAlignment="Center" />
-
-                        <Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Bottom"
-                               IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Fade">
-                            <Border Background="{DynamicResource SurfaceBrush}"
-                                    BorderBrush="{DynamicResource LineStrongBrush}" BorderThickness="1"
-                                    CornerRadius="{DynamicResource RadiusSmall}" Padding="2"
-                                    MinWidth="{TemplateBinding ActualWidth}"
-                                    MaxHeight="{TemplateBinding MaxDropDownHeight}"
-                                    Effect="{DynamicResource CardShadow}" Margin="0,3,0,10">
-                                <ScrollViewer>
-                                    <ItemsPresenter />
-                                </ScrollViewer>
-                            </Border>
-                        </Popup>
-                    </Grid>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.45" />
-                            <Setter Property="Cursor" Value="Arrow" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
 
     <!--
       حقل التاريخ بيرث قالب MaterialDesign بدل ما نكتب واحد من الصفر.

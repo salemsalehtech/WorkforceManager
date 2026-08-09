@@ -339,11 +339,21 @@ Core  <----------------------- UI
   carried a style that set only padding and font ("without rebuilding the inner template, to avoid
   unnecessary risk"), so they kept Aero's white gradient box; `DatePickerTextBox` was worse, because
   declaring *any* implicit style for it replaces MaterialDesign's entirely and drops it to the bare WPF
-  template. Both now have full templates (`Core.xaml`, and `DatePicker` inherits `MaterialDesignDatePicker`
-  rather than re-implementing a calendar). Inside the ComboBox template the toggle carries `Style="{x:Null}"`
-  — MaterialDesign's implicit `ToggleButton` style renders a *switch*, which painted a light pill inside
-  every dropdown. Prefer `Style="{x:Null}"` over `OverridesDefaultStyle="True"`: the latter also discards
-  stretch alignment, which collapses the button to the size of its arrow.
+  template. `ComboBox` and `DatePicker` now inherit `MaterialDesignOutlinedComboBox` /
+  `MaterialDesignDatePicker` and only re-set colours on top. **Do not hand-roll a ComboBox template here:**
+  the first attempt did, and its selection `ContentPresenter` silently ignored `DisplayMemberPath` — which
+  every ComboBox in this app uses — so each one rendered its record's `ToString()`
+  (`StageFilterOption { StageId = 1, Display = GRS }`) instead of the stage name. Selection-box template
+  resolution is subtler than one `ContentPresenter`, and the library's template already handles it.
+  `DatePickerTextBox` does keep a full hand-written template, because there is no library style left to
+  inherit once an implicit style for it exists.
+  **Every filled button takes its foreground from `InkOnAccentBrush`, never `White`.** `BaseActionButton`
+  hardcoded white, and `PrimaryButton`'s background was `BrandBrush` — the *ink* colour — so in the black
+  theme the main action became a near-white rectangle with white text on it. Primary and Success are both
+  the gold gradient now (one identity, one "yes"). `DangerButton` is deliberately **tinted** rather than
+  solid: the brick tone inverts between themes, so a solid fill would need light text in one and dark in
+  the other, while `DangerTintBrush` background + `DangerBrush` text is contrast-safe in both by
+  construction.
   **An implicit `TextBlock` style sets `Foreground`**, because WPF's default is black and dozens of
   TextBlocks in this app never set one — invisible on a black page, and perfectly fine-looking in the light
   theme, which is why it went unnoticed for so long.

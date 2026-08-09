@@ -41,7 +41,7 @@
         <Popup x:Name="SuggestionsPopup" StaysOpen="False" AllowsTransparency="True"
                Placement="Bottom" PlacementTarget="{Binding ElementName=SearchBox}"
                HorizontalOffset="0" VerticalOffset="4">
-            <Border Background="White" CornerRadius="8" Padding="4"
+            <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="4"
                     BorderBrush="{DynamicResource LineStrongBrush}" BorderThickness="1" MinWidth="240">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.18" Color="{DynamicResource ShadowColor}" />
