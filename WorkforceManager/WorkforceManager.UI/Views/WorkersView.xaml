@@ -639,8 +639,14 @@
                                     </StackPanel>
                                 </Button>
                                 <Button Command="{Binding DataContext.ToggleActiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                    <!--
+                                      BasedOn لازم StaticResource: هي خاصية CLR عادية على
+                                      Style مش DependencyProperty، وDynamicResource عليها
+                                      بيرمي وقت التحميل مش وقت البناء. وده مش بيكسر تبديل
+                                      الثيم — الألوان جوه النمط الأساسي نفسها DynamicResource.
+                                    -->
                                     <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{DynamicResource QuietButton}">
+                                        <Style TargetType="Button" BasedOn="{StaticResource QuietButton}">
                                             <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
                                             <Setter Property="Content">
                                                 <Setter.Value>
@@ -685,7 +691,7 @@
                                 <Button DockPanel.Dock="Left" Padding="10,5"
                                         Command="{Binding DataContext.ToggleAddSkillsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
                                     <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{DynamicResource QuietButton}">
+                                        <Style TargetType="Button" BasedOn="{StaticResource QuietButton}">
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsAddingSkills}" Value="True">
                                                     <Setter Property="Background" Value="{DynamicResource InkBrush}" />
@@ -993,7 +999,7 @@
                                                                                 Command="{Binding DataContext.ToggleSkillCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                                 CommandParameter="{Binding}">
                                                                             <Button.Style>
-                                                                                <Style TargetType="Button" BasedOn="{DynamicResource IconButton}">
+                                                                                <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
                                                                                     <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
                                                                                     <Setter Property="ToolTip" Value="ضيف المهارة دي للعامل" />
                                                                                     <Style.Triggers>
@@ -1046,7 +1052,7 @@
                                                                                     Visibility="{Binding ShowStars, Converter={StaticResource BoolToVis}}">
                                                                             <StackPanel.Resources>
                                                                                 <!-- نجمة واحدة: مليانة لو ضمن التقييم، فاضية لو لأ -->
-                                                                                <Style x:Key="StarButton" TargetType="Button" BasedOn="{DynamicResource IconButton}">
+                                                                                <Style x:Key="StarButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
                                                                                     <Setter Property="Padding" Value="1,0" />
                                                                                     <Setter Property="Width" Value="18" />
                                                                                     <Setter Property="Height" Value="18" />

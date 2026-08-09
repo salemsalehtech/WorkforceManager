@@ -211,10 +211,19 @@ namespace WorkforceManager.UI
             }
             catch (Exception ex)
             {
-                // فشل بدء التشغيل (قاعدة بيانات مقفولة/تالفة، مساحة قرص، ...):
-                // نعرض السبب بوضوح ونقفل بأمان بدل ما البرنامج يختفي من غير رسالة
-                Notify.Warn($"تعذّر بدء تشغيل البرنامج:\n\n{ex.Message}\n\n" +
-                    "لو المشكلة مستمرة، فيه نسخة احتياطية من البيانات في مجلد Backups.", "خطأ في بدء التشغيل");
+                // فشل بدء التشغيل (قاعدة بيانات مقفولة/تالفة، مساحة قرص،
+                // خطأ في بناء الواجهة...): نعرض السبب ونقفل بأمان بدل ما
+                // البرنامج يختفي من غير رسالة.
+                //
+                // **Notify.Error مش Warn**: ده فشل، والفشل لازم يوقف
+                // ويستنى — والإشعار الطاير بيروح لوحده.
+                var logPath = WriteCrashLog(ex);
+
+                Notify.Error(
+                    $"تعذّر بدء تشغيل البرنامج:\n\n{ex.Message}\n\n" +
+                    $"التفاصيل الكاملة اتكتبت في:\n{logPath}",
+                    "خطأ في بدء التشغيل");
+
                 Shutdown(-1);
             }
         }
@@ -258,6 +267,42 @@ namespace WorkforceManager.UI
             if (dictionaries[index].Source?.OriginalString == wanted) return;
 
             dictionaries[index] = new ResourceDictionary { Source = new Uri(wanted, UriKind.Relative) };
+        }
+
+        /// <summary>
+        /// بيكتب تفاصيل العطل الكاملة في ملف جنب قاعدة البيانات.
+        ///
+        /// رسالة الاستثناء لوحدها مبتكفيش: العطل اللي بيحصل وقت بناء
+        /// الواجهة رسالته عامة، والسبب الحقيقي بيبقى في
+        /// InnerException — وأحيانًا في التالت. الملف بيكتبهم كلهم مع
+        /// مكان العطل بالظبط، فبدل "البرنامج مش بيفتح" يبقى فيه سطر
+        /// بيقول العطل فين.
+        /// </summary>
+        private static string WriteCrashLog(Exception ex)
+        {
+            var path = Path.Combine(AppPaths.DataFolder, "crash.txt");
+
+            try
+            {
+                var text = new System.Text.StringBuilder();
+                text.AppendLine($"وقت العطل: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+                text.AppendLine();
+
+                for (var current = ex; current is not null; current = current.InnerException)
+                {
+                    text.AppendLine($"[{current.GetType().Name}] {current.Message}");
+                    text.AppendLine(current.StackTrace);
+                    text.AppendLine(new string('-', 60));
+                }
+
+                File.WriteAllText(path, text.ToString());
+            }
+            catch
+            {
+                // فشل كتابة السجل عمره ما يحجب رسالة العطل الأصلية
+            }
+
+            return path;
         }
 
         protected override async void OnExit(ExitEventArgs e)
