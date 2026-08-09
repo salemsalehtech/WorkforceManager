@@ -237,25 +237,30 @@ namespace WorkforceManager.UI.ViewModels
         public string RatingLabel => HasRating ? SkillRatingService.StarsLabel(RoundedStars) : "";
 
         /// <summary>
-        /// لون الشارة حسب المستوى: أخضر للممتاز، رمادي للعادي، برتقالي
-        /// وأحمر للأقل. اللون بيخلي المستوى يتقري من غير ما العين تعدّ نجوم.
+        /// مفتاح فرشاة الشارة حسب المستوى — مش كود لون (شوف
+        /// <see cref="ThemeBrush"/>). اللون بيخلي المستوى يتقري من غير
+        /// ما العين تعدّ نجوم.
+        ///
+        /// الممتاز والكويس جدًا الاتنين دهبي عن قصد: الدهبي هو "أيوه"
+        /// في الهوية دي، والفرق بينهم النجوم نفسها. اللي كان بيفرّقهم
+        /// قبل كده درجتين أخضر متقاربين — فرق محدش كان بيشوفه.
         /// </summary>
         public string RatingColor => RoundedStars switch
         {
-            5 => "#0B6E4F", // ممتاز
-            4 => "#2E8B57", // كويس جدًا
-            3 => "#6B7686", // عادي
-            2 => "#B7791F", // ضعيف
-            _ => "#B00020"  // ضعيف جدًا
+            5 => "GoodBrush",      // ممتاز
+            4 => "GoldDeepBrush",  // كويس جدًا
+            3 => "InkSoftBrush",   // عادي
+            2 => "WarnBrush",      // ضعيف
+            _ => "DangerBrush"     // ضعيف جدًا
         };
 
         public string RatingBackground => RoundedStars switch
         {
-            5 => "#E7F4EF",
-            4 => "#EAF5EE",
-            3 => "#EFF1F5",
-            2 => "#FFF7E8",
-            _ => "#FBEAEC"
+            5 => "GoodTintBrush",
+            4 => "GoldTintBrush",
+            3 => "SurfaceAltBrush",
+            2 => "WarnTintBrush",
+            _ => "DangerTintBrush"
         };
 
         /// <summary>شرح الشارة — من غيره الرقم مالوش سياق</summary>

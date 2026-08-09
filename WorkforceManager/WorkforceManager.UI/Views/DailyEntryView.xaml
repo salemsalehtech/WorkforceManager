@@ -1,6 +1,7 @@
 <UserControl x:Class="WorkforceManager.UI.Views.DailyEntryView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:WorkforceManager.UI"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:WorkforceManager.UI.ViewModels"
@@ -303,7 +304,7 @@
                                                                   <DockPanel>
                                                                     <!-- شريط حالة المرحلة: لون واحد بيقول جاهزة/ناقصة من بعيد -->
                                                                     <Border DockPanel.Dock="Left" Width="5" CornerRadius="3,0,0,3"
-                                                                            Background="{Binding StateColor}" />
+                                                                            ui:ThemeBrush.BackgroundKey="{Binding StateColor}" />
 
                                                                     <StackPanel Margin="10,8">
                                                                         <!-- رأس البطاقة: رقم الترتيب + الاسم + اليومية + إنتاج المرحلة المحسوب -->
@@ -340,7 +341,7 @@
 
                                                                             <!-- حالة المرحلة بالنص (جاهزة / محتاجة عمال / التوزيع مش مظبوط) -->
                                                                             <TextBlock Text="{Binding StateText}" FontSize="11.5" FontWeight="SemiBold"
-                                                                                       Foreground="{Binding StateColor}"
+                                                                                       ui:ThemeBrush.ForegroundKey="{Binding StateColor}"
                                                                                        VerticalAlignment="Center" Margin="10,0,0,0"
                                                                                        Visibility="{Binding HasState, Converter={StaticResource BoolToVis}}" />
                                                                         </DockPanel>
@@ -478,7 +479,7 @@
                                                                                                 <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
                                                                                                     <!-- النجوم دهبية دايمًا — ده لون النجوم المتعارف عليه -->
                                                                                                     <TextBlock Text="{Binding StarsText}" FontSize="11"
-                                                                                                               FontWeight="Bold" Foreground="#F5A623" />
+                                                                                                               FontWeight="Bold" Foreground="{DynamicResource GoldBrush}" />
 
                                                                                                     <!-- الأداء المقاس جنبها، رمادي عشان ميزاحمش النجوم -->
                                                                                                     <TextBlock Text="{Binding MeasuredText}" FontSize="10"
@@ -1026,7 +1027,7 @@
 
                                                     <!-- شريط الحالة الجانبي: لون واحد بيقول حالة العامل من بعيد -->
                                                     <Border Grid.Column="0" Width="5" CornerRadius="3"
-                                                            Background="{Binding StatusColor}" Margin="0,2,14,2" />
+                                                            ui:ThemeBrush.BackgroundKey="{Binding StatusColor}" Margin="0,2,14,2" />
 
                                                     <!-- دايرة الحروف الأولى -->
                                                     <Border Grid.Column="1" Width="42" Height="42" CornerRadius="21"
@@ -1294,7 +1295,7 @@
                                 <DataGridTemplateColumn Header="النوع" Width="90">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding TypeName}" Foreground="{Binding TypeColor}"
+                                            <TextBlock Text="{Binding TypeName}" ui:ThemeBrush.ForegroundKey="{Binding TypeColor}"
                                                        FontWeight="Bold" VerticalAlignment="Center" Margin="4,0" />
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>

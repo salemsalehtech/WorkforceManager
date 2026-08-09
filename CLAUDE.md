@@ -274,13 +274,31 @@ Core  <----------------------- UI
   filled). Stage names stay unique per product, and quota edits only affect future entries thanks to the
   snapshot.
   **The design system lives in `Themes/`, not in `App.xaml`.** `Palette.Light.xaml` / `Palette.Dark.xaml`
-  hold the identity (deep navy `#0F1B2D` as ink, gold as accent); `Core.xaml` holds the sizes and component
-  styles; `Compat.xaml` re-points every **old** brush name at the new palette so screens that haven't been
-  redesigned yet still match. Compat is temporary — it shrinks as screens migrate and gets deleted with the
-  last one. **Gold is an accent, never body text on white**: `#C2A14D` on white is 2.2:1 contrast where 4.5
-  is the readable minimum, so gold goes on the logo, the active nav item, hero numbers, focus rings and the
-  primary button, and `GoldDeepBrush` (5.9:1) is the only gold allowed as text on a light surface. That
-  scarcity is also why it reads as expensive rather than loud.
+  hold the identity (deep navy `#0F1B2D` as ink, gold as accent); `Core.xaml` holds the sizes, the font, and
+  the component styles; `Compat.xaml` re-points every **old** brush name at the new palette so screens that
+  haven't been redesigned yet still match. Compat is temporary — it shrinks as screens migrate and gets
+  deleted with the last one. **Gold is an accent, never body text on white**: `#C2A14D` on white is 2.2:1
+  contrast where 4.5 is the readable minimum, so gold goes on the logo, the active nav item, hero numbers,
+  focus rings and the primary button, and `GoldDeepBrush` (5.9:1) is the only gold allowed as text on a
+  light surface. That scarcity is also why it reads as expensive rather than loud.
+  **Never declare a brush directly in `Application.Resources`.** WPF resolves direct resources *before*
+  merged dictionaries, so a key defined there silently beats the same key in `Compat.xaml` — which is
+  exactly what happened: 24 old brushes sat directly in `App.xaml`, Compat was dead from the day it was
+  written, and every screen except the redesigned one was still painting itself in the old blue/orange
+  while the theme files looked correct. `AppFont` had the same collision (Tajawal direct vs Segoe UI in
+  Core). The only things allowed to stay direct are the `PrimaryHue*`/`SecondaryHue*` overrides, because
+  beating MaterialDesign's own merged dictionary is the entire point of them — and they now take their
+  colours from the palette via `DynamicResource` rather than literals.
+  **There is no green, no blue, and no primary red in the palette.** They were the most saturated things
+  on screen, so the least important numbers pulled the eye hardest and the identity broke. The status slots
+  survive but all live in the gold/navy family: `Good` = gold ("yes" in this identity), `Warn` = deeper
+  bronze, `Info` = quiet navy, and `Danger` = a warm brick. Danger is the one deliberate exception — a
+  delete button that looks like a save button is a safety problem, not an aesthetic choice — and it is warm
+  enough to belong beside gold rather than read as a traffic light. The light theme's ground is warm
+  parchment (`#F6F2E9`), not cold blue-grey; that single choice is what makes gold read as the identity
+  instead of a foreign accent. The dark theme's ground→surface step is deliberately wide (`#070B12` →
+  `#131F31`): the previous 8-point gap was invisible on a real monitor and every card dissolved into the
+  page.
   **Theme switching is live** (`App.ApplyTheme` swaps the palette dictionary *in place*): every new style
   references colours through `DynamicResource`, so the binding stays alive. `StaticResource` is why it used
   to need a restart — a screen written with it resolves colours once at load. New XAML must use
@@ -289,6 +307,17 @@ Core  <----------------------- UI
   on it throws at load — and it costs nothing, since the colours *inside* the base style are still
   `DynamicResource` and stay live. A blanket StaticResource→DynamicResource sweep will hit `BasedOn`;
   `XamlLoadTests` is what catches it.
+  **A ViewModel never returns a colour — it returns a palette key.** `AttendanceVisuals.ColorFor`,
+  `WorkerRow.NetColor`, `FlowStageRow.StateColor`, `SkillProductGroup.RatingColor`, `DailyReportRow.RatingColor`,
+  `ReportsViewModel.ChartPalette` and friends all hand back a resource name (`"GoodBrush"`, `"Series3Brush"`),
+  and the XAML binds it through `ThemeBrush.ForegroundKey` / `BackgroundKey` / `BorderKey` (`ThemeBrush.cs`).
+  They used to return literal hex (`"#0B6E4F"`, `"#B00020"`), which meant dark mode rendered the *same* green
+  and red as light mode no matter what the theme files said — the second reason colours looked inconsistent.
+  `ThemeBrush` calls `SetResourceReference`, the programmatic equivalent of `DynamicResource`, so the binding
+  stays live and a theme switch reaches these elements too; a plain `IValueConverter` would return a dead
+  brush and silently break live switching. Chart series are `Series1Brush`…`Series8Brush` + `SeriesOtherBrush`,
+  defined per theme and **alternating gold/navy** so adjacent stack segments stay distinguishable inside a
+  two-hue identity.
   All four sidebar screens are implemented. Navigation uses `Checked` (not `Click`) on the sidebar
   radios — handlers guard against the initial `Checked` that fires during `InitializeComponent` before
   `MainContent` exists. `App.xaml` holds the design system: brand brushes (BrandBrush/AccentBrush/

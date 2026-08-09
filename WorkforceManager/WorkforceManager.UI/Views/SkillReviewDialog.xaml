@@ -9,7 +9,7 @@
 
     <Border CornerRadius="18" Background="White">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
             <!-- الرأس -->
@@ -24,7 +24,7 @@
                     <StackPanel>
                         <TextBlock Text="مراجعة تقييمات العمال" Foreground="White"
                                    FontSize="15.5" FontWeight="Bold" />
-                        <TextBlock x:Name="SummaryText" Foreground="#CFE0FF" FontSize="12"
+                        <TextBlock x:Name="SummaryText" Foreground="{DynamicResource SidebarInkBrush}" FontSize="12"
                                    Margin="0,2,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                 </DockPanel>
@@ -112,15 +112,15 @@
                                                 <!-- تعديل: من كذا لكذا -->
                                                 <TextBlock HorizontalAlignment="Center" FontSize="13"
                                                            Visibility="{Binding IsConfirmation, Converter={StaticResource InverseBoolToVis}}">
-                                                    <Run Text="{Binding CurrentStarsText, Mode=OneWay}" Foreground="#BFC7D4" />
-                                                    <Run Text="  ←  " Foreground="#8892A4" />
-                                                    <Run Text="{Binding SuggestedStarsText, Mode=OneWay}" Foreground="#F5A623" FontWeight="Bold" />
+                                                    <Run Text="{Binding CurrentStarsText, Mode=OneWay}" Foreground="{DynamicResource InkSoftBrush}" />
+                                                    <Run Text="  ←  " Foreground="{DynamicResource InkFaintBrush}" />
+                                                    <Run Text="{Binding SuggestedStarsText, Mode=OneWay}" Foreground="{DynamicResource GoldBrush}" FontWeight="Bold" />
                                                 </TextBlock>
 
                                                 <!-- تأكيد: النجوم زي ما هي، فالسهم بيلغبط -->
                                                 <TextBlock HorizontalAlignment="Center" FontSize="13"
                                                            Text="{Binding SuggestedStarsText}"
-                                                           Foreground="#F5A623" FontWeight="Bold"
+                                                           Foreground="{DynamicResource GoldBrush}" FontWeight="Bold"
                                                            Visibility="{Binding IsConfirmation, Converter={StaticResource BoolToVis}}" />
 
                                                 <TextBlock HorizontalAlignment="Center" FontSize="10.5" Margin="0,2,0,0">

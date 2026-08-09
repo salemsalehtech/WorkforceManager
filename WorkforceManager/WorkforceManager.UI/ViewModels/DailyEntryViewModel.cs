@@ -880,7 +880,7 @@ namespace WorkforceManager.UI.ViewModels
                     WorkerName = a.Worker.FullName,
                     TypeName = a.Type.ToArabicName(),
                     // السلفة حمرا (خصم) والحافز أخضر (إضافة) — تمييز بصري سريع
-                    TypeColor = a.Type == WageAdjustmentType.Bonus ? "#0B6E4F" : "#B00020",
+                    TypeColor = a.Type == WageAdjustmentType.Bonus ? "GoodBrush" : "DangerBrush",
                     AmountText = $"{a.AmountEgp:N0} ج",
                     Note = a.Note ?? ""
                 });

@@ -13,7 +13,7 @@
          عشان اللي المدير بيشوفه هنا هو اللي هيلاقيه هناك. -->
     <Border CornerRadius="18" Background="White">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
             <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
@@ -26,7 +26,7 @@
                     </Button>
                     <StackPanel>
                         <TextBlock x:Name="TitleText" Foreground="White" FontSize="15.5" FontWeight="Bold" />
-                        <TextBlock x:Name="SubtitleText" Foreground="#CFE0FF" FontSize="12" Margin="0,2,0,0" />
+                        <TextBlock x:Name="SubtitleText" Foreground="{DynamicResource SidebarInkBrush}" FontSize="12" Margin="0,2,0,0" />
                     </StackPanel>
                 </DockPanel>
             </Border>
@@ -71,7 +71,7 @@
                                                        Foreground="{StaticResource TextPrimaryBrush}" />
                                             <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                                                 <TextBlock Text="{Binding StarsText}" FontSize="12.5"
-                                                           VerticalAlignment="Center" Foreground="#F5A623" />
+                                                           VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
                                                 <TextBlock Text="{Binding StarsLabel}" FontSize="11.5" Margin="6,0,0,0"
                                                            VerticalAlignment="Center"
                                                            Foreground="{StaticResource TextMutedBrush}" />

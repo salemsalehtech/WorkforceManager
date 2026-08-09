@@ -1,6 +1,7 @@
 <UserControl x:Class="WorkforceManager.UI.Views.WorkersView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:WorkforceManager.UI"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
@@ -512,28 +513,24 @@
                                         <StackPanel Grid.Column="2" Orientation="Horizontal"
                                                     VerticalAlignment="Center" Margin="12,0,0,0">
                                             <StackPanel Margin="0,0,16,0">
+                                                <!-- الصفر بيبقى باهت: رقم مالوش قيمة بلون قوي
+                                                     بيسحب النظر لحاجة مش موجودة أصلًا -->
                                                 <TextBlock Text="{Binding PresentDays}"
-                                                           FontSize="{DynamicResource FontLarge}" FontWeight="Bold"
-                                                           HorizontalAlignment="Center"
-                                                           Foreground="{DynamicResource GoodBrush}" />
-                                                <TextBlock Text="حضور" FontSize="{DynamicResource FontMicro}"
-                                                           HorizontalAlignment="Center"
-                                                           Foreground="{DynamicResource InkFaintBrush}" />
+                                                           Style="{DynamicResource StatNumber}"
+                                                           ui:ThemeBrush.ForegroundKey="{Binding PresentColor}" />
+                                                <TextBlock Text="حضور" Style="{DynamicResource StatCaption}" />
                                             </StackPanel>
                                             <StackPanel Margin="0,0,16,0">
                                                 <TextBlock Text="{Binding AbsentWithoutPermissionDays}"
-                                                           FontSize="{DynamicResource FontLarge}" FontWeight="Bold"
-                                                           HorizontalAlignment="Center"
-                                                           Foreground="{DynamicResource DangerBrush}" />
-                                                <TextBlock Text="غياب" FontSize="{DynamicResource FontMicro}"
-                                                           HorizontalAlignment="Center"
-                                                           Foreground="{DynamicResource InkFaintBrush}" />
+                                                           Style="{DynamicResource StatNumber}"
+                                                           ui:ThemeBrush.ForegroundKey="{Binding AbsentColor}" />
+                                                <TextBlock Text="غياب" Style="{DynamicResource StatCaption}" />
                                             </StackPanel>
                                             <StackPanel>
                                                 <TextBlock Text="{Binding NetWorkdays}"
                                                            FontSize="{DynamicResource FontTitle}" FontWeight="Bold"
                                                            HorizontalAlignment="Center"
-                                                           Foreground="{Binding NetColor}" />
+                                                           ui:ThemeBrush.ForegroundKey="{Binding NetColor}" />
                                                 <TextBlock Text="الصافي" FontSize="{DynamicResource FontMicro}"
                                                            HorizontalAlignment="Center"
                                                            Foreground="{DynamicResource InkFaintBrush}" />
@@ -549,12 +546,14 @@
 
             <Border Grid.Column="1" Style="{DynamicResource Card}" Margin="12,0,0,0">
                 <Grid>
-                    <!-- رسالة لما مفيش عامل محدد -->
-                    <TextBlock Text="اختار عامل من الجدول لعرض ملفه الكامل"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="{DynamicResource InkSoftBrush}" FontSize="14">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
+                    <!-- حالة الفراغ: مساحة نص صغير في نص كارت فاضي بتبان
+                         زي حاجة اتكسرت. العلامة الكبيرة الباهتة بتقول
+                         "المكان ده بتاع حاجة لسه ماتفتحتش" وبتخلي البرنامج
+                         يبان مصمّم حتى وهو مستني. -->
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Margin="24">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
                                 <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding Detail}" Value="{x:Null}">
@@ -562,8 +561,24 @@
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                        </StackPanel.Style>
+
+                        <Viewbox Width="96" Height="96" Opacity="0.13" Margin="0,0,0,18">
+                            <views:WmsLogo />
+                        </Viewbox>
+
+                        <TextBlock Text="اختار عامل من القايمة"
+                                   Style="{DynamicResource Title}"
+                                   HorizontalAlignment="Center" />
+
+                        <Border Style="{DynamicResource GoldHairline}" Width="70"
+                                Margin="0,10,0,10" />
+
+                        <TextBlock Text="هتلاقي هنا مهاراته وتقييمه على كل منتج، حضوره وغيابه، وأجره في الأسبوع."
+                                   Style="{DynamicResource Muted}"
+                                   HorizontalAlignment="Center" TextAlignment="Center"
+                                   TextWrapping="Wrap" MaxWidth="260" />
+                    </StackPanel>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" DataContext="{Binding Detail}">
                         <ScrollViewer.Style>
@@ -938,14 +953,14 @@
                                                         <Border Grid.Column="2" CornerRadius="6" Padding="7,2" Margin="5,0,0,0"
                                                                 VerticalAlignment="Center"
                                                                 ToolTip="{Binding RatingTooltip}"
-                                                                Background="{Binding RatingBackground}"
+                                                                ui:ThemeBrush.BackgroundKey="{Binding RatingBackground}"
                                                                 Visibility="{Binding HasRating, Converter={StaticResource BoolToVis}}">
                                                             <StackPanel Orientation="Horizontal">
                                                                 <TextBlock Text="{Binding StarsText}" FontSize="10.5"
                                                                            VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
                                                                 <TextBlock Text="{Binding RatingLabel}" FontSize="11" FontWeight="Medium"
                                                                            Margin="4,0,0,0" VerticalAlignment="Center"
-                                                                           Foreground="{Binding RatingColor}" />
+                                                                           ui:ThemeBrush.ForegroundKey="{Binding RatingColor}" />
                                                             </StackPanel>
                                                         </Border>
 

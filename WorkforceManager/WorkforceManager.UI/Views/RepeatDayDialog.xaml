@@ -12,7 +12,7 @@
          مش لازم يخمّن ويلاقي "مفيش شغل في اليوم ده" كذا مرة. -->
     <Border CornerRadius="18" Background="White">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
             <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
@@ -26,7 +26,7 @@
                     <StackPanel>
                         <TextBlock Text="كرّر توزيع يوم فات" Foreground="White"
                                    FontSize="15.5" FontWeight="Bold" />
-                        <TextBlock x:Name="SubtitleText" Foreground="#CFE0FF" FontSize="12"
+                        <TextBlock x:Name="SubtitleText" Foreground="{DynamicResource SidebarInkBrush}" FontSize="12"
                                    Margin="0,2,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                 </DockPanel>

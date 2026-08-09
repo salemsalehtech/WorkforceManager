@@ -48,7 +48,8 @@ namespace WorkforceManager.UI.ViewModels
         public decimal TotalWorkdays { get; private init; }
         public string PercentText { get; private init; } = "";
         public string RatingText { get; private init; } = "";
-        public string RatingColor { get; private init; } = "#666666";
+        /// <summary>مفتاح فرشاة من اللوحة — مش كود لون (شوف <see cref="ThemeBrush"/>)</summary>
+        public string RatingColor { get; private init; } = "InkSoftBrush";
         public string AttendanceText { get; private init; } = "";
         public string BreakdownText { get; private init; } = "";
         public string PenaltiesText { get; private init; } = "";
@@ -58,12 +59,12 @@ namespace WorkforceManager.UI.ViewModels
         {
             var (ratingText, ratingColor) = dto.Rating switch
             {
-                PerformanceRating.TopPerformer => ("⭐ الأفضل النهارده", "#B7791F"),
-                PerformanceRating.AboveAverage => ("فوق المتوسط", "#0B6E4F"),
-                PerformanceRating.Average => ("متوسط", "#666666"),
-                PerformanceRating.BelowAverage => ("تحت المتوسط", "#C62828"),
-                PerformanceRating.UnexcusedAbsence => ("غياب بدون إذن", "#B00020"),
-                _ => ("غير محدد", "#666666")
+                PerformanceRating.TopPerformer => ("⭐ الأفضل النهارده", "GoodBrush"),
+                PerformanceRating.AboveAverage => ("فوق المتوسط", "GoldDeepBrush"),
+                PerformanceRating.Average => ("متوسط", "InkSoftBrush"),
+                PerformanceRating.BelowAverage => ("تحت المتوسط", "WarnBrush"),
+                PerformanceRating.UnexcusedAbsence => ("غياب بدون إذن", "DangerBrush"),
+                _ => ("غير محدد", "InkSoftBrush")
             };
 
             return new DailyReportRow
@@ -111,7 +112,7 @@ namespace WorkforceManager.UI.ViewModels
     /// <summary>شريحة في العمود المكدّس: منتج في أسبوع (اللون بيميز المنتج)</summary>
     public class ChartBar
     {
-        public string Color { get; init; } = "#2563EB";
+        public string Color { get; init; } = "Series1Brush";
         public double Height { get; init; }
         public string Tooltip { get; init; } = "";
     }
@@ -119,7 +120,7 @@ namespace WorkforceManager.UI.ViewModels
     /// <summary>عنصر في مفتاح ألوان الرسم: المنتج ولونه وإجماليه في الفترة</summary>
     public class ChartLegendItem
     {
-        public string Color { get; init; } = "#1F3864";
+        public string Color { get; init; } = "Series1Brush";
         public string ProductName { get; init; } = "";
         public string TotalText { get; init; } = "";
     }

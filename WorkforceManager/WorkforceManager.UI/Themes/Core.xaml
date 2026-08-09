@@ -9,6 +9,11 @@
       شكلي: StaticResource بتتحل مرة واحدة وقت تحميل الشاشة، فتبديل
       الثيم كان بيحتاج إعادة تشغيل. DynamicResource بتفضل مربوطة،
       فتبديل ملف الألوان بيتنقل للشاشة في اللحظة.
+
+      **استثناء واحد: BasedOn لازم StaticResource.** هي خاصية CLR عادية
+      على Style مش DependencyProperty، وDynamicResource عليها بترمي وقت
+      التحميل. وده مش بيكسر حاجة — الألوان جوه النمط الأساسي نفسها
+      DynamicResource وفاضلة حيّة.
     -->
 
     <!-- ============ سُلّم الخط ============
@@ -22,7 +27,14 @@
     <sys:Double x:Key="FontTitle">19</sys:Double>
     <sys:Double x:Key="FontDisplay">26</sys:Double>
 
-    <FontFamily x:Key="AppFont">Segoe UI, Tahoma</FontFamily>
+    <!--
+      Tajawal — خط هندسي حديث مصمم للعربي والإنجليزي مع بعض، فالأرقام
+      والكلمات الإنجليزية بتتناسق مع العربي في نفس السطر بدل ما ويندوز
+      يستبدل خط تاني للعربي. مدموج في الـ exe (شوف Fonts في ملف المشروع)
+      فمش محتاج تثبيت. الاحتياطي بعد الفاصلة مهم: لو المورد فشل لأي سبب
+      الواجهة بترجع لخط النظام بدل خط افتراضي وحش.
+    -->
+    <FontFamily x:Key="AppFont">pack://application:,,,/Fonts/#Tajawal, Segoe UI, Tahoma</FontFamily>
 
     <!-- ============ الزوايا ============ -->
     <CornerRadius x:Key="RadiusSmall">8</CornerRadius>
@@ -30,12 +42,14 @@
     <CornerRadius x:Key="RadiusPill">999</CornerRadius>
 
     <!-- ============ الظل ============
-         ظل واحد خفيف. الظلال المتعددة بتخلي الشاشة تبان مليانة طبقات. -->
-    <DropShadowEffect x:Key="CardShadow" BlurRadius="20" ShadowDepth="3" Direction="270"
-                      Opacity="0.09" Color="{DynamicResource ShadowColor}" />
+         ظل واحد خفيف. الظلال المتعددة بتخلي الشاشة تبان مليانة طبقات.
+         في الثيم الغامق الظل مبيعملش حاجة تقريبًا وده مقصود: الغامق
+         بيفصل بالإضاءة (سُلّم الأسطح) مش بالظل. -->
+    <DropShadowEffect x:Key="CardShadow" BlurRadius="22" ShadowDepth="3" Direction="270"
+                      Opacity="0.10" Color="{DynamicResource ShadowColor}" />
 
-    <DropShadowEffect x:Key="LiftShadow" BlurRadius="28" ShadowDepth="7" Direction="270"
-                      Opacity="0.16" Color="{DynamicResource ShadowColor}" />
+    <DropShadowEffect x:Key="LiftShadow" BlurRadius="30" ShadowDepth="8" Direction="270"
+                      Opacity="0.18" Color="{DynamicResource ShadowColor}" />
 
     <!-- ============ حركة موحّدة ============ -->
     <CubicEase x:Key="EaseOut" EasingMode="EaseOut" />
@@ -91,8 +105,68 @@
         <Setter Property="Effect" Value="{DynamicResource CardShadow}" />
     </Style>
 
-    <!-- كارت بخط دهبي فوق — للحاجة اللي المفروض تشدّ العين -->
+    <!-- كارت بحد دهبي — للحاجة اللي المفروض تشدّ العين -->
     <Style x:Key="CardAccent" TargetType="Border" BasedOn="{StaticResource Card}">
+        <Setter Property="BorderBrush" Value="{DynamicResource GoldLineBrush}" />
+    </Style>
+
+    <!-- الكارت البطل: كحلي عميق في الثيمين — عليه الدهبي بيلمع -->
+    <Style x:Key="CardHero" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource InkGradientBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource GoldLineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusCard}" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="Effect" Value="{DynamicResource CardShadow}" />
+    </Style>
+
+    <!-- ============ الخط الشعري الدهبي ============
+         تحت عنوان الصفحة. بيبدأ مصمت من ناحية العنوان وبيسيح لشفاف —
+         خط مصمت من الحرف للحرف بيبان قاطع، والمتلاشي بيبان مقصود. -->
+    <Style x:Key="GoldHairline" TargetType="Border">
+        <Setter Property="Height" Value="2" />
+        <Setter Property="Background" Value="{DynamicResource GoldHairlineBrush}" />
+        <Setter Property="CornerRadius" Value="1" />
+    </Style>
+
+    <!-- ============ مربّع رقم ============
+         الرقم أولًا وكبير، والكلمة تحته صغيرة. العكس بيخلي العين تقرا
+         الكلمة الأول وتدوّر على الرقم. -->
+    <Style x:Key="StatTile" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
+        <Setter Property="Padding" Value="12,9" />
+    </Style>
+
+    <Style x:Key="StatNumber" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontLarge}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="StatCaption" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{DynamicResource AppFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontMicro}" />
+        <Setter Property="Foreground" Value="{DynamicResource InkFaintBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+
+    <!-- ============ وسم صغير ============
+         "بالإنتاج" / "عامل تحت التدريب" — معلومة مساعدة، فمحدّد بخط
+         شعري مش معبّي بلون. المعبّي بلون بيسحب نظر أكتر من الاسم نفسه. -->
+    <Style x:Key="PillTag" TargetType="Border">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource RadiusPill}" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="PillTagGold" TargetType="Border" BasedOn="{StaticResource PillTag}">
+        <Setter Property="Background" Value="{DynamicResource GoldTintBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource GoldLineBrush}" />
     </Style>
 
@@ -114,6 +188,15 @@
                     <Grid>
                         <Border x:Name="Bd" CornerRadius="{DynamicResource RadiusSmall}"
                                 Background="{DynamicResource GoldGradientBrush}" />
+                        <!-- لمعة علوية خفيفة: بتدّي إحساس المعدن -->
+                        <Border CornerRadius="{DynamicResource RadiusSmall}" IsHitTestVisible="False">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#38FFFFFF" Offset="0" />
+                                    <GradientStop Color="#00FFFFFF" Offset="0.55" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
                         <Border x:Name="Ring" CornerRadius="11" Margin="-3"
                                 BorderBrush="{DynamicResource FocusRingBrush}" BorderThickness="2"
                                 Opacity="0" IsHitTestVisible="False" />
@@ -195,6 +278,7 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.35" />
@@ -205,7 +289,12 @@
         </Setter>
     </Style>
 
-    <!-- ============ شريحة الفلتر ============ -->
+    <!-- ============ شريحة الفلتر ============
+         **المختار دهبي مصمت والنص كحلي.** كان كحلي مصمت ونص دهبي —
+         وده كان بيختفي تمامًا في الثيم الغامق: شريحة كحلي فوق كارت
+         كحلي فوق أرضية كحلي. الدهبي هو اللون الوحيد اللي بيبان بنفس
+         القوة على الأبيض وعلى الغامق، فهو اللي المفروض يقول "دي
+         المختارة". -->
     <Style x:Key="Chip" TargetType="RadioButton">
         <Setter Property="FontFamily" Value="{DynamicResource AppFont}" />
         <Setter Property="FontSize" Value="{DynamicResource FontSmall}" />
@@ -218,20 +307,20 @@
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
                     <Border x:Name="Bd" CornerRadius="{DynamicResource RadiusPill}"
-                            Background="{DynamicResource SurfaceAltBrush}"
-                            BorderBrush="Transparent" BorderThickness="1"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource LineStrongBrush}" BorderThickness="1"
                             Padding="14,7">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
-                        </Trigger>
-                        <!-- المختار: كحلي مصمت والنص فاتح — أوضح فرق ممكن -->
-                        <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarBrush}" />
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GoldBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GoldGradientBrush}" />
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="Transparent" />
+                            <Setter Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -255,6 +344,17 @@
                         <Border x:Name="Bd" CornerRadius="{DynamicResource RadiusSmall}"
                                 Background="Transparent" Padding="14,11" />
 
+                        <!-- توهّج دهبي خفيف جوه البند النشط -->
+                        <Border x:Name="Glow" CornerRadius="{DynamicResource RadiusSmall}" Opacity="0"
+                                IsHitTestVisible="False">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="1,0" EndPoint="0,0">
+                                    <GradientStop Color="#26C2A14D" Offset="0" />
+                                    <GradientStop Color="#00C2A14D" Offset="0.85" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                        </Border>
+
                         <!-- الشريط الدهبي على حرف البند النشط -->
                         <Border x:Name="Mark" Width="3" HorizontalAlignment="Right"
                                 Margin="0,9" CornerRadius="2"
@@ -268,6 +368,7 @@
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                            <Setter TargetName="Glow" Property="Opacity" Value="1" />
                             <Setter TargetName="Mark" Property="Opacity" Value="1" />
                             <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
@@ -323,6 +424,124 @@
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
         <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <!-- ============ شريط التمرير ============
+
+         شريط ويندوز الافتراضي (مربع رمادي + زرارين سهم) هو أوضح إشارة
+         إن البرنامج قديم — وبيظهر في كل شاشة فيها قايمة. البديل: خيط
+         رفيع من غير زراير، بيدهّب لما الماوس يقرب.
+
+         RepeatButton بتوع الصفحة لازم يفضلوا موجودين (الدوس على فاضي
+         التراك بيصفّح) بس بقالب شفاف بدل السهم. -->
+    <Style x:Key="ScrollPageButton" TargetType="RepeatButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ScrollThumb" TargetType="Thumb">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="Bd" CornerRadius="{DynamicResource RadiusPill}" Margin="3"
+                            Background="{DynamicResource LineStrongBrush}" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GoldBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GoldBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width" Value="11" />
+        <Setter Property="MinWidth" Value="11" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="Transparent">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand"
+                                              Style="{StaticResource ScrollPageButton}" />
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource ScrollThumb}" />
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand"
+                                              Style="{StaticResource ScrollPageButton}" />
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="Height" Value="11" />
+                <Setter Property="MinHeight" Value="11" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="Transparent">
+                                <Track x:Name="PART_Track" IsDirectionReversed="False">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageLeftCommand"
+                                                      Style="{StaticResource ScrollPageButton}" />
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Style="{StaticResource ScrollThumb}" />
+                                    </Track.Thumb>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageRightCommand"
+                                                      Style="{StaticResource ScrollPageButton}" />
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ============ التلميحة ============
+         الافتراضي أصفر بحد أسود — من ويندوز 95 حرفيًا. -->
+    <Style TargetType="ToolTip">
+        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+        <Setter Property="FontFamily" Value="{DynamicResource AppFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontTiny}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToolTip">
+                    <Border Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource GoldLineBrush}" BorderThickness="1"
+                            CornerRadius="{DynamicResource RadiusSmall}" Padding="10,7"
+                            MaxWidth="320" Effect="{DynamicResource CardShadow}">
+                        <ContentPresenter />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
 </ResourceDictionary>

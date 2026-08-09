@@ -305,22 +305,18 @@ namespace WorkforceManager.UI.ViewModels
         private bool _chartHasData;
 
         /// <summary>
-        /// ألوان سلاسل المنتجات — ترتيب ثابت، بيتوزّع على المنتجات
-        /// بالمعرّف مش بالترتيب.
+        /// سلاسل المنتجات — ترتيب ثابت، بيتوزّع على المنتجات بالمعرّف
+        /// مش بالترتيب، فالمنتج بياخد نفس اللون مهما اتغيّر الفلتر.
         ///
-        /// اللوحة القديمة كانت ألوان غامقة قوي (#1F3864 وإخواته): على خلفية
-        /// بيضا نصها بيقرا رمادي، ومحدش بيقدر يفرّق بين المنتجات. اللوحة دي
-        /// اتفحصت على خلفية فاتحة وغامقة: كل الألوان في نطاق الإضاءة
-        /// المقروء، فوق حد التشبّع، وبتباين كافي مع الخلفية، وأقرب لونين
-        /// متجاورين بيفضلوا مميزين لعمى الألوان.
-        ///
-        /// الترتيب نفسه مقصود: الأحمر والأخضر بعيدين عن بعض عشان أشهر
-        /// أنواع عمى الألوان (بروتان/ديوتان) بتخلط بينهم.
+        /// **دي مفاتيح فُرَش مش أكواد ألوان** (شوف <see cref="ThemeBrush"/>).
+        /// اللوحة القديمة كانت أزرق وبرتقالي وأحمر وبنفسجي وأخضر — سبع
+        /// هويات في رسم واحد، ومكتوبة بالإيد فمكانتش بتتغير مع الثيم.
+        /// الدرجات الفعلية في Palette.Light/Dark، وكل ثيم ليه نسخته.
         /// </summary>
         private static readonly string[] ChartPalette =
         {
-            "#2563EB", "#D97706", "#0891B2", "#EF4444",
-            "#7C3AED", "#16A34A", "#DB2777", "#B45309"
+            "Series1Brush", "Series2Brush", "Series3Brush", "Series4Brush",
+            "Series5Brush", "Series6Brush", "Series7Brush", "Series8Brush"
         };
 
         /// <summary>
@@ -329,7 +325,7 @@ namespace WorkforceManager.UI.ViewModels
         /// توليد ألوان جديدة أو لفّ اللوحة من أولها كان بيدي لونين
         /// متطابقين لمنتجين مختلفين — والمستخدم مش هيعرف إن ده حصل.
         /// </summary>
-        private const string OtherProductsColor = "#64748B";
+        private const string OtherProductsColor = "SeriesOtherBrush";
 
         /// <summary>اسم مجموعة "الباقي" في المفتاح</summary>
         private const string OtherProductsLabel = "منتجات تانية";
@@ -455,8 +451,9 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private string _chartTrendText = "";
 
+        /// <summary>مفتاح فرشاة من اللوحة — مش كود لون (شوف <see cref="ThemeBrush"/>)</summary>
         [ObservableProperty]
-        private string _chartTrendColor = "#6B7686";
+        private string _chartTrendColor = "InkSoftBrush";
 
         [ObservableProperty]
         private bool _hasChartTrend;
@@ -498,9 +495,9 @@ namespace WorkforceManager.UI.ViewModels
 
             ChartTrendColor = change switch
             {
-                > 1 => "#16A34A",
-                < -1 => "#EF4444",
-                _ => "#6B7686"
+                > 1 => "GoodBrush",
+                < -1 => "DangerBrush",
+                _ => "InkSoftBrush"
             };
         }
 

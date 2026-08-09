@@ -13,7 +13,7 @@
          بطاقة عائمة بلا إطار نظام زي شاشة الدخول، بشريط علوي بلون البراند -->
     <Border CornerRadius="18" Background="White">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
             <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"

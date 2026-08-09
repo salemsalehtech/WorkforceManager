@@ -10,7 +10,7 @@
     <!-- مراجعة أرقام اليوم قبل القفل — مفيش يوم بيتقفل من غير ما المستخدم يشوف أرقامه -->
     <Border CornerRadius="18" Background="White">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
             <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
@@ -23,7 +23,7 @@
                     </Button>
                     <StackPanel>
                         <TextBlock Text="قفل إنتاج اليوم" Foreground="White" FontSize="15.5" FontWeight="Bold" />
-                        <TextBlock x:Name="DateText" Foreground="#CFE0FF" FontSize="12" Margin="0,2,0,0" />
+                        <TextBlock x:Name="DateText" Foreground="{DynamicResource SidebarInkBrush}" FontSize="12" Margin="0,2,0,0" />
                     </StackPanel>
                 </DockPanel>
             </Border>

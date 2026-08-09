@@ -102,13 +102,25 @@ namespace WorkforceManager.UI.ViewModels
         // البروفايل بس. DailyWageEgp باقي هنا للتنبيه (HasNoWage) والترتيب فقط.
         public string SkillsText => IsHourly ? "بالساعة" : $"{SkillsCount} مهارة";
 
-        /// <summary>لون الصافي: أخضر لو موجب، أحمر لو سالب، رمادي لو صفر</summary>
+        /// <summary>
+        /// مفتاح فرشاة الصافي من اللوحة — مش كود لون. الصفر بيبقى باهت
+        /// عشان الأرقام اللي فيها شغل هي اللي تشد العين.
+        /// </summary>
         public string NetColor => NetWorkdays switch
         {
-            > 0 => "#0B6E4F",
-            < 0 => "#B00020",
-            _ => "#6B7686"
+            > 0 => "GoodBrush",
+            < 0 => "DangerBrush",
+            _ => "InkFaintBrush"
         };
+
+        /// <summary>
+        /// نفس المنطق لأرقام الحضور والغياب على الكارت: صفر = باهت،
+        /// وغير كده = اللون اللي بيعبّر عنه. رقم زيرو بلون قوي بيسحب
+        /// نظر لحاجة مش موجودة أصلًا.
+        /// </summary>
+        public string PresentColor => PresentDays > 0 ? "GoodBrush" : "InkFaintBrush";
+
+        public string AbsentColor => AbsentWithoutPermissionDays > 0 ? "DangerBrush" : "InkFaintBrush";
 
         // ------- التنبيهات -------
 

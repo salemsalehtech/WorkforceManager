@@ -14,7 +14,7 @@
          يمين: لوحة الهوية بالتدرج الكحلي، شمال: فورم الدخول -->
     <Border CornerRadius="20" Background="White" MouseLeftButtonDown="Window_Drag">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="30" ShadowDepth="0" Opacity="0.25" Color="#1F3864" />
+            <DropShadowEffect BlurRadius="30" ShadowDepth="0" Opacity="0.25" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
 
         <Grid>
@@ -27,8 +27,8 @@
             <Border Grid.Column="0" CornerRadius="20,0,0,20">
                 <Border.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#24437C" Offset="0" />
-                        <GradientStop Color="#152A4E" Offset="1" />
+                        <GradientStop Color="{DynamicResource SidebarAltColor}" Offset="0" />
+                        <GradientStop Color="{DynamicResource SidebarColor}" Offset="1" />
                     </LinearGradientBrush>
                 </Border.Background>
 
@@ -46,10 +46,10 @@
                         </Border>
                         <TextBlock Text="إدارة الإنتاجية" Foreground="White" FontSize="26" FontWeight="Bold"
                                    Margin="0,18,0,4" />
-                        <TextBlock Text="نظام اليوميات والأجور والتقييم" Foreground="#B9C8E2" FontSize="14" />
-                        <Border Height="3" Width="52" CornerRadius="2" Background="#F2A93B"
+                        <TextBlock Text="نظام اليوميات والأجور والتقييم" Foreground="{DynamicResource SidebarInkBrush}" FontSize="14" />
+                        <Border Height="3" Width="52" CornerRadius="2" Background="{DynamicResource GoldBrush}"
                                 HorizontalAlignment="Right" Margin="0,16,0,16" />
-                        <TextBlock Foreground="#9FB3D1" FontSize="12.5" TextWrapping="Wrap" LineHeight="20"
+                        <TextBlock Foreground="{DynamicResource SidebarInkSoftBrush}" FontSize="12.5" TextWrapping="Wrap" LineHeight="20"
                                    Text="تسجيل الإنتاج برحلات المنتجات، حساب اليوميات والخصومات تلقائيًا، وكشف الأسبوع جاهز بضغطة واحدة." />
                     </StackPanel>
                 </Grid>
@@ -58,7 +58,7 @@
             <!-- ══════ فورم الدخول (شمال) ══════ -->
             <Grid Grid.Column="1">
                 <!-- زرار إغلاق البرنامج -->
-                <Button Foreground="#8A94A6"
+                <Button Foreground="{DynamicResource InkFaintBrush}"
                         Style="{StaticResource IconButton}" Padding="8,4"
                         HorizontalAlignment="Left" VerticalAlignment="Top" Margin="14"
                         ToolTip="إغلاق البرنامج" Click="Close_Click">
@@ -88,7 +88,7 @@
                     <!-- تغيير كلمة المرور من غير ما يدخل البرنامج -->
                     <TextBlock HorizontalAlignment="Center">
                         <Hyperlink Click="ChangePassword_Click" TextDecorations="None">
-                            <Run Text="تغيير كلمة المرور" Foreground="#3B5BA5" FontSize="12.5" />
+                            <Run Text="تغيير كلمة المرور" Foreground="{DynamicResource GoldDeepBrush}" FontSize="12.5" />
                         </Hyperlink>
                     </TextBlock>
                 </StackPanel>

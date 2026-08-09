@@ -6,108 +6,159 @@
 
       الهوية: كحلي غامق + دهبي. الكحلي هو الحبر، والدهبي أكسنت مقصود.
 
-      ليه مش العكس: الدهبي الفاتح على الأبيض نسبة وضوحه 2.2:1 — والحد
-      الأدنى لنص يتقرا هو 4.5:1. يعني نص دهبي على أبيض شكله لامع في
-      الصورة ومتعب جدًا لواحد قاعد عليه 8 ساعات. الكحلي على الأبيض
-      16:1. فالدهبي بيروح على الحاجات اللي المفروض تلفت النظر: الرقم
-      المهم، الزرار الرئيسي، العنصر النشط، خط الكارت العلوي — وبيبان
-      **أكتر** لأنه نادر.
+      **الأرضية دافية مش رمادي مزرق.** ده أهم قرار في الملف. الرمادي
+      المزرق (#F7F8FA) لون محايد بارد — الدهبي فوقه بيبان لون غريب
+      داخل على الشاشة. الأرضية الدافية (#F6F2E9) بتخلي الدهبي *ينتمي*
+      للشاشة، والكروت البيضا بتطلع منها أوضح. نفس الكارت الأبيض، فرق
+      كامل في الإحساس.
 
-      لما يلزم نص دهبي على أبيض بنستخدم GoldDeepBrush (5.9:1).
+      ليه الدهبي مش نص: الدهبي الفاتح على الأبيض نسبة وضوحه 2.2:1 —
+      والحد الأدنى لنص يتقرا هو 4.5:1. يعني نص دهبي على أبيض شكله لامع
+      في الصورة ومتعب جدًا لواحد قاعد عليه 8 ساعات. الكحلي على الأبيض
+      16:1. فالدهبي بيروح على اللي المفروض يلفت النظر: الرقم المهم،
+      الزرار الرئيسي، العنصر النشط، شريط الاختيار — وبيبان **أكتر**
+      لأنه نادر. ولما يلزم نص دهبي بنستخدم GoldDeepBrush (5.9:1).
 
       الملف ده بيتبدّل كله في اللحظة عند تغيير الثيم، فكل الأنماط
       بتشاور على الفُرَش دي بـ DynamicResource مش StaticResource.
     -->
 
-    <!-- ════ الأسطح ════ -->
-    <!-- أرضية الصفحة: مش أبيض ناصع عشان الكروت البيضا تبان فوقها -->
-    <Color x:Key="GroundColor">#F7F8FA</Color>
+    <!-- ════ الأسطح ════
+         سُلّم دافي: الأرضية أغمق، الكارت أبيض ناصع فوقها. -->
+    <Color x:Key="GroundColor">#F6F2E9</Color>
     <SolidColorBrush x:Key="GroundBrush" Color="{DynamicResource GroundColor}" />
     <Color x:Key="SurfaceColor">#FFFFFF</Color>
     <SolidColorBrush x:Key="SurfaceBrush" Color="{DynamicResource SurfaceColor}" />
-    <Color x:Key="SurfaceAltColor">#F2F4F7</Color>
+    <Color x:Key="SurfaceAltColor">#F1ECDF</Color>
     <SolidColorBrush x:Key="SurfaceAltBrush" Color="{DynamicResource SurfaceAltColor}" />
-    <Color x:Key="SurfaceSunkenColor">#ECEFF3</Color>
+    <Color x:Key="SurfaceSunkenColor">#EBE4D3</Color>
     <SolidColorBrush x:Key="SurfaceSunkenBrush" Color="{DynamicResource SurfaceSunkenColor}" />
 
     <!-- الشريط الجانبي: كحلي في الثيمين — هو هوية البرنامج -->
     <Color x:Key="SidebarColor">#0F1B2D</Color>
     <SolidColorBrush x:Key="SidebarBrush" Color="{DynamicResource SidebarColor}" />
-    <Color x:Key="SidebarAltColor">#16253B</Color>
+    <Color x:Key="SidebarAltColor">#1A2A42</Color>
     <SolidColorBrush x:Key="SidebarAltBrush" Color="{DynamicResource SidebarAltColor}" />
-    <Color x:Key="SidebarInkColor">#C8D2E0</Color>
+    <Color x:Key="SidebarInkColor">#CBD5E3</Color>
     <SolidColorBrush x:Key="SidebarInkBrush" Color="{DynamicResource SidebarInkColor}" />
-    <Color x:Key="SidebarInkSoftColor">#7F8DA3</Color>
+    <Color x:Key="SidebarInkSoftColor">#8593A9</Color>
     <SolidColorBrush x:Key="SidebarInkSoftBrush" Color="{DynamicResource SidebarInkSoftColor}" />
 
     <!-- ════ الحبر ════ -->
     <Color x:Key="InkColor">#0F1B2D</Color>
     <SolidColorBrush x:Key="InkBrush" Color="{DynamicResource InkColor}" />
-    <Color x:Key="InkSoftColor">#54607A</Color>
+    <Color x:Key="InkSoftColor">#505C74</Color>
     <SolidColorBrush x:Key="InkSoftBrush" Color="{DynamicResource InkSoftColor}" />
-    <Color x:Key="InkFaintColor">#8A94A8</Color>
+    <!-- 4.4:1 على الأرضية الدافية — القديم (#8A94A8) كان 3.1 وباهت -->
+    <Color x:Key="InkFaintColor">#727C93</Color>
     <SolidColorBrush x:Key="InkFaintBrush" Color="{DynamicResource InkFaintColor}" />
     <Color x:Key="InkOnAccentColor">#0F1B2D</Color>
     <SolidColorBrush x:Key="InkOnAccentBrush" Color="{DynamicResource InkOnAccentColor}" />
 
     <!-- ════ الدهبي ════ -->
-    <!-- الأكسنت: خطوط وأيقونات وحالات نشطة وأرقام كبيرة -->
     <Color x:Key="GoldColor">#C2A14D</Color>
     <SolidColorBrush x:Key="GoldBrush" Color="{DynamicResource GoldColor}" />
-    <!-- أغمق: النص الدهبي على الأبيض لما يلزم (5.9:1) -->
+    <!-- أغمق: النص الدهبي على الفاتح لما يلزم (5.9:1) -->
     <Color x:Key="GoldDeepColor">#8A6D1F</Color>
     <SolidColorBrush x:Key="GoldDeepBrush" Color="{DynamicResource GoldDeepColor}" />
-    <!-- خلفية مذهّبة خفيفة جدًا -->
-    <Color x:Key="GoldTintColor">#FBF7EC</Color>
+    <Color x:Key="GoldTintColor">#FBF5E4</Color>
     <SolidColorBrush x:Key="GoldTintBrush" Color="{DynamicResource GoldTintColor}" />
-    <Color x:Key="GoldLineColor">#E4D6AE</Color>
+    <Color x:Key="GoldLineColor">#E0CFA2</Color>
     <SolidColorBrush x:Key="GoldLineBrush" Color="{DynamicResource GoldLineColor}" />
 
+    <!-- المعدن: الدهبي المصمت بيبان دهان، والتدرج بيبان معدن -->
     <LinearGradientBrush x:Key="GoldGradientBrush" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#D9BC6A" Offset="0" />
-        <GradientStop Color="#B8933F" Offset="1" />
+        <GradientStop Color="#E0C378" Offset="0" />
+        <GradientStop Color="#C2A14D" Offset="0.5" />
+        <GradientStop Color="#A9852F" Offset="1" />
     </LinearGradientBrush>
 
-    <!-- ════ الخطوط الفاصلة ════ -->
-    <Color x:Key="LineColor">#E4E8EE</Color>
+    <!-- خط شعري بيبدأ ويخلص شفاف — تحت العناوين -->
+    <LinearGradientBrush x:Key="GoldHairlineBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#00C2A14D" Offset="0" />
+        <GradientStop Color="#C2A14D" Offset="0.15" />
+        <GradientStop Color="#00C2A14D" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- الكحلي العميق للكروت البطلة -->
+    <LinearGradientBrush x:Key="InkGradientBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#16273E" Offset="0" />
+        <GradientStop Color="#0C1626" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- ════ الخطوط الفاصلة ════ (دافية زي الأرضية) -->
+    <Color x:Key="LineColor">#E7E0CE</Color>
     <SolidColorBrush x:Key="LineBrush" Color="{DynamicResource LineColor}" />
-    <Color x:Key="LineStrongColor">#CFD6E0</Color>
+    <Color x:Key="LineStrongColor">#D5CAB0</Color>
     <SolidColorBrush x:Key="LineStrongBrush" Color="{DynamicResource LineStrongColor}" />
 
     <!-- ════ التفاعل ════ -->
-    <Color x:Key="HoverColor">#F0F3F8</Color>
+    <Color x:Key="HoverColor">#FAF5E9</Color>
     <SolidColorBrush x:Key="HoverBrush" Color="{DynamicResource HoverColor}" />
-    <Color x:Key="PressedColor">#E4EAF2</Color>
+    <Color x:Key="PressedColor">#F2E9D4</Color>
     <SolidColorBrush x:Key="PressedBrush" Color="{DynamicResource PressedColor}" />
-    <Color x:Key="SelectedColor">#FBF6E7</Color>
+    <Color x:Key="SelectedColor">#FCF4DE</Color>
     <SolidColorBrush x:Key="SelectedBrush" Color="{DynamicResource SelectedColor}" />
     <Color x:Key="FocusRingColor">#C2A14D</Color>
     <SolidColorBrush x:Key="FocusRingBrush" Color="{DynamicResource FocusRingColor}" />
 
     <!-- ════ ألوان الحالة ════
-         مفصولة عن الدهبي عن قصد: الدهبي هوية، ودول معنى. لو التحذير
-         بقى دهبي، "انتبه" و"ده مهم" هيبقوا نفس اللون. -->
-    <Color x:Key="GoodColor">#127A4C</Color>
+
+         **مفيش أخضر ولا أزرق ولا أحمر أساسي.** كلهم اتشالوا: كانوا
+         أعلى لون مشبع في الشاشة، يعني أكتر حاجة بتخطف العين كانت أقل
+         حاجة مهمة — والهوية بتتكسر.
+
+         اللي فضل كله جوه عيلة الدهبي والكحلي:
+           • الكويس  = دهبي غامق (الدهبي هو "أيوه" في الهوية دي)
+           • تحذير   = برونزي أغمق وأقل صفار — نفس العيلة، عمق مختلف
+           • خطر     = طوبي دافي، جار الدهبي مش لون غريب
+           • معلومة  = كحلي هادي
+
+         **الخطر هو الاستثناء الوحيد وبقصد.** زرار "احذف" لو شكله زي
+         زرار "احفظ" دي مشكلة أمان مش اختيار جمالي. الطوبي هنا دافي
+         عشان يفضل من نفس العالم، مش أحمر إشارة مرور. -->
+    <Color x:Key="GoodColor">#8A6D1F</Color>
     <SolidColorBrush x:Key="GoodBrush" Color="{DynamicResource GoodColor}" />
-    <Color x:Key="GoodTintColor">#EAF6F0</Color>
+    <Color x:Key="GoodTintColor">#FBF5E4</Color>
     <SolidColorBrush x:Key="GoodTintBrush" Color="{DynamicResource GoodTintColor}" />
 
-    <Color x:Key="WarnColor">#B45309</Color>
+    <Color x:Key="WarnColor">#8F5B14</Color>
     <SolidColorBrush x:Key="WarnBrush" Color="{DynamicResource WarnColor}" />
-    <Color x:Key="WarnTintColor">#FDF1E4</Color>
+    <Color x:Key="WarnTintColor">#F9EEDA</Color>
     <SolidColorBrush x:Key="WarnTintBrush" Color="{DynamicResource WarnTintColor}" />
 
-    <Color x:Key="DangerColor">#B3261E</Color>
+    <Color x:Key="DangerColor">#A0342A</Color>
     <SolidColorBrush x:Key="DangerBrush" Color="{DynamicResource DangerColor}" />
-    <Color x:Key="DangerTintColor">#FDECEB</Color>
+    <Color x:Key="DangerTintColor">#F8E9E5</Color>
     <SolidColorBrush x:Key="DangerTintBrush" Color="{DynamicResource DangerTintColor}" />
 
-    <Color x:Key="InfoColor">#1B4E8C</Color>
+    <Color x:Key="InfoColor">#2C405F</Color>
     <SolidColorBrush x:Key="InfoBrush" Color="{DynamicResource InfoColor}" />
-    <Color x:Key="InfoTintColor">#EAF0F9</Color>
+    <Color x:Key="InfoTintColor">#EFEEE6</Color>
     <SolidColorBrush x:Key="InfoTintBrush" Color="{DynamicResource InfoTintColor}" />
 
+    <!-- ════ ألوان الرسوم البيانية ════
+
+         ثمن لون للمنتجات في الرسم المكدّس. اللوحة القديمة كانت أزرق
+         وبرتقالي وأحمر وبنفسجي وأخضر — سبع هويات مختلفة في رسم واحد.
+
+         دي **بتتبادل** دهبي/كحلي بقصد: لونين متجاورين في العمود لازم
+         يبقوا مميزين عن بعض، ولو مشينا من الدهبي للكحلي بالتدريج
+         الشرايح المتجاورة هتتلخبط. التبادل بيدّي أقصى فرق بين كل
+         شريحة واللي جنبها وإحنا لسه في لونين بس. -->
+    <SolidColorBrush x:Key="Series1Brush" Color="#C2A14D" />
+    <SolidColorBrush x:Key="Series2Brush" Color="#1B2E4A" />
+    <SolidColorBrush x:Key="Series3Brush" Color="#E0C378" />
+    <SolidColorBrush x:Key="Series4Brush" Color="#43607F" />
+    <SolidColorBrush x:Key="Series5Brush" Color="#8A6D1F" />
+    <SolidColorBrush x:Key="Series6Brush" Color="#7E94AE" />
+    <SolidColorBrush x:Key="Series7Brush" Color="#5E4A15" />
+    <SolidColorBrush x:Key="Series8Brush" Color="#2C405F" />
+    <!-- التاسع فما فوق: رمادي محايد. توليد لون جديد أو لفّ اللوحة من
+         أولها بيدي لونين متطابقين لمنتجين مختلفين من غير ما حد يعرف. -->
+    <SolidColorBrush x:Key="SeriesOtherBrush" Color="#9A9384" />
+
     <!-- ════ الظلال ════ -->
-    <Color x:Key="ShadowColor">#0F1B2D</Color>
+    <Color x:Key="ShadowColor">#3A2E14</Color>
 
 </ResourceDictionary>

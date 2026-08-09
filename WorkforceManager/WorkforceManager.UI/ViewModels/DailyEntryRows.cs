@@ -320,7 +320,8 @@ namespace WorkforceManager.UI.ViewModels
         public int AdjustmentId { get; init; }
         public string WorkerName { get; init; } = "";
         public string TypeName { get; init; } = "";
-        public string TypeColor { get; init; } = "#333333";
+        /// <summary>مفتاح فرشاة من اللوحة — مش كود لون (شوف <see cref="ThemeBrush"/>)</summary>
+        public string TypeColor { get; init; } = "InkBrush";
         public string AmountText { get; init; } = "";
         public string Note { get; init; } = "";
     }

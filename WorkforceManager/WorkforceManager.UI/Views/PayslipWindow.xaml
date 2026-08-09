@@ -20,7 +20,7 @@
                 </Button>
                 <Button DockPanel.Dock="Left" Content="إغلاق" Click="Close_Click"
                         Style="{StaticResource GhostButton}" Foreground="White" Margin="8,0,0,0" />
-                <TextBlock DockPanel.Dock="Right" Text="معاينة قبل الطباعة" Foreground="#C9D6EC"
+                <TextBlock DockPanel.Dock="Right" Text="معاينة قبل الطباعة" Foreground="{DynamicResource SidebarInkBrush}"
                            VerticalAlignment="Center" FontSize="12.5" />
             </DockPanel>
         </Border>

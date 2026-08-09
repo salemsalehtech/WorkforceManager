@@ -7,7 +7,7 @@
     <!-- بحث عن عامل بالاسم. عنصر واحد بيتشارك بين الجزاءات والسلف —
          الاتنين كانوا ComboBox على 46 عامل، والوصول لحد بالتمرير بطيء. -->
     <Grid>
-        <Border BorderBrush="#D5DCE8" BorderThickness="1.4" CornerRadius="8"
+        <Border BorderBrush="{DynamicResource LineStrongBrush}" BorderThickness="1.4" CornerRadius="8"
                 Background="{DynamicResource CardBgBrush}">
             <DockPanel>
                 <materialDesign:PackIcon DockPanel.Dock="Left" Kind="AccountSearchOutline"
@@ -42,9 +42,9 @@
                Placement="Bottom" PlacementTarget="{Binding ElementName=SearchBox}"
                HorizontalOffset="0" VerticalOffset="4">
             <Border Background="White" CornerRadius="8" Padding="4"
-                    BorderBrush="#D5DCE8" BorderThickness="1" MinWidth="240">
+                    BorderBrush="{DynamicResource LineStrongBrush}" BorderThickness="1" MinWidth="240">
                 <Border.Effect>
-                    <DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.18" Color="#1F3864" />
+                    <DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.18" Color="{DynamicResource ShadowColor}" />
                 </Border.Effect>
                 <ScrollViewer MaxHeight="230" VerticalScrollBarVisibility="Auto">
                     <ItemsControl x:Name="MatchesList">

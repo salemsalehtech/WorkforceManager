@@ -254,14 +254,17 @@ namespace WorkforceManager.UI.ViewModels
 
         public bool IsReady => State == FlowStageState.Ready;
 
-        /// <summary>لون الشريط الجانبي للبطاقة حسب الحالة</summary>
+        /// <summary>
+        /// مفتاح فرشاة الشريط الجانبي للبطاقة حسب الحالة — مش كود لون
+        /// (شوف <see cref="ThemeBrush"/>).
+        /// </summary>
         public string StateColor => State switch
         {
-            FlowStageState.Ready => "#0B6E4F",              // أخضر: تمام
-            FlowStageState.NeedsWorkers => "#B7791F",       // أصفر: عليها إنتاج ومحتاجة عمال
-            FlowStageState.Mismatch => "#B00020",           // أحمر: التوزيع مش مساوي الإنتاج
-            FlowStageState.WorkersWithoutPieces => "#B7791F",
-            _ => "#DDE3ED"                                   // رمادي باهت: مش داخلة النهارده
+            FlowStageState.Ready => "GoodBrush",              // تمام
+            FlowStageState.NeedsWorkers => "WarnBrush",       // عليها إنتاج ومحتاجة عمال
+            FlowStageState.Mismatch => "DangerBrush",         // التوزيع مش مساوي الإنتاج
+            FlowStageState.WorkersWithoutPieces => "WarnBrush",
+            _ => "LineBrush"                                  // باهت: مش داخلة النهارده
         };
 
         /// <summary>الرسالة القصيرة اللي بتظهر على البطاقة</summary>

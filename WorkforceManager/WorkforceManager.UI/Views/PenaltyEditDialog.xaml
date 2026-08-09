@@ -11,7 +11,7 @@
          فالنافذة دي مش محتاجة تعرف الفرق. -->
     <Border CornerRadius="18" Background="White">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="#1F3864" />
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
             <Border DockPanel.Dock="Top" Background="{StaticResource DangerBrush}"
@@ -24,7 +24,7 @@
                     </Button>
                     <StackPanel>
                         <TextBlock Text="تعديل جزاء" Foreground="White" FontSize="15.5" FontWeight="Bold" />
-                        <TextBlock x:Name="WorkerText" Foreground="#FFE0E0" FontSize="12" Margin="0,2,0,0" />
+                        <TextBlock x:Name="WorkerText" Foreground="{DynamicResource SidebarInkBrush}" FontSize="12" Margin="0,2,0,0" />
                     </StackPanel>
                 </DockPanel>
             </Border>

@@ -1,6 +1,7 @@
 <UserControl x:Class="WorkforceManager.UI.Views.ReportsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:WorkforceManager.UI"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
@@ -241,7 +242,7 @@
                         <DataGridTemplateColumn Header="التقييم" Width="140">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding RatingText}" Foreground="{Binding RatingColor}"
+                                    <TextBlock Text="{Binding RatingText}" ui:ThemeBrush.ForegroundKey="{Binding RatingColor}"
                                                FontWeight="Bold" VerticalAlignment="Center" Margin="4,0" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -389,10 +390,10 @@
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="ChartTimelineVariant" Width="17" Height="17"
                                                  VerticalAlignment="Center"
-                                                 Foreground="{Binding ChartTrendColor}" />
+                                                 ui:ThemeBrush.ForegroundKey="{Binding ChartTrendColor}" />
                         <TextBlock Text="{Binding ChartTrendText}" FontSize="13" FontWeight="SemiBold"
                                    Margin="7,0,0,0" VerticalAlignment="Center"
-                                   Foreground="{Binding ChartTrendColor}" />
+                                   ui:ThemeBrush.ForegroundKey="{Binding ChartTrendColor}" />
                     </StackPanel>
                 </Border>
 
@@ -407,7 +408,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" Margin="0,2,18,2">
-                                <Border Width="13" Height="13" CornerRadius="3" Background="{Binding Color}"
+                                <Border Width="13" Height="13" CornerRadius="3" ui:ThemeBrush.BackgroundKey="{Binding Color}"
                                         VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" FontSize="12.5"
                                            VerticalAlignment="Center" Margin="6,0,4,0" />
@@ -472,7 +473,7 @@
                                                                  Thickness نوع قيمة مش عنصر، فالربط عليه
                                                                  بيكسر القالب كله وقت التشغيل. -->
                                                             <Border Width="26" Height="{Binding Height}"
-                                                                    Background="{Binding Color}" CornerRadius="3"
+                                                                    ui:ThemeBrush.BackgroundKey="{Binding Color}" CornerRadius="3"
                                                                     Margin="0,0,0,2"
                                                                     ToolTip="{Binding Tooltip}" />
                                                         </DataTemplate>
