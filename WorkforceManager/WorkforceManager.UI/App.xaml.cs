@@ -70,6 +70,7 @@ namespace WorkforceManager.UI
                     services.AddScoped<ProductionReportService>();
                     services.AddScoped<WageAdjustmentService>();
                     services.AddScoped<ReportBuilderService>();
+                    services.AddScoped<NeedsAttentionService>();
                     // الهوية المشتركة: مصدر واحد لـ"مين عمل كده" — الحذف الناعم
                     // وسجل العمليات الاتنين بيقروا منه
                     services.AddSingleton<CurrentUserContext>();
@@ -92,6 +93,8 @@ namespace WorkforceManager.UI
                     services.AddTransient<ViewModels.DailyEntryViewModel>();
                     services.AddTransient<Views.ReportsView>();
                     services.AddTransient<ViewModels.ReportsViewModel>();
+                    services.AddTransient<Views.ReportBuilderView>();
+                    services.AddTransient<ViewModels.ReportBuilderViewModel>();
                     services.AddTransient<Views.ProductsView>();
                     services.AddTransient<ViewModels.ProductsViewModel>();
                     services.AddTransient<Views.ActivityLogView>();

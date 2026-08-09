@@ -78,11 +78,23 @@
                         </StackPanel>
                     </RadioButton>
 
+                    <!-- شاشتين مختلفتين عن قصد: التقييم بتتشاف وبيتصرّف
+                         منها، والتقارير بتطلّع ورق. خلطهم في شاشة واحدة
+                         كان بيخلي المدير يدوّر على اللي بيهمه وسط تبويبات
+                         بتعمل حاجة تانية خالص. -->
+                    <RadioButton Style="{StaticResource NavItem}"
+                                 Checked="NavEvaluation_Checked" Click="NavEvaluation_Checked">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ChartBar" Width="18" Height="18" VerticalAlignment="Center" />
+                            <TextBlock Text="التقييم والمتابعة" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+
                     <RadioButton Style="{StaticResource NavItem}"
                                  Checked="NavReports_Checked" Click="NavReports_Checked">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ChartBar" Width="18" Height="18" VerticalAlignment="Center" />
-                            <TextBlock Text="التقارير والتقييم" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                            <TextBlock Text="التقارير" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
 

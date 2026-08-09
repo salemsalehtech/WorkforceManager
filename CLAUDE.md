@@ -62,9 +62,9 @@ Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output)
 - `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
   UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
 
-`WorkforceManager.Tests` (xUnit, `net8.0`, 273 tests) covers the worker-assignment rule, daily output,
+`WorkforceManager.Tests` (xUnit, `net8.0`, 291 tests) covers the worker-assignment rule, daily output,
 the skill-rating system, worker filtering, product activity, pending work, the worker report,
-activity-log retention, database integrity, deletion scope, fresh-install seeding, and the removed-field guards — run with `dotnet test`
+activity-log retention, database integrity, deletion scope, the report builder, fresh-install seeding, and the removed-field guards — run with `dotnet test`
 from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
@@ -198,32 +198,19 @@ Core  <----------------------- UI
   Mutual exclusion lives in `AttendanceRow.OnChoiceToggled`; picking a shift also marks the worker
   Present. Then penalties (add with reason/deduction, list + delete for the day), and an "السلف والحوافز" tab
   (advances/bonuses in EGP: pick worker + type + amount + note, list with delete; سلفة red, حافز green).
-  `ReportsView` is implemented: daily evaluation tab (colored ratings vs team
-  average) + weekly sheet tab (net-workdays ranking, week navigation, Excel export via
-  `WeeklyReportExcelService`/ClosedXML in Business) + products chart tab (weekly COMPLETED pieces per
-  product = pieces on each product's last stage only, via `ProductionChartService`; bars are native WPF
-  elements, no chart library; time axis forced LTR) + "تقرير الإنتاج" general-report tab (department
-  summary + by product/stage + by worker) + "تقرير عامل" per-worker tab (production detail by stage and
-  by day + attendance + wage/penalties + advances/bonuses breakdown line + a "🖨 قسيمة أجر" printable
-  payslip via `PayslipWindow`/`PayslipData` — a preview window that prints the slip to any printer or
-  Microsoft Print to PDF, no external library). Both report tabs share the same period model: quick buttons
-  (اليوم/الأسبوع/الشهر) + a free from/to custom range (any span works, e.g. day 1→20), all served by
-  `ProductionReportService.GetGeneralReportAsync(from,to)`/`GetWorkerReportAsync(workerId,from,to)`
-  (completed pieces = last-stage-per-product, same rule as the chart) with Excel export via
-  `WeeklyReportExcelService.ExportGeneralReport`/`ExportWorkerReport`.
-  The **worker tab's summary is four stat tiles** (قطع شغّلها / يوميات منتجة / أيام حضور / الأجر النهائي),
-  not the two pipe-separated lines it used to be — the wage tile flips from green to red via a
-  `DataTrigger` on `WorkerIsWageNegative`, because a negative number in a green box reads as a gain.
-  **`WorkerProductionReportDto.TotalPieces` sums every stage on purpose** — unlike every product-facing
-  number in the app, this one measures *the worker's own work*, so a piece that crossed two stages he
-  worked counts twice; switching it to last-stage-only would pay everyone upstream zero. The tab also
-  carries `Skills` (his star rating per product, highest first — built by
-  `ProductionReportService.BuildSkillSummaryAsync` which delegates to `SkillRatingService.ProductStars`,
-  so "unknown stages don't count as zero" stays in one place) and two warning banners: `IsWageNegative`
-  (advances exceeded the wage — the negative is **shown**, never zeroed, since "the worker owes us" is a
-  real accounting fact) and `HasNoWageRate`. `ExportWorkerReport` mirrors all of it — skills, penalties,
-  and adjustments tables plus the same two warnings — so the printed file never says less than the screen.
-  `WorkerReportTests` covers the sum-per-stage rule, both warnings, and the skills summary.
+  **The reports and the evaluation are two separate screens on purpose**, because they do two different
+  jobs. `ReportsView` (nav: "التقييم والمتابعة") is looked at and acted on: a **"محتاج تصرّف" list above
+  everything else** (`NeedsAttentionService`), then the day's evaluation vs team average, the day's output,
+  and the products chart. The attention list is the point of the screen — a table of averages states a fact
+  but doesn't say what to *do*, so the manager reads it and closes it. `NeedsAttentionService` answers the
+  other question: which stage has **zero qualified workers** (severity 0 — the flow screen only offers
+  qualified workers, so that stage is impossible to record and the user finds out while standing at it),
+  who was absent unexcused, **who dropped against their own average** (not the team's — a slow-but-steady
+  worker is fine, a declining one is not, even while still above team average; 25% below their own
+  4-week-per-worked-day mean), who has no skills or no wage rate, and whose ratings are older than
+  `StaleRatingDays`. It computes nothing new: evaluation, week range and ratings all come from their
+  existing services.
+  `ReportBuilderView` (nav: "التقارير") is the document factory — see the report engine below.
   `ProductsView` is implemented with the same card language as the workers/attendance screens: summary bar,
   instant search (product or stage name), `FilterChip` filters, and product cards showing stage count
   only — a `TotalQuota` stat (sum of every active stage's `PiecesPerWorkday`) was removed on purpose:
@@ -296,6 +283,28 @@ Core  <----------------------- UI
   control lives inside list templates.
 - **Stored images** (product photos and worker photos) all go through `StoredImageHelper` — downscale to
   256px, re-encode as JPEG, return null for unreadable data so callers fall back to initials.
+
+### The report engine
+
+- **Every report in the app is one `ReportSpec`**: subject × period × grouping × filters. The four reports
+  that used to be hand-written tabs (weekly sheet, period payroll, general production, worker report) turned
+  out to be *the same report with four settings*, so they were generalised rather than joined by a fifth.
+  They now ship as built-in templates in `ReportTemplateStore` — nothing was taken away from the user, and
+  everything became editable.
+- **`ReportBuilderService` adds no arithmetic.** Wages come from `PayrollService`, workdays from
+  `WorkdayMath`, absence deduction from `AbsenceDeductionRule`, the week from `WeeklySummaryService`. It
+  groups and shapes only. `ReportBuilderTests` asserts its totals equal those services' own output —
+  because the real danger isn't a report that crashes, it's a report that quietly prints a *different*
+  number than the screen showing the same thing.
+- **Every subject returns the same `ReportTable`**, so there is **one** Excel exporter
+  (`ReportTableExcelService`) and **one** preview grid for all six subjects and their groupings, instead of
+  six of each. The preview grid's columns are built in code-behind from `PreviewHeaders`, since XAML can't
+  generate columns from a list — that's the only reason that code-behind exists.
+- **Not every combination is offered.** `ReportSpec.AllowedGroupings` encodes which cuts have meaning
+  ("attendance by product" has no answer), so the screen never lets the user reach an empty report and
+  mistake it for a bug. `UsesPeriod` hides the date controls for Skills, which is a state, not a movement.
+- **Templates store a period *kind*, not two dates** — a template called "أجور الشهر" must mean the current
+  month every time, not the month it was saved in.
 
 ### Database rules (audited — don't undo these)
 

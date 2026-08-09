@@ -7,7 +7,9 @@
              mc:Ignorable="d"
              d:DesignHeight="650" d:DesignWidth="1100">
 
-    <!-- شاشة التقارير: تبويبين — تقييم اليوم + كشف الأسبوع (مع تصدير Excel) -->
+    <!-- شاشة التقييم والمتابعة: بتتشاف وبيتصرّف منها، مش بتطلّع ورق.
+         التقارير اللي بتتصدّر اتنقلت لشاشة "التقارير" وبقت قوالب في
+         مُنشئ التقارير — نفس الأربعة، بس بقى ينفع تعدّلهم وتعمل زيّهم. -->
     <TabControl>
 
         <!-- ============ تبويب تقييم اليوم ============ -->
@@ -16,11 +18,89 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
+                <!-- ===== محتاج تصرّف =====
+                     فوق كل حاجة عن قصد: باقي الشاشة بيقول "إيه اللي
+                     حصل"، والقايمة دي بتقول "اعمل إيه". المدير بيفتح
+                     الشاشة عشان يتصرّف، مش عشان يقرا متوسطات. -->
+                <Border Grid.Row="0" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,10"
+                        Visibility="{Binding HasAttention, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,9">
+                            <materialDesign:PackIcon Kind="AlertCircleOutline" Width="18" Height="18"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="{StaticResource WarnBrush}" />
+                            <TextBlock Text="محتاج تصرّف" FontWeight="Bold" FontSize="14"
+                                       Margin="7,0,0,0" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                            <TextBlock Text="{Binding AttentionSummary}" FontSize="12"
+                                       Margin="10,0,0,0" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextMutedBrush}" />
+                        </StackPanel>
+
+                        <ItemsControl ItemsSource="{Binding Attention}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
+                                            Padding="11,8" Margin="0,0,0,5">
+                                        <DockPanel>
+                                            <!-- الإجراء من نفس الصف -->
+                                            <Button DockPanel.Dock="Left"
+                                                    Command="{Binding DataContext.OpenWorkerCommand,
+                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="10,5"
+                                                    VerticalAlignment="Center" FontSize="11.5">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding WorkerId}" Value="{x:Null}">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="AccountOutline" Width="13" Height="13"
+                                                                             VerticalAlignment="Center" />
+                                                    <TextBlock Text="افتح العامل" Margin="4,0,0,0" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- شريط الخطورة: اللي بيوقف الإنتاج أحمر -->
+                                            <Border DockPanel.Dock="Right" Width="4" CornerRadius="2"
+                                                    Margin="0,0,10,0">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{StaticResource WarnBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Severity}" Value="0">
+                                                                <Setter Property="Background" Value="{StaticResource DangerBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
+
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                                <TextBlock Text="{Binding Detail}" FontSize="11.5" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                            </StackPanel>
+                                        </DockPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
                 <!-- اختيار اليوم + سطر الملخص -->
-                <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
+                <Border Grid.Row="1" Style="{StaticResource ToolbarCard}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
                         <DatePicker SelectedDate="{Binding DailyDate}" Width="160" VerticalAlignment="Center" />
@@ -33,7 +113,7 @@
                      خمس حقايق المدير بيسأل عنها أول ما يفتح الشاشة، كلها
                      محسوبة من سجلات اليوم. المنتجات من ProductActivityService —
                      نفس خدمة شاشة المنتجات، مفيش حساب موازي. -->
-                <Grid Grid.Row="1" Margin="0,10,0,0">
+                <Grid Grid.Row="2" Margin="0,10,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
@@ -148,7 +228,7 @@
                 </Grid>
 
                 <!-- جدول التقييم اليومي -->
-                <Border Grid.Row="2" Style="{StaticResource Card}" Padding="6" Margin="0,10,0,0">
+                <Border Grid.Row="3" Style="{StaticResource Card}" Padding="6" Margin="0,10,0,0">
                 <DataGrid ItemsSource="{Binding DailyRows}"
                           Style="{StaticResource ModernDataGrid}"
                           AutoGenerateColumns="False" IsReadOnly="True">
@@ -274,130 +354,6 @@
         </TabItem>
 
         <!-- ============ تبويب كشف الأسبوع ============ -->
-        <TabItem Header="  كشف الأسبوع  ">
-            <Grid Margin="10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <!-- شريط التنقل بين الأسابيع + التصدير -->
-                <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
-                    <DockPanel>
-                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                            <Button Command="{Binding PreviousWeekCommand}"
-                                    Style="{StaticResource GhostButton}" Margin="0,0,6,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="ChevronLeft" Width="16" Height="16" VerticalAlignment="Center" />
-                                    <TextBlock Text="الأسبوع السابق" Margin="2,0,0,0" />
-                                </StackPanel>
-                            </Button>
-                            <Button Content="الأسبوع الحالي" Command="{Binding CurrentWeekCommand}"
-                                    Style="{StaticResource GhostButton}" Margin="0,0,6,0" />
-                            <Button Command="{Binding NextWeekCommand}"
-                                    Style="{StaticResource GhostButton}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="الأسبوع التالي" Margin="0,0,2,0" />
-                                    <materialDesign:PackIcon Kind="ChevronRight" Width="16" Height="16" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-
-                        <Button DockPanel.Dock="Left" Command="{Binding ExportWeekCommand}"
-                                Style="{StaticResource SuccessButton}" Margin="16,0,0,0">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="MicrosoftExcel" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="تصدير Excel" Margin="6,0,0,0" />
-                            </StackPanel>
-                        </Button>
-
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="16,0,0,0">
-                            <TextBlock Text="{Binding WeekTitle}" FontWeight="Bold" Foreground="{StaticResource BrandBrush}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding WeekBadge}" Foreground="{StaticResource SuccessBrush}" FontWeight="SemiBold"
-                                       VerticalAlignment="Center" Margin="8,0,0,0" />
-                        </StackPanel>
-                    </DockPanel>
-                </Border>
-
-                <!-- جدول كشف الأسبوع (مرتّب بالصافي) -->
-                <Border Grid.Row="1" Style="{StaticResource Card}" Padding="6">
-                <DataGrid ItemsSource="{Binding WeeklyRows}"
-                          SelectedItem="{Binding SelectedWeeklyRow}"
-                          Style="{StaticResource ModernDataGrid}"
-                          AutoGenerateColumns="False" IsReadOnly="True"
-                          SelectionMode="Single">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="40" />
-                        <DataGridTextColumn Header="⭐" Binding="{Binding BestMark}" Width="36" />
-                        <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="*" />
-                        <DataGridTextColumn Header="أنتج" Binding="{Binding ProducedWorkdays}" Width="65" />
-                        <DataGridTextColumn Header="القطع" Binding="{Binding TotalPieces}" Width="75" />
-                        <!-- الكشف اتنضّف من 12 عمود لـ 9:
-                             • "حضور" اتشال — الرقم مستخلص من (6 − الغياب)
-                             • "غياب بإذن" و"بدون إذن" بقوا عمود واحد
-                             • "خصم غياب" و"خصم جزاءات" بقوا عمود واحد، والاتنين
-                               أصلاً مطروحين من الصافي اللي جنبهم على طول
-                             التفصيل الكامل موجود في تقرير العامل وفي لوحة
-                             التفاصيل تحت الكشف. -->
-                        <DataGridTextColumn Header="غياب" Binding="{Binding AbsenceText}" Width="120" />
-                        <DataGridTextColumn Header="خصم" Binding="{Binding DeductionText}" Width="70" />
-                        <!-- الصافي بالخط العريض وبلونه (أحمر لو سالب) -->
-                        <DataGridTemplateColumn Header="الصافي" Width="70">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding NetWorkdays}" Foreground="{Binding NetColor}"
-                                               FontWeight="Bold" VerticalAlignment="Center" Margin="4,0" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <!-- الأجر بالجنيه -->
-                        <DataGridTextColumn Header="الأجر (ج)" Binding="{Binding WageText}" Width="90">
-                            <DataGridTextColumn.ElementStyle>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="FontWeight" Value="Bold" />
-                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
-                                    <Setter Property="VerticalAlignment" Value="Center" />
-                                </Style>
-                            </DataGridTextColumn.ElementStyle>
-                        </DataGridTextColumn>
-                    </DataGrid.Columns>
-                </DataGrid>
-                </Border>
-
-                <!-- لوحة تفاصيل العامل المحدد في الكشف -->
-                <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,10,0,0" MinHeight="70"
-                        DataContext="{Binding SelectedWeeklyRow}">
-                    <StackPanel>
-                        <TextBlock FontWeight="Bold" Foreground="{StaticResource BrandBrush}">
-                            <Run Text="{Binding BestMark, Mode=OneWay}" />
-                            <Run Text="{Binding WorkerName, Mode=OneWay}" />
-                            <Run Text=" — تفاصيل الأسبوع" />
-                        </TextBlock>
-                        <TextBlock FontSize="12.5" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,4,0,0">
-                            <Run Text="الإنتاج: " FontWeight="SemiBold" />
-                            <Run Text="{Binding BreakdownText, Mode=OneWay}" />
-                        </TextBlock>
-                        <TextBlock FontSize="12.5" Foreground="{StaticResource DangerBrush}" TextWrapping="Wrap" Margin="0,3,0,0">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding HasPenalties}" Value="False">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                            <Run Text="الجزاءات: " FontWeight="SemiBold" />
-                            <Run Text="{Binding PenaltiesText, Mode=OneWay}" />
-                        </TextBlock>
-                    </StackPanel>
-                </Border>
-            </Grid>
-        </TabItem>
-
-        <!-- ============ تبويب رسم إنتاج المنتجات ============ -->
         <TabItem>
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal">
@@ -542,500 +498,5 @@
             </Grid>
         </TabItem>
 
-        <!-- ============ تبويب كشف الأجور (فترة مخصصة/شهري) ============ -->
-        <TabItem>
-            <TabItem.Header>
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="CashMultiple" Width="16" Height="16" VerticalAlignment="Center" />
-                    <TextBlock Text="كشف الأجور" Margin="6,0,0,0" />
-                </StackPanel>
-            </TabItem.Header>
-            <Grid Margin="10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <!-- اختيار الفترة + تصدير -->
-                <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Left" Text="من:" FontWeight="Bold"
-                                   VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <DatePicker DockPanel.Dock="Left" SelectedDate="{Binding PayrollFrom}" Width="150"
-                                    VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <TextBlock DockPanel.Dock="Left" Text="إلى:" FontWeight="Bold"
-                                   VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <DatePicker DockPanel.Dock="Left" SelectedDate="{Binding PayrollTo}" Width="150"
-                                    VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <Button DockPanel.Dock="Left" Command="{Binding RefreshPayrollCommand}"
-                                Style="{StaticResource GhostButton}" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Refresh" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="عرض" Margin="5,0,0,0" />
-                            </StackPanel>
-                        </Button>
-                        <Button DockPanel.Dock="Left" Command="{Binding ExportPayrollCommand}"
-                                Style="{StaticResource SuccessButton}">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="MicrosoftExcel" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="تصدير Excel" Margin="6,0,0,0" />
-                            </StackPanel>
-                        </Button>
-                        <TextBlock Text="{Binding PayrollTotalText}" HorizontalAlignment="Left"
-                                   Foreground="{StaticResource BrandBrush}" FontWeight="SemiBold"
-                                   VerticalAlignment="Center" Margin="16,0,0,0" TextWrapping="Wrap" />
-                    </DockPanel>
-                </Border>
-
-                <TextBlock Grid.Row="1" Style="{StaticResource HintText}" FontSize="12" Margin="4,0,4,8"
-                           Text="الأجر = صافي اليوميات (إنتاج + ساعات − خصومات الغياب والجزاءات) × سعر يومية العامل. اختار من تاريخ لتاريخ (شهر مثلاً) وصدّره لحساب الرواتب." />
-
-                <!-- جدول الأجور -->
-                <Border Grid.Row="2" Style="{StaticResource Card}" Padding="6">
-                    <Grid>
-                        <TextBlock Text="مفيش نشاط في الفترة دي — اختار فترة تانية أو سجّل إنتاج/شغل أول"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   Foreground="{StaticResource TextMutedBrush}" FontSize="14">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding PayrollRows.Count}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-
-                        <DataGrid ItemsSource="{Binding PayrollRows}"
-                                  Style="{StaticResource ModernDataGrid}"
-                                  AutoGenerateColumns="False" IsReadOnly="True">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="40" />
-                                <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="*" />
-                                <DataGridTextColumn Header="النوع" Binding="{Binding TypeText}" Width="75" />
-                                <DataGridTextColumn Header="أيام العمل" Binding="{Binding DaysWorked}" Width="85" />
-                                <DataGridTextColumn Header="صافي اليوميات" Binding="{Binding NetWorkdays}" Width="100" />
-                                <DataGridTextColumn Header="سعر اليومية" Binding="{Binding DailyWageText}" Width="95" />
-                                <!-- الحافز بالأخضر والسلفة بالأحمر -->
-                                <DataGridTextColumn Header="حافز" Binding="{Binding BonusText}" Width="80">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
-                                            <Setter Property="VerticalAlignment" Value="Center" />
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-                                <DataGridTextColumn Header="سلفة" Binding="{Binding AdvanceText}" Width="80">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
-                                            <Setter Property="VerticalAlignment" Value="Center" />
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-                                <!-- الأجر النهائي بارز بالأخضر -->
-                                <DataGridTextColumn Header="الأجر بالجنيه" Binding="{Binding NetWageText}" Width="120">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="FontWeight" Value="Bold" />
-                                            <Setter Property="FontSize" Value="14" />
-                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
-                                            <Setter Property="VerticalAlignment" Value="Center" />
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </Grid>
-                </Border>
-            </Grid>
-        </TabItem>
-
-        <!-- ============ تبويب التقرير العام للإنتاج ============ -->
-        <TabItem>
-            <TabItem.Header>
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="ClipboardTextOutline" Width="16" Height="16" VerticalAlignment="Center" />
-                    <TextBlock Text="تقرير الإنتاج" Margin="6,0,0,0" />
-                </StackPanel>
-            </TabItem.Header>
-            <Grid Margin="10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <!-- اختيار المدة: أزرار سريعة + مدى مخصص + تصدير -->
-                <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
-                    <DockPanel LastChildFill="False">
-                        <Button DockPanel.Dock="Left" Content="اليوم" Command="{Binding GeneralPeriodCommand}" CommandParameter="day"
-                                Style="{StaticResource GhostButton}" Margin="0,0,6,0" />
-                        <Button DockPanel.Dock="Left" Content="الأسبوع" Command="{Binding GeneralPeriodCommand}" CommandParameter="week"
-                                Style="{StaticResource GhostButton}" Margin="0,0,6,0" />
-                        <Button DockPanel.Dock="Left" Content="الشهر" Command="{Binding GeneralPeriodCommand}" CommandParameter="month"
-                                Style="{StaticResource GhostButton}" Margin="0,0,16,0" />
-                        <TextBlock DockPanel.Dock="Left" Text="من:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <DatePicker DockPanel.Dock="Left" SelectedDate="{Binding GeneralFrom}" Width="140" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <TextBlock DockPanel.Dock="Left" Text="إلى:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <DatePicker DockPanel.Dock="Left" SelectedDate="{Binding GeneralTo}" Width="140" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <Button DockPanel.Dock="Left" Command="{Binding RefreshGeneralCommand}"
-                                Style="{StaticResource GhostButton}" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Refresh" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="عرض" Margin="5,0,0,0" />
-                            </StackPanel>
-                        </Button>
-                        <Button DockPanel.Dock="Left" Command="{Binding ExportGeneralCommand}"
-                                Style="{StaticResource SuccessButton}">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="MicrosoftExcel" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="تصدير Excel" Margin="6,0,0,0" />
-                            </StackPanel>
-                        </Button>
-                    </DockPanel>
-                </Border>
-
-                <!-- سطر الملخص الإجمالي للقسم -->
-                <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,8" Padding="12,8">
-                    <TextBlock Text="{Binding GeneralSummaryText}" Foreground="{StaticResource BrandBrush}"
-                               FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" />
-                </Border>
-
-                <!-- جدولين جنب بعض: بالمنتج/المرحلة + بالعامل -->
-                <Grid Grid.Row="2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- الإنتاج بالمنتج والمرحلة -->
-                    <Border Grid.Column="0" Style="{StaticResource Card}" Padding="6" Margin="0,0,5,0">
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="الإنتاج حسب المنتج والمرحلة" FontWeight="Bold"
-                                       Foreground="{StaticResource BrandBrush}" Margin="4,2,4,6" />
-                            <DataGrid ItemsSource="{Binding GeneralByProductStage}"
-                                      Style="{StaticResource ModernDataGrid}"
-                                      AutoGenerateColumns="False" IsReadOnly="True">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="المنتج" Binding="{Binding ProductName}" Width="*" />
-                                    <DataGridTextColumn Header="المرحلة" Binding="{Binding StageDisplay}" Width="*" />
-                                    <DataGridTextColumn Header="القطع" Binding="{Binding Pieces}" Width="70" />
-                                    <DataGridTextColumn Header="اليوميات" Binding="{Binding Workdays}" Width="80" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </DockPanel>
-                    </Border>
-
-                    <!-- الإنتاج بالعامل -->
-                    <Border Grid.Column="1" Style="{StaticResource Card}" Padding="6" Margin="5,0,0,0">
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="الإنتاج حسب العامل" FontWeight="Bold"
-                                       Foreground="{StaticResource BrandBrush}" Margin="4,2,4,6" />
-                            <DataGrid ItemsSource="{Binding GeneralByWorker}"
-                                      Style="{StaticResource ModernDataGrid}"
-                                      AutoGenerateColumns="False" IsReadOnly="True">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="#" Binding="{Binding Rank}" Width="40" />
-                                    <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="*" />
-                                    <DataGridTextColumn Header="النوع" Binding="{Binding TypeText}" Width="90" />
-                                    <DataGridTextColumn Header="القطع" Binding="{Binding TotalPieces}" Width="85" />
-                                    <DataGridTextColumn Header="اليوميات" Binding="{Binding TotalWorkdays}" Width="85" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </DockPanel>
-                    </Border>
-                </Grid>
-            </Grid>
-        </TabItem>
-
-        <!-- ============ تبويب تقرير عامل معيّن ============ -->
-        <TabItem>
-            <TabItem.Header>
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="AccountOutline" Width="16" Height="16" VerticalAlignment="Center" />
-                    <TextBlock Text="تقرير عامل" Margin="6,0,0,0" />
-                </StackPanel>
-            </TabItem.Header>
-            <Grid Margin="10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <!-- اختيار العامل + المدة + تصدير -->
-                <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
-                    <DockPanel LastChildFill="False">
-                        <TextBlock DockPanel.Dock="Left" Text="العامل:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding Workers}" SelectedItem="{Binding SelectedWorker}"
-                                  DisplayMemberPath="Display" Width="200" VerticalAlignment="Center" Margin="0,0,16,0" />
-                        <Button DockPanel.Dock="Left" Content="اليوم" Command="{Binding WorkerPeriodCommand}" CommandParameter="day"
-                                Style="{StaticResource GhostButton}" Margin="0,0,6,0" />
-                        <Button DockPanel.Dock="Left" Content="الأسبوع" Command="{Binding WorkerPeriodCommand}" CommandParameter="week"
-                                Style="{StaticResource GhostButton}" Margin="0,0,6,0" />
-                        <Button DockPanel.Dock="Left" Content="الشهر" Command="{Binding WorkerPeriodCommand}" CommandParameter="month"
-                                Style="{StaticResource GhostButton}" Margin="0,0,16,0" />
-                        <TextBlock DockPanel.Dock="Left" Text="من:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <DatePicker DockPanel.Dock="Left" SelectedDate="{Binding WorkerFrom}" Width="130" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <TextBlock DockPanel.Dock="Left" Text="إلى:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <DatePicker DockPanel.Dock="Left" SelectedDate="{Binding WorkerTo}" Width="130" VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <Button DockPanel.Dock="Left" Command="{Binding RefreshWorkerCommand}"
-                                Style="{StaticResource GhostButton}" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Refresh" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="عرض" Margin="5,0,0,0" />
-                            </StackPanel>
-                        </Button>
-                        <Button DockPanel.Dock="Left" Command="{Binding PrintPayslipCommand}"
-                                Style="{StaticResource PrimaryButton}" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="PrinterOutline" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="قسيمة أجر" Margin="5,0,0,0" />
-                            </StackPanel>
-                        </Button>
-                        <Button DockPanel.Dock="Left" Command="{Binding ExportWorkerCommand}"
-                                Style="{StaticResource SuccessButton}">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="MicrosoftExcel" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="تصدير Excel" Margin="6,0,0,0" />
-                            </StackPanel>
-                        </Button>
-                    </DockPanel>
-                </Border>
-
-                <!-- ملخص العامل: العنوان + الإنتاج/الحضور + الأجر -->
-                <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,8" Padding="12,8">
-                    <StackPanel>
-                        <TextBlock Text="{Binding WorkerReportHeader}" FontWeight="Bold" FontSize="14"
-                                   Foreground="{StaticResource BrandBrush}" TextWrapping="Wrap" />
-                        <!-- ===== أرقام الفترة =====
-                             كانت سطرين مفصولين بـ "|" — الأجر النهائي، وهو
-                             الرقم اللي بيتصرف فعلاً، كان بيضيع وسط ٦ أرقام
-                             تانية. كل رقم بقى في مربع، وتحته السطر اللي
-                             بيفسّره. -->
-                        <Grid Margin="0,10,0,0"
-                              Visibility="{Binding HasWorkerReport, Converter={StaticResource BoolToVis}}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="1.2*" />
-                            </Grid.ColumnDefinitions>
-
-                            <Border Grid.Column="0" Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
-                                    Padding="11,8" Margin="0,0,5,0">
-                                <StackPanel>
-                                    <TextBlock Text="قطع شغّلها" FontSize="10.5"
-                                               Foreground="{StaticResource TextMutedBrush}" />
-                                    <TextBlock Text="{Binding WorkerPiecesText}" FontSize="21" FontWeight="Bold"
-                                               Foreground="{StaticResource BrandBrush}" />
-                                    <TextBlock Text="مجموع شغله على كل المراحل" FontSize="10"
-                                               TextWrapping="Wrap"
-                                               Foreground="{StaticResource TextMutedBrush}" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border Grid.Column="1" Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
-                                    Padding="11,8" Margin="5,0">
-                                <StackPanel>
-                                    <TextBlock Text="يوميات منتجة" FontSize="10.5"
-                                               Foreground="{StaticResource TextMutedBrush}" />
-                                    <TextBlock Text="{Binding WorkerWorkdaysText}" FontSize="21" FontWeight="Bold"
-                                               Foreground="{StaticResource BrandBrush}" />
-                                    <TextBlock Text="{Binding WorkerNetWorkdaysText}" FontSize="10"
-                                               TextWrapping="Wrap"
-                                               Foreground="{StaticResource TextMutedBrush}" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border Grid.Column="2" Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
-                                    Padding="11,8" Margin="5,0">
-                                <StackPanel>
-                                    <TextBlock Text="أيام حضور" FontSize="10.5"
-                                               Foreground="{StaticResource TextMutedBrush}" />
-                                    <TextBlock Text="{Binding WorkerPresentDaysText}" FontSize="21" FontWeight="Bold"
-                                               Foreground="{StaticResource BrandBrush}" />
-                                    <TextBlock Text="{Binding WorkerAbsenceText}" FontSize="10"
-                                               TextWrapping="Wrap"
-                                               Foreground="{StaticResource TextMutedBrush}" />
-                                </StackPanel>
-                            </Border>
-
-                            <!-- الأجر النهائي أكبر وله لون مختلف: هو خلاصة الشاشة.
-                                 بيقلب أحمر لو طلع بالسالب — رقم سالب في مربع
-                                 أخضر بيتقري غلط. -->
-                            <Border Grid.Column="3" CornerRadius="8" Padding="11,8" Margin="5,0,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="{StaticResource SuccessBgBrush}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding WorkerIsWageNegative}" Value="True">
-                                                <Setter Property="Background" Value="{StaticResource DangerBgBrush}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <StackPanel>
-                                    <StackPanel.Resources>
-                                        <Style x:Key="WageInk" TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding WorkerIsWageNegative}" Value="True">
-                                                    <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </StackPanel.Resources>
-                                    <TextBlock Text="الأجر النهائي" FontSize="10.5"
-                                               Style="{StaticResource WageInk}" />
-                                    <TextBlock Text="{Binding WorkerNetWageText}" FontSize="21" FontWeight="Bold"
-                                               Style="{StaticResource WageInk}" />
-                                    <TextBlock Text="{Binding WorkerWageBreakdownText}" FontSize="10"
-                                               TextWrapping="Wrap"
-                                               Foreground="{StaticResource TextMutedBrush}" />
-                                </StackPanel>
-                            </Border>
-                        </Grid>
-
-                        <!-- ===== تحذيرات =====
-                             بتظهر بس لما تبقى موجودة فعلاً. الرقم السالب
-                             بيتعرض زي ما هو مش بيتصفّر: "العامل مدين"
-                             حقيقة محاسبية لازم تتشاف. -->
-                        <Border Background="{StaticResource DangerBgBrush}" CornerRadius="7"
-                                Padding="10,7" Margin="0,8,0,0"
-                                Visibility="{Binding WorkerIsWageNegative, Converter={StaticResource BoolToVis}}">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="AlertCircleOutline" Width="15" Height="15"
-                                                         VerticalAlignment="Center"
-                                                         Foreground="{StaticResource DangerBrush}" />
-                                <TextBlock Text="{Binding WorkerNegativeWageText}" FontSize="12" Margin="6,0,0,0"
-                                           TextWrapping="Wrap" VerticalAlignment="Center"
-                                           Foreground="{StaticResource DangerBrush}" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Background="{StaticResource WarnBgBrush}" CornerRadius="7"
-                                Padding="10,7" Margin="0,8,0,0"
-                                Visibility="{Binding WorkerHasNoWageRate, Converter={StaticResource BoolToVis}}">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="CashRemove" Width="15" Height="15"
-                                                         VerticalAlignment="Center"
-                                                         Foreground="{StaticResource WarnBrush}" />
-                                <TextBlock Text="مفيش سعر يومية متسجّل للعامل ده — أجره هيطلع صفر مهما أنتج. ظبّطه من شاشة العمال."
-                                           FontSize="12" Margin="6,0,0,0" TextWrapping="Wrap"
-                                           VerticalAlignment="Center"
-                                           Foreground="{StaticResource WarnBrush}" />
-                            </StackPanel>
-                        </Border>
-
-                        <!-- ===== مهاراته =====
-                             "أنتج كام" لوحده مبيقولش هو شاطر في إيه. عامل
-                             إنتاجه قليل وتقييمه ممتاز على مرحلة صعبة صورة
-                             مختلفة تمامًا عن عامل إنتاجه قليل وتقييمه ضعيف. -->
-                        <StackPanel Margin="0,10,0,0"
-                                    Visibility="{Binding HasWorkerSkills, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="تقييمه على المنتجات" FontSize="11.5" FontWeight="SemiBold"
-                                       Margin="0,0,0,5"
-                                       Foreground="{StaticResource TextMutedBrush}" />
-                            <ItemsControl ItemsSource="{Binding WorkerSkills}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="7"
-                                                Padding="9,5" Margin="0,0,6,5">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding StarsText}" FontSize="11.5"
-                                                           VerticalAlignment="Center" Foreground="#F5A623" />
-                                                <TextBlock Text="{Binding ProductName}" FontSize="12" FontWeight="SemiBold"
-                                                           Margin="6,0,0,0" VerticalAlignment="Center"
-                                                           Foreground="{StaticResource TextPrimaryBrush}" />
-                                                <TextBlock Text="{Binding StagesText}" FontSize="10.5"
-                                                           Margin="6,0,0,0" VerticalAlignment="Center"
-                                                           Foreground="{StaticResource TextMutedBrush}" />
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- التفاصيل: إنتاج بالمرحلة + إنتاج باليوم + الجزاءات -->
-                <Grid Grid.Row="2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="1.3*" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- يسار: إنتاج بالمرحلة + الجزاءات -->
-                    <Grid Grid.Column="0" Margin="0,0,5,0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <Border Grid.Row="0" Style="{StaticResource Card}" Padding="6">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="الإنتاج حسب المرحلة" FontWeight="Bold"
-                                           Foreground="{StaticResource BrandBrush}" Margin="4,2,4,6" />
-                                <DataGrid ItemsSource="{Binding WorkerByProductStage}"
-                                          Style="{StaticResource ModernDataGrid}"
-                                          AutoGenerateColumns="False" IsReadOnly="True">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="المنتج" Binding="{Binding ProductName}" Width="*" />
-                                        <DataGridTextColumn Header="المرحلة" Binding="{Binding StageDisplay}" Width="*" />
-                                        <DataGridTextColumn Header="القطع" Binding="{Binding Pieces}" Width="85" />
-                                        <DataGridTextColumn Header="اليوميات" Binding="{Binding Workdays}" Width="85" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </DockPanel>
-                        </Border>
-
-                        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="6" Margin="0,10,0,0" MaxHeight="180">
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Top" Text="الجزاءات" FontWeight="Bold"
-                                           Foreground="{StaticResource DangerBrush}" Margin="4,2,4,6" />
-                                <DataGrid ItemsSource="{Binding WorkerPenalties}"
-                                          Style="{StaticResource ModernDataGrid}"
-                                          AutoGenerateColumns="False" IsReadOnly="True">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="التاريخ" Binding="{Binding DateText}" Width="100" />
-                                        <DataGridTextColumn Header="السبب" Binding="{Binding Reason}" Width="*" />
-                                        <DataGridTextColumn Header="الخصم" Binding="{Binding DeductionName}" Width="90" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </DockPanel>
-                        </Border>
-                    </Grid>
-
-                    <!-- يمين: إنتاج يوم بيوم -->
-                    <Border Grid.Column="1" Style="{StaticResource Card}" Padding="6" Margin="5,0,0,0">
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="الإنتاج يوم بيوم" FontWeight="Bold"
-                                       Foreground="{StaticResource BrandBrush}" Margin="4,2,4,6" />
-                            <DataGrid ItemsSource="{Binding WorkerByDay}"
-                                      Style="{StaticResource ModernDataGrid}"
-                                      AutoGenerateColumns="False" IsReadOnly="True">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="التاريخ" Binding="{Binding DateText}" Width="160" />
-                                    <DataGridTextColumn Header="القطع" Binding="{Binding Pieces}" Width="85" />
-                                    <DataGridTextColumn Header="اليوميات" Binding="{Binding Workdays}" Width="85" />
-                                    <DataGridTextColumn Header="التفصيل" Binding="{Binding Detail}" Width="*" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </DockPanel>
-                    </Border>
-                </Grid>
-            </Grid>
-        </TabItem>
     </TabControl>
 </UserControl>

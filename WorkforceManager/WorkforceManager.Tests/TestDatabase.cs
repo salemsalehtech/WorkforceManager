@@ -112,6 +112,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<ProductionReportService>();
             services.AddScoped<WageAdjustmentService>();
             services.AddScoped<ReportBuilderService>();
+            services.AddScoped<NeedsAttentionService>();
             services.AddSingleton<ReportTableExcelService>();
 
             _provider = services.BuildServiceProvider();

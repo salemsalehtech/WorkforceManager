@@ -29,16 +29,58 @@ namespace WorkforceManager.UI.ViewModels
             _scopeFactory = scopeFactory;
         }
 
-        /// <summary>أول تحميل للشاشة: تقرير النهارده + كشف الأسبوع الحالي + رسم المنتجات + كشف أجور الشهر + التقرير العام + قائمة العمال</summary>
+        // ======================= محتاج تصرّف =======================
+        // القايمة دي فوق كل حاجة عن قصد: الجدول بيقول حقيقة، وده
+        // بيقول اعمل إيه. المدير بيفتح الشاشة عشان يعرف يتصرّف في إيه،
+        // مش عشان يقرا متوسطات.
+
+        public ObservableCollection<AttentionItem> Attention { get; } = new();
+
+        public bool HasAttention => Attention.Count > 0;
+
+        [ObservableProperty]
+        private string _attentionSummary = "";
+
+        private async Task LoadAttentionAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<NeedsAttentionService>();
+
+            Attention.Clear();
+            foreach (var item in await service.GetAsync(DailyDate)) Attention.Add(item);
+
+            AttentionSummary = Attention.Count == 0
+                ? "مفيش حاجة محتاجة تصرّف — كله تمام"
+                : $"{Attention.Count} حاجة محتاجة تصرّف";
+
+            OnPropertyChanged(nameof(HasAttention));
+        }
+
+        /// <summary>بيفتح شاشة العمال على العامل ده — الإجراء بيتم من مكانه</summary>
+        [RelayCommand]
+        private void OpenWorker(AttentionItem? item)
+        {
+            if (item?.WorkerId is null) return;
+
+            Notify.Info(
+                $"افتح شاشة \"العمال والمهارات\" ودوّر على \"{item.Title}\" — " +
+                "من هناك تقدر تغيّر نجومه أو تظبّط سعر يوميته.",
+                "الإجراء");
+        }
+
+        /// <summary>
+        /// أول تحميل: اللي محتاج تصرّف الأول، وبعده تقييم اليوم وإنتاجه
+        /// والرسم البياني.
+        ///
+        /// الكشوف والتقارير اللي كانت هنا اتنقلت لشاشة "التقارير" — دي
+        /// شاشة بتتشاف وبيتصرّف منها، مش بتطلّع ورق.
+        /// </summary>
         public async Task InitializeAsync()
         {
+            await LoadAttentionAsync();
             await LoadDailyAsync();
             await LoadOutputAsync();
-            await LoadWeeklyAsync();
             await LoadChartAsync();
-            await LoadPayrollAsync();
-            await LoadWorkersListAsync();
-            await LoadGeneralReportAsync();
         }
 
         /// <summary>حساب مدى التاريخ للأزرار السريعة (اليوم/الأسبوع/الشهر)</summary>
@@ -238,63 +280,6 @@ namespace WorkforceManager.UI.ViewModels
             OutputStartedText = report.TotalStartedPieces.ToString("N0");
             OutputIsClosed = report.IsClosed;
             OutputIsEmpty = report.Products.Count == 0;
-        }
-
-        // ======================= تبويب كشف الأسبوع =======================
-
-        /// <summary>أي تاريخ داخل الأسبوع المعروض — التنقل بيتحرك بيه 7 أيام</summary>
-        private DateTime _weekAnchor = DateTime.Today;
-
-        [ObservableProperty]
-        private string _weekTitle = string.Empty;
-
-        /// <summary>هل الأسبوع المعروض هو الأسبوع الحالي؟ (بيظهر بجانب العنوان)</summary>
-        [ObservableProperty]
-        private string _weekBadge = string.Empty;
-
-        public ObservableCollection<WeeklyReportRow> WeeklyRows { get; } = new();
-
-        [ObservableProperty]
-        private WeeklyReportRow? _selectedWeeklyRow;
-
-        private async Task LoadWeeklyAsync()
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var weeklyService = scope.ServiceProvider.GetRequiredService<WeeklySummaryService>();
-
-            var (weekStart, weekEnd) = WeeklySummaryService.GetWorkWeekRange(_weekAnchor);
-            WeekTitle = $"من الخميس {weekStart:yyyy/MM/dd} إلى الأربعاء {weekEnd:yyyy/MM/dd}";
-            var (currentStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);
-            WeekBadge = weekStart == currentStart ? "(الأسبوع الحالي)" : "";
-
-            var summaries = await weeklyService.GetTeamWeeklySummaryAsync(_weekAnchor);
-
-            WeeklyRows.Clear();
-            for (var i = 0; i < summaries.Count; i++)
-                WeeklyRows.Add(WeeklyReportRow.From(summaries[i], rank: i + 1));
-
-            SelectedWeeklyRow = WeeklyRows.FirstOrDefault();
-        }
-
-        [RelayCommand]
-        private Task PreviousWeekAsync()
-        {
-            _weekAnchor = _weekAnchor.AddDays(-7);
-            return LoadWeeklyAsync();
-        }
-
-        [RelayCommand]
-        private Task NextWeekAsync()
-        {
-            _weekAnchor = _weekAnchor.AddDays(7);
-            return LoadWeeklyAsync();
-        }
-
-        [RelayCommand]
-        private Task CurrentWeekAsync()
-        {
-            _weekAnchor = DateTime.Today;
-            return LoadWeeklyAsync();
         }
 
         // ======================= تبويب رسم إنتاج المنتجات =======================
@@ -522,396 +507,5 @@ namespace WorkforceManager.UI.ViewModels
         private static int ParseTotal(string text) =>
             int.TryParse(text.Replace(",", ""), out var value) ? value : 0;
 
-        // ======================= تبويب كشف أجور الفترة (شهري) =======================
-
-        /// <summary>بداية الفترة (افتراضيًا أول الشهر الحالي)</summary>
-        [ObservableProperty]
-        private DateTime _payrollFrom = new(DateTime.Today.Year, DateTime.Today.Month, 1);
-
-        /// <summary>نهاية الفترة (افتراضيًا النهاردة)</summary>
-        [ObservableProperty]
-        private DateTime _payrollTo = DateTime.Today;
-
-        [ObservableProperty]
-        private string _payrollTotalText = "";
-
-        public ObservableCollection<PayrollRow> PayrollRows { get; } = new();
-
-        [RelayCommand]
-        private Task RefreshPayrollAsync() => LoadPayrollAsync();
-
-        private async Task LoadPayrollAsync()
-        {
-            PeriodPayrollDto period;
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var payrollService = scope.ServiceProvider.GetRequiredService<PayrollService>();
-                period = await payrollService.GetPeriodPayrollAsync(PayrollFrom, PayrollTo);
-            }
-
-            PayrollRows.Clear();
-            var rank = 1;
-            foreach (var w in period.Workers)
-                PayrollRows.Add(PayrollRow.From(w, rank++));
-
-            var days = (PayrollTo.Date - PayrollFrom.Date).Days + 1;
-            PayrollTotalText = $"من {PayrollFrom:yyyy/MM/dd} إلى {PayrollTo:yyyy/MM/dd} ({days} يوم)   |   " +
-                $"إجمالي الأجور: {period.TotalWageEgp:N0} جنيه   |   إجمالي اليوميات: {period.TotalNetWorkdays:0.##}";
-        }
-
-        [RelayCommand]
-        private async Task ExportPayrollAsync()
-        {
-            if (PayrollRows.Count == 0)
-            {
-                Notify.Info("لا توجد بيانات في الفترة دي للتصدير");
-                return;
-            }
-
-            await ExcelExport.RunAsync(
-                "حفظ كشف أجور الفترة",
-                $"كشف أجور {PayrollFrom:yyyy-MM-dd} إلى {PayrollTo:yyyy-MM-dd}",
-                async path =>
-                {
-                    using var scope = _scopeFactory.CreateScope();
-                    var payrollService = scope.ServiceProvider.GetRequiredService<PayrollService>();
-                    var excelService = scope.ServiceProvider.GetRequiredService<WeeklyReportExcelService>();
-
-                    var period = await payrollService.GetPeriodPayrollAsync(PayrollFrom, PayrollTo);
-                    excelService.ExportPeriodPayroll(period, path);
-                });
-        }
-
-        // ======================= تبويب التقرير العام للإنتاج =======================
-
-        /// <summary>بداية فترة التقرير العام (افتراضيًا أول الشهر)</summary>
-        [ObservableProperty]
-        private DateTime _generalFrom = new(DateTime.Today.Year, DateTime.Today.Month, 1);
-
-        /// <summary>نهاية فترة التقرير العام (افتراضيًا النهاردة)</summary>
-        [ObservableProperty]
-        private DateTime _generalTo = DateTime.Today;
-
-        /// <summary>سطر الملخص الإجمالي للقسم فوق الجداول</summary>
-        [ObservableProperty]
-        private string _generalSummaryText = "";
-
-        /// <summary>تفصيل الإنتاج بالمنتج/المرحلة</summary>
-        public ObservableCollection<GeneralStageRow> GeneralByProductStage { get; } = new();
-
-        /// <summary>تفصيل الإنتاج بالعامل (مرتّب باليوميات)</summary>
-        public ObservableCollection<GeneralWorkerRow> GeneralByWorker { get; } = new();
-
-        [RelayCommand]
-        private Task RefreshGeneralAsync() => LoadGeneralReportAsync();
-
-        /// <summary>زر سريع (اليوم/الأسبوع/الشهر) يضبط المدى ويعيد التحميل</summary>
-        [RelayCommand]
-        private Task GeneralPeriodAsync(string period)
-        {
-            (GeneralFrom, GeneralTo) = ResolveQuickPeriod(period);
-            return LoadGeneralReportAsync();
-        }
-
-        private async Task LoadGeneralReportAsync()
-        {
-            GeneralProductionReportDto report;
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var service = scope.ServiceProvider.GetRequiredService<ProductionReportService>();
-                report = await service.GetGeneralReportAsync(GeneralFrom, GeneralTo);
-            }
-
-            GeneralByProductStage.Clear();
-            foreach (var s in report.ByProductStage)
-                GeneralByProductStage.Add(GeneralStageRow.From(s));
-
-            GeneralByWorker.Clear();
-            var rank = 1;
-            foreach (var w in report.ByWorker)
-                GeneralByWorker.Add(GeneralWorkerRow.From(w, rank++));
-
-            var days = (GeneralTo.Date - GeneralFrom.Date).Days + 1;
-            GeneralSummaryText =
-                $"من {report.From:yyyy/MM/dd} إلى {report.To:yyyy/MM/dd} ({days} يوم)   |   " +
-                $"قطع مكتملة: {report.TotalCompletedPieces:N0}   |   إجمالي اليوميات: {report.TotalWorkdays:0.##}   |   " +
-                $"عدد العمال: {report.WorkersCount}   |   أيام الإنتاج: {report.ProductionDays}";
-        }
-
-        [RelayCommand]
-        private async Task ExportGeneralAsync()
-        {
-            if (GeneralByProductStage.Count == 0 && GeneralByWorker.Count == 0)
-            {
-                Notify.Info("لا يوجد إنتاج في الفترة دي للتصدير");
-                return;
-            }
-
-            await ExcelExport.RunAsync(
-                "حفظ التقرير العام للإنتاج",
-                $"تقرير إنتاج {GeneralFrom:yyyy-MM-dd} إلى {GeneralTo:yyyy-MM-dd}",
-                async path =>
-                {
-                    using var scope = _scopeFactory.CreateScope();
-                    var service = scope.ServiceProvider.GetRequiredService<ProductionReportService>();
-                    var excelService = scope.ServiceProvider.GetRequiredService<WeeklyReportExcelService>();
-
-                    var report = await service.GetGeneralReportAsync(GeneralFrom, GeneralTo);
-                    excelService.ExportGeneralReport(report, path);
-                });
-        }
-
-        // ======================= تبويب تقرير عامل معيّن =======================
-
-        /// <summary>قائمة العمال للاختيار منها</summary>
-        public ObservableCollection<WorkerPickItem> Workers { get; } = new();
-
-        [ObservableProperty]
-        private WorkerPickItem? _selectedWorker;
-
-        partial void OnSelectedWorkerChanged(WorkerPickItem? value)
-        {
-            // اختيار عامل جديد بيحمّل تقريره فورًا
-            if (value is not null) SafeAsync.Run(LoadWorkerReportAsync);
-        }
-
-        /// <summary>بداية فترة تقرير العامل (افتراضيًا أول الشهر)</summary>
-        [ObservableProperty]
-        private DateTime _workerFrom = new(DateTime.Today.Year, DateTime.Today.Month, 1);
-
-        /// <summary>نهاية فترة تقرير العامل (افتراضيًا النهاردة)</summary>
-        [ObservableProperty]
-        private DateTime _workerTo = DateTime.Today;
-
-        /// <summary>ملخص التقرير (اسم العامل + النوع + الفترة)</summary>
-        [ObservableProperty]
-        private string _workerReportHeader = "اختر عامل لعرض تقريره";
-
-        // ------- أرقام الملخص -------
-        // كانت سطرين طويلين مفصولين بـ "|" — رقم مهم زي الأجر النهائي كان
-        // بيضيع وسط ٦ أرقام تانية. بقت مربعات، كل رقم في مكانه.
-
-        /// <summary>قطع أنتجها العامل في الفترة</summary>
-        [ObservableProperty]
-        private string _workerPiecesText = "0";
-
-        /// <summary>يوميات منتجة (قبل الخصومات)</summary>
-        [ObservableProperty]
-        private string _workerWorkdaysText = "0";
-
-        /// <summary>صافي اليوميات بعد الغياب والجزاءات</summary>
-        [ObservableProperty]
-        private string _workerNetWorkdaysText = "";
-
-        /// <summary>أيام الحضور</summary>
-        [ObservableProperty]
-        private string _workerPresentDaysText = "0";
-
-        /// <summary>تفصيل الغياب تحت رقم الحضور</summary>
-        [ObservableProperty]
-        private string _workerAbsenceText = "";
-
-        /// <summary>الأجر النهائي بالجنيه — الرقم اللي بيتصرف فعلاً</summary>
-        [ObservableProperty]
-        private string _workerNetWageText = "—";
-
-        /// <summary>معادلة الأجر: يوميات × سعر + حوافز − سلف</summary>
-        [ObservableProperty]
-        private string _workerWageBreakdownText = "";
-
-        /// <summary>هل فيه تقرير معروض؟ (يتحكم في ظهور الأرقام)</summary>
-        [ObservableProperty]
-        private bool _hasWorkerReport;
-
-        public ObservableCollection<GeneralStageRow> WorkerByProductStage { get; } = new();
-        public ObservableCollection<WorkerDayRow> WorkerByDay { get; } = new();
-        public ObservableCollection<WorkerPenaltyRow> WorkerPenalties { get; } = new();
-
-        /// <summary>تقييم العامل على المنتجات — الأعلى الأول</summary>
-        public ObservableCollection<WorkerSkillSummaryDto> WorkerSkills { get; } = new();
-
-        [ObservableProperty]
-        private bool _hasWorkerSkills;
-
-        /// <summary>مفيش سعر يومية — أجره هيطلع صفر مهما أنتج</summary>
-        [ObservableProperty]
-        private bool _workerHasNoWageRate;
-
-        /// <summary>
-        /// السلف أكلت الأجر والصافي بالسالب.
-        ///
-        /// الرقم بيتعرض زي ما هو مع تحذير بدل ما يتصفّر: "العامل مدين"
-        /// حقيقة محاسبية لازم تتشاف، وتصفيرها بتخفي إن السلف اتصرفت.
-        /// </summary>
-        [ObservableProperty]
-        private bool _workerIsWageNegative;
-
-        [ObservableProperty]
-        private string _workerNegativeWageText = "";
-
-        [RelayCommand]
-        private Task RefreshWorkerAsync() => LoadWorkerReportAsync();
-
-        [RelayCommand]
-        private Task WorkerPeriodAsync(string period)
-        {
-            (WorkerFrom, WorkerTo) = ResolveQuickPeriod(period);
-            return LoadWorkerReportAsync();
-        }
-
-        private async Task LoadWorkersListAsync()
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
-            var workers = await workerRepo.GetActiveWithSkillsAsync();
-
-            Workers.Clear();
-            foreach (var w in workers.OrderBy(w => w.FullName))
-                Workers.Add(new WorkerPickItem { Id = w.Id, Display = w.FullName });
-        }
-
-        private async Task LoadWorkerReportAsync()
-        {
-            if (SelectedWorker is null) return;
-
-            WorkerProductionReportDto report;
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var service = scope.ServiceProvider.GetRequiredService<ProductionReportService>();
-                report = await service.GetWorkerReportAsync(SelectedWorker.Id, WorkerFrom, WorkerTo);
-            }
-
-            WorkerByProductStage.Clear();
-            foreach (var s in report.ByProductStage)
-                WorkerByProductStage.Add(GeneralStageRow.From(s));
-
-            WorkerByDay.Clear();
-            foreach (var d in report.ByDay)
-                WorkerByDay.Add(WorkerDayRow.From(d));
-
-            WorkerPenalties.Clear();
-            foreach (var p in report.Penalties)
-                WorkerPenalties.Add(WorkerPenaltyRow.From(p));
-
-            // المهارات: "أنتج كام" لوحده مبيقولش هو شاطر في إيه
-            WorkerSkills.Clear();
-            foreach (var s in report.Skills) WorkerSkills.Add(s);
-            HasWorkerSkills = WorkerSkills.Count > 0;
-
-            // تحذيرات بتظهر بس لما تبقى موجودة فعلاً
-            WorkerHasNoWageRate = report.HasNoWageRate;
-            WorkerIsWageNegative = report.IsWageNegative;
-            WorkerNegativeWageText = report.IsWageNegative
-                ? $"السلف ({report.AdvanceEgp:N0} ج) أكبر من أجره — الصافي {report.NetWageEgp:N0} ج، " +
-                  "يعني العامل مدين بالفرق"
-                : "";
-
-            var days = (WorkerTo.Date - WorkerFrom.Date).Days + 1;
-            WorkerReportHeader =
-                $"{report.WorkerName} — {report.TypeText}   |   " +
-                $"من {report.From:yyyy/MM/dd} إلى {report.To:yyyy/MM/dd} ({days} يوم)";
-            // القطع هنا بتتجمع على كل المراحل عن قصد: دي قياس شغل العامل
-            // نفسه مش إنتاج المنتج، فالقطعة اللي عدّت على مرحلتين شغل مرتين.
-            WorkerPiecesText = report.TotalPieces.ToString("N0");
-            WorkerWorkdaysText = report.ProducedWorkdays.ToString("0.##");
-            WorkerNetWorkdaysText = report.NetWorkdays != report.ProducedWorkdays
-                ? $"الصافي بعد الخصومات: {report.NetWorkdays:0.##}"
-                : "مفيش خصومات";
-
-            WorkerPresentDaysText = report.PresentDays.ToString();
-            var absences = new List<string>();
-            if (report.AbsentWithPermissionDays > 0)
-                absences.Add($"غياب بإذن {report.AbsentWithPermissionDays}");
-            if (report.AbsentWithoutPermissionDays > 0)
-                absences.Add($"بدون إذن {report.AbsentWithoutPermissionDays} (خصم {report.AbsenceDeduction:0.##})");
-            WorkerAbsenceText = absences.Count > 0 ? string.Join(" · ", absences) : "مفيش غياب";
-
-            // معادلة الأجر كاملة: يوميات × سعر + حوافز − سلف
-            WorkerNetWageText = report.DailyWageEgp > 0 ? $"{report.NetWageEgp:N0} ج" : "—";
-            var adjParts = "";
-            if (report.BonusEgp > 0) adjParts += $" + حوافز {report.BonusEgp:N0}";
-            if (report.AdvanceEgp > 0) adjParts += $" − سلف {report.AdvanceEgp:N0}";
-            if (report.PenaltyDeduction > 0) adjParts += $" (خصم جزاءات {report.PenaltyDeduction:0.##} يومية)";
-            WorkerWageBreakdownText = report.DailyWageEgp > 0
-                ? $"{report.NetWorkdays:0.##} × {report.DailyWageEgp:N0}{adjParts}"
-                : $"صافي اليوميات {report.NetWorkdays:0.##}{adjParts}";
-            HasWorkerReport = true;
-        }
-
-        [RelayCommand]
-        private async Task PrintPayslipAsync()
-        {
-            if (SelectedWorker is null || !HasWorkerReport)
-            {
-                Notify.Info("اختر عامل الأول عشان تطبع قسيمته", "تنبيه");
-                return;
-            }
-
-            WorkerProductionReportDto report;
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var service = scope.ServiceProvider.GetRequiredService<ProductionReportService>();
-                report = await service.GetWorkerReportAsync(SelectedWorker.Id, WorkerFrom, WorkerTo);
-            }
-
-            // معاينة القسيمة في نافذة، والطباعة من جواها لأي طابعة/PDF
-            var window = new Views.PayslipWindow(PayslipData.From(report))
-            {
-                Owner = Application.Current.MainWindow
-            };
-            window.ShowDialog();
-        }
-
-        [RelayCommand]
-        private async Task ExportWorkerAsync()
-        {
-            if (SelectedWorker is null || !HasWorkerReport)
-            {
-                Notify.Info("اختر عامل الأول عشان تصدّر تقريره");
-                return;
-            }
-
-            await ExcelExport.RunAsync(
-                "حفظ تقرير العامل",
-                $"تقرير {SelectedWorker.Display} {WorkerFrom:yyyy-MM-dd} إلى {WorkerTo:yyyy-MM-dd}",
-                async path =>
-                {
-                    using var scope = _scopeFactory.CreateScope();
-                    var service = scope.ServiceProvider.GetRequiredService<ProductionReportService>();
-                    var excelService = scope.ServiceProvider.GetRequiredService<WeeklyReportExcelService>();
-
-                    var report = await service.GetWorkerReportAsync(SelectedWorker.Id, WorkerFrom, WorkerTo);
-                    excelService.ExportWorkerReport(report, path);
-                });
-        }
-
-        // ======================= تصدير Excel =======================
-
-        [RelayCommand]
-        private async Task ExportWeekAsync()
-        {
-            if (WeeklyRows.Count == 0)
-            {
-                Notify.Info("لا توجد بيانات في هذا الأسبوع للتصدير");
-                return;
-            }
-
-            var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(_weekAnchor);
-
-            await ExcelExport.RunAsync(
-                "حفظ كشف الأسبوع",
-                $"كشف أسبوع {weekStart:yyyy-MM-dd}",
-                async path =>
-                {
-                    using var scope = _scopeFactory.CreateScope();
-                    var weeklyService = scope.ServiceProvider.GetRequiredService<WeeklySummaryService>();
-                    var excelService = scope.ServiceProvider.GetRequiredService<WeeklyReportExcelService>();
-
-                    // البيانات بتتجاب طازة وقت التصدير مش من صفوف العرض —
-                    // مصدر حقيقة واحد
-                    var summaries = await weeklyService.GetTeamWeeklySummaryAsync(_weekAnchor);
-                    excelService.ExportWeeklySummary(summaries, path);
-                });
-        }
     }
 }
