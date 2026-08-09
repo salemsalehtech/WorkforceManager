@@ -4,20 +4,28 @@
     <!--
       ============ الثيم الفاتح ============
 
-      الهوية: كحلي غامق + دهبي. الكحلي هو الحبر، والدهبي أكسنت مقصود.
+      الهوية: **أسود ودهبي بس — مفيش كحلي خالص.** كانت الهوية الأولى
+      كحلي + دهبي، وطلع الكحلي بيزاحم الدهبي: لون تاني قوي في شاشة
+      المفروض لونها الأساسي واحد. الحبر والشريط الجانبي دلوقتي درجات
+      محايدة دافية (رمادي-بني، صفر أزرق) بدل الكحلي — نفس الغمقان،
+      نفس نسب التباين بالظبط، بس من غير ميل لأي لون تاني غير الدهبي.
 
-      **الأرضية دافية مش رمادي مزرق.** ده أهم قرار في الملف. الرمادي
-      المزرق (#F7F8FA) لون محايد بارد — الدهبي فوقه بيبان لون غريب
-      داخل على الشاشة. الأرضية الدافية (#F6F2E9) بتخلي الدهبي *ينتمي*
-      للشاشة، والكروت البيضا بتطلع منها أوضح. نفس الكارت الأبيض، فرق
-      كامل في الإحساس.
+      كل درجة هنا محسوبة بحيث تحافظ على **نفس نسبة التباين** اللي
+      كانت للكحلي القديم (نفس الإضاءة النسبية WCAG) — مفيش تنازل في
+      وضوح القراية عشان نشيل اللون.
+
+      **الأرضية دافية مش رمادي مزرق.** ده تاني أهم قرار في الملف.
+      الرمادي المزرق (#F7F8FA) لون محايد بارد — الدهبي فوقه بيبان لون
+      غريب داخل على الشاشة. الأرضية الدافية (#F6F2E9) بتخلي الدهبي
+      *ينتمي* للشاشة، والكروت البيضا بتطلع منها أوضح.
 
       ليه الدهبي مش نص: الدهبي الفاتح على الأبيض نسبة وضوحه 2.2:1 —
       والحد الأدنى لنص يتقرا هو 4.5:1. يعني نص دهبي على أبيض شكله لامع
-      في الصورة ومتعب جدًا لواحد قاعد عليه 8 ساعات. الكحلي على الأبيض
-      16:1. فالدهبي بيروح على اللي المفروض يلفت النظر: الرقم المهم،
-      الزرار الرئيسي، العنصر النشط، شريط الاختيار — وبيبان **أكتر**
-      لأنه نادر. ولما يلزم نص دهبي بنستخدم GoldDeepBrush (5.9:1).
+      في الصورة ومتعب جدًا لواحد قاعد عليه 8 ساعات. الحبر الغامق على
+      الأبيض 13.4:1. فالدهبي بيروح على اللي المفروض يلفت النظر: الرقم
+      المهم، الزرار الرئيسي، العنصر النشط، شريط الاختيار — وبيبان
+      **أكتر** لأنه نادر ولأنه اللون الوحيد في الشاشة. ولما يلزم نص
+      دهبي بنستخدم GoldDeepBrush (5.9:1).
 
       الملف ده بيتبدّل كله في اللحظة عند تغيير الثيم، فكل الأنماط
       بتشاور على الفُرَش دي بـ DynamicResource مش StaticResource.
@@ -34,25 +42,28 @@
     <Color x:Key="SurfaceSunkenColor">#EBE4D3</Color>
     <SolidColorBrush x:Key="SurfaceSunkenBrush" Color="{DynamicResource SurfaceSunkenColor}" />
 
-    <!-- الشريط الجانبي: كحلي في الثيمين — هو هوية البرنامج -->
-    <Color x:Key="SidebarColor">#1B2E4A</Color>
+    <!-- الشريط الجانبي: أسود دافي (محايد) في الثيمين — هو هوية البرنامج،
+         مش الكحلي. نفس درجة إضاءة الكحلي القديم بالظبط، غير لونه بس. -->
+    <Color x:Key="SidebarColor">#342E28</Color>
     <SolidColorBrush x:Key="SidebarBrush" Color="{DynamicResource SidebarColor}" />
-    <Color x:Key="SidebarAltColor">#274064</Color>
+    <Color x:Key="SidebarAltColor">#453F39</Color>
     <SolidColorBrush x:Key="SidebarAltBrush" Color="{DynamicResource SidebarAltColor}" />
-    <Color x:Key="SidebarInkColor">#CBD5E3</Color>
+    <Color x:Key="SidebarInkColor">#DED4CA</Color>
     <SolidColorBrush x:Key="SidebarInkBrush" Color="{DynamicResource SidebarInkColor}" />
-    <Color x:Key="SidebarInkSoftColor">#8593A9</Color>
+    <Color x:Key="SidebarInkSoftColor">#98928C</Color>
     <SolidColorBrush x:Key="SidebarInkSoftBrush" Color="{DynamicResource SidebarInkSoftColor}" />
 
-    <!-- ════ الحبر ════ -->
-    <Color x:Key="InkColor">#1B2E4A</Color>
+    <!-- ════ الحبر ════
+         رمادي-بني دافي محايد — 12:1 على الأرضية و13.4:1 على الأبيض،
+         نفس درجة الكحلي القديم بالظبط من غير أي ميل للأزرق. -->
+    <Color x:Key="InkColor">#342E28</Color>
     <SolidColorBrush x:Key="InkBrush" Color="{DynamicResource InkColor}" />
-    <Color x:Key="InkSoftColor">#505C74</Color>
+    <Color x:Key="InkSoftColor">#625C56</Color>
     <SolidColorBrush x:Key="InkSoftBrush" Color="{DynamicResource InkSoftColor}" />
-    <!-- 4.4:1 على الأرضية الدافية — القديم (#8A94A8) كان 3.1 وباهت -->
-    <Color x:Key="InkFaintColor">#727C93</Color>
+    <!-- 4.6:1 على الأرضية الدافية -->
+    <Color x:Key="InkFaintColor">#756D65</Color>
     <SolidColorBrush x:Key="InkFaintBrush" Color="{DynamicResource InkFaintColor}" />
-    <Color x:Key="InkOnAccentColor">#16263D</Color>
+    <Color x:Key="InkOnAccentColor">#2B251F</Color>
     <SolidColorBrush x:Key="InkOnAccentBrush" Color="{DynamicResource InkOnAccentColor}" />
 
     <!-- ════ الدهبي ════ -->
@@ -80,10 +91,10 @@
         <GradientStop Color="#00C2A14D" Offset="1" />
     </LinearGradientBrush>
 
-    <!-- الكحلي العميق للكروت البطلة -->
+    <!-- الأسود الدافي العميق للكروت البطلة (بدل الكحلي القديم) -->
     <LinearGradientBrush x:Key="InkGradientBrush" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#27405F" Offset="0" />
-        <GradientStop Color="#16263D" Offset="1" />
+        <GradientStop Color="#453F39" Offset="0" />
+        <GradientStop Color="#2B251F" Offset="1" />
     </LinearGradientBrush>
 
     <!-- ════ الخطوط الفاصلة ════ (دافية زي الأرضية) -->
@@ -108,11 +119,11 @@
          أعلى لون مشبع في الشاشة، يعني أكتر حاجة بتخطف العين كانت أقل
          حاجة مهمة — والهوية بتتكسر.
 
-         اللي فضل كله جوه عيلة الدهبي والكحلي:
+         اللي فضل كله جوه عيلة الدهبي والرمادي-البني المحايد:
            • الكويس  = دهبي غامق (الدهبي هو "أيوه" في الهوية دي)
            • تحذير   = برونزي أغمق وأقل صفار — نفس العيلة، عمق مختلف
            • خطر     = طوبي دافي، جار الدهبي مش لون غريب
-           • معلومة  = كحلي هادي
+           • معلومة  = رمادي-بني دافي محايد
 
          **الخطر هو الاستثناء الوحيد وبقصد.** زرار "احذف" لو شكله زي
          زرار "احفظ" دي مشكلة أمان مش اختيار جمالي. الطوبي هنا دافي
@@ -132,7 +143,7 @@
     <Color x:Key="DangerTintColor">#F8E9E5</Color>
     <SolidColorBrush x:Key="DangerTintBrush" Color="{DynamicResource DangerTintColor}" />
 
-    <Color x:Key="InfoColor">#2C405F</Color>
+    <Color x:Key="InfoColor">#4F4941</Color>
     <SolidColorBrush x:Key="InfoBrush" Color="{DynamicResource InfoColor}" />
     <Color x:Key="InfoTintColor">#EFEEE6</Color>
     <SolidColorBrush x:Key="InfoTintBrush" Color="{DynamicResource InfoTintColor}" />
@@ -142,18 +153,19 @@
          ثمن لون للمنتجات في الرسم المكدّس. اللوحة القديمة كانت أزرق
          وبرتقالي وأحمر وبنفسجي وأخضر — سبع هويات مختلفة في رسم واحد.
 
-         دي **بتتبادل** دهبي/كحلي بقصد: لونين متجاورين في العمود لازم
-         يبقوا مميزين عن بعض، ولو مشينا من الدهبي للكحلي بالتدريج
-         الشرايح المتجاورة هتتلخبط. التبادل بيدّي أقصى فرق بين كل
-         شريحة واللي جنبها وإحنا لسه في لونين بس. -->
+         دي **بتتبادل** دهبي/رمادي-بني دافي بقصد (بدل دهبي/كحلي):
+         لونين متجاورين في العمود لازم يبقوا مميزين عن بعض. التبادل
+         بيدّي أقصى فرق بين كل شريحة واللي جنبها وإحنا لسه في عيلتين
+         بس. الدرجتين 2 و8 كانوا متطابقين تقريبًا في اللوحة الكحلية
+         القديمة (فرق 5 في قناة واحدة) — اتصلّحوا هنا كمان. -->
     <SolidColorBrush x:Key="Series1Brush" Color="#C2A14D" />
-    <SolidColorBrush x:Key="Series2Brush" Color="#27405F" />
-    <SolidColorBrush x:Key="Series3Brush" Color="#E0C378" />
-    <SolidColorBrush x:Key="Series4Brush" Color="#43607F" />
+    <SolidColorBrush x:Key="Series2Brush" Color="#3A342D" />
+    <SolidColorBrush x:Key="Series3Brush" Color="#DCC077" />
+    <SolidColorBrush x:Key="Series4Brush" Color="#6E675E" />
     <SolidColorBrush x:Key="Series5Brush" Color="#8A6D1F" />
-    <SolidColorBrush x:Key="Series6Brush" Color="#7E94AE" />
-    <SolidColorBrush x:Key="Series7Brush" Color="#5E4A15" />
-    <SolidColorBrush x:Key="Series8Brush" Color="#2C405F" />
+    <SolidColorBrush x:Key="Series6Brush" Color="#A79F92" />
+    <SolidColorBrush x:Key="Series7Brush" Color="#5B4816" />
+    <SolidColorBrush x:Key="Series8Brush" Color="#524C43" />
     <!-- التاسع فما فوق: رمادي محايد. توليد لون جديد أو لفّ اللوحة من
          أولها بيدي لونين متطابقين لمنتجين مختلفين من غير ما حد يعرف. -->
     <SolidColorBrush x:Key="SeriesOtherBrush" Color="#9A9384" />

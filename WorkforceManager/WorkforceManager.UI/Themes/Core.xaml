@@ -64,7 +64,7 @@
          الأسود على أبيض شكله سليم.
 
          الأنماط المسمّاة تحت (Body / Title / …) بتغلبه لما تتحط
-         بالاسم، والنص اللي المفروض يبقى فاتح (على رأس كحلي مثلاً)
+         بالاسم، والنص اللي المفروض يبقى فاتح (على رأس غامق مثلاً)
          عنده Foreground صريح فبرضه بيغلبه. -->
     <Style TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{DynamicResource AppFont}" />
@@ -125,7 +125,7 @@
         <Setter Property="BorderBrush" Value="{DynamicResource GoldLineBrush}" />
     </Style>
 
-    <!-- الكارت البطل: كحلي عميق في الثيمين — عليه الدهبي بيلمع -->
+    <!-- الكارت البطل: أسود دافي عميق في الثيمين (مفيش كحلي) — عليه الدهبي بيلمع -->
     <Style x:Key="CardHero" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource InkGradientBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource GoldLineBrush}" />
@@ -305,11 +305,11 @@
     </Style>
 
     <!-- ============ شريحة الفلتر ============
-         **المختار دهبي مصمت والنص كحلي.** كان كحلي مصمت ونص دهبي —
-         وده كان بيختفي تمامًا في الثيم الغامق: شريحة كحلي فوق كارت
-         كحلي فوق أرضية كحلي. الدهبي هو اللون الوحيد اللي بيبان بنفس
-         القوة على الأبيض وعلى الغامق، فهو اللي المفروض يقول "دي
-         المختارة". -->
+         **المختار دهبي مصمت والنص غامق.** كان بالعكس (خلفية غامقة ونص
+         دهبي) — وده كان بيختفي تمامًا في الثيم الغامق: شريحة غامقة
+         فوق كارت غامق فوق أرضية غامقة، كلهم نفس العيلة. الدهبي هو
+         اللون الوحيد اللي بيبان بنفس القوة على الأبيض وعلى الغامق،
+         فهو اللي المفروض يقول "دي المختارة". -->
     <Style x:Key="Chip" TargetType="RadioButton">
         <Setter Property="FontFamily" Value="{DynamicResource AppFont}" />
         <Setter Property="FontSize" Value="{DynamicResource FontSmall}" />

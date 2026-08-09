@@ -304,14 +304,23 @@ Core  <----------------------- UI
   `Info` = neutral, and `Danger` = a warm brick. Danger is the one deliberate exception — a delete button
   that looks like a save button is a safety problem, not an aesthetic choice — and it is warm enough to
   belong beside gold rather than read as a traffic light.
-  **The two themes are built independently, not inverted.** Light is navy ink (`#1B2E4A`) on warm parchment
-  (`#F6F2E9`); the warm ground is what makes gold read as the identity rather than a foreign accent, and a
-  cold blue-grey ground made the same gold look like a mistake. Dark is **black and gold with no navy at
-  all** — neutral greys with zero blue cast, because navy surfaces turned the whole screen into a dim blue
-  smear and chilled the gold. Its six-step ladder (`#000000` sidebar → `#0B0B0C` ground → `#141416` card →
-  `#1D1D20` raised → `#2A2A2E` line → `#3A3A40` strong line) is spaced so layers separate without needing a
-  border; an earlier version put ground and card 8 points apart, which is invisible on a real monitor. Ink
-  is `#EDEDED`, never `#FFFFFF` — pure white on black haloes and hurts after an hour.
+  **There is no navy anywhere in the identity, in either theme.** The first pass paired gold with navy ink
+  (`#1B2E4A`) in the light theme, and it fought the gold for attention — a second strong hue in a screen
+  that is supposed to read as one colour family. Light ink is now a warm charcoal/brown-grey (`#342E28`),
+  computed to the **same WCAG relative luminance** as the navy it replaced (so contrast ratios didn't
+  regress — 12:1 on the warm ground, 13.4:1 on white), just with the blue channel pulled out. The sidebar,
+  `InkOnAccentBrush`, `InfoBrush`, and the hero-card gradient (`InkGradientBrush`) all moved the same way.
+  Dark was built without navy from the start — neutral greys with zero blue cast, because navy surfaces
+  there turned the whole screen into a dim blue smear and chilled the gold. Its six-step ladder (`#000000`
+  sidebar → `#0B0B0C` ground → `#141416` card → `#1D1D20` raised → `#2A2A2E` line → `#3A3A40` strong line)
+  is spaced so layers separate without needing a border; an earlier version put ground and card 8 points
+  apart, which is invisible on a real monitor. Ink is `#EDEDED`, never `#FFFFFF` — pure white on black
+  haloes and hurts after an hour. The warm parchment ground (`#F6F2E9`) is what makes gold read as the
+  identity rather than a foreign accent; a cold blue-grey ground made the same gold look like a mistake.
+  **If a colour needs replacing and it must keep its current contrast ratio, don't eyeball a substitute** —
+  solve for it: convert the old colour to WCAG relative luminance, hold that luminance constant, and only
+  change the hue. A grey with `R=G=B` at that luminance is the neutral anchor; nudging R up and B down a
+  few points from there gives a warm tilt without moving the contrast number.
   **Theme switching is live** (`App.ApplyTheme` swaps the palette dictionary *in place*): every new style
   references colours through `DynamicResource`, so the binding stays alive. `StaticResource` is why it used
   to need a restart — a screen written with it resolves colours once at load. New XAML must use
@@ -329,8 +338,10 @@ Core  <----------------------- UI
   `ThemeBrush` calls `SetResourceReference`, the programmatic equivalent of `DynamicResource`, so the binding
   stays live and a theme switch reaches these elements too; a plain `IValueConverter` would return a dead
   brush and silently break live switching. Chart series are `Series1Brush`…`Series8Brush` + `SeriesOtherBrush`,
-  defined per theme and **alternating gold/navy** so adjacent stack segments stay distinguishable inside a
-  two-hue identity (the black theme has no second hue, so it alternates gold against neutral grey instead).
+  defined per theme and **alternating gold/warm-charcoal** so adjacent stack segments stay distinguishable;
+  the light theme's `Series2Brush`/`Series8Brush` were also fixed here — they were near-duplicate navy
+  shades (five points apart in one channel) even before the navy removal, so two different products could
+  land on visually identical bars.
   **`ApplyTheme` also flips MaterialDesign's own `BaseTheme`** via `PaletteHelper`. The `BundledTheme` in
   `App.xaml` is pinned to `Light`, and without that call the 22 ComboBoxes, 39 DataGrids and 10 DatePickers
   kept drawing themselves from the library's light theme on top of a black page — no palette change could

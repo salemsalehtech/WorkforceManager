@@ -11,7 +11,7 @@
         FlowDirection="RightToLeft" FontFamily="{StaticResource AppFont}" FontSize="14">
 
     <!-- شاشة الدخول الترحيبية: بطاقة عائمة بلا إطار نظام —
-         يمين: لوحة الهوية بالتدرج الكحلي، شمال: فورم الدخول -->
+         يمين: لوحة الهوية بتدرج SidebarBrush (أسود دافي)، شمال: فورم الدخول -->
     <Border CornerRadius="20" Background="{DynamicResource SurfaceBrush}" MouseLeftButtonDown="Window_Drag">
         <Border.Effect>
             <DropShadowEffect BlurRadius="30" ShadowDepth="0" Opacity="0.25" Color="{DynamicResource ShadowColor}" />
