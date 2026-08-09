@@ -204,6 +204,13 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>الحالة المحفوظة فعليًا في قاعدة البيانات (لمعرفة إذا كان فيه تعديل غير محفوظ)</summary>
         public AttendanceStatus? SavedStatus { get; init; }
 
+        /// <summary>
+        /// الشيفت المحفوظ فعليًا للعامل بالساعة (null = مفيش شغل ساعة
+        /// محفوظ في اليوم ده). لازم زي <see cref="SavedStatus"/> بالظبط:
+        /// من غيره الحفظ مش هيعرف إن العامل بالساعة اتغيّر شيفته.
+        /// </summary>
+        public int? SavedEndHour { get; init; }
+
         // ------- منطق الاختيار المانع للجمع -------
 
         internal void OnChoiceToggled(AttendanceStatusChoice toggled, bool isSelected)
@@ -248,6 +255,7 @@ namespace WorkforceManager.UI.ViewModels
             }
 
             OnPropertyChanged(nameof(SelectedEndHour));
+            OnPropertyChanged(nameof(HasUnsavedChange));
             RaiseStatusVisualsChanged();
         }
 
@@ -267,10 +275,19 @@ namespace WorkforceManager.UI.ViewModels
                 choice.SetSelectedSilently(choice.EndHour24 == endHour24);
 
             OnPropertyChanged(nameof(SelectedEndHour));
+            OnPropertyChanged(nameof(HasUnsavedChange));
         }
 
-        /// <summary>فيه تعديل لسه متحفظش؟ (لتلوين السطر)</summary>
-        public bool HasUnsavedChange => SelectedStatus != SavedStatus;
+        /// <summary>
+        /// فيه تعديل لسه متحفظش؟ بيتحكم في تلوين السطر **وفي اللي
+        /// بيتبعت للحفظ**.
+        ///
+        /// الشيفت داخل في الحساب: العامل بالساعة ممكن يفضل "حاضر" زي
+        /// ما هو وشيفته يتغيّر من 4 لـ 6، وده تعديل حقيقي بيغيّر
+        /// يومياته وأجره.
+        /// </summary>
+        public bool HasUnsavedChange =>
+            SelectedStatus != SavedStatus || SelectedEndHour != SavedEndHour;
 
         /// <summary>
         /// بيبلّغ كل الخصائص اللي بتتغير مع الحالة (اللون + التعديل غير

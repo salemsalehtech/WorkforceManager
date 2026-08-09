@@ -87,6 +87,126 @@ namespace WorkforceManager.Tests
             Assert.False(AttendanceStatusCatalog.TriggersAbsencePenalty(AttendanceStatus.Present));
         }
 
+        // ---------------- تعديل حضور يوم محفوظ ----------------
+
+        /// <summary>
+        /// السيناريو اللي المستخدم بلّغ عنه: يوم اتحفظ خلاص، وبعدين
+        /// المستخدم بيصلّح حالة عامل واحد بس (كان غايب → بقى حاضر)
+        /// ويدوس حفظ. الشاشة بتبعت **كل** الصفوف مش المتغيّر بس، فلازم
+        /// نتأكد إن باقي العمال بيتحدّثوا في مكانهم مش بيتسجّلوا من جديد.
+        ///
+        /// لو ده اتكسر، العامل بيبقى ليه سجلين حضور في نفس اليوم — وده
+        /// بيتحوّل لفلوس غلط في الكشف.
+        /// </summary>
+        [Fact]
+        public async Task EditingOneWorkersStatus_UpdatesTheOthersInPlace_DoesNotAddThemAgain()
+        {
+            // اليوم اتحفظ: أحمد حاضر، سعيد غايب
+            await SaveAttendanceAsync(
+                (TestDatabase.WorkerAhmedId, AttendanceStatus.Present),
+                (TestDatabase.WorkerSaidId, AttendanceStatus.AbsentWithoutPermission));
+
+            // المستخدم صلّح سعيد بس، والشاشة بعتت الاتنين تاني
+            await SaveAttendanceAsync(
+                (TestDatabase.WorkerAhmedId, AttendanceStatus.Present),
+                (TestDatabase.WorkerSaidId, AttendanceStatus.Present));
+
+            var attendance = await GetAttendanceAsync();
+
+            Assert.Equal(2, attendance.Count);
+            Assert.Single(attendance, a => a.WorkerId == TestDatabase.WorkerAhmedId);
+            Assert.Single(attendance, a => a.WorkerId == TestDatabase.WorkerSaidId);
+            Assert.All(attendance, a => Assert.Equal(AttendanceStatus.Present, a.Status));
+        }
+
+        /// <summary>
+        /// نفس السيناريو بس للعامل بالساعة: حفظ الحضور بينادي
+        /// RecordHourlyWorkAsync لكل عامل بالساعة له شيفت متحدد، فلو
+        /// حفظنا مرتين لازم يفضل سجل ساعات واحد بيومية واحدة — مش
+        /// سجلين بيومية مضاعفة في الأجر.
+        /// </summary>
+        [Fact]
+        public async Task SavingTheSameDayTwice_KeepsOneHourlyLog_NotTwo()
+        {
+            await _db.InScopeAsync<HourlyWorkdayService, HourlyWorkLog>(s =>
+                s.RecordHourlyWorkAsync(TestDatabase.WorkerMonaHourlyId, TestDatabase.Today, 16));
+
+            await _db.InScopeAsync<HourlyWorkdayService, HourlyWorkLog>(s =>
+                s.RecordHourlyWorkAsync(TestDatabase.WorkerMonaHourlyId, TestDatabase.Today, 16));
+
+            using var scope = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(scope);
+            var logs = await db.HourlyWorkLogs.AsNoTracking()
+                .Where(h => h.WorkerId == TestDatabase.WorkerMonaHourlyId)
+                .ToListAsync();
+
+            var log = Assert.Single(logs);
+            Assert.Equal(16, log.EndHour24);
+
+            // وسجل حضور واحد كمان — الحضور التلقائي مبيتكررش
+            var attendance = await GetAttendanceAsync();
+            Assert.Single(attendance, a => a.WorkerId == TestDatabase.WorkerMonaHourlyId);
+        }
+
+        /// <summary>
+        /// الترتيب اللي بيحصل فعلاً في الشاشة: العامل بيتسجّله إنتاج
+        /// (بيولّد حضور تلقائي)، وبعدين المستخدم بيدوس "حفظ الحضور"
+        /// اللي بيبعت كل الصفوف. لازم يفضل سجل حضور واحد.
+        /// </summary>
+        [Fact]
+        public async Task ProductionThenSavingAttendance_KeepsOneRecord_NotTwo()
+        {
+            await RecordProductionAsync(TestDatabase.WorkerAhmedId);
+
+            await SaveAttendanceAsync(
+                (TestDatabase.WorkerAhmedId, AttendanceStatus.Present),
+                (TestDatabase.WorkerSaidId, AttendanceStatus.Present));
+
+            var attendance = await GetAttendanceAsync();
+
+            Assert.Single(attendance, a => a.WorkerId == TestDatabase.WorkerAhmedId);
+            Assert.Equal(2, attendance.Count);
+        }
+
+        /// <summary>
+        /// رحلتين إنتاج لنفس العامل في نفس اليوم على **منتجين مختلفين** —
+        /// بيحصل عادي لما العامل يشتغل على أكتر من حاجة في اليوم. كل
+        /// رحلة بتحاول تسجّل حضور تلقائي، والتانية لازم تلاقي الأول
+        /// موجود وتسيبه.
+        /// </summary>
+        [Fact]
+        public async Task TwoProductionFlowsSameDay_OnDifferentProducts_MarkAttendanceOnlyOnce()
+        {
+            await RecordProductionAsync(TestDatabase.WorkerAhmedId);
+
+            await _db.InScopeAsync<ProductionFlowService, FlowSaveResultDto>(service =>
+                service.RecordFlowAsync(
+                    TestDatabase.ProductChainId, TestDatabase.Today,
+                    new[]
+                    {
+                        new FlowRangeDto
+                        {
+                            FromStageId = TestDatabase.ChainStage1Id,
+                            ToStageId = TestDatabase.ChainStage1Id, PieceCount = 10
+                        }
+                    },
+                    new[]
+                    {
+                        new FlowShareDto
+                        {
+                            ProductionStageId = TestDatabase.ChainStage1Id,
+                            WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 10
+                        }
+                    },
+                    // العامل مكلّف بمنتج تاني النهارده — الحارس بيسأل
+                    // والمستخدم بيوافق. ده المسار الواقعي مش تحايل.
+                    confirmOverride: true));
+
+            var attendance = await GetAttendanceAsync();
+
+            Assert.Single(attendance, a => a.WorkerId == TestDatabase.WorkerAhmedId);
+        }
+
         // ---------------- B3: الحضور التلقائي من الشغل المسجّل ----------------
 
         [Fact]

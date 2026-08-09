@@ -586,6 +586,10 @@ namespace WorkforceManager.UI.ViewModels
                 var hasSaved = savedStatuses.ContainsKey(w.Id);
                 var hasWork = workersWithWork.Contains(w.Id);
 
+                var savedEndHour = w.IsHourly && hourlyLogs.TryGetValue(w.Id, out var logged)
+                    ? logged
+                    : (int?)null;
+
                 var row = new AttendanceRow(
                     w.Id,
                     w.FullName,
@@ -593,7 +597,8 @@ namespace WorkforceManager.UI.ViewModels
                     w.IsHourly ? w.HourlyRole!.Value.ToArabicName() : "بالقطعة")
                 {
                     HasLoggedWork = hasWork,
-                    SavedStatus = hasSaved ? saved : null
+                    SavedStatus = hasSaved ? saved : null,
+                    SavedEndHour = savedEndHour
                 };
 
                 // المحفوظ بيكسب دايمًا؛ ولو مفيش محفوظ والعامل له شغل
@@ -604,8 +609,8 @@ namespace WorkforceManager.UI.ViewModels
 
                 row.SelectStatusSilently(initialStatus);
 
-                if (w.IsHourly && hourlyLogs.TryGetValue(w.Id, out var endHour))
-                    row.SelectShiftSilently(endHour);
+                if (savedEndHour is not null)
+                    row.SelectShiftSilently(savedEndHour);
 
                 // أي تغيير في السطر بيحدّث عدّادات الملخص فورًا
                 row.StatusChanged += RefreshAttendanceSummary;
@@ -620,12 +625,26 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand]
         private async Task SaveAttendanceAsync()
         {
-            // الصفوف اللي عليها حالة محددة (اللي من غير تحديد بنسيبها زي ما هي)
-            var rowsToSave = AttendanceRows.Where(r => r.SelectedStatus is not null).ToList();
+            // **اللي اتغيّر بس.** قبل كده كان بيتبعت كل صف عليه حالة —
+            // يعني تعديل عامل واحد كان بيعيد كتابة الـ 13 عامل كلهم،
+            // ويقول للمستخدم "تم حفظ حضور 13 عامل". ده كان بيخلي
+            // المستخدم يفتكر إن البرنامج سجّل الباقي تاني، وبحق: إعادة
+            // الكتابة كانت بتعيد حساب يوميات العمال بالساعة وتعيد
+            // مصالحة جزاءات الغياب لناس مالهمش دعوة بالتعديل.
+            //
+            // الحالة المحفوظة موجودة في كل صف (SavedStatus/SavedEndHour)
+            // فالمقارنة محلية من غير أي استعلام زيادة.
+            var rowsToSave = AttendanceRows
+                .Where(r => r.SelectedStatus is not null && r.HasUnsavedChange)
+                .ToList();
 
             if (rowsToSave.Count == 0)
             {
-                Notify.Info("مفيش أي حالة حضور محددة للحفظ", "تنبيه");
+                Notify.Info(
+                    AttendanceRows.Any(r => r.SelectedStatus is not null)
+                        ? "مفيش أي تعديل جديد يتحفظ — كل الحالات محفوظة زي ما هي"
+                        : "مفيش أي حالة حضور محددة للحفظ",
+                    "تنبيه");
                 return;
             }
 
@@ -646,16 +665,25 @@ namespace WorkforceManager.UI.ViewModels
 
             // كلمة سر واحدة للدفعة كلها. الحفظ ده بيولّد جزاءات غياب
             // بتنقص من الأجور، فهو عملية بتلمس فلوس — بس مرة في اليوم
-            // مش مرة لكل عامل، عشان ميبقاش عبء يومي
+            // مش مرة لكل عامل، عشان ميبقاش عبء يومي.
+            // الصفوف بقت المتغيّرة بس، فالعدد ده جزاءات **جديدة** فعلاً
+            // مش عدّ للجزاءات الموجودة أصلاً
             var unexcused = rowsToSave.Count(r => r.SelectedStatus == AttendanceStatus.AbsentWithoutPermission);
             var gateNote = unexcused > 0
                 ? $"\n\nهيتسجل كمان {unexcused} جزاء غياب تلقائي (نص يومية لكل واحد)."
                 : "";
 
+            // بنسمّي العمال لما يكونوا قلايل: المستخدم لازم يشوف إن
+            // اللي هيتحفظ هو اللي عدّله بالظبط، مش الورديّة كلها
+            var whoChanged = rowsToSave.Count <= 5
+                ? "\n" + string.Join("\n", rowsToSave.Select(r => $"  • {r.FullName}"))
+                : "";
+
             var gateInput = SensitiveActionDialog.Ask(
                 Application.Current.MainWindow,
-                "حفظ حضور اليوم",
-                $"هيتحفظ حضور {rowsToSave.Count} عامل ليوم {EntryDate:yyyy/MM/dd}." + gateNote,
+                "حفظ تعديلات الحضور",
+                $"هيتحفظ تعديل على {rowsToSave.Count} عامل ليوم {EntryDate:yyyy/MM/dd}."
+                    + whoChanged + gateNote,
                 passwordRequired: true,
                 // مفيش سبب مكتوب: ده حفظ يومي مش حذف
                 reasonRequired: false);
@@ -688,7 +716,9 @@ namespace WorkforceManager.UI.ViewModels
                 if (result.AutoPenaltiesRemoved > 0)
                     penaltyLines += $"\n✔ اتشال {result.AutoPenaltiesRemoved} جزاء غياب تلقائي (الحالة اتغيّرت)";
 
-                Notify.Info($"تم حفظ حضور {result.SavedCount} عامل بتاريخ {EntryDate:yyyy/MM/dd}{penaltyLines}", "تم الحفظ");
+                Notify.Info(
+                    $"تم حفظ تعديل حضور {result.SavedCount} عامل بتاريخ {EntryDate:yyyy/MM/dd}{penaltyLines}",
+                    "تم الحفظ");
 
                 await LoadAttendanceAsync();
                 await LoadPenaltiesAsync(); // الجزاءات التلقائية تظهر/تختفي فورًا
