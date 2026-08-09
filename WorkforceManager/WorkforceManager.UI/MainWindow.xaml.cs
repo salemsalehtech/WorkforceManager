@@ -21,6 +21,10 @@ namespace WorkforceManager.UI
         {
             InitializeComponent();
 
+            // مكان الإشعارات بيتسجّل مرة واحدة هنا — بعدها أي شاشة
+            // بتنادي Notify والإشعار بيوصل من غير ما تعرف مين بيعرضه
+            Toasts.Register();
+
             // تاريخ اليوم بالعربي في بطاقة أسفل القائمة الجانبية
             TodayText.Text = DateTime.Today.ToString(
                 "dddd d MMMM yyyy", new System.Globalization.CultureInfo("ar-EG"));

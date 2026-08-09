@@ -226,23 +226,38 @@ namespace WorkforceManager.UI
         /// أي شاشة بتقرا BrandBrush بتاخد النسخة الداكنة من غير ما تعرف
         /// إن فيه وضع تاني أصلاً.
         /// </summary>
-        private void ApplyTheme(bool darkMode)
+        /// <summary>
+        /// بيبدّل لوحة الألوان **في اللحظة** من غير إعادة تشغيل.
+        ///
+        /// بيشتغل لأن كل الأنماط الجديدة بتشاور على الألوان بـ
+        /// DynamicResource: الربط بيفضل حيّ، فتبديل الملف بيتنقل
+        /// للشاشات المفتوحة فورًا. كان محتاج إعادة تشغيل أيام ما كانت
+        /// StaticResource (بتتحل مرة واحدة وقت تحميل الشاشة).
+        ///
+        /// التبديل في **مكان اللوحة القديمة** مش إضافة فوقها: الإضافة
+        /// كانت بتخلي الملفين محمّلين والذاكرة تكبر مع كل تبديل.
+        /// </summary>
+        public static void ApplyTheme(bool darkMode)
         {
-            var existing = Resources.MergedDictionaries
-                .FirstOrDefault(d => d.Source?.OriginalString.Contains("Dark.xaml") == true);
+            var app = Current;
+            if (app is null) return;
 
-            if (!darkMode)
-            {
-                if (existing is not null) Resources.MergedDictionaries.Remove(existing);
-                return;
-            }
+            var dictionaries = app.Resources.MergedDictionaries;
 
-            if (existing is not null) return; // متطبّق خلاص
+            var index = -1;
+            for (var i = 0; i < dictionaries.Count; i++)
+                if (dictionaries[i].Source?.OriginalString.Contains("Palette.") == true)
+                {
+                    index = i;
+                    break;
+                }
 
-            Resources.MergedDictionaries.Add(new ResourceDictionary
-            {
-                Source = new Uri("Themes/Dark.xaml", UriKind.Relative)
-            });
+            if (index < 0) return; // اللوحة مش موجودة — مفيش حاجة تتبدّل
+
+            var wanted = darkMode ? "Themes/Palette.Dark.xaml" : "Themes/Palette.Light.xaml";
+            if (dictionaries[index].Source?.OriginalString == wanted) return;
+
+            dictionaries[index] = new ResourceDictionary { Source = new Uri(wanted, UriKind.Relative) };
         }
 
         protected override async void OnExit(ExitEventArgs e)

@@ -51,12 +51,10 @@ namespace WorkforceManager.UI.ViewModels
         private bool _loadingSettings;
 
         /// <summary>
-        /// الوضع الليلي. بيتحفظ فورًا، وبيتطبّق عند فتح البرنامج.
+        /// الوضع الليلي — **بيتبدّل في اللحظة**.
         ///
-        /// **مش بيتبدّل في اللحظة**: كل الشاشات بتقرا الألوان بـ
-        /// StaticResource اللي بتتحل مرة واحدة وقت التحميل. تحويلها
-        /// لـ DynamicResource تغيير ميكانيكي في كل ملف XAML، وهيتعمل مع
-        /// إعادة تصميم الواجهة اللي هتلمس نفس الملفات أصلاً.
+        /// اللوحة كلها في ملف واحد بيتبدّل مكانه، والأنماط بتشاور عليه
+        /// بـ DynamicResource فالربط بيفضل حيّ.
         /// </summary>
         [ObservableProperty]
         private bool _darkMode;
@@ -69,9 +67,9 @@ namespace WorkforceManager.UI.ViewModels
             settings.DarkMode = value;
             AppSettingsStore.Save(settings);
 
-            Notify.Info(value
-                    ? "الوضع الليلي هيتفعّل أول ما تقفل البرنامج وتفتحه تاني."
-                    : "الوضع العادي هيرجع أول ما تقفل البرنامج وتفتحه تاني.", "محتاج إعادة تشغيل");
+            App.ApplyTheme(value);
+
+            Notify.Success(value ? "الوضع الليلي اشتغل" : "الوضع الفاتح رجع");
         }
 
         /// <summary>عدد أيام الاحتفاظ بالنسخ الاحتياطية</summary>

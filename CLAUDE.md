@@ -258,6 +258,18 @@ Core  <----------------------- UI
   **zero qualified workers** (the flow screen only offers qualified workers, so such a stage can never be
   filled). Stage names stay unique per product, and quota edits only affect future entries thanks to the
   snapshot.
+  **The design system lives in `Themes/`, not in `App.xaml`.** `Palette.Light.xaml` / `Palette.Dark.xaml`
+  hold the identity (deep navy `#0F1B2D` as ink, gold as accent); `Core.xaml` holds the sizes and component
+  styles; `Compat.xaml` re-points every **old** brush name at the new palette so screens that haven't been
+  redesigned yet still match. Compat is temporary — it shrinks as screens migrate and gets deleted with the
+  last one. **Gold is an accent, never body text on white**: `#C2A14D` on white is 2.2:1 contrast where 4.5
+  is the readable minimum, so gold goes on the logo, the active nav item, hero numbers, focus rings and the
+  primary button, and `GoldDeepBrush` (5.9:1) is the only gold allowed as text on a light surface. That
+  scarcity is also why it reads as expensive rather than loud.
+  **Theme switching is live** (`App.ApplyTheme` swaps the palette dictionary *in place*): every new style
+  references colours through `DynamicResource`, so the binding stays alive. `StaticResource` is why it used
+  to need a restart — a screen written with it resolves colours once at load. New XAML must use
+  `DynamicResource` for anything from the palette.
   All four sidebar screens are implemented. Navigation uses `Checked` (not `Click`) on the sidebar
   radios — handlers guard against the initial `Checked` that fires during `InitializeComponent` before
   `MainContent` exists. `App.xaml` holds the design system: brand brushes (BrandBrush/AccentBrush/

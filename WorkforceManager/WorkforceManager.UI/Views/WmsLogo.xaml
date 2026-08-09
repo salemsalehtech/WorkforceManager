@@ -1,0 +1,58 @@
+<UserControl x:Class="WorkforceManager.UI.Views.WmsLogo"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignHeight="44" d:DesignWidth="44"
+             FlowDirection="LeftToRight">
+
+    <!--
+      لوجو WMS: مونوجرام في مربع مدوّر.
+
+      مرسوم بـ XAML مش صورة عن قصد: بيفضل حاد في أي مقاس ومع أي دقة
+      شاشة، وبيتلوّن مع الثيم لوحده، ومبيزوّدش ملف على الحزمة.
+
+      الشكل: مربع كحلي بحدّة دهبية، وجوّاه الحروف دهبي. الحدّة الدهبية
+      رفيعة عن قصد — التخانة بتحوّل الفخامة لثقل.
+    -->
+    <Viewbox Stretch="Uniform">
+        <Grid Width="100" Height="100">
+
+            <!-- المربع: الزاوية 26% من الضلع — أنعم من مربع وأصلب من دايرة -->
+            <Border CornerRadius="26" Background="{DynamicResource SidebarBrush}" />
+
+            <!-- الحدّة الدهبية -->
+            <Border CornerRadius="26" BorderThickness="2.5"
+                    BorderBrush="{DynamicResource GoldGradientBrush}" />
+
+            <!-- بريق خفيف من فوق — بيدي إحساس المعدن من غير تدرّج صارخ -->
+            <Border CornerRadius="26" Margin="2.5">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                        <GradientStop Color="#22FFFFFF" Offset="0" />
+                        <GradientStop Color="#00FFFFFF" Offset="0.55" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+
+            <!-- الحروف -->
+            <TextBlock Text="WMS"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       FontFamily="Segoe UI, Tahoma"
+                       FontSize="30" FontWeight="Bold"
+                       Foreground="{DynamicResource GoldGradientBrush}">
+                <!-- تباعد الحروف بيدي الاختصار وقار — من غيره بيبقى
+                     مزنوق زي كلمة مقطوعة -->
+                <TextBlock.RenderTransform>
+                    <TranslateTransform Y="1" />
+                </TextBlock.RenderTransform>
+            </TextBlock>
+
+            <!-- خط دهبي تحت الحروف: بيربط الاختصار بفكرة الخط الإنتاجي -->
+            <Rectangle Width="42" Height="2.5" RadiusX="1.5" RadiusY="1.5"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Margin="0,46,0,0"
+                       Fill="{DynamicResource GoldGradientBrush}" Opacity="0.9" />
+        </Grid>
+    </Viewbox>
+</UserControl>

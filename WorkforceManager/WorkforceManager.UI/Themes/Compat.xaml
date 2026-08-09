@@ -1,0 +1,51 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      ============ جسر الألوان القديمة ============
+
+      الشاشات القديمة بتشاور على أسماء فُرَش قديمة (BrandBrush،
+      TextPrimaryBrush، CardBgBrush…). الملف ده بيعيد تعريفها كلها
+      **بألوان الهوية الجديدة**، فالبرنامج كله بياخد اللون الجديد في
+      نفس اللحظة من غير ما نلمس 24 ملف.
+
+      ليه ده مهم: إعادة التصميم بتمشي شاشة شاشة، وبين الشاشة والتانية
+      البرنامج لازم يفضل متناسق — مش نص شاشات بلون ونص بلون.
+
+      **الملف ده مؤقت.** كل شاشة بتتحوّل للنظام الجديد بتسيب الأسماء
+      دي، ولما الشاشة الأخيرة تخلص الملف بيتشال.
+
+      بيتدمج بعد Palette عشان مفاتيحه تلاقي فُرَش الهوية جاهزة.
+    -->
+
+    <!-- الهوية: الكحلي هو الحبر والدهبي أكسنت -->
+    <SolidColorBrush x:Key="BrandBrush" Color="{DynamicResource InkColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource GoldColor}" />
+
+    <!-- الأسطح -->
+    <SolidColorBrush x:Key="PageBgBrush" Color="{DynamicResource GroundColor}" />
+    <SolidColorBrush x:Key="CardBgBrush" Color="{DynamicResource SurfaceColor}" />
+    <SolidColorBrush x:Key="CardBorderBrush" Color="{DynamicResource LineColor}" />
+    <SolidColorBrush x:Key="SubtleBgBrush" Color="{DynamicResource SurfaceAltColor}" />
+    <SolidColorBrush x:Key="SoftPanelBgBrush" Color="{DynamicResource GoldTintColor}" />
+    <SolidColorBrush x:Key="SoftPanelBorderBrush" Color="{DynamicResource GoldLineColor}" />
+    <SolidColorBrush x:Key="ChipBgBrush" Color="{DynamicResource SurfaceAltColor}" />
+    <SolidColorBrush x:Key="GridLineBrush" Color="{DynamicResource LineColor}" />
+
+    <!-- الحبر -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource InkColor}" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{DynamicResource InkSoftColor}" />
+
+    <!-- التفاعل -->
+    <SolidColorBrush x:Key="HoverBgBrush" Color="{DynamicResource HoverColor}" />
+    <SolidColorBrush x:Key="SelectionBgBrush" Color="{DynamicResource SelectedColor}" />
+    <SolidColorBrush x:Key="TextSelectionBrush" Color="{DynamicResource GoldColor}" />
+
+    <!-- الحالة -->
+    <SolidColorBrush x:Key="SuccessBrush" Color="{DynamicResource GoodColor}" />
+    <SolidColorBrush x:Key="SuccessBgBrush" Color="{DynamicResource GoodTintColor}" />
+    <SolidColorBrush x:Key="DangerBgBrush" Color="{DynamicResource DangerTintColor}" />
+    <SolidColorBrush x:Key="DangerBorderBrush" Color="{DynamicResource DangerColor}" />
+    <SolidColorBrush x:Key="WarnBgBrush" Color="{DynamicResource WarnTintColor}" />
+
+</ResourceDictionary>

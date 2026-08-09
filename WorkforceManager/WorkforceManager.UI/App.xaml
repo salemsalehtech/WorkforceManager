@@ -13,6 +13,20 @@
                      المسار القديم "MaterialDesignTheme.Defaults.xaml" مبقاش موجود
                      في المكتبة وبيطلع IOException -->
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign2.Defaults.xaml" />
+
+                <!-- ============ الهوية الجديدة ============
+                     ترتيب الدمج مقصود:
+                       1. Palette  = ألوان الهوية (بيتبدّل مع الثيم)
+                       2. Compat   = أسماء الفُرَش القديمة مربوطة بالجديدة،
+                                     فالشاشات اللي لسه ماتحوّلتش تاخد اللون
+                                     الجديد من غير ما نلمسها
+                       3. Core     = المقاسات والأنماط الجديدة
+                     اللي بيتدمج بعدين بيكسب، فـ Core بتغلب الأنماط القديمة
+                     اللي تحت بنفس الاسم.
+                     الفهرس صفر متحجوز لـ Palette — ApplyTheme بتبدّله. -->
+                <ResourceDictionary Source="Themes/Palette.Light.xaml" />
+                <ResourceDictionary Source="Themes/Compat.xaml" />
+                <ResourceDictionary Source="Themes/Core.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- محوّل بولياني → ظهور/إخفاء (لعناصر بتظهر بس لما يبقى فيه بيانات) -->

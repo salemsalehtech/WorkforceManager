@@ -1,0 +1,89 @@
+<UserControl x:Class="WorkforceManager.UI.Views.ToastHost"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d"
+             IsHitTestVisible="False"
+             HorizontalAlignment="Left" VerticalAlignment="Bottom"
+             Margin="24">
+
+    <!--
+      مكان الإشعارات الطايرة: ركن الشاشة، فوق كل حاجة.
+
+      IsHitTestVisible=False على الحاوية عشان الإشعار ميحجبش أي زرار
+      تحته — بس زرار الإقفال على الإشعار نفسه بيرجّعها True.
+    -->
+    <ItemsControl x:Name="Items" IsHitTestVisible="True">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <StackPanel VerticalAlignment="Bottom" />
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+
+        <ItemsControl.ItemTemplate>
+            <DataTemplate>
+                <Border Background="{DynamicResource SurfaceBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+                        CornerRadius="12" Padding="0" Margin="0,8,0,0"
+                        MinWidth="300" MaxWidth="420">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270"
+                                          Opacity="0.20" Color="{DynamicResource ShadowColor}" />
+                    </Border.Effect>
+
+                    <!-- ظهور من تحت مع تلاشي — الحركة بتقول "ده جه دلوقتي" -->
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="Slide" Y="16" />
+                    </Border.RenderTransform>
+
+                    <Border.Triggers>
+                        <EventTrigger RoutedEvent="Loaded">
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                     From="0" To="1" Duration="0:0:0.22" />
+                                    <DoubleAnimation Storyboard.TargetName="Slide"
+                                                     Storyboard.TargetProperty="Y"
+                                                     From="16" To="0" Duration="0:0:0.28">
+                                        <DoubleAnimation.EasingFunction>
+                                            <CubicEase EasingMode="EaseOut" />
+                                        </DoubleAnimation.EasingFunction>
+                                    </DoubleAnimation>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </Border.Triggers>
+
+                    <DockPanel>
+                        <!-- شريط اللون: بيقول نوع الرسالة قبل ما تقراها -->
+                        <Border DockPanel.Dock="Right" Width="4" CornerRadius="0,12,12,0"
+                                Background="{Binding Accent}" />
+
+                        <materialDesign:PackIcon DockPanel.Dock="Right" Kind="{Binding Icon}"
+                                                 Width="19" Height="19"
+                                                 Margin="12,0,12,0" VerticalAlignment="Center"
+                                                 Foreground="{Binding Accent}" />
+
+                        <Button DockPanel.Dock="Left" Command="{Binding DismissCommand}"
+                                Style="{DynamicResource IconButton}" Padding="6"
+                                Margin="4,0,10,0" VerticalAlignment="Center"
+                                Foreground="{DynamicResource InkFaintBrush}"
+                                ToolTip="إخفاء">
+                            <materialDesign:PackIcon Kind="Close" Width="13" Height="13" />
+                        </Button>
+
+                        <StackPanel Margin="0,12,0,12" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource InkBrush}"
+                                       Visibility="{Binding HasTitle, Converter={StaticResource BoolToVis}}" />
+                            <TextBlock Text="{Binding Message}" FontSize="12.5" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource InkSoftBrush}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>

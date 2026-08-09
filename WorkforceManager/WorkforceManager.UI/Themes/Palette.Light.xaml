@@ -1,0 +1,113 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      ============ الثيم الفاتح ============
+
+      الهوية: كحلي غامق + دهبي. الكحلي هو الحبر، والدهبي أكسنت مقصود.
+
+      ليه مش العكس: الدهبي الفاتح على الأبيض نسبة وضوحه 2.2:1 — والحد
+      الأدنى لنص يتقرا هو 4.5:1. يعني نص دهبي على أبيض شكله لامع في
+      الصورة ومتعب جدًا لواحد قاعد عليه 8 ساعات. الكحلي على الأبيض
+      16:1. فالدهبي بيروح على الحاجات اللي المفروض تلفت النظر: الرقم
+      المهم، الزرار الرئيسي، العنصر النشط، خط الكارت العلوي — وبيبان
+      **أكتر** لأنه نادر.
+
+      لما يلزم نص دهبي على أبيض بنستخدم GoldDeepBrush (5.9:1).
+
+      الملف ده بيتبدّل كله في اللحظة عند تغيير الثيم، فكل الأنماط
+      بتشاور على الفُرَش دي بـ DynamicResource مش StaticResource.
+    -->
+
+    <!-- ════ الأسطح ════ -->
+    <!-- أرضية الصفحة: مش أبيض ناصع عشان الكروت البيضا تبان فوقها -->
+    <Color x:Key="GroundColor">#F7F8FA</Color>
+    <SolidColorBrush x:Key="GroundBrush" Color="{DynamicResource GroundColor}" />
+    <Color x:Key="SurfaceColor">#FFFFFF</Color>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{DynamicResource SurfaceColor}" />
+    <Color x:Key="SurfaceAltColor">#F2F4F7</Color>
+    <SolidColorBrush x:Key="SurfaceAltBrush" Color="{DynamicResource SurfaceAltColor}" />
+    <Color x:Key="SurfaceSunkenColor">#ECEFF3</Color>
+    <SolidColorBrush x:Key="SurfaceSunkenBrush" Color="{DynamicResource SurfaceSunkenColor}" />
+
+    <!-- الشريط الجانبي: كحلي في الثيمين — هو هوية البرنامج -->
+    <Color x:Key="SidebarColor">#0F1B2D</Color>
+    <SolidColorBrush x:Key="SidebarBrush" Color="{DynamicResource SidebarColor}" />
+    <Color x:Key="SidebarAltColor">#16253B</Color>
+    <SolidColorBrush x:Key="SidebarAltBrush" Color="{DynamicResource SidebarAltColor}" />
+    <Color x:Key="SidebarInkColor">#C8D2E0</Color>
+    <SolidColorBrush x:Key="SidebarInkBrush" Color="{DynamicResource SidebarInkColor}" />
+    <Color x:Key="SidebarInkSoftColor">#7F8DA3</Color>
+    <SolidColorBrush x:Key="SidebarInkSoftBrush" Color="{DynamicResource SidebarInkSoftColor}" />
+
+    <!-- ════ الحبر ════ -->
+    <Color x:Key="InkColor">#0F1B2D</Color>
+    <SolidColorBrush x:Key="InkBrush" Color="{DynamicResource InkColor}" />
+    <Color x:Key="InkSoftColor">#54607A</Color>
+    <SolidColorBrush x:Key="InkSoftBrush" Color="{DynamicResource InkSoftColor}" />
+    <Color x:Key="InkFaintColor">#8A94A8</Color>
+    <SolidColorBrush x:Key="InkFaintBrush" Color="{DynamicResource InkFaintColor}" />
+    <Color x:Key="InkOnAccentColor">#0F1B2D</Color>
+    <SolidColorBrush x:Key="InkOnAccentBrush" Color="{DynamicResource InkOnAccentColor}" />
+
+    <!-- ════ الدهبي ════ -->
+    <!-- الأكسنت: خطوط وأيقونات وحالات نشطة وأرقام كبيرة -->
+    <Color x:Key="GoldColor">#C2A14D</Color>
+    <SolidColorBrush x:Key="GoldBrush" Color="{DynamicResource GoldColor}" />
+    <!-- أغمق: النص الدهبي على الأبيض لما يلزم (5.9:1) -->
+    <Color x:Key="GoldDeepColor">#8A6D1F</Color>
+    <SolidColorBrush x:Key="GoldDeepBrush" Color="{DynamicResource GoldDeepColor}" />
+    <!-- خلفية مذهّبة خفيفة جدًا -->
+    <Color x:Key="GoldTintColor">#FBF7EC</Color>
+    <SolidColorBrush x:Key="GoldTintBrush" Color="{DynamicResource GoldTintColor}" />
+    <Color x:Key="GoldLineColor">#E4D6AE</Color>
+    <SolidColorBrush x:Key="GoldLineBrush" Color="{DynamicResource GoldLineColor}" />
+
+    <LinearGradientBrush x:Key="GoldGradientBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#D9BC6A" Offset="0" />
+        <GradientStop Color="#B8933F" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- ════ الخطوط الفاصلة ════ -->
+    <Color x:Key="LineColor">#E4E8EE</Color>
+    <SolidColorBrush x:Key="LineBrush" Color="{DynamicResource LineColor}" />
+    <Color x:Key="LineStrongColor">#CFD6E0</Color>
+    <SolidColorBrush x:Key="LineStrongBrush" Color="{DynamicResource LineStrongColor}" />
+
+    <!-- ════ التفاعل ════ -->
+    <Color x:Key="HoverColor">#F0F3F8</Color>
+    <SolidColorBrush x:Key="HoverBrush" Color="{DynamicResource HoverColor}" />
+    <Color x:Key="PressedColor">#E4EAF2</Color>
+    <SolidColorBrush x:Key="PressedBrush" Color="{DynamicResource PressedColor}" />
+    <Color x:Key="SelectedColor">#FBF6E7</Color>
+    <SolidColorBrush x:Key="SelectedBrush" Color="{DynamicResource SelectedColor}" />
+    <Color x:Key="FocusRingColor">#C2A14D</Color>
+    <SolidColorBrush x:Key="FocusRingBrush" Color="{DynamicResource FocusRingColor}" />
+
+    <!-- ════ ألوان الحالة ════
+         مفصولة عن الدهبي عن قصد: الدهبي هوية، ودول معنى. لو التحذير
+         بقى دهبي، "انتبه" و"ده مهم" هيبقوا نفس اللون. -->
+    <Color x:Key="GoodColor">#127A4C</Color>
+    <SolidColorBrush x:Key="GoodBrush" Color="{DynamicResource GoodColor}" />
+    <Color x:Key="GoodTintColor">#EAF6F0</Color>
+    <SolidColorBrush x:Key="GoodTintBrush" Color="{DynamicResource GoodTintColor}" />
+
+    <Color x:Key="WarnColor">#B45309</Color>
+    <SolidColorBrush x:Key="WarnBrush" Color="{DynamicResource WarnColor}" />
+    <Color x:Key="WarnTintColor">#FDF1E4</Color>
+    <SolidColorBrush x:Key="WarnTintBrush" Color="{DynamicResource WarnTintColor}" />
+
+    <Color x:Key="DangerColor">#B3261E</Color>
+    <SolidColorBrush x:Key="DangerBrush" Color="{DynamicResource DangerColor}" />
+    <Color x:Key="DangerTintColor">#FDECEB</Color>
+    <SolidColorBrush x:Key="DangerTintBrush" Color="{DynamicResource DangerTintColor}" />
+
+    <Color x:Key="InfoColor">#1B4E8C</Color>
+    <SolidColorBrush x:Key="InfoBrush" Color="{DynamicResource InfoColor}" />
+    <Color x:Key="InfoTintColor">#EAF0F9</Color>
+    <SolidColorBrush x:Key="InfoTintBrush" Color="{DynamicResource InfoTintColor}" />
+
+    <!-- ════ الظلال ════ -->
+    <Color x:Key="ShadowColor">#0F1B2D</Color>
+
+</ResourceDictionary>

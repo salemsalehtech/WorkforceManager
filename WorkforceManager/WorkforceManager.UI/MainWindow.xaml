@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:views="clr-namespace:WorkforceManager.UI.Views"
         Title="نظام إدارة إنتاجية وأجور العمال"
         Icon="Assets/app.ico"
         Height="720" Width="1200"
@@ -16,36 +17,43 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ══════════ القائمة الجانبية ══════════ -->
-        <Border Grid.Column="0">
-            <!-- تدرج كحلي هادي من فوق لتحت — عمق من غير ما يتعب العين -->
-            <Border.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#24437C" Offset="0" />
-                    <GradientStop Color="#152A4E" Offset="1" />
-                </LinearGradientBrush>
-            </Border.Background>
-
+        <!-- ══════════ القائمة الجانبية ══════════
+             كحلي مصمت مش متدرّج: التدرّج بيخلي البنود اللي فوق والبنود
+             اللي تحت على خلفيتين مختلفتين، فالشريط الدهبي بتاع البند
+             النشط بيبان بقوّتين حسب مكانه. اللون الواحد بيخلي كل بند
+             يتعامل مع نفس الأرضية. -->
+        <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}">
             <DockPanel>
-                <!-- الهوية: لوجو + اسم النظام -->
-                <StackPanel DockPanel.Dock="Top" Margin="18,26,18,22">
-                    <Border Width="54" Height="54" CornerRadius="16" Background="#2EFFFFFF"
-                            HorizontalAlignment="Right">
-                        <TextBlock Text="🏭" FontSize="26" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <TextBlock Text="إدارة الإنتاجية" Foreground="White" FontSize="18" FontWeight="Bold"
-                               Margin="0,12,0,2" />
-                    <TextBlock Text="نظام اليوميات والأجور والتقييم" Foreground="#9FB3D1" FontSize="11.5" />
+                <!-- الهوية -->
+                <StackPanel DockPanel.Dock="Top" Margin="20,24,20,20">
+                    <StackPanel Orientation="Horizontal">
+                        <views:WmsLogo Width="46" Height="46" />
+                        <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="WMS" FontSize="19" FontWeight="Bold"
+                                       FlowDirection="LeftToRight"
+                                       Foreground="{DynamicResource GoldBrush}" />
+                            <TextBlock Text="إدارة الإنتاج والأجور" FontSize="11"
+                                       Margin="0,1,0,0"
+                                       Foreground="{DynamicResource SidebarInkSoftBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- خط دهبي رفيع بيفصل الهوية عن التنقل -->
+                    <Border Height="1" Margin="0,18,0,0" Opacity="0.35"
+                            Background="{DynamicResource GoldGradientBrush}" />
                 </StackPanel>
 
                 <!-- بطاقة اليوم في آخر القائمة -->
-                <Border DockPanel.Dock="Bottom" Margin="14,0,14,16" Padding="12,10"
-                        CornerRadius="10" Background="#1AFFFFFF">
+                <Border DockPanel.Dock="Bottom" Margin="16,0,16,18" Padding="13,11"
+                        CornerRadius="{DynamicResource RadiusSmall}"
+                        Background="{DynamicResource SidebarAltBrush}">
                     <StackPanel>
                         <!-- التاريخ بالعربي بيتكتب من الكود عند فتح النافذة -->
-                        <TextBlock x:Name="TodayText" Foreground="White" FontSize="12.5" FontWeight="SemiBold" />
-                        <TextBlock Text="أسبوع العمل: الخميس ← الأربعاء" Foreground="#9FB3D1" FontSize="10.5"
-                                   Margin="0,3,0,0" />
+                        <TextBlock x:Name="TodayText" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SidebarInkBrush}" />
+                        <TextBlock Text="أسبوع العمل: الخميس ← الأربعاء" FontSize="10.5"
+                                   Margin="0,3,0,0"
+                                   Foreground="{DynamicResource SidebarInkSoftBrush}" />
                     </StackPanel>
                 </Border>
 
@@ -118,8 +126,14 @@
         </Border>
 
         <!-- ══════════ منطقة المحتوى ══════════ -->
-        <Border Grid.Column="1" Background="{StaticResource PageBgBrush}">
-            <ContentControl x:Name="MainContent" Margin="18,16" />
-        </Border>
+        <Grid Grid.Column="1">
+            <Border Background="{DynamicResource GroundBrush}">
+                <ContentControl x:Name="MainContent" Margin="20,18" />
+            </Border>
+
+            <!-- الإشعارات فوق المحتوى: بتظهر في الركن وبتروح لوحدها،
+                 والشغل تحتها مبيتوقفش -->
+            <views:ToastHost x:Name="Toasts" />
+        </Grid>
     </Grid>
 </Window>
