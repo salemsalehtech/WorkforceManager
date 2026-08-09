@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:views="clr-namespace:WorkforceManager.UI.Views"
         Title="تسجيل الدخول — إدارة الإنتاجية"
         Icon="/Assets/app.ico"
         Width="880" Height="520"
@@ -40,10 +41,10 @@
                              HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-40,-40" />
 
                     <StackPanel VerticalAlignment="Center" Margin="34,0">
-                        <Border Width="76" Height="76" CornerRadius="22" Background="#2EFFFFFF"
-                                HorizontalAlignment="Right">
-                            <TextBlock Text="🏭" FontSize="38" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
+                        <!-- لوجو WMS نفسه بدل الرمز التعبيري القديم — نفس
+                             العنصر اللي في الشريط الجانبي وكارت العمال
+                             الفاضي، فالهوية واحدة من أول شاشة يشوفها المستخدم -->
+                        <views:WmsLogo Width="76" Height="76" HorizontalAlignment="Right" />
                         <TextBlock Text="إدارة الإنتاجية" Foreground="{DynamicResource SidebarInkBrush}" FontSize="26" FontWeight="Bold"
                                    Margin="0,18,0,4" />
                         <TextBlock Text="نظام اليوميات والأجور والتقييم" Foreground="{DynamicResource SidebarInkBrush}" FontSize="14" />
