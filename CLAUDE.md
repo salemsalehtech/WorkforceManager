@@ -69,6 +69,21 @@ from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test 
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
 
+`WorkforceManager.UiTests` (xUnit, `net8.0-windows`, `UseWPF`) is a **separate** project for one test:
+`XamlLoadTests` loads **every** compiled XAML file for real. It exists because a whole class of XAML errors
+is invisible to both the compiler and every other test, and only shows up when the screen opens on the
+user's machine — a bad `PackIconKind` name, a missing `StaticResource` key, a duplicate `x:Name`, a
+`TargetName` outside its namescope, or **`BasedOn="{DynamicResource ...}"`** (`BasedOn` is a plain CLR
+property, not a DependencyProperty, so `DynamicResource` on it throws at load). That last one shipped once
+and made the app refuse to open at all, because `MainWindow`'s constructor builds `WorkersView` — a load
+error in the default screen kills the whole window. The test enumerates the assembly's **BAML resource
+table**, not file paths, so a new `.xaml` is covered without anyone remembering to add it; screens are
+constructed with `null` for their DI arguments (every view calls `InitializeComponent()` first, so the XAML
+still loads) and it runs on a manually created STA thread rather than pulling in an extra xUnit package.
+Two failure shapes are deliberately ignored: anything that is **not** a `XamlParseException` (the XAML
+loaded; the constructor just wanted a real ViewModel) and "Cannot locate resource" (`Application.ResourceAssembly`
+is pinned to the test host, so window icons by relative URI can't resolve there).
+
 The SQLite DB lives outside the repo at `%LocalAppData%\WorkforceManager\workforce.db` (or in `Data\` next
 to the exe when a `portable.marker` file is present — see `AppPaths`). `App.OnStartup` creates/updates it
 with `Database.MigrateAsync()` + `DatabaseSeeder.SeedIfEmptyAsync`, so migrations DO run at startup and
@@ -269,7 +284,11 @@ Core  <----------------------- UI
   **Theme switching is live** (`App.ApplyTheme` swaps the palette dictionary *in place*): every new style
   references colours through `DynamicResource`, so the binding stays alive. `StaticResource` is why it used
   to need a restart — a screen written with it resolves colours once at load. New XAML must use
-  `DynamicResource` for anything from the palette.
+  `DynamicResource` for anything from the palette. **The one exception is `BasedOn`**, which must stay
+  `StaticResource`: it is a plain CLR property on `Style`, not a DependencyProperty, so `DynamicResource`
+  on it throws at load — and it costs nothing, since the colours *inside* the base style are still
+  `DynamicResource` and stay live. A blanket StaticResource→DynamicResource sweep will hit `BasedOn`;
+  `XamlLoadTests` is what catches it.
   All four sidebar screens are implemented. Navigation uses `Checked` (not `Click`) on the sidebar
   radios — handlers guard against the initial `Checked` that fires during `InitializeComponent` before
   `MainContent` exists. `App.xaml` holds the design system: brand brushes (BrandBrush/AccentBrush/
