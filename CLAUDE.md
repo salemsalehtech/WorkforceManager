@@ -406,10 +406,28 @@ Core  <----------------------- UI
   groups and shapes only. `ReportBuilderTests` asserts its totals equal those services' own output —
   because the real danger isn't a report that crashes, it's a report that quietly prints a *different*
   number than the screen showing the same thing.
+- **The "القطع" column means two different things, and `CountsCompletedOutput` is the only place that
+  decides which.** Grouping by **worker or stage** makes the group a *unit of work*: summing its rows is
+  its own effort, every row a real hand-worked record earning its own workday, so all stages count.
+  Grouping by **product, day, or week** makes the group a *bucket of output* answering "how much left the
+  line?" — and since one piece passes through every stage, summing them all counts it once per stage.
+  This shipped wrong: an 11-stage product reported **11× its real output** (110,000 instead of 10,000 on
+  real data) while the chart and the daily report — both already on `ProductionLine.LastStageIdByProduct`
+  — showed the truth. Any new grouping must pick a side here, and the whole app must keep answering with
+  one number.
 - **Every subject returns the same `ReportTable`**, so there is **one** Excel exporter
   (`ReportTableExcelService`) and **one** preview grid for all six subjects and their groupings, instead of
   six of each. The preview grid's columns are built in code-behind from `PreviewHeaders`, since XAML can't
   generate columns from a list — that's the only reason that code-behind exists.
+- **Exactly one preview may be in flight, and none before the screen is ready.** Every selection setter
+  calls `RequestPreview`, so opening the screen used to fire four overlapping fire-and-forget builds — the
+  constructor's `RefreshGroupings`, then both filter defaults, then `InitializeAsync`'s own — each clearing
+  and refilling the same collections, which is what made the table visibly flash on entry. `_ready` gates
+  everything until `InitializeAsync` finishes (in a `finally`, or a failed filter load would freeze the
+  screen for good), `_suppressPreview` brackets multi-setter changes, and `_previewGeneration` drops
+  results that arrive after a newer request — without it a slow wide-range query can land *after* the
+  narrow one that replaced it and repaint stale numbers. Column rebuilds coalesce for the same reason:
+  one per report, not one per header added.
 - **Not every combination is offered.** `ReportSpec.AllowedGroupings` encodes which cuts have meaning
   ("attendance by product" has no answer), so the screen never lets the user reach an empty report and
   mistake it for a bug. `UsesPeriod` hides the date controls for Skills, which is a state, not a movement.

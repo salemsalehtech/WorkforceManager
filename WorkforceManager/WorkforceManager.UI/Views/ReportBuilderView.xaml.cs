@@ -33,16 +33,30 @@ namespace WorkforceManager.UI.Views
             Loaded += async (_, _) => await viewModel.InitializeAsync();
         }
 
+        /// <summary>مستني إعادة بناء متجدولة — بيمنع تجدولة تانية معاها</summary>
+        private bool _rebuildPending;
+
         /// <summary>
         /// القايمة بتتفضى وتتملي مع كل تقرير، فبنستنى لحد ما تخلص
         /// (آخر إضافة) بدل ما نعيد البناء مع كل عمود.
+        ///
+        /// العلم مهم: من غيره كل Add بيجدول إعادة بناء لوحده، يعني
+        /// تقرير بخمس أعمدة بيمسح الأعمدة ويبنيها **خمس مرات** ورا بعض
+        /// — الجدول بيرفّ قدام المستخدم وهو بيتفرج. واحدة بتكفي، لأن
+        /// اللي بيتجدول بيقرا القايمة كاملة وقت ما يشتغل.
         /// </summary>
         private void OnHeadersChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action == NotifyCollectionChangedAction.Reset) return;
+            if (_rebuildPending) return;
 
-            Dispatcher.BeginInvoke(new Action(RebuildColumns),
-                System.Windows.Threading.DispatcherPriority.Background);
+            _rebuildPending = true;
+
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _rebuildPending = false;
+                RebuildColumns();
+            }), System.Windows.Threading.DispatcherPriority.Background);
         }
 
         private void RebuildColumns()

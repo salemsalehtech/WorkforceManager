@@ -162,11 +162,31 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task Grouping_by_product_counts_the_last_stage_only_not_every_stage()
+        {
+            // نفس الدفعة عدّت على تلات مراحل (قص، خياطة، تشطيب) بنفس
+            // العدد — لو "القطع" بتجمع المراحل الثلاثة هتبان 66 قطعة
+            // تامة، والحقيقة إن 22 قطعة بس خرجت من الخط. آخر مرحلة
+            // (تشطيب) هي الوحيدة اللي بتحسب هنا، زي تقرير الإنتاج
+            // العام والرسم البياني (<see cref="ProductionLine"/>).
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 22);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage2Id, 22);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id, 22);
+
+            var table = await BuildAsync(Spec(ReportSubject.Production, ReportGrouping.Product));
+
+            var row = table.Rows.Single(r => r.Label == "شنطة");
+            Assert.Equal(22, row.Values[0]);
+        }
+
+        [Fact]
         public async Task Grouping_by_day_gives_one_row_per_day_in_order()
         {
-            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 10, Day);
-            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 20, Day.AddDays(1));
-            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 30, Day.AddDays(2));
+            // على آخر مرحلة (تشطيب) عشان الأرقام تبان في عمود القطع —
+            // "الإنتاج باليوم" بيعدّ التام زي "بالمنتج" بالظبط
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id, 10, Day);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id, 20, Day.AddDays(1));
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id, 30, Day.AddDays(2));
 
             var table = await BuildAsync(Spec(
                 ReportSubject.Production, ReportGrouping.Day, Day, Day.AddDays(2)));
@@ -174,6 +194,35 @@ namespace WorkforceManager.Tests
             Assert.Equal(3, table.Rows.Count);
             Assert.Equal(10, table.Rows[0].Values[0]);
             Assert.Equal(30, table.Rows[2].Values[0]);
+        }
+
+        [Fact]
+        public async Task Grouping_by_day_counts_what_left_the_line_not_every_stage()
+        {
+            // نفس الدفعة عدّت على تلات مراحل في نفس اليوم — 22 خرجت
+            // تامة، مش 66. نفس قاعدة الرسم البياني وتقرير اليوم.
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 22);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage2Id, 22);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id, 22);
+
+            var table = await BuildAsync(Spec(ReportSubject.Production, ReportGrouping.Day));
+
+            Assert.Equal(22, Assert.Single(table.Rows).Values[0]);
+        }
+
+        [Fact]
+        public async Task Grouping_by_worker_still_counts_every_stage_he_worked_on()
+        {
+            // الفرق عن اللي فوق: العامل وحدة **شغل** مش وعاء إنتاج.
+            // اشتغل تلات مراحل × 22 = 66 قطعة شغل، وكل واحدة مستحق
+            // عليها يوميتها. الجمع هنا صح ومقصود.
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 22);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage2Id, 22);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id, 22);
+
+            var table = await BuildAsync(Spec(ReportSubject.Production, ReportGrouping.Worker));
+
+            Assert.Equal(66, Assert.Single(table.Rows).Values[0]);
         }
 
         // ======================= الفلاتر =======================
@@ -200,8 +249,11 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task Filtering_by_product_leaves_the_others_out()
         {
-            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
-            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.RingStage1Id, 70);
+            // على آخر مرحلة بتاعة كل منتج عن قصد — دبلة آخر مرحلة ليها
+            // تلميع (RingStage2Id)، والقطع بتحسب من هناك بس لما التجميع
+            // بالمنتج (شوف Grouping_by_product_counts_the_last_stage_only)
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id, 100);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.RingStage2Id, 70);
 
             var table = await BuildAsync(new ReportSpec
             {

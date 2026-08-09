@@ -97,9 +97,22 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>بيمنع المعاينة وإحنا بنعدّل أكتر من اختيار مع بعض</summary>
         private bool _suppressPreview;
 
+        /// <summary>
+        /// الشاشة لسه بتتجهّز — مفيش أي معاينة قبل ما InitializeAsync تخلص.
+        ///
+        /// من غير البوابة دي كان بيحصل الآتي أول ما المستخدم يدخل الشاشة:
+        /// الـ Constructor بينادي RefreshGroupings، ودي بتحطّ
+        /// SelectedGrouping، والـ Setter بيطلب معاينة **قبل ما الفلاتر
+        /// تتحمّل أصلاً**. وبعدها InitializeAsync بتطلب معاينة تانية.
+        /// الاتنين fire-and-forget على نفس PreviewRows/PreviewHeaders، وكل
+        /// واحدة بتعمل Clear وبعدين تملّي — فالجدول كان بيفضى ويتملى أكتر
+        /// من مرة متراكبة، وده اللي المستخدم شافه "بيظهر ويختفي".
+        /// </summary>
+        private bool _ready;
+
         private void RequestPreview()
         {
-            if (_suppressPreview) return;
+            if (_suppressPreview || !_ready) return;
             SafeAsync.Run(PreviewAsync);
         }
 
@@ -148,8 +161,20 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand]
         private void ClearFilters()
         {
-            SelectedWorker = Workers.FirstOrDefault();
-            SelectedProduct = Products.FirstOrDefault();
+            // الاتنين بيتغيّروا مع بعض، فمعاينة واحدة في الآخر بدل
+            // اتنين ورا بعض على نفس الجدول
+            _suppressPreview = true;
+            try
+            {
+                SelectedWorker = Workers.FirstOrDefault();
+                SelectedProduct = Products.FirstOrDefault();
+            }
+            finally
+            {
+                _suppressPreview = false;
+            }
+
+            RequestPreview();
         }
 
         // ======================= المعاينة =======================
@@ -198,24 +223,41 @@ namespace WorkforceManager.UI.ViewModels
             };
         }
 
+        /// <summary>
+        /// رقم آخر معاينة اتطلبت. المستخدم بيقلب في الفلاتر أسرع من
+        /// الاستعلام، والاستعلامات مش بتخلص بنفس ترتيب طلبها — تقرير
+        /// مدة طويلة ممكن يخلص بعد تقرير مدة قصيرة اتطلب بعده. من غير
+        /// الرقم ده النتيجة القديمة بتتكتب فوق الجديدة والمستخدم يشوف
+        /// أرقام مش بتاعة اللي هو مختاره.
+        /// </summary>
+        private int _previewGeneration;
+
         [RelayCommand]
         public async Task PreviewAsync()
         {
             if (SelectedGrouping is null) return;
 
+            var generation = ++_previewGeneration;
+
             IsBusy = true;
             try
             {
                 using var scope = _scopeFactory.CreateScope();
-                _current = await scope.ServiceProvider
+                var table = await scope.ServiceProvider
                     .GetRequiredService<ReportBuilderService>()
                     .BuildAsync(BuildSpec());
 
-                ShowTable(_current);
+                // اتطلبت معاينة أحدث وإحنا بنستنى — النتيجة دي بقت قديمة
+                if (generation != _previewGeneration) return;
+
+                _current = table;
+                ShowTable(table);
             }
             finally
             {
-                IsBusy = false;
+                // آخر معاينة بس هي اللي بتطفي المؤشر، وإلا واحدة قديمة
+                // بتخلص بدري وتقول "خلصنا" والجديدة لسه شغالة
+                if (generation == _previewGeneration) IsBusy = false;
             }
 
             OnPropertyChanged(nameof(HasFilters));
@@ -384,8 +426,14 @@ namespace WorkforceManager.UI.ViewModels
 
         public async Task InitializeAsync()
         {
-            using (var scope = _scopeFactory.CreateScope())
+            // الـ finally مش زيادة: _ready بيقفل المعاينة لحد ما التجهيز
+            // يخلص، فلو تحميل الفلاتر وقع من غيره الشاشة تفضل مقفولة
+            // للأبد — المستخدم يقلب في الاختيارات ومفيش حاجة بتحصل.
+            // كده أسوأ حالة إن الفلاتر تبقى ناقصة والتقرير يشتغل.
+            try
             {
+                using var scope = _scopeFactory.CreateScope();
+
                 var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
                 var productRepo = scope.ServiceProvider.GetRequiredService<IProductRepository>();
 
@@ -398,10 +446,17 @@ namespace WorkforceManager.UI.ViewModels
                 Products.Add(new ProductFilterItem(null, "كل المنتجات"));
                 foreach (var p in (await productRepo.GetAllWithStagesAsync()).OrderBy(p => p.Name))
                     Products.Add(new ProductFilterItem(p.Id, p.Name));
-            }
 
-            SelectedWorker = Workers[0];
-            SelectedProduct = Products[0];
+                // جوّه الـ try عن قصد: لسه _ready = false هنا، فالسطرين
+                // دول مش هيطلبوا معاينة لوحدهم
+                SelectedWorker = Workers.FirstOrDefault();
+                SelectedProduct = Products.FirstOrDefault();
+            }
+            finally
+            {
+                // من هنا وطالع أي تغيير في الاختيارات يطلب معاينة
+                _ready = true;
+            }
 
             await PreviewAsync();
         }

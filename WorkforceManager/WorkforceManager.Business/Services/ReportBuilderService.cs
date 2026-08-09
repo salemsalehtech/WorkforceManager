@@ -69,14 +69,40 @@ namespace WorkforceManager.Business.Services
 
         // ======================= الإنتاج =======================
 
+        /// <summary>
+        /// عمود "القطع" معناه بيتغيّر حسب اللي بنجمّع عليه:
+        ///
+        ///   • بالعامل أو بالمرحلة → المجموعة نفسها **وحدة شغل**. مجموع
+        ///     سجلاتها هو شغلها بالظبط، وكل سجل شغل حقيقي اتعمل بإيد
+        ///     ومستحق عليه يومية. الجمع هنا صح.
+        ///
+        ///   • بالمنتج أو باليوم أو بالأسبوع → المجموعة **وعاء إنتاج**،
+        ///     والسؤال هو "خرج من الخط كام؟". القطعة الواحدة بتعدّي على
+        ///     كل المراحل، فجمعها كلها بيعدّها مرة لكل مرحلة — منتج بـ11
+        ///     مرحلة كان بيبان إنتاجه 11 ضعف الحقيقي. آخر مرحلة بس هي
+        ///     اللي بتتعدّ، وهي نفس القاعدة اللي الرسم البياني وتقرير
+        ///     اليوم والتقرير العام شغالين بيها (<see cref="ProductionLine"/>)
+        ///     — فالبرنامج كله بيقول نفس الرقم.
+        /// </summary>
+        private static bool CountsCompletedOutput(ReportGrouping grouping) =>
+            grouping is ReportGrouping.Product or ReportGrouping.Day or ReportGrouping.Week;
+
         private async Task<ReportTable> ProductionAsync(ReportSpec spec)
         {
             var rows = Filter(await _production.GetByRangeAsync(spec.From, spec.To), spec);
 
-            // القطع بتتجمع على كل المراحل عن قصد هنا: التقرير ده بيقيس
-            // **الشغل المبذول** مش إنتاج المنتج. القطعة اللي عدّت على
-            // 11 مرحلة اشتغل فيها 11 عامل، وكل واحد ليه حقه.
-            // "إنتاج المنتج التام" سؤال تاني بيتجاوب في التجميع بالمنتج.
+            // "اليوميات" و"عدد العمال" و"أيام فيها شغل" بيتجمّعوا على كل
+            // المراحل دايمًا: دول بيقيسوا **الشغل المبذول**، والقطعة اللي
+            // عدّت على 11 مرحلة اشتغل فيها 11 عامل وكل واحد ليه يوميته.
+            //
+            // "القطع" مختلفة، وبتتقاس حسب معنى المجموعة نفسها —
+            // <see cref="CountsCompletedOutput"/>.
+            var lastStageIds = CountsCompletedOutput(spec.GroupBy)
+                ? ProductionLine
+                    .LastStageIdByProduct(await _products.GetAllWithStagesAsync())
+                    .Values.ToHashSet()
+                : null;
+
             var groups = rows
                 .GroupBy(r => Key(r, spec.GroupBy))
                 .OrderBy(g => g.Key.Order).ThenBy(g => g.Key.Label)
@@ -96,7 +122,9 @@ namespace WorkforceManager.Business.Services
                     Label = g.Key.Label,
                     Values =
                     {
-                        g.Sum(r => r.PieceCount),
+                        lastStageIds is null
+                            ? g.Sum(r => r.PieceCount)
+                            : g.Where(r => lastStageIds.Contains(r.ProductionStageId)).Sum(r => r.PieceCount),
                         g.Sum(r => r.WorkdaysCompleted),
                         g.Select(r => r.WorkerId).Distinct().Count(),
                         g.Select(r => r.Date.Date).Distinct().Count()
