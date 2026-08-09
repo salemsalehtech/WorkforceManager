@@ -5,11 +5,11 @@
         Title="قسيمة أجر" Height="720" Width="640"
         WindowStartupLocation="CenterOwner"
         FlowDirection="RightToLeft" FontFamily="{StaticResource AppFont}"
-        Background="{StaticResource PageBgBrush}">
+        Background="{DynamicResource PageBgBrush}">
 
     <DockPanel Margin="0">
         <!-- شريط الأدوات (مش بيتطبع) -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}" Padding="14,10">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource BrandBrush}" Padding="14,10">
             <DockPanel LastChildFill="False">
                 <Button DockPanel.Dock="Left" Click="Print_Click"
                         Style="{StaticResource SuccessButton}">
@@ -28,20 +28,20 @@
         <!-- منطقة الطباعة -->
         <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20">
             <Border x:Name="PrintArea" Background="White" Width="560" Padding="30"
-                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" CornerRadius="6">
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="6">
                 <StackPanel>
                     <!-- الرأس -->
                     <TextBlock Text="قسيمة أجر" FontSize="24" FontWeight="Bold"
-                               Foreground="{StaticResource BrandBrush}" HorizontalAlignment="Center" />
-                    <Border Height="3" Width="60" CornerRadius="2" Background="{StaticResource AccentBrush}"
+                               Foreground="{DynamicResource BrandBrush}" HorizontalAlignment="Center" />
+                    <Border Height="3" Width="60" CornerRadius="2" Background="{DynamicResource AccentBrush}"
                             HorizontalAlignment="Center" Margin="0,8,0,16" />
 
                     <TextBlock Text="{Binding WorkerName}" FontSize="18" FontWeight="Bold"
-                               Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" />
+                               Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="{Binding WorkerSubtitle}" FontSize="13"
-                               Foreground="{StaticResource TextMutedBrush}" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                               Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" Margin="0,2,0,0" />
                     <TextBlock Text="{Binding PeriodText}" FontSize="13" FontWeight="SemiBold"
-                               Foreground="{StaticResource BrandBrush}" HorizontalAlignment="Center" Margin="0,6,0,18" />
+                               Foreground="{DynamicResource BrandBrush}" HorizontalAlignment="Center" Margin="0,6,0,18" />
 
                     <!-- سطور التفصيل -->
                     <StackPanel>
@@ -51,7 +51,7 @@
                             </Style>
                             <Style x:Key="Lbl" TargetType="TextBlock">
                                 <Setter Property="FontSize" Value="14" />
-                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                                 <Setter Property="VerticalAlignment" Value="Center" />
                             </Style>
                             <Style x:Key="Val" TargetType="TextBlock" BasedOn="{StaticResource Lbl}">
@@ -70,15 +70,15 @@
                         <DockPanel Visibility="{Binding ShowAbsence, Converter={StaticResource BoolToVis}}">
                             <TextBlock DockPanel.Dock="Left" Text="خصم غياب بدون إذن" Style="{StaticResource Lbl}" />
                             <TextBlock Text="{Binding AbsenceDeductionText}" Style="{StaticResource Val}"
-                                       Foreground="{StaticResource DangerBrush}" HorizontalAlignment="Left" />
+                                       Foreground="{DynamicResource DangerBrush}" HorizontalAlignment="Left" />
                         </DockPanel>
                         <DockPanel Visibility="{Binding ShowPenalty, Converter={StaticResource BoolToVis}}">
                             <TextBlock DockPanel.Dock="Left" Text="خصم جزاءات" Style="{StaticResource Lbl}" />
                             <TextBlock Text="{Binding PenaltyDeductionText}" Style="{StaticResource Val}"
-                                       Foreground="{StaticResource DangerBrush}" HorizontalAlignment="Left" />
+                                       Foreground="{DynamicResource DangerBrush}" HorizontalAlignment="Left" />
                         </DockPanel>
 
-                        <Border Height="1" Background="{StaticResource CardBorderBrush}" Margin="0,4,0,12" />
+                        <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,4,0,12" />
 
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Left" Text="صافي اليوميات" Style="{StaticResource Lbl}" />
@@ -95,22 +95,22 @@
                         <DockPanel Visibility="{Binding ShowBonus, Converter={StaticResource BoolToVis}}">
                             <TextBlock DockPanel.Dock="Left" Text="حوافز ومكافآت" Style="{StaticResource Lbl}" />
                             <TextBlock Text="{Binding BonusText}" Style="{StaticResource Val}"
-                                       Foreground="{StaticResource SuccessBrush}" HorizontalAlignment="Left" />
+                                       Foreground="{DynamicResource SuccessBrush}" HorizontalAlignment="Left" />
                         </DockPanel>
                         <DockPanel Visibility="{Binding ShowAdvance, Converter={StaticResource BoolToVis}}">
                             <TextBlock DockPanel.Dock="Left" Text="سلف ومسحوبات" Style="{StaticResource Lbl}" />
                             <TextBlock Text="{Binding AdvanceText}" Style="{StaticResource Val}"
-                                       Foreground="{StaticResource DangerBrush}" HorizontalAlignment="Left" />
+                                       Foreground="{DynamicResource DangerBrush}" HorizontalAlignment="Left" />
                         </DockPanel>
                     </StackPanel>
 
                     <!-- الأجر النهائي -->
-                    <Border Background="{StaticResource SuccessBgBrush}" CornerRadius="10" Padding="16,12" Margin="0,14,0,0">
+                    <Border Background="{DynamicResource SuccessBgBrush}" CornerRadius="10" Padding="16,12" Margin="0,14,0,0">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Left" Text="الأجر النهائي المستحق" FontSize="16" FontWeight="Bold"
-                                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding NetWageText}" FontSize="22" FontWeight="Bold"
-                                       Foreground="{StaticResource SuccessBrush}" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                       Foreground="{DynamicResource SuccessBrush}" HorizontalAlignment="Left" VerticalAlignment="Center" />
                         </DockPanel>
                     </Border>
 
@@ -122,18 +122,18 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0">
-                            <Border Height="1" Background="{StaticResource TextMutedBrush}" Margin="0,0,0,4" />
-                            <TextBlock Text="توقيع المستلم" FontSize="12" Foreground="{StaticResource TextMutedBrush}"
+                            <Border Height="1" Background="{DynamicResource TextMutedBrush}" Margin="0,0,0,4" />
+                            <TextBlock Text="توقيع المستلم" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
                                        HorizontalAlignment="Center" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <Border Height="1" Background="{StaticResource TextMutedBrush}" Margin="0,0,0,4" />
-                            <TextBlock Text="توقيع المسؤول" FontSize="12" Foreground="{StaticResource TextMutedBrush}"
+                            <Border Height="1" Background="{DynamicResource TextMutedBrush}" Margin="0,0,0,4" />
+                            <TextBlock Text="توقيع المسؤول" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
                                        HorizontalAlignment="Center" />
                         </StackPanel>
                     </Grid>
 
-                    <TextBlock Text="{Binding PrintedAtText}" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}"
+                    <TextBlock Text="{Binding PrintedAtText}" FontSize="10.5" Foreground="{DynamicResource TextMutedBrush}"
                                HorizontalAlignment="Center" Margin="0,20,0,0" />
                 </StackPanel>
             </Border>

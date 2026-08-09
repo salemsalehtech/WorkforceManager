@@ -13,7 +13,7 @@
         </Border.Effect>
         <DockPanel>
             <!-- الرأس -->
-            <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
+            <Border DockPanel.Dock="Top" Background="{DynamicResource BrandBrush}"
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Foreground="White"
@@ -31,7 +31,7 @@
             </Border>
 
             <!-- شريط الأوامر تحت -->
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource SubtleBgBrush}"
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource SubtleBgBrush}"
                     CornerRadius="0,0,18,18" Padding="18,12">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}" Padding="16,8"
@@ -39,7 +39,7 @@
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <TextBlock x:Name="AppliedText" VerticalAlignment="Center" FontSize="12"
-                                   Margin="0,0,12,0" Foreground="{StaticResource TextMutedBrush}" />
+                                   Margin="0,0,12,0" Foreground="{DynamicResource TextMutedBrush}" />
                         <Button x:Name="ApplyAllButton" Style="{StaticResource PrimaryButton}"
                                 Padding="16,8" Click="ApplyAll_Click">
                             <StackPanel Orientation="Horizontal">
@@ -55,7 +55,7 @@
             <Grid Margin="18,14,18,10">
                 <TextBlock x:Name="EmptyText" TextWrapping="Wrap" FontSize="13.5"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{StaticResource TextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            Text="كل التقييمات متطابقة مع الأداء الفعلي — مفيش حاجة محتاجة تعديل"
                            Visibility="Collapsed" />
 
@@ -63,14 +63,14 @@
                     <ItemsControl x:Name="SuggestionsList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="9"
+                                <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="9"
                                         Padding="14,11" Margin="0,0,0,8">
                                     <DockPanel>
                                         <!-- أزرار القرار -->
                                         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
                                                     VerticalAlignment="Center" Margin="0,0,12,0">
                                             <Button Padding="7,5"
-                                                    Foreground="{StaticResource SuccessBrush}"
+                                                    Foreground="{DynamicResource SuccessBrush}"
                                                     Tag="{Binding}" Click="ApplyOne_Click">
                                                 <Button.Style>
                                                     <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
@@ -85,7 +85,7 @@
                                                 <materialDesign:PackIcon Kind="Check" Width="17" Height="17" />
                                             </Button>
                                             <Button Style="{StaticResource IconButton}" Padding="7,5"
-                                                    Foreground="{StaticResource TextMutedBrush}"
+                                                    Foreground="{DynamicResource TextMutedBrush}"
                                                     ToolTip="سيبه زي ما هو"
                                                     Tag="{Binding}" Click="Ignore_Click">
                                                 <materialDesign:PackIcon Kind="Close" Width="17" Height="17" />
@@ -97,13 +97,13 @@
                                                 VerticalAlignment="Center" MinWidth="150">
                                             <Border.Style>
                                                 <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="{StaticResource WarnBgBrush}" />
+                                                    <Setter Property="Background" Value="{DynamicResource WarnBgBrush}" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsUpgrade}" Value="True">
-                                                            <Setter Property="Background" Value="{StaticResource SuccessBgBrush}" />
+                                                            <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding IsConfirmation}" Value="True">
-                                                            <Setter Property="Background" Value="{StaticResource SubtleBgBrush}" />
+                                                            <Setter Property="Background" Value="{DynamicResource SubtleBgBrush}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -127,15 +127,15 @@
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="Text" Value="نزّل التقييم" />
-                                                            <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource WarnBrush}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IsUpgrade}" Value="True">
                                                                     <Setter Property="Text" Value="ارفع التقييم" />
-                                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
                                                                 </DataTrigger>
                                                                 <DataTrigger Binding="{Binding IsConfirmation}" Value="True">
                                                                     <Setter Property="Text" Value="أكّد التقييم" />
-                                                                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -147,16 +147,16 @@
                                         <!-- العامل والمرحلة والسبب -->
                                         <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
                                             <TextBlock Text="{Binding WorkerName}" FontSize="14" FontWeight="Bold"
-                                                       Foreground="{StaticResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
                                             <TextBlock FontSize="12" Margin="0,2,0,0"
-                                                       Foreground="{StaticResource BrandBrush}">
+                                                       Foreground="{DynamicResource BrandBrush}">
                                                 <Run Text="{Binding ProductName, Mode=OneWay}" />
-                                                <Run Text="←" Foreground="{StaticResource TextMutedBrush}" />
+                                                <Run Text="←" Foreground="{DynamicResource TextMutedBrush}" />
                                                 <Run Text="{Binding StageName, Mode=OneWay}" FontWeight="SemiBold" />
                                             </TextBlock>
                                             <TextBlock Text="{Binding Reason}" FontSize="11.5" Margin="0,3,0,0"
                                                        TextWrapping="Wrap"
-                                                       Foreground="{StaticResource TextMutedBrush}" />
+                                                       Foreground="{DynamicResource TextMutedBrush}" />
                                         </StackPanel>
                                     </DockPanel>
                                 </Border>

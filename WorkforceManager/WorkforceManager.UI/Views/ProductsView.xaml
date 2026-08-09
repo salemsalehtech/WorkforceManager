@@ -32,7 +32,7 @@
                         ToolTip="اعرض المنتجات دي بس">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                            <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource WarnBrush}" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding NeedsAttentionCount}" Value="0">
                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -56,7 +56,7 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="24,0,0,0">
                     <StackPanel Style="{StaticResource SummaryStat}">
                         <TextBlock Text="{Binding WorkedProductsCount}" Style="{StaticResource SummaryNumber}"
-                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
                         <TextBlock Text="منتج شغّال" Style="{StaticResource SummaryLabel}" />
                     </StackPanel>
 
@@ -66,14 +66,14 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <materialDesign:PackIcon Kind="TrendingUp" Width="14" Height="14"
                                                      VerticalAlignment="Center"
-                                                     Foreground="{StaticResource SuccessBrush}" />
+                                                     Foreground="{DynamicResource SuccessBrush}" />
                             <TextBlock Text="{Binding MostActiveName}" FontSize="13" FontWeight="Bold"
                                        Margin="5,0,0,0" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"
-                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
                         </StackPanel>
                         <TextBlock Text="{Binding MostActivePieces}" FontSize="10.5" HorizontalAlignment="Right"
-                                   Foreground="{StaticResource SuccessBrush}" />
+                                   Foreground="{DynamicResource SuccessBrush}" />
                         <TextBlock Text="أكتر منتج إنتاجًا" Style="{StaticResource SummaryLabel}"
                                    HorizontalAlignment="Right" />
                     </StackPanel>
@@ -82,14 +82,14 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <materialDesign:PackIcon Kind="TrendingDown" Width="14" Height="14"
                                                      VerticalAlignment="Center"
-                                                     Foreground="{StaticResource WarnBrush}" />
+                                                     Foreground="{DynamicResource WarnBrush}" />
                             <TextBlock Text="{Binding LeastActiveName}" FontSize="13" FontWeight="Bold"
                                        Margin="5,0,0,0" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"
-                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
                         </StackPanel>
                         <TextBlock Text="{Binding LeastActivePieces}" FontSize="10.5" HorizontalAlignment="Right"
-                                   Foreground="{StaticResource WarnBrush}" />
+                                   Foreground="{DynamicResource WarnBrush}" />
                         <TextBlock Text="أقل منتج إنتاجًا" Style="{StaticResource SummaryLabel}"
                                    HorizontalAlignment="Right" />
                     </StackPanel>
@@ -108,14 +108,14 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Background="{StaticResource CardBgBrush}"
-                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.4"
+            <Border Grid.Column="0" Background="{DynamicResource CardBgBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1.4"
                     CornerRadius="10" Padding="12,7">
                 <Grid>
                     <DockPanel>
                         <materialDesign:PackIcon DockPanel.Dock="Left" Kind="Magnify" Width="17" Height="17"
                                                 VerticalAlignment="Center"
-                                                Foreground="{StaticResource TextMutedBrush}" />
+                                                Foreground="{DynamicResource TextMutedBrush}" />
                         <Button DockPanel.Dock="Right" Command="{Binding ClearSearchCommand}" ToolTip="مسح البحث">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
@@ -135,7 +135,7 @@
                     </DockPanel>
                     <TextBlock Text="دوّر بالمنتج أو بالمرحلة…" Margin="30,0,0,0" IsHitTestVisible="False"
                                VerticalAlignment="Center" FontSize="13"
-                               Foreground="{StaticResource TextMutedBrush}">
+                               Foreground="{DynamicResource TextMutedBrush}">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -167,7 +167,7 @@
 
             <TextBlock Grid.Column="2" Text="{Binding ResultsText}" FontSize="12.5" FontWeight="SemiBold"
                        VerticalAlignment="Center" Margin="14,0,0,0"
-                       Foreground="{StaticResource TextPrimaryBrush}" />
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
             <!-- ===== زرار الفلاتر =====
                  المرحلة والعامل والترتيب كانوا تلات قوايم قاعدين على
@@ -181,7 +181,7 @@
                         <materialDesign:PackIcon Kind="FilterVariant" Width="15" Height="15"
                                                  VerticalAlignment="Center" />
                         <TextBlock Text="فلاتر" Margin="5,0,0,0" VerticalAlignment="Center" />
-                        <Border Background="{StaticResource BrandBrush}" CornerRadius="8"
+                        <Border Background="{DynamicResource BrandBrush}" CornerRadius="8"
                                 Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
                                 Visibility="{Binding HasExtraFilters, Converter={StaticResource BoolToVis}}">
                             <TextBlock Text="{Binding ActiveFilterCount}" FontSize="10.5"
@@ -198,14 +198,14 @@
                     <Border Style="{StaticResource ToolbarPopupCard}" FlowDirection="RightToLeft" Width="290">
                         <StackPanel>
                             <TextBlock Text="المرحلة" FontSize="11" Margin="0,0,0,3"
-                                       Foreground="{StaticResource TextMutedBrush}" />
+                                       Foreground="{DynamicResource TextMutedBrush}" />
                             <ComboBox ItemsSource="{Binding StageFilterOptions}"
                                       SelectedItem="{Binding SelectedStageFilter}"
                                       DisplayMemberPath="Display" FontSize="12.5"
                                       ToolTip="المنتجات اللي فيها المرحلة دي" />
 
                             <TextBlock Text="العامل" FontSize="11" Margin="0,10,0,3"
-                                       Foreground="{StaticResource TextMutedBrush}" />
+                                       Foreground="{DynamicResource TextMutedBrush}" />
                             <ComboBox ItemsSource="{Binding WorkerFilterOptions}"
                                       SelectedItem="{Binding SelectedWorkerFilter}"
                                       DisplayMemberPath="Display" FontSize="12.5"
@@ -214,7 +214,7 @@
                             <!-- ده ترتيب مش فلتر، بس بيغيّر اللي المستخدم
                                  شايفه فمكانه معاهم -->
                             <TextBlock Text="الترتيب" FontSize="11" Margin="0,10,0,3"
-                                       Foreground="{StaticResource TextMutedBrush}" />
+                                       Foreground="{DynamicResource TextMutedBrush}" />
                             <ComboBox ItemsSource="{Binding VolumeFilterOptions}"
                                       SelectedItem="{Binding SelectedVolumeFilter}"
                                       DisplayMemberPath="Display" FontSize="12.5"
@@ -270,10 +270,10 @@
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Right"
                                     FontSize="12.5" />
 
-                            <Border Height="1" Background="{StaticResource CardBorderBrush}" Margin="0,12,0,10" />
+                            <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,12,0,10" />
 
                             <TextBlock Text="مدة مخصوصة" FontSize="11" Margin="0,0,0,5"
-                                       Foreground="{StaticResource TextMutedBrush}" />
+                                       Foreground="{DynamicResource TextMutedBrush}" />
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -282,16 +282,16 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="من" FontSize="12" VerticalAlignment="Center"
-                                           Margin="0,0,5,0" Foreground="{StaticResource TextMutedBrush}" />
+                                           Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}" />
                                 <DatePicker Grid.Column="1" SelectedDate="{Binding PeriodFrom}" FontSize="12.5" />
                                 <TextBlock Grid.Column="2" Text="إلى" FontSize="12" VerticalAlignment="Center"
-                                           Margin="8,0,5,0" Foreground="{StaticResource TextMutedBrush}" />
+                                           Margin="8,0,5,0" Foreground="{DynamicResource TextMutedBrush}" />
                                 <DatePicker Grid.Column="3" SelectedDate="{Binding PeriodTo}" FontSize="12.5" />
                             </Grid>
 
                             <TextBlock Text="{Binding PeriodText}" FontSize="11" Margin="0,10,0,0"
                                        TextWrapping="Wrap"
-                                       Foreground="{StaticResource TextMutedBrush}" />
+                                       Foreground="{DynamicResource TextMutedBrush}" />
                         </StackPanel>
                     </Border>
                 </Popup>
@@ -320,10 +320,10 @@
                         </StackPanel.Style>
                         <materialDesign:PackIcon Kind="PackageVariantClosed" Width="46" Height="46"
                                                 HorizontalAlignment="Center"
-                                                Foreground="{StaticResource TextMutedBrush}" />
+                                                Foreground="{DynamicResource TextMutedBrush}" />
                         <TextBlock Text="مفيش منتج بالمواصفات دي" Margin="0,10,0,0" FontSize="14"
                                    HorizontalAlignment="Center"
-                                   Foreground="{StaticResource TextMutedBrush}" />
+                                   Foreground="{DynamicResource TextMutedBrush}" />
                     </StackPanel>
 
                     <ListBox ItemsSource="{Binding Products}"
@@ -348,7 +348,7 @@
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsSelected" Value="True">
                                                     <Setter TargetName="SelectionRing" Property="BorderBrush"
-                                                            Value="{StaticResource BrandBrush}" />
+                                                            Value="{DynamicResource BrandBrush}" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -370,12 +370,12 @@
                                         <!-- الصورة أو الحروف الأولى — نفس المربع بالظبط،
                                              فالمنتج اللي مالوش صورة مبيسيبش فراغ -->
                                         <Border Grid.Column="0" Width="44" Height="44" CornerRadius="12"
-                                                Background="{StaticResource SubtleBgBrush}"
+                                                Background="{DynamicResource SubtleBgBrush}"
                                                 VerticalAlignment="Center" Margin="0,0,14,0">
                                             <Grid>
                                                 <TextBlock Text="{Binding Initials}" FontSize="15.5" FontWeight="Bold"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           Foreground="{StaticResource BrandBrush}">
+                                                           Foreground="{DynamicResource BrandBrush}">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="Visibility" Value="Visible" />
@@ -400,9 +400,9 @@
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="{Binding Name}" FontSize="14.5" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                                            VerticalAlignment="Center" TextWrapping="Wrap" />
-                                                <Border Background="{StaticResource DangerBgBrush}" CornerRadius="7"
+                                                <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="7"
                                                         Padding="8,2" Margin="9,0,0,0" VerticalAlignment="Center">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
@@ -415,23 +415,23 @@
                                                         </Style>
                                                     </Border.Style>
                                                     <TextBlock Text="موقوف" FontSize="11" FontWeight="Medium"
-                                                               Foreground="{StaticResource DangerBrush}" />
+                                                               Foreground="{DynamicResource DangerBrush}" />
                                                 </Border>
                                             </StackPanel>
 
                                             <TextBlock Text="{Binding Description}" FontSize="11.5" Margin="0,3,0,0"
                                                        TextWrapping="Wrap" MaxHeight="32"
-                                                       Foreground="{StaticResource TextMutedBrush}" />
+                                                       Foreground="{DynamicResource TextMutedBrush}" />
 
                                             <!-- تنبيه المنتج -->
                                             <StackPanel Orientation="Horizontal" Margin="0,5,0,0"
                                                         Visibility="{Binding NeedsAttention, Converter={StaticResource BoolToVis}}">
                                                 <materialDesign:PackIcon Kind="AlertOutline" Width="13" Height="13"
                                                                         VerticalAlignment="Center"
-                                                                        Foreground="{StaticResource WarnBrush}" />
+                                                                        Foreground="{DynamicResource WarnBrush}" />
                                                 <TextBlock Text="{Binding AttentionText}" FontSize="11.5" Margin="4,0,0,0"
                                                            VerticalAlignment="Center" FontWeight="Medium"
-                                                           Foreground="{StaticResource WarnBrush}" />
+                                                           Foreground="{DynamicResource WarnBrush}" />
                                             </StackPanel>
                                         </StackPanel>
 
@@ -440,9 +440,9 @@
                                             <StackPanel>
                                                 <TextBlock Text="{Binding ActiveStagesCount}" FontSize="17" FontWeight="Bold"
                                                            HorizontalAlignment="Center"
-                                                           Foreground="{StaticResource BrandBrush}" />
+                                                           Foreground="{DynamicResource BrandBrush}" />
                                                 <TextBlock Text="مرحلة" FontSize="10.5" HorizontalAlignment="Center"
-                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                                           Foreground="{DynamicResource TextMutedBrush}" />
                                             </StackPanel>
                                         </StackPanel>
                                     </Grid>
@@ -459,7 +459,7 @@
                     <!-- رسالة لما مفيش منتج محدد -->
                     <TextBlock Text="اختار منتج من القائمة لعرض مراحله"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="{StaticResource TextMutedBrush}" FontSize="14">
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="14">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -493,7 +493,7 @@
                             <DockPanel>
                                 <!-- صورة المنتج أكبر شوية هنا (بتظهر بس لو موجودة) -->
                                 <Border DockPanel.Dock="Left" Width="64" Height="64" CornerRadius="14"
-                                        Background="{StaticResource SubtleBgBrush}" Margin="0,0,14,0"
+                                        Background="{DynamicResource SubtleBgBrush}" Margin="0,0,14,0"
                                         VerticalAlignment="Top"
                                         Visibility="{Binding SelectedProduct.HasImage, Converter={StaticResource BoolToVis}}">
                                     <Image Source="{Binding SelectedProduct.Image}" Stretch="UniformToFill">
@@ -507,7 +507,7 @@
                                     <TextBlock Text="{Binding SelectedProduct.Name}" Style="{StaticResource HeadingText}"
                                                TextWrapping="Wrap" />
                                     <TextBlock Text="{Binding SelectedProduct.Description}" FontSize="12"
-                                               Foreground="{StaticResource TextMutedBrush}"
+                                               Foreground="{DynamicResource TextMutedBrush}"
                                                TextWrapping="Wrap" Margin="0,2,0,0" />
                                 </StackPanel>
                             </DockPanel>
@@ -523,7 +523,7 @@
                                         Command="{Binding ToggleProductActiveCommand}">
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
                                             <Setter Property="Content">
                                                 <Setter.Value>
                                                     <StackPanel Orientation="Horizontal">
@@ -534,7 +534,7 @@
                                             </Setter>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding SelectedProduct.IsActive}" Value="False">
-                                                    <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
                                                     <Setter Property="Content">
                                                         <Setter.Value>
                                                             <StackPanel Orientation="Horizontal">
@@ -552,7 +552,7 @@
                                 <!-- الحذف غير الإيقاف: بيمر على كلمة سر العمليات وبيتسجّل -->
                                 <Button Command="{Binding DeleteProductCommand}" Margin="0,0,6,0"
                                         Style="{StaticResource GhostButton}"
-                                        Foreground="{StaticResource DangerBrush}"
+                                        Foreground="{DynamicResource DangerBrush}"
                                         ToolTip="شيل المنتج من النظام نهائيًا — سجلات إنتاجه القديمة بتفضل محفوظة">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="DeleteOutline" Width="14" Height="14" VerticalAlignment="Center" />
@@ -573,14 +573,14 @@
                             <TextBlock Text="خط الإنتاج" FontWeight="Bold" VerticalAlignment="Center" />
                             <TextBlock Text="الترتيب مهم — نطاقات التسجيل بتتحسب بيه" FontSize="11"
                                        VerticalAlignment="Center" Margin="10,0,0,0"
-                                       Foreground="{StaticResource TextMutedBrush}" />
+                                       Foreground="{DynamicResource TextMutedBrush}" />
                         </DockPanel>
 
                         <!-- خط الإنتاج: مرحلة تحت التانية بترتيبها الفعلي -->
                         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <!-- رسالة لما المنتج لسه من غير مراحل -->
-                                <Border Background="{StaticResource WarnBgBrush}" CornerRadius="10" Padding="14,12">
+                                <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="10" Padding="14,12">
                                     <Border.Style>
                                         <Style TargetType="Border">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -594,11 +594,11 @@
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="AlertOutline" Width="18" Height="18"
                                                                 VerticalAlignment="Center"
-                                                                Foreground="{StaticResource WarnBrush}" />
+                                                                Foreground="{DynamicResource WarnBrush}" />
                                         <TextBlock Text="المنتج ده لسه من غير مراحل — ضيف مرحلة عشان ينفع يتسجل عليه إنتاج"
                                                    FontSize="12.5" Margin="8,0,0,0" TextWrapping="Wrap"
                                                    VerticalAlignment="Center"
-                                                   Foreground="{StaticResource WarnBrush}" />
+                                                   Foreground="{DynamicResource WarnBrush}" />
                                     </StackPanel>
                                 </Border>
 
@@ -632,14 +632,14 @@
 
                                                     <!-- رقم المرحلة في الخط -->
                                                     <Border Grid.Column="1" Width="32" Height="32" CornerRadius="16"
-                                                            Background="{StaticResource BrandBrush}"
+                                                            Background="{DynamicResource BrandBrush}"
                                                             VerticalAlignment="Center" Margin="0,0,12,0">
                                                         <Border.Style>
                                                             <Style TargetType="Border">
-                                                                <Setter Property="Background" Value="{StaticResource BrandBrush}" />
+                                                                <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                                                        <Setter Property="Background" Value="{StaticResource TextMutedBrush}" />
+                                                                        <Setter Property="Background" Value="{DynamicResource TextMutedBrush}" />
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -654,8 +654,8 @@
                                                         <StackPanel Orientation="Horizontal">
                                                             <TextBlock Text="{Binding StageName}" FontSize="13.5" FontWeight="SemiBold"
                                                                        VerticalAlignment="Center" TextWrapping="Wrap"
-                                                                       Foreground="{StaticResource TextPrimaryBrush}" />
-                                                            <Border Background="{StaticResource DangerBgBrush}" CornerRadius="6"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                            <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="6"
                                                                     Padding="7,2" Margin="8,0,0,0" VerticalAlignment="Center">
                                                                 <Border.Style>
                                                                     <Style TargetType="Border">
@@ -668,27 +668,27 @@
                                                                     </Style>
                                                                 </Border.Style>
                                                                 <TextBlock Text="موقوفة" FontSize="10.5" FontWeight="Medium"
-                                                                           Foreground="{StaticResource DangerBrush}" />
+                                                                           Foreground="{DynamicResource DangerBrush}" />
                                                             </Border>
                                                         </StackPanel>
 
                                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                                             <materialDesign:PackIcon Kind="Speedometer" Width="13" Height="13"
                                                                                     VerticalAlignment="Center"
-                                                                                    Foreground="{StaticResource TextMutedBrush}" />
+                                                                                    Foreground="{DynamicResource TextMutedBrush}" />
                                                             <TextBlock Text="{Binding QuotaText}" FontSize="11.5" Margin="4,0,14,0"
                                                                        VerticalAlignment="Center"
-                                                                       Foreground="{StaticResource TextMutedBrush}" />
+                                                                       Foreground="{DynamicResource TextMutedBrush}" />
 
                                                             <!-- عدد المؤهلين: بيتلون تحذير لو صفر -->
                                                             <materialDesign:PackIcon Kind="AccountGroupOutline" Width="13" Height="13"
                                                                                     VerticalAlignment="Center">
                                                                 <materialDesign:PackIcon.Style>
                                                                     <Style TargetType="materialDesign:PackIcon">
-                                                                        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding HasNoQualifiedWorkers}" Value="True">
-                                                                                <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
+                                                                                <Setter Property="Foreground" Value="{DynamicResource WarnBrush}" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
                                                                     </Style>
@@ -698,10 +698,10 @@
                                                                        VerticalAlignment="Center">
                                                                 <TextBlock.Style>
                                                                     <Style TargetType="TextBlock">
-                                                                        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
                                                                         <Style.Triggers>
                                                                             <DataTrigger Binding="{Binding HasNoQualifiedWorkers}" Value="True">
-                                                                                <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
+                                                                                <Setter Property="Foreground" Value="{DynamicResource WarnBrush}" />
                                                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                                                             </DataTrigger>
                                                                         </Style.Triggers>
@@ -755,7 +755,7 @@
                                                         <Button Command="{Binding DataContext.DeleteStageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}"
                                                                 Style="{StaticResource IconButton}"
-                                                                Foreground="{StaticResource DangerBrush}"
+                                                                Foreground="{DynamicResource DangerBrush}"
                                                                 ToolTip="حذف المرحلة نهائيًا">
                                                             <materialDesign:PackIcon Kind="DeleteOutline" Width="14" Height="14" />
                                                         </Button>

@@ -16,7 +16,7 @@
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
-            <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
+            <Border DockPanel.Dock="Top" Background="{DynamicResource BrandBrush}"
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Foreground="White"
@@ -31,7 +31,7 @@
                 </DockPanel>
             </Border>
 
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource SubtleBgBrush}"
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource SubtleBgBrush}"
                     CornerRadius="0,0,18,18" Padding="18,12">
                 <Button HorizontalAlignment="Left" Style="{StaticResource GhostButton}"
                         Padding="18,8" IsCancel="True" Content="إغلاق" />
@@ -40,7 +40,7 @@
             <Grid Margin="18,14,18,10">
                 <TextBlock x:Name="EmptyText" TextWrapping="Wrap" FontSize="13.5"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{StaticResource WarnBrush}"
+                           Foreground="{DynamicResource WarnBrush}"
                            Text="مفيش أي عامل مؤهل للمرحلة دي — مش هتقدر تسجّل عليها إنتاج"
                            Visibility="Collapsed" />
 
@@ -48,7 +48,7 @@
                     <ItemsControl x:Name="WorkersList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="9"
+                                <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="9"
                                         Padding="12,9" Margin="0,0,0,7">
                                     <DockPanel>
                                         <views:WorkerAvatar DockPanel.Dock="Left" Diameter="40"
@@ -59,26 +59,26 @@
                                         <!-- الترتيب: رقم العامل في القايمة -->
                                         <Border DockPanel.Dock="Right" Width="26" Height="26" CornerRadius="13"
                                                 VerticalAlignment="Center" Margin="8,0,0,0"
-                                                Background="{StaticResource ChipBgBrush}">
+                                                Background="{DynamicResource ChipBgBrush}">
                                             <TextBlock Text="{Binding Rank}" FontSize="11.5" FontWeight="Bold"
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource BrandBrush}" />
+                                                       Foreground="{DynamicResource BrandBrush}" />
                                         </Border>
 
                                         <StackPanel VerticalAlignment="Center">
                                             <TextBlock Text="{Binding WorkerName}" FontSize="13.5" FontWeight="Bold"
                                                        TextWrapping="Wrap"
-                                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
                                             <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                                                 <TextBlock Text="{Binding StarsText}" FontSize="12.5"
                                                            VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
                                                 <TextBlock Text="{Binding StarsLabel}" FontSize="11.5" Margin="6,0,0,0"
                                                            VerticalAlignment="Center"
-                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                                           Foreground="{DynamicResource TextMutedBrush}" />
                                             </StackPanel>
                                             <TextBlock Text="{Binding MeasuredText}" FontSize="11" Margin="0,2,0,0"
                                                        TextWrapping="Wrap"
-                                                       Foreground="{StaticResource TextMutedBrush}" />
+                                                       Foreground="{DynamicResource TextMutedBrush}" />
                                         </StackPanel>
                                     </DockPanel>
                                 </Border>

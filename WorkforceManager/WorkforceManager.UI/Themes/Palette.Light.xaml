@@ -35,9 +35,9 @@
     <SolidColorBrush x:Key="SurfaceSunkenBrush" Color="{DynamicResource SurfaceSunkenColor}" />
 
     <!-- الشريط الجانبي: كحلي في الثيمين — هو هوية البرنامج -->
-    <Color x:Key="SidebarColor">#0F1B2D</Color>
+    <Color x:Key="SidebarColor">#1B2E4A</Color>
     <SolidColorBrush x:Key="SidebarBrush" Color="{DynamicResource SidebarColor}" />
-    <Color x:Key="SidebarAltColor">#1A2A42</Color>
+    <Color x:Key="SidebarAltColor">#274064</Color>
     <SolidColorBrush x:Key="SidebarAltBrush" Color="{DynamicResource SidebarAltColor}" />
     <Color x:Key="SidebarInkColor">#CBD5E3</Color>
     <SolidColorBrush x:Key="SidebarInkBrush" Color="{DynamicResource SidebarInkColor}" />
@@ -45,14 +45,14 @@
     <SolidColorBrush x:Key="SidebarInkSoftBrush" Color="{DynamicResource SidebarInkSoftColor}" />
 
     <!-- ════ الحبر ════ -->
-    <Color x:Key="InkColor">#0F1B2D</Color>
+    <Color x:Key="InkColor">#1B2E4A</Color>
     <SolidColorBrush x:Key="InkBrush" Color="{DynamicResource InkColor}" />
     <Color x:Key="InkSoftColor">#505C74</Color>
     <SolidColorBrush x:Key="InkSoftBrush" Color="{DynamicResource InkSoftColor}" />
     <!-- 4.4:1 على الأرضية الدافية — القديم (#8A94A8) كان 3.1 وباهت -->
     <Color x:Key="InkFaintColor">#727C93</Color>
     <SolidColorBrush x:Key="InkFaintBrush" Color="{DynamicResource InkFaintColor}" />
-    <Color x:Key="InkOnAccentColor">#0F1B2D</Color>
+    <Color x:Key="InkOnAccentColor">#16263D</Color>
     <SolidColorBrush x:Key="InkOnAccentBrush" Color="{DynamicResource InkOnAccentColor}" />
 
     <!-- ════ الدهبي ════ -->
@@ -82,8 +82,8 @@
 
     <!-- الكحلي العميق للكروت البطلة -->
     <LinearGradientBrush x:Key="InkGradientBrush" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#16273E" Offset="0" />
-        <GradientStop Color="#0C1626" Offset="1" />
+        <GradientStop Color="#27405F" Offset="0" />
+        <GradientStop Color="#16263D" Offset="1" />
     </LinearGradientBrush>
 
     <!-- ════ الخطوط الفاصلة ════ (دافية زي الأرضية) -->
@@ -147,7 +147,7 @@
          الشرايح المتجاورة هتتلخبط. التبادل بيدّي أقصى فرق بين كل
          شريحة واللي جنبها وإحنا لسه في لونين بس. -->
     <SolidColorBrush x:Key="Series1Brush" Color="#C2A14D" />
-    <SolidColorBrush x:Key="Series2Brush" Color="#1B2E4A" />
+    <SolidColorBrush x:Key="Series2Brush" Color="#27405F" />
     <SolidColorBrush x:Key="Series3Brush" Color="#E0C378" />
     <SolidColorBrush x:Key="Series4Brush" Color="#43607F" />
     <SolidColorBrush x:Key="Series5Brush" Color="#8A6D1F" />
@@ -160,5 +160,41 @@
 
     <!-- ════ الظلال ════ -->
     <Color x:Key="ShadowColor">#3A2E14</Color>
+
+    <!-- ════ الأسماء القديمة ════
+
+         الشاشات اللي لسه ماتعادش تصميمها بتشاور على أسماء فُرَش قديمة.
+         الأسماء دي كانت في ملف Compat.xaml لوحده، **وده كان غلط**:
+         الـ SolidColorBrush اللي بيتعرّف في ResourceDictionary بيتجمّد
+         (Freeze)، فالـ DynamicResource اللي جواه بيتحل **مرة واحدة** وقت
+         التحميل وبعدها عمره ما بيتحدّث. يعني الأسماء دي كانت بتتجمّد على
+         ألوان الثيم الفاتح وتفضل كده — وتبديل الثيم عمره ما كان بيوصلها.
+         ده كان السبب الحقيقي إن الوضع الليلي بيطلع نصه فاتح.
+
+         مكانها هنا بيحل المشكلة من جذرها: ملف اللوحة بيتبدّل **بالكامل**
+         عند تغيير الثيم، فالأسماء دي بتتولد من جديد بألوان الثيم الجديد.
+         مفيش تجميد يقدر يمسكها.
+
+         بتتشال مع آخر شاشة تتحوّل للأسماء الجديدة. -->
+    <SolidColorBrush x:Key="BrandBrush" Color="{DynamicResource InkColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource GoldColor}" />
+    <SolidColorBrush x:Key="PageBgBrush" Color="{DynamicResource GroundColor}" />
+    <SolidColorBrush x:Key="CardBgBrush" Color="{DynamicResource SurfaceColor}" />
+    <SolidColorBrush x:Key="CardBorderBrush" Color="{DynamicResource LineColor}" />
+    <SolidColorBrush x:Key="SubtleBgBrush" Color="{DynamicResource SurfaceAltColor}" />
+    <SolidColorBrush x:Key="SoftPanelBgBrush" Color="{DynamicResource SurfaceAltColor}" />
+    <SolidColorBrush x:Key="SoftPanelBorderBrush" Color="{DynamicResource LineColor}" />
+    <SolidColorBrush x:Key="ChipBgBrush" Color="{DynamicResource SurfaceAltColor}" />
+    <SolidColorBrush x:Key="GridLineBrush" Color="{DynamicResource LineColor}" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource InkColor}" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{DynamicResource InkSoftColor}" />
+    <SolidColorBrush x:Key="HoverBgBrush" Color="{DynamicResource HoverColor}" />
+    <SolidColorBrush x:Key="SelectionBgBrush" Color="{DynamicResource SelectedColor}" />
+    <SolidColorBrush x:Key="TextSelectionBrush" Color="{DynamicResource GoldColor}" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="{DynamicResource GoodColor}" />
+    <SolidColorBrush x:Key="SuccessBgBrush" Color="{DynamicResource GoodTintColor}" />
+    <SolidColorBrush x:Key="DangerBgBrush" Color="{DynamicResource DangerTintColor}" />
+    <SolidColorBrush x:Key="DangerBorderBrush" Color="{DynamicResource DangerColor}" />
+    <SolidColorBrush x:Key="WarnBgBrush" Color="{DynamicResource WarnTintColor}" />
 
 </ResourceDictionary>

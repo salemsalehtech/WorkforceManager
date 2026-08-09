@@ -16,7 +16,7 @@
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
-            <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
+            <Border DockPanel.Dock="Top" Background="{DynamicResource BrandBrush}"
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Foreground="White"
@@ -31,10 +31,10 @@
 
             <StackPanel Margin="24,20,24,22">
                 <!-- معلومات السجل (للتأكد إنه السجل الصح قبل التعديل) -->
-                <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="8" Padding="10" Margin="0,0,0,14">
+                <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="10" Margin="0,0,0,14">
                     <StackPanel>
                         <TextBlock x:Name="WorkerText" FontWeight="Bold" FontSize="14" />
-                        <TextBlock x:Name="StageText" Foreground="{StaticResource TextMutedBrush}" FontSize="12.5" Margin="0,2,0,0" />
+                        <TextBlock x:Name="StageText" Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5" Margin="0,2,0,0" />
                     </StackPanel>
                 </Border>
 
@@ -43,7 +43,7 @@
                 <TextBlock Text="اليوميات هتتعاد حسابها تلقائيًا بنفس يومية وقت التسجيل"
                            Style="{StaticResource HintText}" Margin="0,0,0,14" />
 
-                <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerBrush}" FontSize="12"
+                <TextBlock x:Name="ErrorText" Foreground="{DynamicResource DangerBrush}" FontSize="12"
                            Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">

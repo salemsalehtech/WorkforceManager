@@ -22,7 +22,7 @@
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                     <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="17" Height="17"
                                              VerticalAlignment="Center"
-                                             Foreground="{StaticResource BrandBrush}" />
+                                             Foreground="{DynamicResource BrandBrush}" />
                     <TextBlock Text="قالب جاهز:" FontWeight="Bold" FontSize="13"
                                VerticalAlignment="Center" Margin="6,0,10,0" />
                     <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
@@ -31,7 +31,7 @@
                     <Button Command="{Binding DeleteTemplateCommand}"
                             CommandParameter="{Binding SelectedTemplate}"
                             Style="{StaticResource IconButton}" Padding="7,5" Margin="4,0,0,0"
-                            Foreground="{StaticResource DangerBrush}"
+                            Foreground="{DynamicResource DangerBrush}"
                             ToolTip="حذف القالب (القوالب الجاهزة مبتتحذفش)">
                         <materialDesign:PackIcon Kind="DeleteOutline" Width="15" Height="15" />
                     </Button>
@@ -40,7 +40,7 @@
                 <!-- حفظ الإعداد الحالي كقالب جديد -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
                     <TextBlock Text="احفظ الحالي باسم:" FontSize="12.5" VerticalAlignment="Center"
-                               Margin="24,0,8,0" Foreground="{StaticResource TextMutedBrush}" />
+                               Margin="24,0,8,0" Foreground="{DynamicResource TextMutedBrush}" />
                     <TextBox Text="{Binding NewTemplateName, UpdateSourceTrigger=PropertyChanged}"
                              Width="160" Padding="7,5" FontSize="12.5" VerticalContentAlignment="Center" />
                     <Button Command="{Binding SaveTemplateCommand}" IsEnabled="{Binding CanSaveTemplate}"
@@ -61,14 +61,14 @@
                 <WrapPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
                         <TextBlock Text="التقرير عن" FontSize="12.5" VerticalAlignment="Center"
-                                   Margin="0,0,7,0" Foreground="{StaticResource TextMutedBrush}" />
+                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
                         <ComboBox ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject}"
                                   DisplayMemberPath="Display" Width="150" FontSize="12.5" />
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
                         <TextBlock Text="متفصّل" FontSize="12.5" VerticalAlignment="Center"
-                                   Margin="0,0,7,0" Foreground="{StaticResource TextMutedBrush}" />
+                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
                         <!-- الاختيارات بتتغيّر مع الموضوع: التركيبة اللي
                              مالهاش معنى مبتتعرضش أصلاً -->
                         <ComboBox ItemsSource="{Binding Groupings}" SelectedItem="{Binding SelectedGrouping}"
@@ -78,7 +78,7 @@
                     <StackPanel Orientation="Horizontal" Margin="0,0,20,0"
                                 Visibility="{Binding UsesPeriod, Converter={StaticResource BoolToVis}}">
                         <TextBlock Text="المدة" FontSize="12.5" VerticalAlignment="Center"
-                                   Margin="0,0,7,0" Foreground="{StaticResource TextMutedBrush}" />
+                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
                         <ComboBox ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}"
                                   DisplayMemberPath="Display" Width="130" FontSize="12.5" />
                     </StackPanel>
@@ -87,10 +87,10 @@
                     <StackPanel Orientation="Horizontal" Margin="0,0,20,0"
                                 Visibility="{Binding IsCustomPeriod, Converter={StaticResource BoolToVis}}">
                         <TextBlock Text="من" FontSize="12.5" VerticalAlignment="Center" Margin="0,0,5,0"
-                                   Foreground="{StaticResource TextMutedBrush}" />
+                                   Foreground="{DynamicResource TextMutedBrush}" />
                         <DatePicker SelectedDate="{Binding CustomFrom}" Width="125" FontSize="12.5" />
                         <TextBlock Text="إلى" FontSize="12.5" VerticalAlignment="Center" Margin="8,0,5,0"
-                                   Foreground="{StaticResource TextMutedBrush}" />
+                                   Foreground="{DynamicResource TextMutedBrush}" />
                         <DatePicker SelectedDate="{Binding CustomTo}" Width="125" FontSize="12.5" />
                     </StackPanel>
 
@@ -102,7 +102,7 @@
                                 <materialDesign:PackIcon Kind="FilterVariant" Width="15" Height="15"
                                                          VerticalAlignment="Center" />
                                 <TextBlock Text="فلاتر" Margin="5,0,0,0" VerticalAlignment="Center" />
-                                <Border Background="{StaticResource BrandBrush}" CornerRadius="8"
+                                <Border Background="{DynamicResource BrandBrush}" CornerRadius="8"
                                         Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
                                         Visibility="{Binding HasFilters, Converter={StaticResource BoolToVis}}">
                                     <TextBlock Text="{Binding ActiveFilterCount}" FontSize="10.5"
@@ -120,13 +120,13 @@
                                     FlowDirection="RightToLeft" Width="280">
                                 <StackPanel>
                                     <TextBlock Text="عامل معيّن" FontSize="11" Margin="0,0,0,3"
-                                               Foreground="{StaticResource TextMutedBrush}" />
+                                               Foreground="{DynamicResource TextMutedBrush}" />
                                     <ComboBox ItemsSource="{Binding Workers}"
                                               SelectedItem="{Binding SelectedWorker}"
                                               DisplayMemberPath="Display" FontSize="12.5" />
 
                                     <TextBlock Text="منتج معيّن" FontSize="11" Margin="0,10,0,3"
-                                               Foreground="{StaticResource TextMutedBrush}" />
+                                               Foreground="{DynamicResource TextMutedBrush}" />
                                     <ComboBox ItemsSource="{Binding Products}"
                                               SelectedItem="{Binding SelectedProduct}"
                                               DisplayMemberPath="Display" FontSize="12.5" />
@@ -158,7 +158,7 @@
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" Padding="14,11" BorderThickness="0,0,0,1"
-                        BorderBrush="{StaticResource CardBorderBrush}">
+                        BorderBrush="{DynamicResource CardBorderBrush}">
                     <DockPanel>
                         <Button DockPanel.Dock="Left" Command="{Binding ExportCommand}"
                                 Style="{StaticResource SuccessButton}" Padding="15,8"
@@ -185,13 +185,13 @@
 
                         <StackPanel>
                             <TextBlock Text="{Binding ReportTitle}" FontWeight="Bold" FontSize="15"
-                                       Foreground="{StaticResource BrandBrush}" />
+                                       Foreground="{DynamicResource BrandBrush}" />
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{Binding ReportPeriodText}" FontSize="12"
-                                           Foreground="{StaticResource TextMutedBrush}" />
+                                           Foreground="{DynamicResource TextMutedBrush}" />
                                 <TextBlock Text="{Binding ResultsText}" FontSize="12" Margin="12,0,0,0"
                                            FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextMutedBrush}" />
+                                           Foreground="{DynamicResource TextMutedBrush}" />
                             </StackPanel>
                         </StackPanel>
                     </DockPanel>
@@ -208,10 +208,10 @@
                             Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}">
                     <materialDesign:PackIcon Kind="FileDocumentOutline" Width="46" Height="46"
                                              HorizontalAlignment="Center"
-                                             Foreground="{StaticResource TextMutedBrush}" />
+                                             Foreground="{DynamicResource TextMutedBrush}" />
                     <TextBlock Text="مفيش بيانات في المدة دي" Margin="0,10,0,0" FontSize="14"
                                HorizontalAlignment="Center"
-                               Foreground="{StaticResource TextMutedBrush}" />
+                               Foreground="{DynamicResource TextMutedBrush}" />
                 </StackPanel>
             </Grid>
         </Border>

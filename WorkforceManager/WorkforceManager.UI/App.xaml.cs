@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using MaterialDesignThemes.Wpf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -251,6 +252,13 @@ namespace WorkforceManager.UI
             var app = Current;
             if (app is null) return;
 
+            ApplyPalette(app, darkMode);
+            ApplyMaterialDesignBaseTheme(darkMode);
+        }
+
+        /// <summary>لوحة ألوان الهوية — الملف بيتبدّل في مكانه.</summary>
+        private static void ApplyPalette(Application app, bool darkMode)
+        {
             var dictionaries = app.Resources.MergedDictionaries;
 
             var index = -1;
@@ -267,6 +275,35 @@ namespace WorkforceManager.UI
             if (dictionaries[index].Source?.OriginalString == wanted) return;
 
             dictionaries[index] = new ResourceDictionary { Source = new Uri(wanted, UriKind.Relative) };
+        }
+
+        /// <summary>
+        /// بيخلي ثيم MaterialDesign يمشي مع ثيم البرنامج.
+        ///
+        /// من غير دي البرنامج بيفضل على BaseTheme="Light" المكتوب في
+        /// App.xaml مهما اتغيّرت لوحتنا — و**دي كانت أكبر مشكلة في
+        /// الوضع الليلي**: 22 ComboBox و39 DataGrid و10 DatePicker
+        /// بيرسموا نفسهم من ثيم المكتبة مش من لوحتنا، فكانوا بيطلعوا
+        /// بنص غامق على سطح غامق وقوايم منسدلة بيضا. لوحة الألوان
+        /// لوحدها عمرها ما كانت هتوصلهم.
+        ///
+        /// الفشل هنا مش سبب لإيقاف تبديل الثيم: أسوأ حاجة إن عناصر
+        /// المكتبة تفضل بالمظهر القديم، والباقي بيتبدّل عادي.
+        /// </summary>
+        private static void ApplyMaterialDesignBaseTheme(bool darkMode)
+        {
+            try
+            {
+                var helper = new PaletteHelper();
+                var theme = helper.GetTheme();
+
+                theme.SetBaseTheme(darkMode ? BaseTheme.Dark : BaseTheme.Light);
+                helper.SetTheme(theme);
+            }
+            catch
+            {
+                // تغيّر في واجهة المكتبة ميوقفش تبديل الثيم
+            }
         }
 
         /// <summary>

@@ -16,7 +16,7 @@
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
-            <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
+            <Border DockPanel.Dock="Top" Background="{DynamicResource BrandBrush}"
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Foreground="White"
@@ -57,13 +57,13 @@
                 <TextBlock Text="صورة العامل (اختيارية)" Style="{StaticResource FieldLabel}" />
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
                     <Border Width="72" Height="72" CornerRadius="36"
-                            Background="{StaticResource SubtleBgBrush}"
-                            BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.4"
+                            Background="{DynamicResource SubtleBgBrush}"
+                            BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1.4"
                             Margin="0,0,12,0">
                         <Grid>
                             <materialDesign:PackIcon x:Name="NoPhotoIcon" Kind="AccountPlus" Width="26" Height="26"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                    Foreground="{StaticResource TextMutedBrush}" />
+                                                    Foreground="{DynamicResource TextMutedBrush}" />
                             <Image x:Name="PhotoPreview" Stretch="UniformToFill" Visibility="Collapsed">
                                 <Image.Clip>
                                     <EllipseGeometry Center="36,36" RadiusX="35" RadiusY="35" />
@@ -84,7 +84,7 @@
                                 Padding="12,6" HorizontalAlignment="Left" Visibility="Collapsed">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                                    <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
                                 </Style>
                             </Button.Style>
                             <StackPanel Orientation="Horizontal">
@@ -96,7 +96,7 @@
                 </StackPanel>
 
                 <!-- رسالة الخطأ (بتظهر لو الاسم فاضي مثلاً) -->
-                <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerBrush}" FontSize="12"
+                <TextBlock x:Name="ErrorText" Foreground="{DynamicResource DangerBrush}" FontSize="12"
                            Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">

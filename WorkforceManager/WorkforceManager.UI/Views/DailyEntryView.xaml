@@ -27,7 +27,7 @@
                         <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsDayClosed}" Value="True">
-                                    <Setter Property="Background" Value="{StaticResource WarnBrush}" />
+                                    <Setter Property="Background" Value="{DynamicResource WarnBrush}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -67,7 +67,7 @@
                         ToolTip="يشيل كل سجلات إنتاج اليوم (بكلمة سر وسبب)">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                            <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
                         </Style>
                     </Button.Style>
                     <StackPanel Orientation="Horizontal">
@@ -79,21 +79,21 @@
 
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="CalendarBlankOutline" Width="17" Height="17"
-                                             Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                             Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                     <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
                     <DatePicker SelectedDate="{Binding EntryDate}" Width="160" VerticalAlignment="Center" />
 
                     <!-- اليوم مقفول: التسجيل موقوف -->
-                    <Border Background="{StaticResource DangerBgBrush}" CornerRadius="6" Padding="9,4"
+                    <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="6" Padding="9,4"
                             Margin="10,0,0,0" VerticalAlignment="Center"
                             Visibility="{Binding IsDayClosed, Converter={StaticResource BoolToVis}}">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="LockOutline" Width="13" Height="13"
                                                     VerticalAlignment="Center"
-                                                    Foreground="{StaticResource DangerBrush}" />
+                                                    Foreground="{DynamicResource DangerBrush}" />
                             <TextBlock Text="اليوم مقفول — مفيش تسجيل إنتاج جديد" FontSize="11.5" Margin="4,0,0,0"
                                        VerticalAlignment="Center"
-                                       Foreground="{StaticResource DangerBrush}" />
+                                       Foreground="{DynamicResource DangerBrush}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -124,7 +124,7 @@
                             <!-- رسالة لما لسه مفيش إنتاج مسجل في اليوم -->
                             <TextBlock DockPanel.Dock="Right" Text="لسه مفيش إنتاج مسجل النهارده"
                                        FontSize="12.5" VerticalAlignment="Center" Margin="18,0,0,0"
-                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
                                        Visibility="{Binding DayHasNoProduction, Converter={StaticResource BoolToVis}}" />
 
                             <!-- أرقام اليوم (بتظهر بس لما يكون فيه إنتاج) -->
@@ -148,7 +148,7 @@
                                 <StackPanel Style="{StaticResource SummaryStat}">
                                     <TextBlock Text="{Binding DayHeadlinePieces, StringFormat={}{0:N0}}"
                                                Style="{StaticResource SummaryNumber}"
-                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
                                     <TextBlock Text="{Binding DayPiecesLabel}" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
 
@@ -156,19 +156,19 @@
 
                                 <StackPanel Style="{StaticResource SummaryStat}">
                                     <TextBlock Text="{Binding DayTotalWorkdays}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{StaticResource SuccessBrush}" />
+                                               Foreground="{DynamicResource SuccessBrush}" />
                                     <TextBlock Text="يومية" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
 
                                 <StackPanel Style="{StaticResource SummaryStat}">
                                     <TextBlock Text="{Binding DayWorkersCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{StaticResource BrandBrush}" />
+                                               Foreground="{DynamicResource BrandBrush}" />
                                     <TextBlock Text="عامل" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
 
                                 <StackPanel Style="{StaticResource SummaryStat}">
                                     <TextBlock Text="{Binding DayProductsCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{StaticResource TextMutedBrush}" />
+                                               Foreground="{DynamicResource TextMutedBrush}" />
                                     <TextBlock Text="منتج" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
                             </StackPanel>
@@ -195,7 +195,7 @@
                                                 <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding Products}"
                                                           SelectedItem="{Binding SelectedProduct}"
                                                           DisplayMemberPath="Name" Width="200" />
-                                                <Button DockPanel.Dock="Right" Foreground="{StaticResource DangerBrush}"
+                                                <Button DockPanel.Dock="Right" Foreground="{DynamicResource DangerBrush}"
                                                         Style="{StaticResource IconButton}" Padding="8,4"
                                                         ToolTip="إزالة رحلة المنتج ده من الشاشة (اللي اتحفظ قبل كده محفوظ عادي)"
                                                         Command="{Binding DataContext.RemoveFlowSessionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -221,10 +221,10 @@
                                                         VerticalAlignment="Center">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="{StaticResource SubtleBgBrush}" />
+                                                            <Setter Property="Background" Value="{DynamicResource SubtleBgBrush}" />
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding AllReady}" Value="True">
-                                                                    <Setter Property="Background" Value="{StaticResource SuccessBgBrush}" />
+                                                                    <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -234,11 +234,11 @@
                                                             <materialDesign:PackIcon.Style>
                                                                 <Style TargetType="materialDesign:PackIcon">
                                                                     <Setter Property="Kind" Value="ProgressClock" />
-                                                                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding AllReady}" Value="True">
                                                                             <Setter Property="Kind" Value="CheckCircle" />
-                                                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
@@ -248,10 +248,10 @@
                                                                    Margin="5,0,0,0" VerticalAlignment="Center">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding AllReady}" Value="True">
-                                                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
@@ -276,7 +276,7 @@
 
                                                     <!-- رسالة لما لسه مفيش منتج مختار للرحلة دي -->
                                                     <TextBlock Grid.Row="0" Text="اختار المنتج من فوق عشان مراحله تظهر هنا"
-                                                               Foreground="{StaticResource TextMutedBrush}" FontSize="13" Margin="4,10">
+                                                               Foreground="{DynamicResource TextMutedBrush}" FontSize="13" Margin="4,10">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -299,7 +299,7 @@
                                                                   Loaded="FlowStages_Loaded" Unloaded="FlowStages_Unloaded">
                                                         <ItemsControl.ItemTemplate>
                                                             <DataTemplate>
-                                                                <Border Background="{StaticResource SoftPanelBgBrush}" BorderBrush="{StaticResource SoftPanelBorderBrush}" BorderThickness="1"
+                                                                <Border Background="{DynamicResource SoftPanelBgBrush}" BorderBrush="{DynamicResource SoftPanelBorderBrush}" BorderThickness="1"
                                                                         CornerRadius="8" Padding="0" Margin="0,0,4,6">
                                                                   <DockPanel>
                                                                     <!-- شريط حالة المرحلة: لون واحد بيقول جاهزة/ناقصة من بعيد -->
@@ -309,14 +309,14 @@
                                                                     <StackPanel Margin="10,8">
                                                                         <!-- رأس البطاقة: رقم الترتيب + الاسم + اليومية + إنتاج المرحلة المحسوب -->
                                                                         <DockPanel>
-                                                                            <Border DockPanel.Dock="Left" Background="{StaticResource BrandBrush}" CornerRadius="12"
+                                                                            <Border DockPanel.Dock="Left" Background="{DynamicResource BrandBrush}" CornerRadius="12"
                                                                                     Width="24" Height="24" VerticalAlignment="Center">
                                                                                 <TextBlock Text="{Binding DisplayOrder}" Foreground="White" FontSize="12"
                                                                                            FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                                             </Border>
 
                                                                             <!-- بادج إنتاج المرحلة (بيظهر بس لما المرحلة تدخل في نطاق) -->
-                                                                            <Border DockPanel.Dock="Right" Background="{StaticResource SuccessBgBrush}" CornerRadius="4"
+                                                                            <Border DockPanel.Dock="Right" Background="{DynamicResource SuccessBgBrush}" CornerRadius="4"
                                                                                     Padding="8,3" VerticalAlignment="Center">
                                                                                 <Border.Style>
                                                                                     <Style TargetType="Border">
@@ -328,15 +328,15 @@
                                                                                     </Style>
                                                                                 </Border.Style>
                                                                                 <TextBlock Text="{Binding ComputedPieces, StringFormat='الإنتاج: {0} قطعة'}"
-                                                                                           Foreground="{StaticResource SuccessBrush}" FontWeight="Bold" FontSize="12.5" />
+                                                                                           Foreground="{DynamicResource SuccessBrush}" FontWeight="Bold" FontSize="12.5" />
                                                                             </Border>
 
                                                                             <TextBlock Text="{Binding StageName}" FontWeight="Bold" FontSize="14"
                                                                                        VerticalAlignment="Center" Margin="8,0,0,0" />
-                                                                            <TextBlock Text="{Binding QuotaText}" Foreground="{StaticResource TextMutedBrush}" FontSize="11.5"
+                                                                            <TextBlock Text="{Binding QuotaText}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11.5"
                                                                                        VerticalAlignment="Center" Margin="10,0,0,0" />
 
-                                                                            <TextBlock Text="{Binding AlreadyText}" Foreground="{StaticResource WarnBrush}" FontSize="11.5"
+                                                                            <TextBlock Text="{Binding AlreadyText}" Foreground="{DynamicResource WarnBrush}" FontSize="11.5"
                                                                                        VerticalAlignment="Center" Margin="10,0,0,0" />
 
                                                                             <!-- حالة المرحلة بالنص (جاهزة / محتاجة عمال / التوزيع مش مظبوط) -->
@@ -355,10 +355,10 @@
                                                                             </ItemsControl.ItemsPanel>
                                                                             <ItemsControl.ItemTemplate>
                                                                                 <DataTemplate>
-                                                                                    <Border Background="{StaticResource ChipBgBrush}" CornerRadius="4" Padding="6,3" Margin="0,2,4,2">
+                                                                                    <Border Background="{DynamicResource ChipBgBrush}" CornerRadius="4" Padding="6,3" Margin="0,2,4,2">
                                                                                         <StackPanel Orientation="Horizontal">
                                                                                             <!-- أمر الإزالة على الشريحة نفسها (callback للرحلة) -->
-                                                                                            <Button Foreground="{StaticResource DangerBrush}"
+                                                                                            <Button Foreground="{DynamicResource DangerBrush}"
                                                                                                     Style="{StaticResource IconButton}"
                                                                                                     ToolTip="إزالة العامل من المرحلة"
                                                                                                     Command="{Binding RemoveCommand}">
@@ -391,14 +391,14 @@
                                                                             </StackPanel.Style>
 
                                                                             <StackPanel Orientation="Horizontal">
-                                                                                <Border Background="{StaticResource CardBgBrush}"
-                                                                                        BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.2"
+                                                                                <Border Background="{DynamicResource CardBgBrush}"
+                                                                                        BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1.2"
                                                                                         CornerRadius="6" Padding="7,4" Width="240" Margin="0,0,6,0">
                                                                                     <Grid>
                                                                                         <DockPanel>
                                                                                             <materialDesign:PackIcon DockPanel.Dock="Left" Kind="Magnify"
                                                                                                                     Width="13" Height="13" VerticalAlignment="Center"
-                                                                                                                    Foreground="{StaticResource TextMutedBrush}" />
+                                                                                                                    Foreground="{DynamicResource TextMutedBrush}" />
                                                                                             <!-- الدوسة بتفتح القايمة: بعد كل إضافة بتتقفل،
                                                                                                  والمستخدم هو اللي بيفتحها لما يحتاج -->
                                                                                             <TextBox x:Name="WorkerSearchBox"
@@ -411,7 +411,7 @@
                                                                                         </DockPanel>
                                                                                         <TextBlock Text="البحث" Margin="22,0,0,0" IsHitTestVisible="False"
                                                                                                    VerticalAlignment="Center" FontSize="12.5"
-                                                                                                   Foreground="{StaticResource TextMutedBrush}">
+                                                                                                   Foreground="{DynamicResource TextMutedBrush}">
                                                                                             <TextBlock.Style>
                                                                                                 <Style TargetType="TextBlock">
                                                                                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -444,7 +444,7 @@
                                                                                  لوحده مكانش بيقفلها لأنه بيفضل مكانه. -->
                                                                             <Border Width="240" HorizontalAlignment="Left" Margin="0,3,0,0"
                                                                                     Background="White" CornerRadius="6"
-                                                                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.2">
+                                                                                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1.2">
                                                                                 <Border.Style>
                                                                                     <Style TargetType="Border">
                                                                                         <Setter Property="Visibility" Value="Collapsed" />
@@ -484,19 +484,19 @@
                                                                                                     <!-- الأداء المقاس جنبها، رمادي عشان ميزاحمش النجوم -->
                                                                                                     <TextBlock Text="{Binding MeasuredText}" FontSize="10"
                                                                                                                Margin="6,0,0,0" VerticalAlignment="Center"
-                                                                                                               Foreground="{StaticResource TextMutedBrush}"
+                                                                                                               Foreground="{DynamicResource TextMutedBrush}"
                                                                                                                Visibility="{Binding HasMeasurement, Converter={StaticResource BoolToVis}}" />
                                                                                                 </StackPanel>
 
                                                                                                 <!-- مكلّف في مكان تاني النهارده: العناصر دي نازلة
                                                                                                      آخر القايمة، والعلامة بتقول ليه — اختياره
                                                                                                      هيطلّع رسالة تأكيد -->
-                                                                                                <Border Background="{StaticResource WarnBgBrush}" CornerRadius="4"
+                                                                                                <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="4"
                                                                                                         Padding="5,1" Margin="0,2,0,0" HorizontalAlignment="Left"
                                                                                                         Visibility="{Binding IsAssignedElsewhere, Converter={StaticResource BoolToVis}}">
                                                                                                     <TextBlock Text="{Binding AssignedElsewhereText}" FontSize="10"
                                                                                                                TextWrapping="Wrap"
-                                                                                                               Foreground="{StaticResource WarnBrush}" />
+                                                                                                               Foreground="{DynamicResource WarnBrush}" />
                                                                                                 </Border>
                                                                                             </StackPanel>
                                                                                         </DataTemplate>
@@ -507,7 +507,7 @@
                                                                             <!-- كتب اسم مش موجود: يعرف علطول بدل ما يستنى قايمة متظهرش -->
                                                                             <TextBlock Text="مفيش عامل مؤهل بالاسم ده"
                                                                                        FontSize="11.5" Margin="2,3,0,0"
-                                                                                       Foreground="{StaticResource WarnBrush}">
+                                                                                       Foreground="{DynamicResource WarnBrush}">
                                                                                 <TextBlock.Style>
                                                                                     <Style TargetType="TextBlock">
                                                                                         <Setter Property="Visibility" Value="Collapsed" />
@@ -523,7 +523,7 @@
 
                                                                         <!-- مفيش مؤهلين: المرحلة محتاجة ربط مهارات الأول (قرار: المؤهلين بس إجباري) -->
                                                                         <TextBlock Text="لا يوجد عمال مؤهلون لهذه المرحلة — اربط المهارة من شاشة العمال الأول"
-                                                                                   Foreground="{StaticResource DangerBrush}" FontSize="12" Margin="0,4,0,0">
+                                                                                   Foreground="{DynamicResource DangerBrush}" FontSize="12" Margin="0,4,0,0">
                                                                             <TextBlock.Style>
                                                                                 <Style TargetType="TextBlock">
                                                                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -544,8 +544,8 @@
                                                 </Grid>
 
                                                 <!-- عمود توزيع الإنتاج + المعاينة + الحفظ (خاص بالرحلة دي) -->
-                                                <Border Grid.Column="1" Background="{StaticResource SoftPanelBgBrush}"
-                                                        BorderBrush="{StaticResource SoftPanelBorderBrush}" BorderThickness="1"
+                                                <Border Grid.Column="1" Background="{DynamicResource SoftPanelBgBrush}"
+                                                        BorderBrush="{DynamicResource SoftPanelBorderBrush}" BorderThickness="1"
                                                         CornerRadius="10" Margin="8,0,0,0" Padding="12">
                                                     <StackPanel>
                                                         <!-- ===== الشغل الواقف من أيام فاتت =====
@@ -554,26 +554,26 @@
                                                              جدول بيتتبّع القطع ومفيش خطوة ترحيل.
                                                              الزرار بيملا النطاق بالعدد الواقف، والعمال
                                                              بيتحطوا بإيد المستخدم. -->
-                                                        <Border Background="{StaticResource WarnBgBrush}" CornerRadius="9"
+                                                        <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="9"
                                                                 Padding="11,9" Margin="0,0,0,10"
                                                                 Visibility="{Binding HasPendingWork, Converter={StaticResource BoolToVis}}">
                                                             <StackPanel>
                                                                 <StackPanel Orientation="Horizontal">
                                                                     <materialDesign:PackIcon Kind="PackageVariantClosed" Width="15" Height="15"
                                                                                             VerticalAlignment="Center"
-                                                                                            Foreground="{StaticResource WarnBrush}" />
+                                                                                            Foreground="{DynamicResource WarnBrush}" />
                                                                     <TextBlock Text="شغل واقف في نص الخط" FontWeight="Bold" FontSize="13"
                                                                                Margin="6,0,0,0" VerticalAlignment="Center"
-                                                                               Foreground="{StaticResource WarnBrush}" />
+                                                                               Foreground="{DynamicResource WarnBrush}" />
                                                                 </StackPanel>
                                                                 <TextBlock Text="{Binding PendingSummaryText}" FontSize="11"
                                                                            Margin="0,2,0,7"
-                                                                           Foreground="{StaticResource WarnBrush}" />
+                                                                           Foreground="{DynamicResource WarnBrush}" />
 
                                                                 <ItemsControl ItemsSource="{Binding PendingStages}">
                                                                     <ItemsControl.ItemTemplate>
                                                                         <DataTemplate>
-                                                                            <Border Background="{StaticResource CardBgBrush}" CornerRadius="7"
+                                                                            <Border Background="{DynamicResource CardBgBrush}" CornerRadius="7"
                                                                                     Padding="9,7" Margin="0,0,0,5">
                                                                                 <DockPanel>
                                                                                     <Button DockPanel.Dock="Left"
@@ -587,9 +587,9 @@
                                                                                     <StackPanel Margin="0,0,9,0" VerticalAlignment="Center">
                                                                                         <TextBlock Text="{Binding PendingText}" FontSize="12" FontWeight="SemiBold"
                                                                                                    TextWrapping="Wrap"
-                                                                                                   Foreground="{StaticResource TextPrimaryBrush}" />
+                                                                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
                                                                                         <TextBlock FontSize="10.5" Margin="0,1,0,0"
-                                                                                                   Foreground="{StaticResource TextMutedBrush}">
+                                                                                                   Foreground="{DynamicResource TextMutedBrush}">
                                                                                             <Run Text="خلصت" />
                                                                                             <Run Text="{Binding PreviousStageName, Mode=OneWay}" FontWeight="SemiBold" />
                                                                                             <Run Text="ولسه" />
@@ -607,43 +607,43 @@
                                                              مرحلة اتسجل عليها أكتر من اللي قبلها — مستحيل
                                                              فيزيائيًا. بيتعرض صريح بدل ما يعدّي بصمت، لأنه
                                                              بيخلي حساب الواقف كله مش موثوق. -->
-                                                        <Border Background="{StaticResource DangerBgBrush}" CornerRadius="9"
+                                                        <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="9"
                                                                 Padding="11,9" Margin="0,0,0,10"
                                                                 Visibility="{Binding HasPendingErrors, Converter={StaticResource BoolToVis}}">
                                                             <StackPanel>
                                                                 <StackPanel Orientation="Horizontal">
                                                                     <materialDesign:PackIcon Kind="AlertCircleOutline" Width="15" Height="15"
                                                                                             VerticalAlignment="Center"
-                                                                                            Foreground="{StaticResource DangerBrush}" />
+                                                                                            Foreground="{DynamicResource DangerBrush}" />
                                                                     <TextBlock Text="أرقام متناقضة — محتاجة مراجعة" FontWeight="Bold" FontSize="13"
                                                                                Margin="6,0,0,0" VerticalAlignment="Center"
-                                                                               Foreground="{StaticResource DangerBrush}" />
+                                                                               Foreground="{DynamicResource DangerBrush}" />
                                                                 </StackPanel>
                                                                 <ItemsControl ItemsSource="{Binding PendingErrors}" Margin="0,6,0,0">
                                                                     <ItemsControl.ItemTemplate>
                                                                         <DataTemplate>
                                                                             <TextBlock Text="{Binding ErrorText}" FontSize="11.5"
                                                                                        TextWrapping="Wrap" Margin="0,0,0,4"
-                                                                                       Foreground="{StaticResource DangerBrush}" />
+                                                                                       Foreground="{DynamicResource DangerBrush}" />
                                                                         </DataTemplate>
                                                                     </ItemsControl.ItemTemplate>
                                                                 </ItemsControl>
                                                                 <TextBlock Text="صحّح السجلات من تبويب &quot;سجلات اليوم&quot; — المرحلة دي مش هتظهر في الشغل الواقف لحد ما أرقامها تتظبط."
                                                                            FontSize="10.5" TextWrapping="Wrap" Margin="0,3,0,0"
-                                                                           Foreground="{StaticResource DangerBrush}" />
+                                                                           Foreground="{DynamicResource DangerBrush}" />
                                                             </StackPanel>
                                                         </Border>
 
                                                         <TextBlock Text="توزيع الإنتاج على المراحل" FontWeight="Bold"
-                                                                   FontSize="14" Foreground="{StaticResource BrandBrush}" />
-                                                        <TextBlock Foreground="{StaticResource TextMutedBrush}" FontSize="11.5" TextWrapping="Wrap" Margin="0,2,0,8"
+                                                                   FontSize="14" Foreground="{DynamicResource BrandBrush}" />
+                                                        <TextBlock Foreground="{DynamicResource TextMutedBrush}" FontSize="11.5" TextWrapping="Wrap" Margin="0,2,0,8"
                                                                    Text="اكتب: من أنهي مرحلة لأنهي مرحلة اتنتج كام قطعة. النطاق الجاهز بيغطي كل المراحل — عدّله أو ضيف نطاقات تانية لو الإنتاج وقف عند مرحلة معينة." />
 
                                                         <!-- نطاقات الإنتاج -->
                                                         <ItemsControl ItemsSource="{Binding FlowRanges}">
                                                             <ItemsControl.ItemTemplate>
                                                                 <DataTemplate>
-                                                                    <Border Background="{StaticResource CardBgBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+                                                                    <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                                                                             CornerRadius="6" Padding="8,6" Margin="0,0,0,6">
                                                                         <StackPanel>
                                                                             <StackPanel Orientation="Horizontal">
@@ -660,7 +660,7 @@
                                                                                          Width="90" Padding="6,3" FontSize="13" VerticalContentAlignment="Center" />
                                                                                 <!-- أمر الحذف على السطر نفسه (callback للرحلة) -->
                                                                                 <Button Margin="10,0,0,0"
-                                                                                        Style="{StaticResource IconButton}" Foreground="{StaticResource DangerBrush}"
+                                                                                        Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}"
                                                                                         ToolTip="حذف النطاق"
                                                                                         Command="{Binding RemoveCommand}">
                                                                                     <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
@@ -670,16 +670,16 @@
                                                                             <!-- خطأ النطاق ده تحته مباشرة: المستخدم بيشوف
                                                                                  المشكلة في مكانها بدل ما يدوّر في بلوك
                                                                                  تحذيرات فوق بيتكلم عن كل النطاقات -->
-                                                                            <Border Background="{StaticResource DangerBgBrush}" CornerRadius="5"
+                                                                            <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="5"
                                                                                     Padding="7,4" Margin="0,6,0,0"
                                                                                     Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
                                                                                 <StackPanel Orientation="Horizontal">
                                                                                     <materialDesign:PackIcon Kind="AlertCircleOutline" Width="13" Height="13"
                                                                                                             VerticalAlignment="Top" Margin="0,1,0,0"
-                                                                                                            Foreground="{StaticResource DangerBrush}" />
+                                                                                                            Foreground="{DynamicResource DangerBrush}" />
                                                                                     <TextBlock Text="{Binding Error}" FontSize="11.5" Margin="5,0,0,0"
                                                                                                TextWrapping="Wrap" MaxWidth="300"
-                                                                                               Foreground="{StaticResource DangerBrush}" />
+                                                                                               Foreground="{DynamicResource DangerBrush}" />
                                                                                 </StackPanel>
                                                                             </Border>
                                                                         </StackPanel>
@@ -698,12 +698,12 @@
                                                         </Button>
 
                                                         <!-- معاينة اليوميات قبل الحفظ -->
-                                                        <Border Background="{StaticResource SuccessBgBrush}" CornerRadius="8" Padding="10">
+                                                        <Border Background="{DynamicResource SuccessBgBrush}" CornerRadius="8" Padding="10">
                                                             <StackPanel>
                                                                 <TextBlock Text="معاينة اليوميات قبل الحفظ" FontWeight="Bold" FontSize="13"
-                                                                           Foreground="{StaticResource SuccessBrush}" Margin="0,0,0,4" />
+                                                                           Foreground="{DynamicResource SuccessBrush}" Margin="0,0,0,4" />
                                                                 <TextBlock Text="لسه مفيش توزيع — اختار العمال واكتب أعداد النطاقات"
-                                                                           Foreground="{StaticResource TextMutedBrush}" FontSize="12">
+                                                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="12">
                                                                     <TextBlock.Style>
                                                                         <Style TargetType="TextBlock">
                                                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -723,7 +723,7 @@
                                                                                 <Run Text="{Binding WorkerName, Mode=OneWay}" FontWeight="SemiBold" />
                                                                                 <Run Text="{Binding TotalPieces, Mode=OneWay, StringFormat=': {0} قطعة'}" />
                                                                                 <Run Text="{Binding TotalWorkdays, Mode=OneWay, StringFormat='≈ {0} يومية'}"
-                                                                                     Foreground="{StaticResource SuccessBrush}" FontWeight="Bold" />
+                                                                                     Foreground="{DynamicResource SuccessBrush}" FontWeight="Bold" />
                                                                             </TextBlock>
                                                                         </DataTemplate>
                                                                     </ItemsControl.ItemTemplate>
@@ -768,7 +768,7 @@
                             <!-- رسالة لما مفيش سجلات في اليوم -->
                             <TextBlock Text="مفيش سجلات إنتاج محفوظة في اليوم ده"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{StaticResource TextMutedBrush}" FontSize="14">
+                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="14">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Visibility" Value="Collapsed" />
@@ -795,13 +795,13 @@
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal">
                                                     <Button Margin="0,0,4,0"
-                                                            Style="{StaticResource IconButton}" Foreground="{StaticResource BrandBrush}"
+                                                            Style="{StaticResource IconButton}" Foreground="{DynamicResource BrandBrush}"
                                                             ToolTip="تعديل عدد القطع"
                                                             Command="{Binding DataContext.EditDayRecordCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}">
                                                         <materialDesign:PackIcon Kind="PencilOutline" Width="13" Height="13" />
                                                     </Button>
-                                                    <Button Style="{StaticResource IconButton}" Foreground="{StaticResource DangerBrush}"
+                                                    <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}"
                                                             ToolTip="حذف السجل نهائيًا"
                                                             Command="{Binding DataContext.DeleteDayRecordCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}">
@@ -837,14 +837,14 @@
                         -->
                         <StackPanel Orientation="Horizontal">
                             <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{StaticResource BrandBrush}"
+                                          Tag="{DynamicResource BrandBrush}"
                                           IsChecked="{Binding IsFilterAll, Mode=OneWay}"
                                           Command="{Binding SetAttendanceFilterCommand}"
                                           CommandParameter="{x:Static vm:AttendanceFilter.All}"
                                           ToolTip="عرض كل العمال">
                                 <StackPanel>
                                     <TextBlock Text="{Binding TotalWorkersCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{StaticResource TextPrimaryBrush}" />
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
                                     <TextBlock Text="إجمالي العمال" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
                             </ToggleButton>
@@ -852,40 +852,40 @@
                             <Border Style="{StaticResource SummaryDivider}" Margin="6,4,12,4" />
 
                             <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{StaticResource SuccessBrush}"
+                                          Tag="{DynamicResource SuccessBrush}"
                                           IsChecked="{Binding IsFilterPresent, Mode=OneWay}"
                                           Command="{Binding SetAttendanceFilterCommand}"
                                           CommandParameter="{x:Static vm:AttendanceFilter.Present}"
                                           ToolTip="عرض الحاضرين بس">
                                 <StackPanel>
                                     <TextBlock Text="{Binding PresentCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{StaticResource SuccessBrush}" />
+                                               Foreground="{DynamicResource SuccessBrush}" />
                                     <TextBlock Text="حاضر" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
                             </ToggleButton>
 
                             <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{StaticResource WarnBrush}"
+                                          Tag="{DynamicResource WarnBrush}"
                                           IsChecked="{Binding IsFilterExcused, Mode=OneWay}"
                                           Command="{Binding SetAttendanceFilterCommand}"
                                           CommandParameter="{x:Static vm:AttendanceFilter.Excused}"
                                           ToolTip="عرض الغايبين بإذن بس">
                                 <StackPanel>
                                     <TextBlock Text="{Binding ExcusedCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{StaticResource WarnBrush}" />
+                                               Foreground="{DynamicResource WarnBrush}" />
                                     <TextBlock Text="غياب بإذن" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
                             </ToggleButton>
 
                             <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{StaticResource DangerBrush}"
+                                          Tag="{DynamicResource DangerBrush}"
                                           IsChecked="{Binding IsFilterUnexcused, Mode=OneWay}"
                                           Command="{Binding SetAttendanceFilterCommand}"
                                           CommandParameter="{x:Static vm:AttendanceFilter.Unexcused}"
                                           ToolTip="عرض الغايبين بدون إذن بس">
                                 <StackPanel>
                                     <TextBlock Text="{Binding UnexcusedCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{StaticResource DangerBrush}" />
+                                               Foreground="{DynamicResource DangerBrush}" />
                                     <TextBlock Text="بدون إذن" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
                             </ToggleButton>
@@ -893,14 +893,14 @@
                             <!-- كان اسمها "لسه مفيش" — مبهمة: لسه مفيش إيه؟
                                  الاسم الجديد بيقول الحالة بالظبط -->
                             <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{StaticResource TextMutedBrush}"
+                                          Tag="{DynamicResource TextMutedBrush}"
                                           IsChecked="{Binding IsFilterUnset, Mode=OneWay}"
                                           Command="{Binding SetAttendanceFilterCommand}"
                                           CommandParameter="{x:Static vm:AttendanceFilter.Unset}"
                                           ToolTip="عرض اللي لسه محصلش تسجيل حضور — اقفلهم واحد واحد">
                                 <StackPanel>
                                     <TextBlock Text="{Binding UnsetCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{StaticResource TextMutedBrush}" />
+                                               Foreground="{DynamicResource TextMutedBrush}" />
                                     <TextBlock Text="محصلش تسجيل" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
                             </ToggleButton>
@@ -909,20 +909,20 @@
                                  ليهم شيفتات بمنطق مختلف، والقايمة الموحّدة بتخلطهم
                                  مع عمال الإنتاج فصعب توصلهم -->
                             <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{StaticResource WarnBrush}"
+                                          Tag="{DynamicResource WarnBrush}"
                                           IsChecked="{Binding IsFilterHourly, Mode=OneWay}"
                                           Command="{Binding SetAttendanceFilterCommand}"
                                           CommandParameter="{x:Static vm:AttendanceFilter.Hourly}"
                                           ToolTip="عرض عمال الساعة بس (رص / جودة / تدريب)">
                                 <StackPanel>
                                     <TextBlock Text="{Binding HourlyCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{StaticResource WarnBrush}" />
+                                               Foreground="{DynamicResource WarnBrush}" />
                                     <TextBlock Text="بالساعة" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
                             </ToggleButton>
 
                             <!-- تحذير الجزاءات المتوقعة: بيظهر بس لما يكون فيه غياب بدون إذن -->
-                            <Border Background="{StaticResource DangerBgBrush}" CornerRadius="10"
+                            <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="10"
                                     Padding="14,8" Margin="20,0,0,0" VerticalAlignment="Center">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -937,10 +937,10 @@
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="AlertCircleOutline" Width="17" Height="17"
                                                             VerticalAlignment="Center"
-                                                            Foreground="{StaticResource DangerBrush}" />
+                                                            Foreground="{DynamicResource DangerBrush}" />
                                     <TextBlock Text="{Binding PendingPenaltyText}" Margin="7,0,0,0"
                                                VerticalAlignment="Center" FontSize="12.5" FontWeight="Medium"
-                                               Foreground="{StaticResource DangerBrush}" />
+                                               Foreground="{DynamicResource DangerBrush}" />
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -953,14 +953,14 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <Border Grid.Column="0" Background="{StaticResource CardBgBrush}"
-                                BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1.4"
+                        <Border Grid.Column="0" Background="{DynamicResource CardBgBrush}"
+                                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1.4"
                                 CornerRadius="10" Padding="12,7">
                             <Grid>
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="Magnify" Width="17" Height="17"
                                                             VerticalAlignment="Center"
-                                                            Foreground="{StaticResource TextMutedBrush}" />
+                                                            Foreground="{DynamicResource TextMutedBrush}" />
                                     <TextBox Text="{Binding AttendanceSearch, UpdateSourceTrigger=PropertyChanged}"
                                              Width="240" Margin="8,0,0,0" BorderThickness="0"
                                              VerticalAlignment="Center" FontSize="13" Background="Transparent" />
@@ -968,7 +968,7 @@
                                 <!-- نص إرشادي بيختفي أول ما المستخدم يكتب -->
                                 <TextBlock Text="دوّر باسم العامل…" Margin="30,0,0,0" IsHitTestVisible="False"
                                            VerticalAlignment="Center" FontSize="13"
-                                           Foreground="{StaticResource TextMutedBrush}">
+                                           Foreground="{DynamicResource TextMutedBrush}">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -1005,10 +1005,10 @@
                                 </StackPanel.Style>
                                 <materialDesign:PackIcon Kind="AccountSearchOutline" Width="46" Height="46"
                                                         HorizontalAlignment="Center"
-                                                        Foreground="{StaticResource TextMutedBrush}" />
+                                                        Foreground="{DynamicResource TextMutedBrush}" />
                                 <TextBlock Text="{Binding EmptyStateText}" Margin="0,10,0,0" FontSize="14"
                                            HorizontalAlignment="Center"
-                                           Foreground="{StaticResource TextMutedBrush}" />
+                                           Foreground="{DynamicResource TextMutedBrush}" />
                             </StackPanel>
 
                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -1031,11 +1031,11 @@
 
                                                     <!-- دايرة الحروف الأولى -->
                                                     <Border Grid.Column="1" Width="42" Height="42" CornerRadius="21"
-                                                            Background="{StaticResource SubtleBgBrush}"
+                                                            Background="{DynamicResource SubtleBgBrush}"
                                                             VerticalAlignment="Center" Margin="0,0,14,0">
                                                         <TextBlock Text="{Binding Initials}" FontSize="15" FontWeight="Bold"
                                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                   Foreground="{StaticResource BrandBrush}" />
+                                                                   Foreground="{DynamicResource BrandBrush}" />
                                                     </Border>
 
                                                     <!-- الاسم + النوع + ملاحظة الشغل -->
@@ -1043,13 +1043,13 @@
                                                         <StackPanel Orientation="Horizontal">
                                                             <TextBlock Text="{Binding FullName}" FontSize="14.5"
                                                                        FontWeight="SemiBold"
-                                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
                                                                        VerticalAlignment="Center" />
-                                                            <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="7"
+                                                            <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="7"
                                                                     Padding="8,2" Margin="9,0,0,0" VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding RoleText}" FontSize="11"
                                                                            FontWeight="Medium"
-                                                                           Foreground="{StaticResource BrandBrush}" />
+                                                                           Foreground="{DynamicResource BrandBrush}" />
                                                             </Border>
                                                         </StackPanel>
 
@@ -1067,10 +1067,10 @@
                                                             </StackPanel.Style>
                                                             <materialDesign:PackIcon Kind="CheckDecagram" Width="14" Height="14"
                                                                                     VerticalAlignment="Center"
-                                                                                    Foreground="{StaticResource SuccessBrush}" />
+                                                                                    Foreground="{DynamicResource SuccessBrush}" />
                                                             <TextBlock Text="{Binding WorkNote}" FontSize="11.5" Margin="5,0,0,0"
                                                                        VerticalAlignment="Center"
-                                                                       Foreground="{StaticResource SuccessBrush}" />
+                                                                       Foreground="{DynamicResource SuccessBrush}" />
                                                         </StackPanel>
 
                                                         <!-- اختصارات الشيفت (بتظهر للعامل بالساعة بس) -->
@@ -1087,7 +1087,7 @@
                                                             </StackPanel.Style>
                                                             <TextBlock Text="الشيفت:" FontSize="12" VerticalAlignment="Center"
                                                                        Margin="0,0,9,0"
-                                                                       Foreground="{StaticResource TextMutedBrush}" />
+                                                                       Foreground="{DynamicResource TextMutedBrush}" />
                                                             <ItemsControl ItemsSource="{Binding ShiftChoices}">
                                                                 <ItemsControl.ItemsPanel>
                                                                     <ItemsPanelTemplate>
@@ -1149,10 +1149,10 @@
                     </Grid.RowDefinitions>
 
                     <!-- فورم تسجيل جزاء جديد -->
-                    <Border Grid.Row="0" Background="{StaticResource DangerBgBrush}" BorderBrush="{StaticResource DangerBorderBrush}" BorderThickness="1"
+                    <Border Grid.Row="0" Background="{DynamicResource DangerBgBrush}" BorderBrush="{DynamicResource DangerBorderBrush}" BorderThickness="1"
                             CornerRadius="12" Padding="14" Margin="0,0,0,10">
                         <StackPanel>
-                            <TextBlock Text="تسجيل جزاء جديد" FontWeight="Bold" Foreground="{StaticResource DangerBrush}" Margin="0,0,0,8" />
+                            <TextBlock Text="تسجيل جزاء جديد" FontWeight="Bold" Foreground="{DynamicResource DangerBrush}" Margin="0,0,0,8" />
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="العامل:" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <views:WorkerSearchBox Workers="{Binding AttendanceRows}"
@@ -1197,7 +1197,7 @@
                                 <DataGridTemplateColumn Header="" Width="60">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button FontSize="11" Foreground="{StaticResource BrandBrush}"
+                                            <Button FontSize="11" Foreground="{DynamicResource BrandBrush}"
                                                     Style="{StaticResource IconButton}"
                                                     ToolTip="تعديل الجزاء"
                                                     Command="{Binding DataContext.EditPenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -1213,7 +1213,7 @@
                                 <DataGridTemplateColumn Header="" Width="70">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button FontSize="11" Foreground="{StaticResource DangerBrush}"
+                                            <Button FontSize="11" Foreground="{DynamicResource DangerBrush}"
                                                     Style="{StaticResource IconButton}"
                                                     Command="{Binding DataContext.RemovePenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">
@@ -1241,11 +1241,11 @@
                     </Grid.RowDefinitions>
 
                     <!-- فورم تسجيل سلفة/حافز جديد -->
-                    <Border Grid.Row="0" Background="{StaticResource SubtleBgBrush}" BorderBrush="{StaticResource CardBorderBrush}"
+                    <Border Grid.Row="0" Background="{DynamicResource SubtleBgBrush}" BorderBrush="{DynamicResource CardBorderBrush}"
                             BorderThickness="1" CornerRadius="12" Padding="14" Margin="0,0,0,10">
                         <StackPanel>
                             <TextBlock Text="تسجيل سلفة أو حافز (بالجنيه)" FontWeight="Bold"
-                                       Foreground="{StaticResource BrandBrush}" Margin="0,0,0,8" />
+                                       Foreground="{DynamicResource BrandBrush}" Margin="0,0,0,8" />
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="العامل:" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <views:WorkerSearchBox Workers="{Binding AttendanceRows}"
@@ -1305,7 +1305,7 @@
                                 <DataGridTemplateColumn Header="" Width="70">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button FontSize="11" Foreground="{StaticResource DangerBrush}"
+                                            <Button FontSize="11" Foreground="{DynamicResource DangerBrush}"
                                                     Style="{StaticResource IconButton}"
                                                     Command="{Binding DataContext.RemoveAdjustmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">

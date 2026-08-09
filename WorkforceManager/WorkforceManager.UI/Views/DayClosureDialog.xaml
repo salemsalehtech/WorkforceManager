@@ -13,7 +13,7 @@
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
-            <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
+            <Border DockPanel.Dock="Top" Background="{DynamicResource BrandBrush}"
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Foreground="White"
@@ -31,22 +31,22 @@
             <StackPanel Margin="20,16,20,18">
                 <!-- ملخص اليوم -->
                 <UniformGrid Columns="2" Margin="0,0,0,12">
-                    <Border Background="{StaticResource SuccessBgBrush}" CornerRadius="10" Padding="12,10" Margin="0,0,5,0">
+                    <Border Background="{DynamicResource SuccessBgBrush}" CornerRadius="10" Padding="12,10" Margin="0,0,5,0">
                         <StackPanel>
                             <TextBlock x:Name="CompletedText" FontSize="20" FontWeight="Bold"
                                        HorizontalAlignment="Center"
-                                       Foreground="{StaticResource SuccessBrush}" />
+                                       Foreground="{DynamicResource SuccessBrush}" />
                             <TextBlock Text="قطعة خلصت الخط النهارده" FontSize="11" HorizontalAlignment="Center"
-                                       Foreground="{StaticResource TextMutedBrush}" />
+                                       Foreground="{DynamicResource TextMutedBrush}" />
                         </StackPanel>
                     </Border>
-                    <Border Background="{StaticResource WarnBgBrush}" CornerRadius="10" Padding="12,10" Margin="5,0,0,0">
+                    <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="10" Padding="12,10" Margin="5,0,0,0">
                         <StackPanel>
                             <TextBlock x:Name="CarriedText" FontSize="20" FontWeight="Bold"
                                        HorizontalAlignment="Center"
-                                       Foreground="{StaticResource WarnBrush}" />
+                                       Foreground="{DynamicResource WarnBrush}" />
                             <TextBlock Text="قطعة دخلت الخط النهارده" FontSize="11" HorizontalAlignment="Center"
-                                       Foreground="{StaticResource TextMutedBrush}" />
+                                       Foreground="{DynamicResource TextMutedBrush}" />
                         </StackPanel>
                     </Border>
                 </UniformGrid>
@@ -59,19 +59,19 @@
                     <ItemsControl x:Name="LotsList">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
+                                <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8"
                                         Padding="10,7" Margin="0,0,0,5">
                                     <DockPanel>
-                                        <Border DockPanel.Dock="Left" Background="{StaticResource SuccessBgBrush}"
+                                        <Border DockPanel.Dock="Left" Background="{DynamicResource SuccessBgBrush}"
                                                 CornerRadius="6" Padding="8,3" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding CompletedPieces, StringFormat=N0}" FontSize="13.5" FontWeight="Bold"
-                                                       Foreground="{StaticResource SuccessBrush}" />
+                                                       Foreground="{DynamicResource SuccessBrush}" />
                                         </Border>
                                         <StackPanel Margin="9,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding ProductName}" FontSize="12.5" FontWeight="Bold"
-                                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
                                             <TextBlock FontSize="10.5" Margin="0,2,0,0"
-                                                       Foreground="{StaticResource TextMutedBrush}">
+                                                       Foreground="{DynamicResource TextMutedBrush}">
                                                 <Run Text="خلص الخط، ودخله" />
                                                 <Run Text="{Binding StartedPieces, Mode=OneWay, StringFormat=N0}" FontWeight="Bold" />
                                                 <Run Text="قطعة" />
@@ -85,16 +85,16 @@
                 </ScrollViewer>
 
                 <!-- مفيش حركة خالص -->
-                <Border x:Name="NothingCarried" Background="{StaticResource SuccessBgBrush}" CornerRadius="8"
+                <Border x:Name="NothingCarried" Background="{DynamicResource SuccessBgBrush}" CornerRadius="8"
                         Padding="12,10" Visibility="Collapsed">
                     <TextBlock Text="مفيش إنتاج مسجّل في اليوم ده"
                                FontSize="12.5" TextWrapping="Wrap"
-                               Foreground="{StaticResource SuccessBrush}" />
+                               Foreground="{DynamicResource SuccessBrush}" />
                 </Border>
 
                 <TextBlock Text="بعد القفل مش هينفع يتسجل إنتاج جديد على اليوم ده (تقدر تفتحه تاني في أي وقت)."
                            FontSize="11.5" TextWrapping="Wrap" Margin="0,12,0,0"
-                           Foreground="{StaticResource TextMutedBrush}" />
+                           Foreground="{DynamicResource TextMutedBrush}" />
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,14,0,0">
                     <Button Style="{StaticResource GhostButton}" Padding="16,8" IsCancel="True" Content="إلغاء" />

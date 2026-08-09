@@ -15,7 +15,7 @@
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
-            <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
+            <Border DockPanel.Dock="Top" Background="{DynamicResource BrandBrush}"
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Foreground="White"
@@ -32,7 +32,7 @@
                 </DockPanel>
             </Border>
 
-            <Border DockPanel.Dock="Bottom" Background="{StaticResource SubtleBgBrush}"
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource SubtleBgBrush}"
                     CornerRadius="0,0,18,18" Padding="18,12">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}"
@@ -40,14 +40,14 @@
                     <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" FontSize="11.5"
                                TextWrapping="Wrap" HorizontalAlignment="Right"
                                Text="الأعداد مش هتتنسخ — هتكتبها انت"
-                               Foreground="{StaticResource TextMutedBrush}" />
+                               Foreground="{DynamicResource TextMutedBrush}" />
                 </DockPanel>
             </Border>
 
             <Grid Margin="18,14,18,10">
                 <TextBlock x:Name="EmptyText" TextWrapping="Wrap" FontSize="13.5"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{StaticResource TextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            Visibility="Collapsed" />
 
                 <ScrollViewer x:Name="ListScroller" VerticalScrollBarVisibility="Auto">
@@ -58,19 +58,19 @@
                                         HorizontalContentAlignment="Stretch" Cursor="Hand"
                                         Padding="0" Margin="0,0,0,7" BorderThickness="0"
                                         Background="Transparent">
-                                    <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="9"
+                                    <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="9"
                                             Padding="13,10">
                                         <DockPanel>
                                             <materialDesign:PackIcon DockPanel.Dock="Left" Kind="ContentCopy"
                                                                     Width="17" Height="17"
                                                                     VerticalAlignment="Center"
-                                                                    Foreground="{StaticResource BrandBrush}" />
+                                                                    Foreground="{DynamicResource BrandBrush}" />
                                             <StackPanel Margin="10,0,0,0">
                                                 <TextBlock Text="{Binding DateText}" FontSize="13" FontWeight="Bold"
-                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
                                                 <TextBlock Text="{Binding SummaryText}" FontSize="11.5"
                                                            Margin="0,2,0,0"
-                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                                           Foreground="{DynamicResource TextMutedBrush}" />
                                             </StackPanel>
                                         </DockPanel>
                                     </Border>

@@ -19,10 +19,10 @@
             <StackPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                     <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="18" Height="18"
-                                              Foreground="{StaticResource BrandBrush}" VerticalAlignment="Center" />
+                                              Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
                     <TextBlock Text="سجل العمليات" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
                     <TextBlock Text="{Binding SummaryText}" FontSize="12" VerticalAlignment="Center"
-                               Margin="12,0,0,0" Foreground="{StaticResource TextMutedBrush}" />
+                               Margin="12,0,0,0" Foreground="{DynamicResource TextMutedBrush}" />
                 </StackPanel>
 
                 <WrapPanel>
@@ -49,7 +49,7 @@
                      ومبيلاقيهوش ويفتكر إن فيه عطل. -->
                 <TextBlock Text="{Binding RetentionNote}" FontSize="11.5" Margin="0,10,0,0"
                            TextWrapping="Wrap"
-                           Foreground="{StaticResource TextMutedBrush}" />
+                           Foreground="{DynamicResource TextMutedBrush}" />
             </StackPanel>
         </Border>
 
@@ -58,14 +58,14 @@
             <Grid>
                 <TextBlock Text="مفيش عمليات مسجّلة في الفترة دي" FontSize="13.5"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{StaticResource TextMutedBrush}"
+                           Foreground="{DynamicResource TextMutedBrush}"
                            Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}" />
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Events}" Margin="12">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource SubtleBgBrush}" CornerRadius="8"
+                                <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8"
                                         Padding="12,9" Margin="0,0,0,6">
                                     <DockPanel>
                                         <!-- شارة نوع العملية — الحذف أحمر -->
@@ -73,10 +73,10 @@
                                                 VerticalAlignment="Top" MinWidth="110">
                                             <Border.Style>
                                                 <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="{StaticResource ChipBgBrush}" />
+                                                    <Setter Property="Background" Value="{DynamicResource ChipBgBrush}" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsDeletion}" Value="True">
-                                                            <Setter Property="Background" Value="{StaticResource DangerBgBrush}" />
+                                                            <Setter Property="Background" Value="{DynamicResource DangerBgBrush}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -85,10 +85,10 @@
                                                        HorizontalAlignment="Center">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
-                                                        <Setter Property="Foreground" Value="{StaticResource BrandBrush}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource BrandBrush}" />
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsDeletion}" Value="True">
-                                                                <Setter Property="Foreground" Value="{StaticResource DangerBrush}" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -99,26 +99,26 @@
                                         <StackPanel Margin="10,0,0,0">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="{Binding EntityName}" FontSize="13.5" FontWeight="Bold"
-                                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                                            TextWrapping="Wrap" />
                                                 <TextBlock Text="{Binding When}" FontSize="11.5" Margin="10,0,0,0"
                                                            VerticalAlignment="Center"
-                                                           Foreground="{StaticResource TextMutedBrush}" />
+                                                           Foreground="{DynamicResource TextMutedBrush}" />
                                             </StackPanel>
 
                                             <TextBlock FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap"
-                                                       Foreground="{StaticResource TextPrimaryBrush}">
+                                                       Foreground="{DynamicResource TextPrimaryBrush}">
                                                 <Run Text="السبب:" FontWeight="SemiBold" />
                                                 <Run Text="{Binding Reason, Mode=OneWay}" />
                                             </TextBlock>
 
                                             <TextBlock Text="{Binding Details}" FontSize="11.5" Margin="0,2,0,0"
                                                        TextWrapping="Wrap"
-                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                       Foreground="{DynamicResource TextMutedBrush}"
                                                        Visibility="{Binding HasDetails, Converter={StaticResource BoolToVis}}" />
 
                                             <TextBlock FontSize="11.5" Margin="0,3,0,0"
-                                                       Foreground="{StaticResource TextMutedBrush}">
+                                                       Foreground="{DynamicResource TextMutedBrush}">
                                                 <Run Text="اللي عملها:" />
                                                 <Run Text="{Binding Actor, Mode=OneWay}" FontWeight="SemiBold" />
                                             </TextBlock>

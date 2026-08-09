@@ -16,7 +16,7 @@
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
-            <Border DockPanel.Dock="Top" Background="{StaticResource BrandBrush}"
+            <Border DockPanel.Dock="Top" Background="{DynamicResource BrandBrush}"
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Foreground="White"
@@ -54,9 +54,9 @@
                                TextWrapping="Wrap" />
                 </StackPanel>
 
-                <Border x:Name="ErrorBox" Background="{StaticResource DangerBgBrush}" CornerRadius="7"
+                <Border x:Name="ErrorBox" Background="{DynamicResource DangerBgBrush}" CornerRadius="7"
                         Padding="10,7" Margin="0,0,0,10" Visibility="Collapsed">
-                    <TextBlock x:Name="ErrorText" Foreground="{StaticResource DangerBrush}"
+                    <TextBlock x:Name="ErrorText" Foreground="{DynamicResource DangerBrush}"
                                FontSize="12" TextWrapping="Wrap" />
                 </Border>
 

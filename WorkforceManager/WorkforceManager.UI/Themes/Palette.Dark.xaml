@@ -2,144 +2,196 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-      ============ الثيم الغامق ============
+      ============ الثيم الغامق: أسود ودهبي ============
 
-      **مش عكس الفاتح.** قلب الألوان حرفيًا بيطلع رمادي ميت وحواف
-      قاسية. الغامق هنا اتبنى لوحده: الأسطح كحلي مزرق (مش أسود) عشان
-      الدهبي يدفا عليه، والحبر مش أبيض ناصع (بيبهر في الضلمة) — لبني
-      فاتح.
+      **مفيش كحلي هنا خالص.** النسخة اللي فاتت كانت كحلي مزرق، وده
+      خلّى الشاشة تبان لطعة زرقا باهتة والدهبي عليها بارد. الغامق
+      دلوقتي رمادي محايد صافي (من غير أي ميلان للأزرق) والدهبي هو
+      اللون الوحيد في الشاشة — وده اللي بيخليه يلمع فعلًا.
 
-      **أهم إصلاح هنا: سُلّم الارتفاع.** النسخة اللي فاتت كانت أرضية
-      #0A101A وكارت #121C2A — فرق 8 درجات بس. على شاشة حقيقية ده
-      مبيتشافش، فالكروت كانت بتدوب في الخلفية والصفحة كلها تبان لطعة
-      واحدة. دلوقتي الفرق بقى تقريبًا التلت، والخط الفاصل بقى يتشاف
-      فعلًا فوق سطح الكارت. الكارت لازم يبان إنه *حاجة* مرفوعة، مش
-      مساحة لونها قريب.
+      **سُلّم الأسود ست درجات، وكل درجة بتتشاف.** الخطأ الشائع في
+      الثيم الأسود إن كله أسود، فالكارت والأرضية والحقل بيبقوا حاجة
+      واحدة. الدرجات هنا متباعدة بحيث الحدود بين الطبقات تتقرا من غير
+      خط فاصل أصلًا:
+          #000000  خلفية النافذة والشريط الجانبي
+          #0B0B0C  أرضية الصفحة
+          #141416  الكارت
+          #1D1D20  المرفوع (حقول، شرائح، رؤوس جداول)
+          #2A2A2E  الخط الفاصل
+          #3A3A40  الخط القوي
 
-      والدهبي هنا **أفتح** من الفاتح: #E3C271 بدل #C2A14D. الدهبي
-      الغامق على سطح غامق بيبقى بني باهت. الفكرة إن اللون يفضل *يقرا*
-      دهبي، مش إن الرقم يفضل واحد.
+      **الحبر مش أبيض ناصع.** \u200E#FFFFFF\u200E على أسود بيعمل "هالة" —
+      الحروف بتنزف نور وتتعب العين بعد ساعة. \u200E#EDEDED\u200E بيقرا أبيض
+      وبيريح في شغل 8 ساعات.
 
       نفس المفاتيح بالظبط زي الفاتح — الملف بيتبدّل مكانه في اللحظة.
     -->
 
-    <!-- ════ الأسطح ════
-         سُلّم واضح: أرضية ← كارت ← مرفوع. كل درجة تتشاف بالعين. -->
-    <Color x:Key="GroundColor">#070B12</Color>
+    <!-- ════ الأسطح ════ -->
+    <Color x:Key="GroundColor">#0B0B0C</Color>
     <SolidColorBrush x:Key="GroundBrush" Color="{DynamicResource GroundColor}" />
-    <Color x:Key="SurfaceColor">#131F31</Color>
+    <Color x:Key="SurfaceColor">#141416</Color>
     <SolidColorBrush x:Key="SurfaceBrush" Color="{DynamicResource SurfaceColor}" />
-    <Color x:Key="SurfaceAltColor">#1D2C42</Color>
+    <Color x:Key="SurfaceAltColor">#1D1D20</Color>
     <SolidColorBrush x:Key="SurfaceAltBrush" Color="{DynamicResource SurfaceAltColor}" />
-    <Color x:Key="SurfaceSunkenColor">#0C1420</Color>
+    <Color x:Key="SurfaceSunkenColor">#000000</Color>
     <SolidColorBrush x:Key="SurfaceSunkenBrush" Color="{DynamicResource SurfaceSunkenColor}" />
 
-    <Color x:Key="SidebarColor">#050810</Color>
+    <!-- الشريط الجانبي أسود كامل: هو أعمق طبقة في الشاشة -->
+    <Color x:Key="SidebarColor">#000000</Color>
     <SolidColorBrush x:Key="SidebarBrush" Color="{DynamicResource SidebarColor}" />
-    <Color x:Key="SidebarAltColor">#141F33</Color>
+    <Color x:Key="SidebarAltColor">#1A1A1C</Color>
     <SolidColorBrush x:Key="SidebarAltBrush" Color="{DynamicResource SidebarAltColor}" />
-    <Color x:Key="SidebarInkColor">#CBD5E3</Color>
+    <Color x:Key="SidebarInkColor">#DCDCDC</Color>
     <SolidColorBrush x:Key="SidebarInkBrush" Color="{DynamicResource SidebarInkColor}" />
-    <Color x:Key="SidebarInkSoftColor">#7C8CA3</Color>
+    <Color x:Key="SidebarInkSoftColor">#9A9A9A</Color>
     <SolidColorBrush x:Key="SidebarInkSoftBrush" Color="{DynamicResource SidebarInkSoftColor}" />
 
-    <!-- ════ الحبر ════ -->
-    <!-- مش أبيض ناصع: #FFFFFF على غامق بيبهر العين في الضلمة -->
-    <Color x:Key="InkColor">#E9EFF7</Color>
+    <!-- ════ الحبر ════ رمادي محايد، من غير ميلان لأي لون -->
+    <Color x:Key="InkColor">#EDEDED</Color>
     <SolidColorBrush x:Key="InkBrush" Color="{DynamicResource InkColor}" />
-    <Color x:Key="InkSoftColor">#A3B2C6</Color>
+    <Color x:Key="InkSoftColor">#B4B4B4</Color>
     <SolidColorBrush x:Key="InkSoftBrush" Color="{DynamicResource InkSoftColor}" />
-    <Color x:Key="InkFaintColor">#75879F</Color>
+    <!-- 4.6:1 على الكارت — التلاتة دول لازم كلهم يتقروا، مفيش "لون
+         موجود عشان الشكل" في ثيم بيتشتغل عليه 8 ساعات -->
+    <Color x:Key="InkFaintColor">#8A8A8A</Color>
     <SolidColorBrush x:Key="InkFaintBrush" Color="{DynamicResource InkFaintColor}" />
-    <Color x:Key="InkOnAccentColor">#0B1220</Color>
+    <!-- اللي بيتكتب فوق الدهبي: أسود، أوضح تباين ممكن -->
+    <Color x:Key="InkOnAccentColor">#0B0B0C</Color>
     <SolidColorBrush x:Key="InkOnAccentBrush" Color="{DynamicResource InkOnAccentColor}" />
 
-    <!-- ════ الدهبي ════ -->
-    <Color x:Key="GoldColor">#E3C271</Color>
+    <!-- ════ الدهبي ════
+         أفتح من نسخة الثيم الفاتح: الدهبي الغامق على أسود بيبقى بني
+         باهت. الفكرة إن اللون يفضل *يقرا* دهبي، مش إن الرقم يفضل واحد. -->
+    <Color x:Key="GoldColor">#E8C57A</Color>
     <SolidColorBrush x:Key="GoldBrush" Color="{DynamicResource GoldColor}" />
-    <!-- على الغامق الدهبي واضح أصلاً، فنسخة "الغامق" بتبقى أفتح شوية -->
-    <Color x:Key="GoldDeepColor">#F0D89A</Color>
+    <Color x:Key="GoldDeepColor">#F5E0AA</Color>
     <SolidColorBrush x:Key="GoldDeepBrush" Color="{DynamicResource GoldDeepColor}" />
-    <Color x:Key="GoldTintColor">#251D0E</Color>
+    <!-- خلفية مذهّبة: أسود مدفّي بالدهبي، مش دهبي مخفّف -->
+    <Color x:Key="GoldTintColor">#241D0F</Color>
     <SolidColorBrush x:Key="GoldTintBrush" Color="{DynamicResource GoldTintColor}" />
-    <Color x:Key="GoldLineColor">#57451F</Color>
+    <Color x:Key="GoldLineColor">#5C4A22</Color>
     <SolidColorBrush x:Key="GoldLineBrush" Color="{DynamicResource GoldLineColor}" />
 
     <!-- المعدن: الدهبي المصمت بيبان دهان، والتدرج بيبان معدن -->
     <LinearGradientBrush x:Key="GoldGradientBrush" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#F2DCA4" Offset="0" />
-        <GradientStop Color="#E3C271" Offset="0.5" />
-        <GradientStop Color="#C29B45" Offset="1" />
+        <GradientStop Color="#F5E0AA" Offset="0" />
+        <GradientStop Color="#E8C57A" Offset="0.5" />
+        <GradientStop Color="#C9A04B" Offset="1" />
     </LinearGradientBrush>
 
     <!-- خط شعري بيبدأ ويخلص شفاف — تحت العناوين -->
     <LinearGradientBrush x:Key="GoldHairlineBrush" StartPoint="0,0" EndPoint="1,0">
-        <GradientStop Color="#00E3C271" Offset="0" />
-        <GradientStop Color="#E3C271" Offset="0.15" />
-        <GradientStop Color="#00E3C271" Offset="1" />
+        <GradientStop Color="#00E8C57A" Offset="0" />
+        <GradientStop Color="#E8C57A" Offset="0.15" />
+        <GradientStop Color="#00E8C57A" Offset="1" />
     </LinearGradientBrush>
 
-    <!-- الكحلي العميق للكروت البطلة -->
+    <!-- الكارت البطل: أسود عميق بيلمع عليه الدهبي -->
     <LinearGradientBrush x:Key="InkGradientBrush" StartPoint="0,0" EndPoint="1,1">
-        <GradientStop Color="#1D2C42" Offset="0" />
-        <GradientStop Color="#0C1420" Offset="1" />
+        <GradientStop Color="#1D1D20" Offset="0" />
+        <GradientStop Color="#000000" Offset="1" />
     </LinearGradientBrush>
 
-    <!-- ════ الخطوط الفاصلة ════
-         لازم تتشاف فوق SurfaceColor — القديم كان قريب منه أوي -->
-    <Color x:Key="LineColor">#27384F</Color>
+    <!-- ════ الخطوط الفاصلة ════ لازم تتشاف فوق الكارت -->
+    <Color x:Key="LineColor">#2A2A2E</Color>
     <SolidColorBrush x:Key="LineBrush" Color="{DynamicResource LineColor}" />
-    <Color x:Key="LineStrongColor">#3B5170</Color>
+    <Color x:Key="LineStrongColor">#3A3A40</Color>
     <SolidColorBrush x:Key="LineStrongBrush" Color="{DynamicResource LineStrongColor}" />
 
     <!-- ════ التفاعل ════ -->
-    <Color x:Key="HoverColor">#1D2C42</Color>
+    <Color x:Key="HoverColor">#1D1D20</Color>
     <SolidColorBrush x:Key="HoverBrush" Color="{DynamicResource HoverColor}" />
-    <Color x:Key="PressedColor">#26374F</Color>
+    <Color x:Key="PressedColor">#2A2A2E</Color>
     <SolidColorBrush x:Key="PressedBrush" Color="{DynamicResource PressedColor}" />
-    <Color x:Key="SelectedColor">#2E2413</Color>
+    <!-- المختار مدهّب: في ثيم لونه واحد، الاختيار لازم يبان بالدفا -->
+    <Color x:Key="SelectedColor">#2B2314</Color>
     <SolidColorBrush x:Key="SelectedBrush" Color="{DynamicResource SelectedColor}" />
-    <Color x:Key="FocusRingColor">#E3C271</Color>
+    <Color x:Key="FocusRingColor">#E8C57A</Color>
     <SolidColorBrush x:Key="FocusRingBrush" Color="{DynamicResource FocusRingColor}" />
 
     <!-- ════ ألوان الحالة ════
-         نفس منطق الفاتح: مفيش أخضر ولا أزرق. دهبي = كويس، برونزي =
-         تحذير، طوبي دافي = خطر، كحلي فاتح = معلومة. التفاصيل الكاملة
-         في Palette.Light.xaml. -->
-    <Color x:Key="GoodColor">#E3C271</Color>
+
+         الشاشة دهبي وأسود، فالحالات كلها **درجات من الدهبي** ماشية من
+         الفاتح للمحروق — غير الخطر.
+
+         الخطر لونه طوبي دافي، وهو اللون التاني الوحيد في الثيم كله.
+         السبب مش جمالي: زرار "احذف" لو شكله زي زرار "احفظ" دي مشكلة
+         أمان. والدرجة دي متظبطة لجنب الدهبي مش أحمر إشارة مرور. -->
+    <Color x:Key="GoodColor">#E8C57A</Color>
     <SolidColorBrush x:Key="GoodBrush" Color="{DynamicResource GoodColor}" />
-    <Color x:Key="GoodTintColor">#251D0E</Color>
+    <Color x:Key="GoodTintColor">#241D0F</Color>
     <SolidColorBrush x:Key="GoodTintBrush" Color="{DynamicResource GoodTintColor}" />
 
-    <Color x:Key="WarnColor">#E09A3F</Color>
+    <Color x:Key="WarnColor">#D9A650</Color>
     <SolidColorBrush x:Key="WarnBrush" Color="{DynamicResource WarnColor}" />
-    <Color x:Key="WarnTintColor">#2C1F0C</Color>
+    <Color x:Key="WarnTintColor">#2A2010</Color>
     <SolidColorBrush x:Key="WarnTintBrush" Color="{DynamicResource WarnTintColor}" />
 
-    <Color x:Key="DangerColor">#E08072</Color>
+    <Color x:Key="DangerColor">#E08A6E</Color>
     <SolidColorBrush x:Key="DangerBrush" Color="{DynamicResource DangerColor}" />
-    <Color x:Key="DangerTintColor">#2F1815</Color>
+    <Color x:Key="DangerTintColor">#2C1813</Color>
     <SolidColorBrush x:Key="DangerTintBrush" Color="{DynamicResource DangerTintColor}" />
 
-    <Color x:Key="InfoColor">#9BB0CC</Color>
+    <!-- معلومة = رمادي محايد. لو بقى أزرق يبقى دخل لون تالت الشاشة -->
+    <Color x:Key="InfoColor">#B4B4B4</Color>
     <SolidColorBrush x:Key="InfoBrush" Color="{DynamicResource InfoColor}" />
-    <Color x:Key="InfoTintColor">#16212F</Color>
+    <Color x:Key="InfoTintColor">#1D1D20</Color>
     <SolidColorBrush x:Key="InfoTintBrush" Color="{DynamicResource InfoTintColor}" />
 
     <!-- ════ ألوان الرسوم البيانية ════
-         نفس منطق الفاتح (تبادل دهبي/كحلي) بس كل الدرجات مرفوعة عشان
-         تتقرا على سطح غامق — الكحلي الغامق على كارت كحلي مبيبانش. -->
-    <SolidColorBrush x:Key="Series1Brush" Color="#E3C271" />
-    <SolidColorBrush x:Key="Series2Brush" Color="#8FA5C4" />
-    <SolidColorBrush x:Key="Series3Brush" Color="#F2DCA4" />
-    <SolidColorBrush x:Key="Series4Brush" Color="#5C7EA3" />
-    <SolidColorBrush x:Key="Series5Brush" Color="#C29B45" />
-    <SolidColorBrush x:Key="Series6Brush" Color="#B9C9DC" />
-    <SolidColorBrush x:Key="Series7Brush" Color="#9A7C2E" />
-    <SolidColorBrush x:Key="Series8Brush" Color="#43617F" />
-    <SolidColorBrush x:Key="SeriesOtherBrush" Color="#6E7686" />
+         في ثيم بلون واحد مينفعش تبادل دهبي/كحلي زي الفاتح، فالسلسلة
+         هنا **سُلّم**: بتنزل من الدهبي الفاتح للبرونزي المحروق وبعدين
+         للرمادي. كل درجة وجارتها بينهم مسافة كافية تتشاف في عمود
+         مكدّس، وكلهم فوق حد القراءة على أسود. -->
+    <SolidColorBrush x:Key="Series1Brush" Color="#F5E0AA" />
+    <SolidColorBrush x:Key="Series2Brush" Color="#9A9A9A" />
+    <SolidColorBrush x:Key="Series3Brush" Color="#E8C57A" />
+    <SolidColorBrush x:Key="Series4Brush" Color="#6E6E6E" />
+    <SolidColorBrush x:Key="Series5Brush" Color="#C9A04B" />
+    <SolidColorBrush x:Key="Series6Brush" Color="#CFCFCF" />
+    <SolidColorBrush x:Key="Series7Brush" Color="#9A7530" />
+    <SolidColorBrush x:Key="Series8Brush" Color="#4F4F4F" />
+    <SolidColorBrush x:Key="SeriesOtherBrush" Color="#565656" />
 
-    <!-- ════ الظلال ════ -->
+    <!-- ════ الظلال ════
+         الظل على أسود مبيعملش حاجة — الفصل هنا بالإضاءة مش بالظل -->
     <Color x:Key="ShadowColor">#000000</Color>
+
+    <!-- ════ الأسماء القديمة ════
+
+         الشاشات اللي لسه ماتعادش تصميمها بتشاور على أسماء فُرَش قديمة.
+         الأسماء دي كانت في ملف Compat.xaml لوحده، **وده كان غلط**:
+         الـ SolidColorBrush اللي بيتعرّف في ResourceDictionary بيتجمّد
+         (Freeze)، فالـ DynamicResource اللي جواه بيتحل **مرة واحدة** وقت
+         التحميل وبعدها عمره ما بيتحدّث. يعني الأسماء دي كانت بتتجمّد على
+         ألوان الثيم الفاتح وتفضل كده — وتبديل الثيم عمره ما كان بيوصلها.
+         ده كان السبب الحقيقي إن الوضع الليلي بيطلع نصه فاتح.
+
+         مكانها هنا بيحل المشكلة من جذرها: ملف اللوحة بيتبدّل **بالكامل**
+         عند تغيير الثيم، فالأسماء دي بتتولد من جديد بألوان الثيم الجديد.
+         مفيش تجميد يقدر يمسكها.
+
+         بتتشال مع آخر شاشة تتحوّل للأسماء الجديدة. -->
+    <SolidColorBrush x:Key="BrandBrush" Color="{DynamicResource InkColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource GoldColor}" />
+    <SolidColorBrush x:Key="PageBgBrush" Color="{DynamicResource GroundColor}" />
+    <SolidColorBrush x:Key="CardBgBrush" Color="{DynamicResource SurfaceColor}" />
+    <SolidColorBrush x:Key="CardBorderBrush" Color="{DynamicResource LineColor}" />
+    <SolidColorBrush x:Key="SubtleBgBrush" Color="{DynamicResource SurfaceAltColor}" />
+    <SolidColorBrush x:Key="SoftPanelBgBrush" Color="{DynamicResource SurfaceAltColor}" />
+    <SolidColorBrush x:Key="SoftPanelBorderBrush" Color="{DynamicResource LineColor}" />
+    <SolidColorBrush x:Key="ChipBgBrush" Color="{DynamicResource SurfaceAltColor}" />
+    <SolidColorBrush x:Key="GridLineBrush" Color="{DynamicResource LineColor}" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{DynamicResource InkColor}" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{DynamicResource InkSoftColor}" />
+    <SolidColorBrush x:Key="HoverBgBrush" Color="{DynamicResource HoverColor}" />
+    <SolidColorBrush x:Key="SelectionBgBrush" Color="{DynamicResource SelectedColor}" />
+    <SolidColorBrush x:Key="TextSelectionBrush" Color="{DynamicResource GoldColor}" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="{DynamicResource GoodColor}" />
+    <SolidColorBrush x:Key="SuccessBgBrush" Color="{DynamicResource GoodTintColor}" />
+    <SolidColorBrush x:Key="DangerBgBrush" Color="{DynamicResource DangerTintColor}" />
+    <SolidColorBrush x:Key="DangerBorderBrush" Color="{DynamicResource DangerColor}" />
+    <SolidColorBrush x:Key="WarnBgBrush" Color="{DynamicResource WarnTintColor}" />
 
 </ResourceDictionary>

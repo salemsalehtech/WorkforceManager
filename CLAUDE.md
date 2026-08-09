@@ -274,31 +274,44 @@ Core  <----------------------- UI
   filled). Stage names stay unique per product, and quota edits only affect future entries thanks to the
   snapshot.
   **The design system lives in `Themes/`, not in `App.xaml`.** `Palette.Light.xaml` / `Palette.Dark.xaml`
-  hold the identity (deep navy `#0F1B2D` as ink, gold as accent); `Core.xaml` holds the sizes, the font, and
-  the component styles; `Compat.xaml` re-points every **old** brush name at the new palette so screens that
-  haven't been redesigned yet still match. Compat is temporary — it shrinks as screens migrate and gets
-  deleted with the last one. **Gold is an accent, never body text on white**: `#C2A14D` on white is 2.2:1
+  hold the identity; `Core.xaml` holds the sizes, the font, and the component styles. Each palette also
+  carries the **old brush names** (`BrandBrush`, `CardBgBrush`, `TextPrimaryBrush`…) mapped onto the new
+  tokens, so screens that haven't been redesigned yet still match; that block gets deleted with the last
+  migrated screen. It deliberately does **not** live in a separate `Compat.xaml` any more — see the
+  Freezable trap below. **Gold is an accent, never body text on white**: `#C2A14D` on white is 2.2:1
   contrast where 4.5 is the readable minimum, so gold goes on the logo, the active nav item, hero numbers,
   focus rings and the primary button, and `GoldDeepBrush` (5.9:1) is the only gold allowed as text on a
   light surface. That scarcity is also why it reads as expensive rather than loud.
   **Never declare a brush directly in `Application.Resources`.** WPF resolves direct resources *before*
-  merged dictionaries, so a key defined there silently beats the same key in `Compat.xaml` — which is
-  exactly what happened: 24 old brushes sat directly in `App.xaml`, Compat was dead from the day it was
-  written, and every screen except the redesigned one was still painting itself in the old blue/orange
-  while the theme files looked correct. `AppFont` had the same collision (Tajawal direct vs Segoe UI in
-  Core). The only things allowed to stay direct are the `PrimaryHue*`/`SecondaryHue*` overrides, because
-  beating MaterialDesign's own merged dictionary is the entire point of them — and they now take their
-  colours from the palette via `DynamicResource` rather than literals.
+  merged dictionaries, so a key defined there silently beats the same key in a theme file — which is
+  exactly what happened: 24 old brushes sat directly in `App.xaml`, the compat bridge was dead from the day
+  it was written, and every screen except the redesigned one was still painting itself in the old
+  blue/orange while the theme files looked correct. `AppFont` had the same collision (Tajawal direct vs
+  Segoe UI in Core). The only things allowed to stay direct are the `PrimaryHue*`/`SecondaryHue*`
+  overrides, because beating MaterialDesign's own merged dictionary is the entire point of them — and they
+  now take their colours from the palette via `DynamicResource` rather than literals. `PrimaryHue*` is
+  MaterialDesign's accent (checkbox tick, radio dot, selected calendar day, tab indicator), so it must be
+  **gold**; it was briefly wired to ink, which in the black theme made every checkbox a white square.
+  **A `SolidColorBrush` declared in a `ResourceDictionary` gets frozen, so a `DynamicResource` inside it
+  resolves exactly once and never updates.** This is why the old-name bridge had to move *into* the palette
+  files instead of sitting in its own `Compat.xaml`: those aliases captured the light palette at startup and
+  stayed light forever, so half of dark mode was simply the light theme wearing a dark page. A palette file
+  is swapped wholesale by `ApplyTheme`, so aliases defined inside it are rebuilt against the new colours and
+  the freeze can't bite. Verify with `app.TryFindResource("CardBgBrush")` after a switch, not by eye.
   **There is no green, no blue, and no primary red in the palette.** They were the most saturated things
   on screen, so the least important numbers pulled the eye hardest and the identity broke. The status slots
-  survive but all live in the gold/navy family: `Good` = gold ("yes" in this identity), `Warn` = deeper
-  bronze, `Info` = quiet navy, and `Danger` = a warm brick. Danger is the one deliberate exception — a
-  delete button that looks like a save button is a safety problem, not an aesthetic choice — and it is warm
-  enough to belong beside gold rather than read as a traffic light. The light theme's ground is warm
-  parchment (`#F6F2E9`), not cold blue-grey; that single choice is what makes gold read as the identity
-  instead of a foreign accent. The dark theme's ground→surface step is deliberately wide (`#070B12` →
-  `#131F31`): the previous 8-point gap was invisible on a real monitor and every card dissolved into the
-  page.
+  survive but all live in the gold family: `Good` = gold ("yes" in this identity), `Warn` = deeper bronze,
+  `Info` = neutral, and `Danger` = a warm brick. Danger is the one deliberate exception — a delete button
+  that looks like a save button is a safety problem, not an aesthetic choice — and it is warm enough to
+  belong beside gold rather than read as a traffic light.
+  **The two themes are built independently, not inverted.** Light is navy ink (`#1B2E4A`) on warm parchment
+  (`#F6F2E9`); the warm ground is what makes gold read as the identity rather than a foreign accent, and a
+  cold blue-grey ground made the same gold look like a mistake. Dark is **black and gold with no navy at
+  all** — neutral greys with zero blue cast, because navy surfaces turned the whole screen into a dim blue
+  smear and chilled the gold. Its six-step ladder (`#000000` sidebar → `#0B0B0C` ground → `#141416` card →
+  `#1D1D20` raised → `#2A2A2E` line → `#3A3A40` strong line) is spaced so layers separate without needing a
+  border; an earlier version put ground and card 8 points apart, which is invisible on a real monitor. Ink
+  is `#EDEDED`, never `#FFFFFF` — pure white on black haloes and hurts after an hour.
   **Theme switching is live** (`App.ApplyTheme` swaps the palette dictionary *in place*): every new style
   references colours through `DynamicResource`, so the binding stays alive. `StaticResource` is why it used
   to need a restart — a screen written with it resolves colours once at load. New XAML must use
@@ -317,7 +330,23 @@ Core  <----------------------- UI
   stays live and a theme switch reaches these elements too; a plain `IValueConverter` would return a dead
   brush and silently break live switching. Chart series are `Series1Brush`…`Series8Brush` + `SeriesOtherBrush`,
   defined per theme and **alternating gold/navy** so adjacent stack segments stay distinguishable inside a
-  two-hue identity.
+  two-hue identity (the black theme has no second hue, so it alternates gold against neutral grey instead).
+  **`ApplyTheme` also flips MaterialDesign's own `BaseTheme`** via `PaletteHelper`. The `BundledTheme` in
+  `App.xaml` is pinned to `Light`, and without that call the 22 ComboBoxes, 39 DataGrids and 10 DatePickers
+  kept drawing themselves from the library's light theme on top of a black page — no palette change could
+  ever reach them, because they never read our brushes at all.
+  **A control with no template gets Windows' default chrome, which ignores every palette.** The ComboBoxes
+  carried a style that set only padding and font ("without rebuilding the inner template, to avoid
+  unnecessary risk"), so they kept Aero's white gradient box; `DatePickerTextBox` was worse, because
+  declaring *any* implicit style for it replaces MaterialDesign's entirely and drops it to the bare WPF
+  template. Both now have full templates (`Core.xaml`, and `DatePicker` inherits `MaterialDesignDatePicker`
+  rather than re-implementing a calendar). Inside the ComboBox template the toggle carries `Style="{x:Null}"`
+  — MaterialDesign's implicit `ToggleButton` style renders a *switch*, which painted a light pill inside
+  every dropdown. Prefer `Style="{x:Null}"` over `OverridesDefaultStyle="True"`: the latter also discards
+  stretch alignment, which collapses the button to the size of its arrow.
+  **An implicit `TextBlock` style sets `Foreground`**, because WPF's default is black and dozens of
+  TextBlocks in this app never set one — invisible on a black page, and perfectly fine-looking in the light
+  theme, which is why it went unnoticed for so long.
   All four sidebar screens are implemented. Navigation uses `Checked` (not `Click`) on the sidebar
   radios — handlers guard against the initial `Checked` that fires during `InitializeComponent` before
   `MainContent` exists. `App.xaml` holds the design system: brand brushes (BrandBrush/AccentBrush/
