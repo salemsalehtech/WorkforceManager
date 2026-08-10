@@ -36,6 +36,15 @@ namespace WorkforceManager.Business.DTOs
         /// </summary>
         public int TotalPieces { get; init; }
 
+        /// <summary>
+        /// اشتغل على إيه: كل منتج/مرحلة والقطع اللي عملها فيها.
+        ///
+        /// العامل بيستلم قسيمته وعايز يعرف الرقم جه منين — "13,000
+        /// قطعة" لوحدها مش بتقوله حاجة، لكن "شنطة/قص 8,000 و دبلة/تلميع
+        /// 5,000" بيقدر يراجعها بنفسه.
+        /// </summary>
+        public List<WorkerStageWorkDto> StageBreakdown { get; init; } = new();
+
         /// <summary>إجمالي الحوافز/المكافآت بالجنيه خلال الفترة (تُضاف للأجر)</summary>
         public decimal BonusEgp { get; init; }
 
@@ -53,6 +62,16 @@ namespace WorkforceManager.Business.DTOs
     }
 
     /// <summary>ملخص كشف أجور فترة (كل العمال + الإجماليات)</summary>
+    /// <summary>شغل عامل على مرحلة واحدة في المدة</summary>
+    public class WorkerStageWorkDto
+    {
+        public string ProductName { get; init; } = string.Empty;
+        public string StageName { get; init; } = string.Empty;
+        public int Pieces { get; init; }
+
+        public string Display => $"{ProductName} — {StageName}";
+    }
+
     public class PeriodPayrollDto
     {
         public DateTime From { get; init; }

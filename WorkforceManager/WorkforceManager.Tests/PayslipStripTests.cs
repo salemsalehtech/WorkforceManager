@@ -136,7 +136,42 @@ namespace WorkforceManager.Tests
             Assert.Contains(texts, t => t.Contains("خصم جزاءات"));
             Assert.Contains(texts, t => t.Contains("سلف"));
             Assert.Contains(texts, t => t.Contains("حوافز"));
-            Assert.Contains(texts, t => t.Contains("توقيع الاستلام"));
+        }
+
+        [Fact]
+        public async Task TheSlipSaysWhatHeWorkedOn_ProductAndStage()
+        {
+            // "13,000 قطعة" لوحدها مبتقولش للعامل حاجة — لكن
+            // "شنطة/قص 8,000" يقدر يراجعها بنفسه
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.RingStage1Id, 70);
+
+            var path = Export(await PayrollAsync());
+
+            using var workbook = new XLWorkbook(path);
+            var texts = workbook.Worksheets.First().CellsUsed()
+                .Select(c => c.GetString()).ToList();
+
+            Assert.Contains(texts, t => t.Contains("شنطة") && t.Contains("قص"));
+            Assert.Contains(texts, t => t.Contains("دبلة") && t.Contains("تشكيل"));
+            Assert.Contains(texts, t => t.Contains("إجمالي القطع"));
+        }
+
+        [Fact]
+        public async Task WorkersWithDifferentStageCounts_StillGetSlipsOfTheSameLength()
+        {
+            // أحمد اشتغل على مرحلتين وسعيد على واحدة — لو القسيمتين
+            // بطولين مختلفين، خط القص بيبقى شغل يدوي لكل واحدة
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.RingStage1Id, 70);
+            await RecordAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage2Id, 50);
+
+            var path = Export(await PayrollAsync());
+
+            using var workbook = new XLWorkbook(path);
+            var sheet = workbook.Worksheets.First();
+
+            Assert.Equal(LastUsedRow(sheet, column: 1), LastUsedRow(sheet, column: 4));
         }
 
         [Fact]

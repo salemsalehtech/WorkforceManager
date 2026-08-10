@@ -95,6 +95,20 @@ namespace WorkforceManager.Business.Services
                     IsHourly = workerRef.IsHourly,
                     DailyWageEgp = workerRef.DailyWageEgp,
                     TotalPieces = wp.Sum(p => p.PieceCount),
+
+                    // الأكتر شغلًا الأول: لو المساحة ضاقت، اللي بيتقص
+                    // هو الأقل أهمية للعامل
+                    StageBreakdown = wp
+                        .Where(r => r.ProductionStage?.Product is not null)
+                        .GroupBy(r => r.ProductionStageId)
+                        .Select(g => new WorkerStageWorkDto
+                        {
+                            ProductName = g.First().ProductionStage.Product.Name,
+                            StageName = g.First().ProductionStage.StageName,
+                            Pieces = g.Sum(r => r.PieceCount)
+                        })
+                        .OrderByDescending(s => s.Pieces)
+                        .ToList(),
                     ProducedWorkdays = producedWorkdays,
                     // نفس قاعدة WeeklySummaryService بالحرف: أيام الغياب اللي ليها
                     // جزاء تلقائي بتتخصم من خلال الجزاء، فمبتتعدّش هنا كمان

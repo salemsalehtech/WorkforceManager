@@ -36,6 +36,13 @@ namespace WorkforceManager.Business.Services
         private static readonly XLColor MutedColor = XLColor.FromHtml("#5A6779");
         private static readonly XLColor CutColor = XLColor.FromHtml("#B0B0B0");
 
+        /// <summary>
+        /// أقصى عدد مراحل بتتكتب في القسيمة. اللي بيزيد بيتلمّ في سطر
+        /// "ومراحل تانية" — عامل اشتغل على 12 مرحلة قسيمته هتبقى عمود
+        /// أرقام مش ورقة يقراها.
+        /// </summary>
+        private const int MaxBreakdownLines = 6;
+
         public void Export(
             PeriodPayrollDto payroll, string filePath, ReportExportOptions? options = null)
         {
@@ -50,12 +57,20 @@ namespace WorkforceManager.Business.Services
             // على الاسم في الورق زي ما بتدوّر عليه في أي كشف
             var workers = payroll.Workers.OrderBy(w => w.WorkerName).ToList();
 
+            // **عدد سطور المراحل واحد في كل القسايم.** العامل اللي اشتغل
+            // على مرحلة واحدة بياخد نفس المساحة بتاعة اللي اشتغل على
+            // أربعة، والناقص بيفضل فاضي — وده اللي بيخلي خط القص مستقيم
+            // واحد. من غيره كل قسيمة بطول مختلف والمقص شغل يدوي.
+            var breakdownLines = Math.Min(
+                MaxBreakdownLines,
+                Math.Max(1, workers.Max(w => w.StageBreakdown.Count)));
+
             var pages = (int)Math.Ceiling(workers.Count / (double)SlipsPerPage);
 
             for (var page = 0; page < pages; page++)
             {
                 var slice = workers.Skip(page * SlipsPerPage).Take(SlipsPerPage).ToList();
-                WritePage(workbook, slice, payroll, options, page + 1, pages);
+                WritePage(workbook, slice, payroll, options, page + 1, pages, breakdownLines);
             }
 
             workbook.SaveAs(filePath);
@@ -67,7 +82,8 @@ namespace WorkforceManager.Business.Services
             PeriodPayrollDto payroll,
             ReportExportOptions options,
             int pageNumber,
-            int pageCount)
+            int pageCount,
+            int breakdownLines)
         {
             var sheet = workbook.Worksheets.Add(
                 pageCount == 1 ? "قسايم الأجر" : $"قسايم {pageNumber}");
@@ -85,15 +101,17 @@ namespace WorkforceManager.Business.Services
                     sheet.Column(first + 2).Width = GapWidth;
             }
 
+            var lastRow = LastRow(breakdownLines);
+
             for (var slot = 0; slot < workers.Count; slot++)
-                WriteSlip(sheet, workers[slot], payroll, options, slot);
+                WriteSlip(sheet, workers[slot], payroll, options, slot, breakdownLines, lastRow);
 
             // الفواصل بين القسايم = خطوط القص. منقّطة عشان تبان إنها
             // خط قص مش حد جدول
             for (var slot = 0; slot < SlipsPerPage - 1; slot++)
             {
                 var gap = SlotFirstColumn(slot) + 2;
-                sheet.Range(1, gap, LastRow, gap).Style
+                sheet.Range(1, gap, lastRow, gap).Style
                     .Border.SetLeftBorder(XLBorderStyleValues.Dashed)
                     .Border.SetLeftBorderColor(CutColor);
             }
@@ -111,15 +129,20 @@ namespace WorkforceManager.Business.Services
         /// <summary>أول عمود للقسيمة رقم كذا (عمودين + فاصل)</summary>
         private static int SlotFirstColumn(int slot) => slot * 3 + 1;
 
-        /// <summary>آخر سطر في القسيمة — ثابت عشان خط القص يفضل مستقيم</summary>
-        private const int LastRow = 24;
+        /// <summary>
+        /// آخر سطر في القسيمة. بيتحسب من عدد سطور المراحل عشان القسايم
+        /// كلها تنتهي عند نفس السطر — ده شرط خط القص المستقيم.
+        /// </summary>
+        private static int LastRow(int breakdownLines) => 18 + breakdownLines;
 
         private void WriteSlip(
             IXLWorksheet sheet,
             WorkerPayrollDto worker,
             PeriodPayrollDto payroll,
             ReportExportOptions options,
-            int slot)
+            int slot,
+            int breakdownLines,
+            int lastRow)
         {
             var col = SlotFirstColumn(slot);
             var value = col + 1;
@@ -167,8 +190,13 @@ namespace WorkforceManager.Business.Services
             row = Section(sheet, col, row, "الشغل");
             row = Line(sheet, col, value, row, "سعر اليومية", Money(worker.DailyWageEgp));
             row = Line(sheet, col, value, row, "يوميات منتجة", Number(worker.ProducedWorkdays));
-            row = Line(sheet, col, value, row, "عدد القطع", Number(worker.TotalPieces));
             row = Line(sheet, col, value, row, "أيام فيها شغل", Number(worker.DaysWorked));
+            row++;
+
+            // ---------- اشتغل على إيه ----------
+            row = Section(sheet, col, row, "اشتغل على");
+            row = WriteBreakdown(sheet, col, value, row, worker, breakdownLines);
+            row = Line(sheet, col, value, row, "إجمالي القطع", Number(worker.TotalPieces), bold: true);
             row++;
 
             // ---------- الخصومات ----------
@@ -198,20 +226,45 @@ namespace WorkforceManager.Business.Services
                 .Border.SetBottomBorder(XLBorderStyleValues.Medium)
                 .Alignment.SetVertical(XLAlignmentVerticalValues.Center);
             sheet.Row(row).Height = 28;
-            row += 2;
-
-            // ---------- التوقيع ----------
-            sheet.Range(row, col, row, value).Merge();
-            sheet.Cell(row, col).Value = "توقيع الاستلام";
-            sheet.Cell(row, col).Style
-                .Font.SetFontSize(9).Font.SetFontColor(MutedColor)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
-                .Border.SetBottomBorder(XLBorderStyleValues.Thin);
-            sheet.Row(row).Height = 30;
 
             // إطار القسيمة كلها — بيوضّح حدود الورقة اللي هتتقص
-            sheet.Range(1, col, LastRow, value).Style
+            sheet.Range(1, col, lastRow, value).Style
                 .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+        }
+
+        /// <summary>
+        /// المنتج والمرحلة والقطع لكل حتة اشتغل فيها.
+        ///
+        /// بيكتب **نفس عدد السطور** دايمًا: الناقص بيتساب فاضي عشان خط
+        /// القص يفضل مستقيم، والزيادة بتتلمّ في سطر واحد بدل ما القسيمة
+        /// تطول وتكسر الصفحة.
+        /// </summary>
+        private static int WriteBreakdown(
+            IXLWorksheet sheet, int col, int valueCol, int row,
+            WorkerPayrollDto worker, int lines)
+        {
+            var shown = worker.StageBreakdown.Take(lines).ToList();
+            var hidden = worker.StageBreakdown.Count - shown.Count;
+
+            // آخر سطر متاح بيروح لـ"ومراحل تانية" لو فيه مراحل مخفية،
+            // عشان الرقم الناقص ميضيعش من غير ما العامل ياخد باله
+            var listed = hidden > 0 ? shown.Take(lines - 1).ToList() : shown;
+
+            foreach (var stage in listed)
+                row = Line(sheet, col, valueCol, row, stage.Display, Number(stage.Pieces));
+
+            if (hidden > 0)
+            {
+                var rest = worker.StageBreakdown.Skip(listed.Count).Sum(s => s.Pieces);
+                row = Line(sheet, col, valueCol,
+                    row, $"و{worker.StageBreakdown.Count - listed.Count} مراحل تانية", Number(rest));
+            }
+
+            // السطور الفاضية بتحجز مكانها عشان القسايم تفضل بنفس الطول
+            for (var i = listed.Count + (hidden > 0 ? 1 : 0); i < lines; i++)
+                row = Line(sheet, col, valueCol, row, "", "");
+
+            return row;
         }
 
         /// <summary>عنوان قسم صغير جوه القسيمة</summary>
