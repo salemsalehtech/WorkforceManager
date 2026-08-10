@@ -53,19 +53,201 @@ namespace WorkforceManager.Business.Services
 
         public async Task<ReportTable> BuildAsync(ReportSpec spec)
         {
-            var table = spec.Subject switch
+            var table = await BuildTableAsync(spec);
+
+            if (spec.CompareWithPrevious && ReportSpec.UsesPeriod(spec.Subject))
+                await AddPreviousPeriodAsync(table, spec);
+
+            // الترتيب قبل التخطيط عشان ينفع بعمود مخفي، والاتنين قبل
+            // الإجماليات عشان الإجمالي يطلع على الأعمدة والصفوف
+            // المعروضة فعلاً
+            return table
+                .ApplySort(spec.SortKey, spec.SortDescending, spec.TopN)
+                .ApplyLayout(spec.ColumnLayout)
+                .WithTotals();
+        }
+
+        /// <summary>
+        /// بيزوّد لكل عمود رقمي عمودين: نفس الرقم في المدة اللي قبلها،
+        /// ونسبة الفرق.
+        ///
+        /// **الصفوف بتتطابق بالاسم.** العامل اللي اشتغل الشهر ده ومكانش
+        /// موجود الشهر اللي فات بياخد فاضي في عمود "السابق" مش صفر —
+        /// الفرق بينهم إن الصفر بيقول "اشتغل وطلّع صفر" والفاضي بيقول
+        /// "مكانش في الصورة أصلاً"، ونسبة التغير من صفر مالهاش معنى.
+        ///
+        /// المدة السابقة بنفس الطول بالظبط (<see cref="ReportSpec.PreviousPeriod"/>)
+        /// عشان المقارنة تفضل عادلة مهما كانت المدة المختارة، ومن غير
+        /// أي فلتر يتغيّر — نفس العمال ونفس المنتجات.
+        /// </summary>
+        private async Task AddPreviousPeriodAsync(ReportTable table, ReportSpec spec)
+        {
+            var (from, to) = spec.PreviousPeriod();
+
+            var previous = await BuildTableAsync(new ReportSpec
             {
-                ReportSubject.Production => await ProductionAsync(spec),
-                ReportSubject.Attendance => await AttendanceAsync(spec),
-                ReportSubject.Wages => await WagesAsync(spec),
-                ReportSubject.Penalties => await PenaltiesAsync(spec),
-                ReportSubject.WageAdjustments => await AdjustmentsAsync(spec),
-                ReportSubject.Skills => await SkillsAsync(spec),
-                _ => throw new InvalidOperationException("موضوع تقرير غير معروف")
+                Subject = spec.Subject,
+                GroupBy = spec.GroupBy,
+                From = from,
+                To = to,
+                WorkerIds = spec.WorkerIds,
+                ProductIds = spec.ProductIds,
+                StageIds = spec.StageIds,
+                WorkerKind = spec.WorkerKind
+                // من غير ColumnLayout/Sort/TopN: دي شكل العرض، والمقارنة
+                // محتاجة الأرقام الخام بترتيب الأعمدة الأصلي
+            });
+
+            var previousByLabel = previous.Rows
+                .GroupBy(r => r.Label)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var numeric = table.Columns
+                .Select((column, index) => (column, index))
+                .Where(x => x.column.Kind != ReportValueKind.Text)
+                .ToList();
+
+            var additions = new List<ReportColumn>();
+
+            foreach (var (column, _) in numeric)
+            {
+                additions.Add(new ReportColumn
+                {
+                    Key = column.Key + PreviousSuffix,
+                    Header = column.Header + " (السابق)",
+                    Kind = column.Kind,
+                    Sums = column.Sums
+                });
+
+                additions.Add(new ReportColumn
+                {
+                    Key = column.Key + ChangeSuffix,
+                    Header = column.Header + " (التغير %)",
+                    Kind = ReportValueKind.Fraction
+                    // مجموع النِسَب رقم مالوش معنى — مبيتجمعش
+                });
+            }
+
+            foreach (var row in table.Rows)
+            {
+                previousByLabel.TryGetValue(row.Label, out var before);
+
+                foreach (var (_, index) in numeric)
+                {
+                    var now = index < row.Values.Count ? row.Values[index] : null;
+                    var then = before is not null && index < before.Values.Count
+                        ? before.Values[index]
+                        : null;
+
+                    row.Values.Add(then);
+                    row.Values.Add(PercentChange(now, then));
+                }
+            }
+
+            table.Columns.AddRange(additions);
+        }
+
+        private const string PreviousSuffix = "__prev";
+        private const string ChangeSuffix = "__delta";
+
+        /// <summary>
+        /// نسبة التغير. بترجع فاضية لو المدة السابقة مفيهاش رقم أصلاً
+        /// أو كانت صفر — القسمة على صفر مالهاش ناتج، و"زيادة ∞%" مش رقم
+        /// المدير يقدر يقرا منه حاجة.
+        /// </summary>
+        private static decimal? PercentChange(decimal? now, decimal? then)
+        {
+            if (then is null or 0 || now is null) return null;
+
+            return Math.Round((now.Value - then.Value) / Math.Abs(then.Value) * 100m, 1);
+        }
+
+        /// <summary>
+        /// أعمدة الموضوع بترتيبها الافتراضي — من غير أي بيانات.
+        ///
+        /// الشاشة محتاجة تعرف الأعمدة المتاحة عشان تبني محرّر الأعمدة
+        /// **قبل** ما المستخدم يطلع التقرير، ومن غير ما تستنى استعلام.
+        /// المصدر هنا هو نفس الجداول اللي البناء بيستخدمها، فمفيش
+        /// قايمة تانية تتنسى تتحدّث لما عمود يتزوّد.
+        /// </summary>
+        public static IReadOnlyList<ReportColumn> ColumnsFor(ReportSubject subject, ReportGrouping grouping) =>
+            subject switch
+            {
+                ReportSubject.Production => new[]
+                {
+                    new ReportColumn { Header = "القطع", Key = "pieces", Kind = ReportValueKind.Whole, Sums = true },
+                    new ReportColumn { Header = "اليوميات", Key = "workdays", Kind = ReportValueKind.Fraction, Sums = true },
+                    new ReportColumn { Header = "عدد العمال", Key = "workers", Kind = ReportValueKind.Whole },
+                    new ReportColumn { Header = "أيام فيها شغل", Key = "workdays_with_work", Kind = ReportValueKind.Whole }
+                },
+
+                ReportSubject.Attendance => new[]
+                {
+                    new ReportColumn { Header = "حضور", Key = "present", Kind = ReportValueKind.Whole, Sums = true },
+                    new ReportColumn { Header = "غياب بإذن", Key = "absent_excused", Kind = ReportValueKind.Whole, Sums = true },
+                    new ReportColumn { Header = "غياب بدون إذن", Key = "absent_unexcused", Kind = ReportValueKind.Whole, Sums = true },
+                    new ReportColumn { Header = "خصم الغياب (يومية)", Key = "absence_deduction", Kind = ReportValueKind.Fraction, Sums = true }
+                },
+
+                ReportSubject.Wages => new[]
+                {
+                    new ReportColumn { Header = "يوميات منتجة", Key = "produced_workdays", Kind = ReportValueKind.Fraction, Sums = true },
+                    new ReportColumn { Header = "خصم غياب", Key = "absence_deduction", Kind = ReportValueKind.Fraction, Sums = true },
+                    new ReportColumn { Header = "خصم جزاءات", Key = "penalty_deduction", Kind = ReportValueKind.Fraction, Sums = true },
+                    new ReportColumn { Header = "صافي اليوميات", Key = "net_workdays", Kind = ReportValueKind.Fraction, Sums = true },
+                    new ReportColumn { Header = "حوافز", Key = "bonus", Kind = ReportValueKind.Money, Sums = true },
+                    new ReportColumn { Header = "سلف", Key = "advance", Kind = ReportValueKind.Money, Sums = true },
+                    new ReportColumn { Header = "الأجر النهائي", Key = "net_wage", Kind = ReportValueKind.Money, Sums = true }
+                },
+
+                ReportSubject.Penalties => new[]
+                {
+                    new ReportColumn { Header = "عدد الجزاءات", Key = "penalty_count", Kind = ReportValueKind.Whole, Sums = true },
+                    new ReportColumn { Header = "إجمالي الخصم (يومية)", Key = "penalty_total", Kind = ReportValueKind.Fraction, Sums = true },
+                    new ReportColumn { Header = "منها تلقائي (غياب)", Key = "penalty_auto", Kind = ReportValueKind.Whole, Sums = true }
+                },
+
+                ReportSubject.WageAdjustments => new[]
+                {
+                    new ReportColumn { Header = "سلف", Key = "advance", Kind = ReportValueKind.Money, Sums = true },
+                    new ReportColumn { Header = "حوافز", Key = "bonus", Kind = ReportValueKind.Money, Sums = true },
+                    new ReportColumn { Header = "الصافي", Key = "net", Kind = ReportValueKind.Money, Sums = true }
+                },
+
+                // المهارات بتغيّر معنى عمودين حسب التجميع: بالعامل
+                // السؤال "بيعرف كام مرحلة"، وبالمنتج/المرحلة السؤال
+                // المعكوس "المرحلة دي عندها كام عامل" — وده اللي بيمنع
+                // مرحلة تقف من غير ما حد ياخد باله
+                ReportSubject.Skills => grouping == ReportGrouping.Worker
+                    ? new[]
+                    {
+                        new ReportColumn { Header = "عدد المهارات", Key = "skill_count", Kind = ReportValueKind.Whole, Sums = true },
+                        new ReportColumn { Header = "متوسط النجوم", Key = "avg_stars", Kind = ReportValueKind.Fraction },
+                        new ReportColumn { Header = "منتجات بيعرفها", Key = "known_products", Kind = ReportValueKind.Whole }
+                    }
+                    : new[]
+                    {
+                        new ReportColumn { Header = "عمال مؤهلين", Key = "qualified_workers", Kind = ReportValueKind.Whole, Sums = true },
+                        new ReportColumn { Header = "متوسط النجوم", Key = "avg_stars", Kind = ReportValueKind.Fraction },
+                        new ReportColumn { Header = "عدد المراحل", Key = "stage_count", Kind = ReportValueKind.Whole, Sums = true }
+                    },
+
+                _ => Array.Empty<ReportColumn>()
             };
 
-            return table.WithTotals();
-        }
+        public IReadOnlyList<ReportColumn> AvailableColumns(ReportSubject subject, ReportGrouping grouping) =>
+            ColumnsFor(subject, grouping);
+
+        private async Task<ReportTable> BuildTableAsync(ReportSpec spec) => spec.Subject switch
+        {
+            ReportSubject.Production => await ProductionAsync(spec),
+            ReportSubject.Attendance => await AttendanceAsync(spec),
+            ReportSubject.Wages => await WagesAsync(spec),
+            ReportSubject.Penalties => await PenaltiesAsync(spec),
+            ReportSubject.WageAdjustments => await AdjustmentsAsync(spec),
+            ReportSubject.Skills => await SkillsAsync(spec),
+            _ => throw new InvalidOperationException("موضوع تقرير غير معروف")
+        };
 
         // ======================= الإنتاج =======================
 
@@ -108,13 +290,7 @@ namespace WorkforceManager.Business.Services
                 .OrderBy(g => g.Key.Order).ThenBy(g => g.Key.Label)
                 .ToList();
 
-            var table = NewTable(spec, new[]
-            {
-                new ReportColumn { Header = "القطع", Kind = ReportValueKind.Whole, Sums = true },
-                new ReportColumn { Header = "اليوميات", Kind = ReportValueKind.Fraction, Sums = true },
-                new ReportColumn { Header = "عدد العمال", Kind = ReportValueKind.Whole },
-                new ReportColumn { Header = "أيام فيها شغل", Kind = ReportValueKind.Whole }
-            });
+            var table = NewTable(spec, ColumnsFor(spec.Subject, spec.GroupBy));
 
             foreach (var g in groups)
                 table.Rows.Add(new ReportRow
@@ -154,13 +330,7 @@ namespace WorkforceManager.Business.Services
                 .OrderBy(g => g.Key.Order).ThenBy(g => g.Key.Label)
                 .ToList();
 
-            var table = NewTable(spec, new[]
-            {
-                new ReportColumn { Header = "حضور", Kind = ReportValueKind.Whole, Sums = true },
-                new ReportColumn { Header = "غياب بإذن", Kind = ReportValueKind.Whole, Sums = true },
-                new ReportColumn { Header = "غياب بدون إذن", Kind = ReportValueKind.Whole, Sums = true },
-                new ReportColumn { Header = "خصم الغياب (يومية)", Kind = ReportValueKind.Fraction, Sums = true }
-            });
+            var table = NewTable(spec, ColumnsFor(spec.Subject, spec.GroupBy));
 
             foreach (var g in groups)
             {
@@ -187,16 +357,7 @@ namespace WorkforceManager.Business.Services
 
         private async Task<ReportTable> WagesAsync(ReportSpec spec)
         {
-            var table = NewTable(spec, new[]
-            {
-                new ReportColumn { Header = "يوميات منتجة", Kind = ReportValueKind.Fraction, Sums = true },
-                new ReportColumn { Header = "خصم غياب", Kind = ReportValueKind.Fraction, Sums = true },
-                new ReportColumn { Header = "خصم جزاءات", Kind = ReportValueKind.Fraction, Sums = true },
-                new ReportColumn { Header = "صافي اليوميات", Kind = ReportValueKind.Fraction, Sums = true },
-                new ReportColumn { Header = "حوافز", Kind = ReportValueKind.Money, Sums = true },
-                new ReportColumn { Header = "سلف", Kind = ReportValueKind.Money, Sums = true },
-                new ReportColumn { Header = "الأجر النهائي", Kind = ReportValueKind.Money, Sums = true }
-            });
+            var table = NewTable(spec, ColumnsFor(spec.Subject, spec.GroupBy));
 
             var allowed = await AllowedWorkerIdsAsync(spec);
 
@@ -272,12 +433,7 @@ namespace WorkforceManager.Business.Services
                 .ThenBy(g => g.Key.Label)
                 .ToList();
 
-            var table = NewTable(spec, new[]
-            {
-                new ReportColumn { Header = "عدد الجزاءات", Kind = ReportValueKind.Whole, Sums = true },
-                new ReportColumn { Header = "إجمالي الخصم (يومية)", Kind = ReportValueKind.Fraction, Sums = true },
-                new ReportColumn { Header = "منها تلقائي (غياب)", Kind = ReportValueKind.Whole, Sums = true }
-            });
+            var table = NewTable(spec, ColumnsFor(spec.Subject, spec.GroupBy));
 
             foreach (var g in groups)
                 table.Rows.Add(new ReportRow
@@ -314,12 +470,7 @@ namespace WorkforceManager.Business.Services
                 .OrderBy(g => g.Key.Order).ThenBy(g => g.Key.Label)
                 .ToList();
 
-            var table = NewTable(spec, new[]
-            {
-                new ReportColumn { Header = "سلف", Kind = ReportValueKind.Money, Sums = true },
-                new ReportColumn { Header = "حوافز", Kind = ReportValueKind.Money, Sums = true },
-                new ReportColumn { Header = "الصافي", Kind = ReportValueKind.Money, Sums = true }
-            });
+            var table = NewTable(spec, ColumnsFor(spec.Subject, spec.GroupBy));
 
             foreach (var g in groups)
             {
@@ -345,12 +496,7 @@ namespace WorkforceManager.Business.Services
                 .Where(w => Matches(w, spec))
                 .ToList();
 
-            var table = NewTable(spec, new[]
-            {
-                new ReportColumn { Header = "عدد المهارات", Kind = ReportValueKind.Whole, Sums = true },
-                new ReportColumn { Header = "متوسط النجوم", Kind = ReportValueKind.Fraction },
-                new ReportColumn { Header = "منتجات بيعرفها", Kind = ReportValueKind.Whole }
-            });
+            var table = NewTable(spec, ColumnsFor(spec.Subject, spec.GroupBy));
 
             if (spec.GroupBy == ReportGrouping.Worker)
             {
@@ -379,10 +525,8 @@ namespace WorkforceManager.Business.Services
 
             var byStage = skills.ToLookup(s => s.ProductionStageId);
 
-            table.Columns[0] = new ReportColumn
-            { Header = "عمال مؤهلين", Kind = ReportValueKind.Whole, Sums = true };
-            table.Columns[2] = new ReportColumn
-            { Header = "عدد المراحل", Kind = ReportValueKind.Whole, Sums = true };
+            // الأعمدة هنا جايه صح من ColumnsFor حسب التجميع — مفيش
+            // تعديل عليها بعد البناء
 
             foreach (var product in products.OrderBy(p => p.Name))
             {

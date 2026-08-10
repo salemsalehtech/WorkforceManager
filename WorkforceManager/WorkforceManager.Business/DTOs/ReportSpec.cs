@@ -72,6 +72,25 @@ namespace WorkforceManager.Business.DTOs
         /// </summary>
         public bool CompareWithPrevious { get; init; }
 
+        // ------- شكل الجدول -------
+
+        /// <summary>
+        /// أعمدة المستخدم: مين يظهر، بأي ترتيب، وباسم إيه.
+        /// null = الأعمدة الافتراضية للموضوع كلها بترتيبها.
+        /// </summary>
+        public IReadOnlyList<ReportColumnChoice>? ColumnLayout { get; init; }
+
+        /// <summary>
+        /// مفتاح العمود اللي بيترتب بيه (<see cref="ReportTable.LabelColumnKey"/>
+        /// للاسم). null = الترتيب الطبيعي للموضوع.
+        /// </summary>
+        public string? SortKey { get; init; }
+
+        public bool SortDescending { get; init; } = true;
+
+        /// <summary>أعلى/أقل N صف بس. null = كل الصفوف.</summary>
+        public int? TopN { get; init; }
+
         /// <summary>المدة اللي قبل المختارة بنفس طولها بالظبط</summary>
         public (DateTime From, DateTime To) PreviousPeriod()
         {

@@ -287,6 +287,239 @@ namespace WorkforceManager.Tests
             Assert.NotEmpty(table.Rows);
         }
 
+        // ======================= شكل الجدول: أعمدة وترتيب =======================
+
+        private static ReportSpec ProductionSpec(
+            ReportGrouping groupBy = ReportGrouping.Worker,
+            IReadOnlyList<ReportColumnChoice>? columns = null,
+            string? sortKey = null,
+            bool descending = true,
+            int? topN = null) => new()
+            {
+                Subject = ReportSubject.Production,
+                GroupBy = groupBy,
+                From = Day,
+                To = Day,
+                ColumnLayout = columns,
+                SortKey = sortKey,
+                SortDescending = descending,
+                TopN = topN
+            };
+
+        [Fact]
+        public async Task HidingAColumn_RemovesItAndItsNumbers_NotJustTheHeader()
+        {
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+
+            var table = await BuildAsync(ProductionSpec(columns: new[]
+            {
+                new ReportColumnChoice { Key = "pieces" },
+                new ReportColumnChoice { Key = "workdays", Visible = false },
+                new ReportColumnChoice { Key = "workers" },
+                new ReportColumnChoice { Key = "workdays_with_work", Visible = false }
+            }));
+
+            Assert.Equal(new[] { "pieces", "workers" }, table.Columns.Select(c => c.Key));
+
+            // العدد لازم يطابق عدد الأعمدة — صف فيه قيم زيادة معناه
+            // الأرقام اتزحلقت تحت أعمدة غلط
+            Assert.All(table.Rows, r => Assert.Equal(table.Columns.Count, r.Values.Count));
+            Assert.Equal(100, table.Rows[0].Values[0]);
+        }
+
+        [Fact]
+        public async Task ReorderingColumns_MovesTheValuesWithThem()
+        {
+            // 100 قطعة = 10 يوميات (الكوتة 10) — رقمين مختلفين عشان
+            // لو اتبدلوا الاختبار يقع
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+
+            // محرّر الأعمدة بيبعت القايمة كاملة بترتيبها، فالاختبار
+            // بيعمل زيه
+            var table = await BuildAsync(ProductionSpec(columns: new[]
+            {
+                new ReportColumnChoice { Key = "workdays" },
+                new ReportColumnChoice { Key = "pieces" },
+                new ReportColumnChoice { Key = "workers" },
+                new ReportColumnChoice { Key = "workdays_with_work" }
+            }));
+
+            Assert.Equal(
+                new[] { "workdays", "pieces", "workers", "workdays_with_work" },
+                table.Columns.Select(c => c.Key));
+
+            Assert.Equal(10, table.Rows[0].Values[0]);   // اليوميات
+            Assert.Equal(100, table.Rows[0].Values[1]);  // القطع
+        }
+
+        [Fact]
+        public async Task RenamingAColumn_KeepsItsKeyAndItsNumbers()
+        {
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+
+            var table = await BuildAsync(ProductionSpec(columns: new[]
+            {
+                new ReportColumnChoice { Key = "pieces", Header = "الإنتاج التام" }
+            }));
+
+            var column = table.Columns.Single(c => c.Key == "pieces");
+            Assert.Equal("الإنتاج التام", column.Header);
+            Assert.Equal(100, table.Rows[0].Values[0]);
+        }
+
+        [Fact]
+        public async Task AColumnTheLayoutNeverMentions_StaysVisible()
+        {
+            // قالب اتحفظ زمان وبعدين اتزوّد عمود جديد — مينفعش يختفي
+            // من غير ما حد ياخد باله
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+
+            var table = await BuildAsync(ProductionSpec(columns: new[]
+            {
+                new ReportColumnChoice { Key = "pieces" }
+            }));
+
+            Assert.Contains(table.Columns, c => c.Key == "workdays");
+        }
+
+        [Fact]
+        public async Task SortingByAColumn_OrdersTheRowsByIt()
+        {
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 30);
+            await RecordAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage2Id, 90);
+
+            var table = await BuildAsync(ProductionSpec(sortKey: "pieces", descending: true));
+
+            Assert.Equal("سعيد", table.Rows[0].Label);
+            Assert.Equal("أحمد", table.Rows[1].Label);
+        }
+
+        [Fact]
+        public async Task TopN_KeepsTheBestRows_AndTheTotalMatchesWhatIsShown()
+        {
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 30);
+            await RecordAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage2Id, 90);
+
+            var table = await BuildAsync(ProductionSpec(sortKey: "pieces", descending: true, topN: 1));
+
+            var row = Assert.Single(table.Rows);
+            Assert.Equal("سعيد", row.Label);
+
+            // الإجمالي تحت صف واحد لازم يساوي الصف ده — مش جمع الاتنين.
+            // إجمالي بيقول 120 تحت صف بـ90 رقم بيكدّب نفسه.
+            Assert.Equal(90, table.Totals!.Values[0]);
+        }
+
+        [Fact]
+        public async Task SortingByAHiddenColumn_StillWorks()
+        {
+            // "رتّب بالأجر بس متعرضهوش" — الترتيب بيتنفّذ قبل الإخفاء
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 30);
+            await RecordAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage2Id, 90);
+
+            var table = await BuildAsync(ProductionSpec(
+                columns: new[]
+                {
+                    new ReportColumnChoice { Key = "pieces", Visible = false },
+                    new ReportColumnChoice { Key = "workdays" }
+                },
+                sortKey: "pieces"));
+
+            Assert.DoesNotContain(table.Columns, c => c.Key == "pieces");
+            Assert.Equal("سعيد", table.Rows[0].Label);
+        }
+
+        [Fact]
+        public async Task ALayoutPointingAtColumnsThatNoLongerExist_IsIgnoredNotFatal()
+        {
+            // قالب قديم لموضوع أعمدته اتغيّرت — يفضل يفتح
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+
+            var table = await BuildAsync(ProductionSpec(
+                columns: new[] { new ReportColumnChoice { Key = "عمود_مش_موجود" } },
+                sortKey: "كمان_مش_موجود"));
+
+            Assert.NotEmpty(table.Columns);
+            Assert.NotEmpty(table.Rows);
+        }
+
+        [Fact]
+        public void EveryColumnInEveryReport_HasAKey_AndNoSubjectRepeatsOne()
+        {
+            // المفاتيح هي اللي القوالب بتشاور بيها؛ مفتاح مكرر في نفس
+            // الموضوع معناه الإخفاء هيضرب العمود الغلط
+            foreach (var subject in Enum.GetValues<ReportSubject>())
+                foreach (var grouping in Enum.GetValues<ReportGrouping>())
+                {
+                    var columns = ReportBuilderService.ColumnsFor(subject, grouping);
+
+                    Assert.All(columns, c => Assert.False(string.IsNullOrWhiteSpace(c.Key)));
+                    Assert.Equal(columns.Count, columns.Select(c => c.Key).Distinct().Count());
+                }
+        }
+
+        // ======================= المقارنة بالمدة السابقة =======================
+
+        [Fact]
+        public async Task ComparingWithThePreviousPeriod_AddsThePreviousNumberAndThePercentChange()
+        {
+            // المدة المختارة يوم واحد، فالسابقة هي اليوم اللي قبله
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 50, Day.AddDays(-1));
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 75, Day);
+
+            var table = await BuildAsync(new ReportSpec
+            {
+                Subject = ReportSubject.Production,
+                GroupBy = ReportGrouping.Worker,
+                From = Day,
+                To = Day,
+                CompareWithPrevious = true
+            });
+
+            var row = Assert.Single(table.Rows);
+            var pieces = table.Columns.FindIndex(c => c.Key == "pieces");
+            var before = table.Columns.FindIndex(c => c.Key == "pieces__prev");
+            var change = table.Columns.FindIndex(c => c.Key == "pieces__delta");
+
+            Assert.Equal(75, row.Values[pieces]);
+            Assert.Equal(50, row.Values[before]);
+            Assert.Equal(50m, row.Values[change]); // من 50 لـ75 = +50%
+        }
+
+        [Fact]
+        public async Task AGroupThatDidNotExistBefore_GetsAnEmptyPrevious_NotAZero()
+        {
+            // الفرق مهم: صفر معناه "اشتغل وطلّع صفر"، والفاضي معناه
+            // "مكانش في الصورة" — ونسبة التغير من صفر مالهاش معنى
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 40, Day);
+
+            var table = await BuildAsync(new ReportSpec
+            {
+                Subject = ReportSubject.Production,
+                GroupBy = ReportGrouping.Worker,
+                From = Day,
+                To = Day,
+                CompareWithPrevious = true
+            });
+
+            var row = Assert.Single(table.Rows);
+            var before = table.Columns.FindIndex(c => c.Key == "pieces__prev");
+            var change = table.Columns.FindIndex(c => c.Key == "pieces__delta");
+
+            Assert.Null(row.Values[before]);
+            Assert.Null(row.Values[change]);
+        }
+
+        [Fact]
+        public async Task WithoutAskingForIt_NoComparisonColumnsShowUp()
+        {
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 40);
+
+            var table = await BuildAsync(Spec(ReportSubject.Production, ReportGrouping.Worker));
+
+            Assert.DoesNotContain(table.Columns, c => c.Key.EndsWith("__prev"));
+        }
+
         // ======================= التركيبات المسموحة =======================
 
         [Fact]

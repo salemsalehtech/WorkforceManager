@@ -12,6 +12,16 @@ namespace WorkforceManager.Business.DTOs
     /// <summary>عمود واحد في التقرير</summary>
     public class ReportColumn
     {
+        /// <summary>
+        /// معرّف ثابت للعمود — **مش الاسم المعروض**.
+        ///
+        /// لازم يكون منفصل عن <see cref="Header"/> لأن المستخدم بيقدر
+        /// يغيّر اسم أي عمود، والقالب المحفوظ بيشاور على الأعمدة بعد
+        /// شهور. لو التخطيط اتحفظ بالاسم المعروض، أول ما المستخدم
+        /// يسمّي عمود باسمه بيبوظ كل قالب قديم بيستخدمه.
+        /// </summary>
+        public required string Key { get; init; }
+
         public required string Header { get; init; }
         public ReportValueKind Kind { get; init; } = ReportValueKind.Text;
 
@@ -33,6 +43,21 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>قيم نصية لما العمود مش رقمي (زي النجوم)</summary>
         public List<string?> Texts { get; init; } = new();
+    }
+
+    /// <summary>
+    /// اختيار المستخدم لعمود واحد: يظهر ولا لأ، وباسم إيه.
+    ///
+    /// الترتيب في القايمة **هو** ترتيب العمود في التقرير — مفيش رقم
+    /// ترتيب منفصل يتنسى يتحدّث ويختلف عن الواقع.
+    /// </summary>
+    public class ReportColumnChoice
+    {
+        public required string Key { get; init; }
+        public bool Visible { get; init; } = true;
+
+        /// <summary>اسم من عند المستخدم — null يعني سيب الاسم الأصلي</summary>
+        public string? Header { get; init; }
     }
 
     /// <summary>
@@ -66,6 +91,127 @@ namespace WorkforceManager.Business.DTOs
         public ReportRow? Totals { get; private set; }
 
         public bool IsEmpty => Rows.Count == 0;
+
+        /// <summary>مفتاح عمود الاسم (أول عمود) — للترتيب بالاسم</summary>
+        public const string LabelColumnKey = "label";
+
+        /// <summary>
+        /// بيرتّب الصفوف ويقصّها على أعلى/أقل N.
+        ///
+        /// بيتنفّذ **قبل** <see cref="ApplyLayout"/> عن قصد: كده المستخدم
+        /// يقدر يرتّب بعمود هو مخفيه ("رتّب بالأجر بس متعرضهوش")،
+        /// و**قبل** <see cref="WithTotals"/> عشان الإجمالي يطلع على الصفوف
+        /// المعروضة فعلاً — الإجمالي تحت 10 صفوف لازم يساوي جمعهم، مش
+        /// جمع الـ50 اللي اتقصّوا.
+        /// </summary>
+        public ReportTable ApplySort(string? sortKey, bool descending, int? topN)
+        {
+            if (!string.IsNullOrWhiteSpace(sortKey))
+            {
+                var index = Columns.FindIndex(c => c.Key == sortKey);
+
+                // مفتاح مش موجود (قالب قديم بعد ما الأعمدة اتغيّرت) =
+                // سيب الترتيب الطبيعي بدل ما ترمي
+                if (sortKey == LabelColumnKey)
+                    Sort(r => r.Label, descending);
+                else if (index >= 0 && Columns[index].Kind == ReportValueKind.Text)
+                    Sort(r => Text(r, index) ?? "", descending);
+                else if (index >= 0)
+                    Sort(r => Value(r, index) ?? 0m, descending);
+            }
+
+            if (topN is { } take && take > 0 && Rows.Count > take)
+                Rows.RemoveRange(take, Rows.Count - take);
+
+            return this;
+        }
+
+        private void Sort<TKey>(Func<ReportRow, TKey> selector, bool descending)
+        {
+            var ordered = descending
+                ? Rows.OrderByDescending(selector).ToList()
+                : Rows.OrderBy(selector).ToList();
+
+            Rows.Clear();
+            Rows.AddRange(ordered);
+        }
+
+        /// <summary>
+        /// بيطبّق اختيار المستخدم للأعمدة: يخفي، يرتّب، ويعيد التسمية.
+        ///
+        /// **القيم بتتحرك مع أعمدتها.** الصف بيخزن قيمه بترتيب الأعمدة
+        /// (مش بالاسم)، فأي إعادة ترتيب للأعمدة من غير نفس الترتيب
+        /// للقيم بتخلي الأرقام تتحط تحت أعمدة غلط — وده أسوأ من إن
+        /// الميزة متبقاش موجودة أصلاً.
+        ///
+        /// أعمدة في التخطيط ومش في التقرير بتتساب (قالب اتحفظ لموضوع
+        /// وأعمدته اتغيّرت)، وأعمدة في التقرير ومش في التخطيط بتتزوّد
+        /// في الآخر عشان ميضيعش عمود جديد من غير ما حد ياخد باله.
+        /// </summary>
+        public ReportTable ApplyLayout(IReadOnlyList<ReportColumnChoice>? layout)
+        {
+            if (layout is not { Count: > 0 }) return this;
+
+            var order = new List<int>();
+
+            foreach (var choice in layout)
+            {
+                if (!choice.Visible) continue;
+
+                var index = Columns.FindIndex(c => c.Key == choice.Key);
+                if (index >= 0 && !order.Contains(index)) order.Add(index);
+            }
+
+            // عمود موجود في التقرير ومحدش قال عنه حاجة = يفضل ظاهر
+            var mentioned = layout.Select(c => c.Key).ToHashSet();
+            for (var i = 0; i < Columns.Count; i++)
+                if (!mentioned.Contains(Columns[i].Key) && !order.Contains(i))
+                    order.Add(i);
+
+            if (order.Count == 0) return this; // المستخدم خفى كل حاجة — مش هنطلّع جدول فاضي
+
+            var headerByKey = layout
+                .Where(c => !string.IsNullOrWhiteSpace(c.Header))
+                .GroupBy(c => c.Key)
+                .ToDictionary(g => g.Key, g => g.Last().Header!);
+
+            var columns = order.Select(i =>
+            {
+                var source = Columns[i];
+                return new ReportColumn
+                {
+                    Key = source.Key,
+                    Header = headerByKey.TryGetValue(source.Key, out var custom) ? custom : source.Header,
+                    Kind = source.Kind,
+                    Sums = source.Sums
+                };
+            }).ToList();
+
+            foreach (var row in Rows) Reorder(row, order);
+            if (Totals is not null) Reorder(Totals, order);
+
+            Columns.Clear();
+            Columns.AddRange(columns);
+
+            return this;
+        }
+
+        private static void Reorder(ReportRow row, IReadOnlyList<int> order)
+        {
+            var values = order.Select(i => Value(row, i)).ToList();
+            var texts = order.Select(i => Text(row, i)).ToList();
+
+            row.Values.Clear();
+            row.Values.AddRange(values);
+            row.Texts.Clear();
+            row.Texts.AddRange(texts);
+        }
+
+        private static decimal? Value(ReportRow row, int index) =>
+            index >= 0 && index < row.Values.Count ? row.Values[index] : null;
+
+        private static string? Text(ReportRow row, int index) =>
+            index >= 0 && index < row.Texts.Count ? row.Texts[index] : null;
 
         /// <summary>بيبني سطر الإجماليات من الصفوف الموجودة</summary>
         public ReportTable WithTotals(string label = "الإجمالي")
