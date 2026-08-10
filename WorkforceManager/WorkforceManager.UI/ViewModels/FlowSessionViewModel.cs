@@ -795,6 +795,22 @@ namespace WorkforceManager.UI.ViewModels
                     }))
                 .ToList();
 
+            // الإنتاج هو اللي اليوميات بتتحسب منه، واليوميات هي الأجر —
+            // فالتسجيل عملية بتلمس فلوس. كلمة سر واحدة للرحلة كلها مش
+            // لكل عامل، زي حفظ الحضور بالظبط.
+            var totalPieces = shares.Sum(s => s.PieceCount);
+            var workerCount = shares.Select(s => s.WorkerId).Distinct().Count();
+
+            var gate = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                "حفظ رحلة الإنتاج",
+                $"رحلة \"{SelectedProduct.Name}\" بتاريخ {entryDate:yyyy/MM/dd}: " +
+                $"{totalPieces:N0} قطعة على {workerCount} عامل.",
+                passwordRequired: true,
+                reasonRequired: false);
+
+            if (gate is null) return;
+
             try
             {
                 FlowSaveResultDto result;
@@ -857,7 +873,7 @@ namespace WorkforceManager.UI.ViewModels
                 var flowService = scope.ServiceProvider.GetRequiredService<ProductionFlowService>();
                 // الخدمة بتتحقق من كل حاجة تاني (مصدر الحقيقة الوحيد للقواعد) — يا كله يا مفيش
                 return await flowService.RecordFlowAsync(
-                    SelectedProduct!.ProductId, entryDate, ranges, shares, confirmOverride);
+                    SelectedProduct!.ProductId, entryDate, ranges, shares, confirmOverride, gate.Password);
             }
         }
     }

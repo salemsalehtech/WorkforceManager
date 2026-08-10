@@ -358,8 +358,8 @@ namespace WorkforceManager.UI.ViewModels
             {
                 var item = previous.TryGetValue(column.Key, out var old)
                     ? new ColumnChoiceItem(column.Key, column.Header, old.IsVisible,
-                        old.IsRenamed ? old.Header : null)
-                    : new ColumnChoiceItem(column.Key, column.Header);
+                        old.IsRenamed ? old.Header : null, column.Sums, old.Sums)
+                    : new ColumnChoiceItem(column.Key, column.Header, canSum: column.Sums);
 
                 item.PropertyChanged += OnColumnChoiceChanged;
                 ColumnChoices.Add(item);
@@ -373,7 +373,8 @@ namespace WorkforceManager.UI.ViewModels
 
         private void OnColumnChoiceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            if (e.PropertyName is not (nameof(ColumnChoiceItem.IsVisible) or nameof(ColumnChoiceItem.Header)))
+            if (e.PropertyName is not (nameof(ColumnChoiceItem.IsVisible)
+                or nameof(ColumnChoiceItem.Header) or nameof(ColumnChoiceItem.Sums)))
                 return;
 
             OnPropertyChanged(nameof(HiddenColumnCount));
@@ -479,6 +480,16 @@ namespace WorkforceManager.UI.ViewModels
 
         // ------- المقارنة وخيارات التصدير -------
 
+        /// <summary>
+        /// سطر الإجمالي تحت الجدول. مش كل تقرير ليه معنى: "إجمالي" تحت
+        /// تقرير حضور بيجمع أيام حضور كل العمال في رقم واحد محدش بيسأل
+        /// عنه.
+        /// </summary>
+        [ObservableProperty]
+        private bool _showTotals = true;
+
+        partial void OnShowTotalsChanged(bool value) => RequestPreview();
+
         [ObservableProperty]
         private bool _compareWithPrevious;
 
@@ -497,6 +508,15 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>أعمدة الجدول المعروض — بتتبني من ReportTable مش ثابتة</summary>
         public ObservableCollection<string> PreviewHeaders { get; } = new();
+
+        private List<ReportValueKind> _columnKinds = new();
+
+        /// <summary>
+        /// العمود ده نصي؟ الشاشة بتسأل عشان تحاذيه من بداية السطر بدل
+        /// النص، ورأسه معاه. الفهرس هنا بيعدّ الأعمدة بعد عمود الاسم.
+        /// </summary>
+        public bool IsTextColumn(int index) =>
+            index >= 0 && index < _columnKinds.Count && _columnKinds[index] == ReportValueKind.Text;
         public ObservableCollection<PreviewRow> PreviewRows { get; } = new();
 
         [ObservableProperty]
@@ -546,6 +566,7 @@ namespace WorkforceManager.UI.ViewModels
                 SortKey = SelectedSort?.Key,
                 SortDescending = SortDescending,
                 TopN = SelectedTopN?.Count,
+                ShowTotals = ShowTotals,
 
                 CompareWithPrevious = CompareWithPrevious
             };
@@ -605,6 +626,10 @@ namespace WorkforceManager.UI.ViewModels
             PreviewHeaders.Clear();
             PreviewHeaders.Add(table.LabelHeader);
             foreach (var column in table.Columns) PreviewHeaders.Add(column.Header);
+
+            // الشاشة محتاجة تعرف العمود نصي ولا رقمي عشان تحاذيه صح —
+            // بتاخدها من الجدول مش بتخمّنها من المحتوى
+            _columnKinds = table.Columns.Select(c => c.Kind).ToList();
 
             PreviewRows.Clear();
             foreach (var row in table.Rows)
@@ -747,6 +772,7 @@ namespace WorkforceManager.UI.ViewModels
                 SelectedSort = SortOptions.FirstOrDefault(o => o.Key == value.SortKey) ?? SortOptions[0];
                 SortDescending = value.SortDescending;
                 SelectedTopN = TopNOptions.FirstOrDefault(o => o.Count == value.TopN) ?? TopNOptions[0];
+                ShowTotals = value.ShowTotals;
                 CompareWithPrevious = value.CompareWithPrevious;
 
                 ExportDetailSheet = value.ExportDetailSheet;
@@ -797,6 +823,7 @@ namespace WorkforceManager.UI.ViewModels
 
                 item.IsVisible = saved.Visible;
                 if (!string.IsNullOrWhiteSpace(saved.Header)) item.Header = saved.Header!;
+                if (saved.Sums is { } sums) item.Sums = sums;
 
                 ordered.Add(item);
             }
@@ -846,6 +873,7 @@ namespace WorkforceManager.UI.ViewModels
                 SortKey = SelectedSort?.Key,
                 SortDescending = SortDescending,
                 TopN = SelectedTopN?.Count,
+                ShowTotals = ShowTotals,
                 CompareWithPrevious = CompareWithPrevious,
 
                 ExportDetailSheet = ExportDetailSheet,

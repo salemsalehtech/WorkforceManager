@@ -43,6 +43,20 @@ namespace WorkforceManager.Core.Enums
         SaveWageAdjustment = 8,
 
         /// <summary>حفظ حضور اليوم (دفعة واحدة لكل القسم)</summary>
-        SaveAttendance = 9
+        SaveAttendance = 9,
+
+        /// <summary>
+        /// تسجيل إنتاج (رحلة منتج أو سجل مفرد).
+        ///
+        /// الإنتاج هو اللي اليوميات بتتحسب منه، واليوميات هي الأجر —
+        /// فتسجيل إنتاج غلط بيتحوّل لفلوس غلط زي أي عملية تانية في
+        /// القايمة دي.
+        /// </summary>
+        RecordProduction = 10,
+
+        /// <summary>
+        /// قفل إنتاج اليوم — بيمنع أي تسجيل جديد على اليوم ده.
+        /// </summary>
+        CloseProductionDay = 11
     }
 }

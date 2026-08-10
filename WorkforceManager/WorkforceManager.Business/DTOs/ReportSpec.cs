@@ -116,6 +116,15 @@ namespace WorkforceManager.Business.DTOs
         /// <summary>أعلى/أقل N صف بس. null = كل الصفوف.</summary>
         public int? TopN { get; init; }
 
+        /// <summary>
+        /// يعرض سطر الإجمالي تحت الجدول؟
+        ///
+        /// مش كل تقرير الإجمالي فيه ليه معنى: "إجمالي" تحت تقرير حضور
+        /// بيجمع أيام حضور كل العمال في رقم واحد، والرقم ده مبيتسألش
+        /// عنه — وبيشغل سطر ويشوّش على اللي بيقرا.
+        /// </summary>
+        public bool ShowTotals { get; init; } = true;
+
         /// <summary>المدة اللي قبل المختارة بنفس طولها بالظبط</summary>
         public (DateTime From, DateTime To) PreviousPeriod()
         {

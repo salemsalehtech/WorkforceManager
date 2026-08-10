@@ -66,23 +66,38 @@ namespace WorkforceManager.UI.Views
 
             PreviewGrid.Columns.Clear();
 
-            // أول عمود: اسم العامل أو المنتج أو اليوم — نص ومحاذاته للبداية
+            // **العرض على المحتوى مش على الشاشة.** كان نجوم (2* و1*)،
+            // يعني الأعمدة بتتقسم عرض الشاشة مهما كان المحتوى أطول —
+            // فاسم زي "عبدالله السيد عبدالجواد" بيتقص. دلوقتي كل عمود
+            // بياخد عرضه من محتواه، والجدول بيتمرّر أفقيًا لو زاد.
             PreviewGrid.Columns.Add(new DataGridTextColumn
             {
                 Header = headers[0],
                 Binding = new Binding(nameof(PreviewRow.Label)),
-                Width = new DataGridLength(2, DataGridLengthUnitType.Star)
+                Width = DataGridLength.Auto,
+                MinWidth = 150,
+                HeaderStyle = (Style)FindResource("ModernGridHeader"),
+                ElementStyle = TextCellStyle()
             });
 
-            // باقي الأعمدة أرقام جاهزة كنصوص — التنسيق اتعمل في PreviewRow
             for (var i = 1; i < headers.Count; i++)
+            {
+                var isText = _viewModel.IsTextColumn(i - 1);
+
                 PreviewGrid.Columns.Add(new DataGridTextColumn
                 {
                     Header = headers[i],
                     Binding = new Binding($"{nameof(PreviewRow.Cells)}[{i - 1}]"),
-                    Width = new DataGridLength(1, DataGridLengthUnitType.Star),
-                    ElementStyle = NumberCellStyle()
+                    Width = DataGridLength.Auto,
+                    MinWidth = isText ? 130 : 90,
+
+                    // الرأس بيتحاذى زي الخلية: النص للبداية والرقم في
+                    // النص. من غير كده الرأس بيبقى فوق عمود تاني بصريًا
+                    HeaderStyle = (Style)FindResource(
+                        isText ? "ModernGridHeader" : "ModernGridHeaderCentered"),
+                    ElementStyle = isText ? TextCellStyle() : NumberCellStyle()
                 });
+            }
         }
 
         /// <summary>الأرقام في النص ومتراصّة — الأعمدة بتتقارن بالعين</summary>
@@ -90,6 +105,22 @@ namespace WorkforceManager.UI.Views
         {
             var style = new Style(typeof(TextBlock));
             style.Setters.Add(new Setter(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Center));
+            style.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
+            return style;
+        }
+
+        /// <summary>
+        /// النص من بداية السطر، وبيتقص بنقط لو طال **مع تلميح بالكامل** —
+        /// عمود ضيّق مبيخفيش الاسم خالص.
+        /// </summary>
+        private static Style TextCellStyle()
+        {
+            var style = new Style(typeof(TextBlock));
+            style.Setters.Add(new Setter(TextBlock.HorizontalAlignmentProperty, HorizontalAlignment.Left));
+            style.Setters.Add(new Setter(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center));
+            style.Setters.Add(new Setter(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis));
+            style.Setters.Add(new Setter(FrameworkElement.ToolTipProperty,
+                new Binding(nameof(TextBlock.Text)) { RelativeSource = RelativeSource.Self }));
             return style;
         }
     }

@@ -1,4 +1,5 @@
 using WorkforceManager.Business.DTOs;
+using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 
@@ -19,15 +20,18 @@ namespace WorkforceManager.Business.Services
     {
         private readonly IProductionDayClosureRepository _closureRepo;
         private readonly DailyProductionReportService _reportService;
+        private readonly OperationsPasswordService _gate;
         private readonly IUnitOfWork _unitOfWork;
 
         public DayClosureService(
             IProductionDayClosureRepository closureRepo,
             DailyProductionReportService reportService,
+            OperationsPasswordService gate,
             IUnitOfWork unitOfWork)
         {
             _closureRepo = closureRepo;
             _reportService = reportService;
+            _gate = gate;
             _unitOfWork = unitOfWork;
         }
 
@@ -73,8 +77,14 @@ namespace WorkforceManager.Business.Services
         /// التقرير يعرف يقول "اليوم ده اتقفل بالأرقام دي" حتى لو حد صحّح
         /// سجل قديم بعد كده.
         /// </summary>
-        public async Task<ProductionDayClosure> CloseAsync(DateTime date)
+        public async Task<ProductionDayClosure> CloseAsync(DateTime date, string operationsPassword = "")
         {
+            // القفل بيمنع أي تسجيل جديد على اليوم — قرار بيوقف شغل
+            // القسم، فمحتاج نفس بوابة باقي العمليات الحساسة
+            var gate = await _gate.VerifyAsync(SensitiveAction.CloseProductionDay, operationsPassword);
+            if (!gate.IsAllowed)
+                throw new InvalidOperationException(gate.Message);
+
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
 
             // التحقق جوه القفل: نسختين بيقفلوا نفس اليوم في نفس اللحظة
@@ -100,8 +110,13 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>يفتح يوم مقفول عشان يتعدّل (الغلط في الإدخال وارد)</summary>
-        public async Task ReopenAsync(DateTime date)
+        public async Task ReopenAsync(DateTime date, string operationsPassword = "")
         {
+            // الفتح تاني زي القفل: الاتنين بيغيّروا حالة اليوم كله
+            var gate = await _gate.VerifyAsync(SensitiveAction.CloseProductionDay, operationsPassword);
+            if (!gate.IsAllowed)
+                throw new InvalidOperationException(gate.Message);
+
             var closure = await _closureRepo.GetByDateAsync(date)
                 ?? throw new InvalidOperationException($"يوم {date:yyyy/MM/dd} مش مقفول أصلاً");
 

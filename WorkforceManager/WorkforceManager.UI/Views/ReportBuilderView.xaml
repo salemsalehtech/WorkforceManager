@@ -129,11 +129,20 @@
                             </StackPanel>
                         </ToggleButton>
 
+                        <!--
+                          الكارت كان بيطلع برّا النافذة: من غير MaxHeight
+                          بيطول بطول قايمة العمال (17 عامل = كارت أطول من
+                          الشاشة)، والـ Popup بيرسم في نافذة مستقلة فمش
+                          بيتقص عند حدود البرنامج — بيفضل نازل على الشاشة.
+                          الحل: سقف للارتفاع + تمرير جوّه.
+                        -->
                         <Popup IsOpen="{Binding IsFilterMenuOpen, Mode=TwoWay}" StaysOpen="False"
                                PlacementTarget="{Binding ElementName=FilterToggle}" Placement="Bottom"
-                               AllowsTransparency="True" PopupAnimation="Fade">
+                               AllowsTransparency="True" PopupAnimation="Fade"
+                               HorizontalOffset="-6" VerticalOffset="2">
                             <Border Style="{StaticResource ToolbarPopupCard}"
-                                    FlowDirection="RightToLeft" Width="300">
+                                    FlowDirection="RightToLeft" Width="310" MaxHeight="480">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <StackPanel>
                                     <!-- اختيار متعدد: المحرك بيقبل مجموعة من
                                          زمان، والشاشة كانت بتبعت واحد بس -->
@@ -192,6 +201,7 @@
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
+                                </ScrollViewer>
                             </Border>
                         </Popup>
                     </Grid>
@@ -217,14 +227,21 @@
 
                         <Popup IsOpen="{Binding IsColumnMenuOpen, Mode=TwoWay}" StaysOpen="False"
                                PlacementTarget="{Binding ElementName=ColumnToggle}" Placement="Bottom"
-                               AllowsTransparency="True" PopupAnimation="Fade">
+                               AllowsTransparency="True" PopupAnimation="Fade"
+                               HorizontalOffset="-6" VerticalOffset="2">
                             <Border Style="{StaticResource ToolbarPopupCard}"
-                                    FlowDirection="RightToLeft" Width="360">
+                                    FlowDirection="RightToLeft" Width="420" MaxHeight="460">
                                 <StackPanel>
-                                    <TextBlock Text="علّم على اللي عايز يظهر، وغيّر الاسم لو حابب"
-                                               FontSize="11" Margin="0,0,0,8"
-                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                    <Grid Margin="0,0,0,8">
+                                        <TextBlock Text="علّم على اللي عايز يظهر، وغيّر الاسم لو حابب"
+                                                   FontSize="11" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                        <TextBlock Text="إجمالي" FontSize="11" HorizontalAlignment="Left"
+                                                   Margin="0,0,72,0" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                    </Grid>
 
+                                    <ScrollViewer MaxHeight="330" VerticalScrollBarVisibility="Auto">
                                     <ItemsControl ItemsSource="{Binding ColumnChoices}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -233,17 +250,27 @@
                                                         <ColumnDefinition Width="Auto" />
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
 
                                                     <CheckBox Grid.Column="0" IsChecked="{Binding IsVisible}"
-                                                              VerticalAlignment="Center" Margin="0,0,7,0" />
+                                                              VerticalAlignment="Center" Margin="0,0,7,0"
+                                                              ToolTip="يظهر في الجدول" />
 
                                                     <!-- الاسم بيتغيّر هنا؛ المفتاح ورا الكواليس
                                                          مبيتغيّرش فالقوالب القديمة بتفضل شغالة -->
                                                     <TextBox Grid.Column="1" Text="{Binding Header, UpdateSourceTrigger=LostFocus}"
                                                              FontSize="12.5" Padding="7,5" />
 
-                                                    <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                    <!-- علامة الجمع بتختفي عند العمود اللي مالوش
+                                                         إجمالي أصلاً (نصي زي المرحلة) بدل ما تبقى
+                                                         موجودة ومالهاش أثر -->
+                                                    <CheckBox Grid.Column="2" IsChecked="{Binding Sums}"
+                                                              VerticalAlignment="Center" Margin="10,0,4,0"
+                                                              ToolTip="يدخل في سطر الإجمالي"
+                                                              Visibility="{Binding CanSum, Converter={StaticResource BoolToVis}}" />
+
+                                                    <StackPanel Grid.Column="3" Orientation="Horizontal"
                                                                 Margin="6,0,0,0" VerticalAlignment="Center">
                                                         <Button Style="{StaticResource IconButton}" Padding="5,3"
                                                                 ToolTip="فوق"
@@ -264,6 +291,7 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+                                    </ScrollViewer>
 
                                     <Button Command="{Binding ResetColumnsCommand}"
                                             Style="{StaticResource GhostButton}" Padding="11,6"
@@ -302,6 +330,10 @@
                         <ComboBox ItemsSource="{Binding TopNOptions}" SelectedItem="{Binding SelectedTopN}"
                                   DisplayMemberPath="Display" Width="115" FontSize="12.5" />
                     </StackPanel>
+
+                    <CheckBox Content="سطر الإجمالي" FontSize="12.5" VerticalAlignment="Center"
+                              Margin="0,0,20,0" IsChecked="{Binding ShowTotals}"
+                              ToolTip="الأعمدة اللي بتدخل في الإجمالي بتتحدد من محرّر الأعمدة" />
 
                     <CheckBox Content="قارن بالمدة اللي قبلها" FontSize="12.5" VerticalAlignment="Center"
                               IsChecked="{Binding CompareWithPrevious}"

@@ -53,7 +53,7 @@ namespace WorkforceManager.Tests
             using (var scope = _db.CreateScope())
                 await _db.GetService<ProductionFlowService>(scope).RecordFlowAsync(
                     TestDatabase.ProductBagId, TestDatabase.Today, new[] { range }, shares,
-                    confirmOverride: true);
+                    confirmOverride: true, operationsPassword: OperationsPassword);
 
             return (await _db.GetProductionAsync()).Single().Id;
         }

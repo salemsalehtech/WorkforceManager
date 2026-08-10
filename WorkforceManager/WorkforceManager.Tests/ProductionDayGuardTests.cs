@@ -339,7 +339,7 @@ namespace WorkforceManager.Tests
             await RecordAsync(TestDatabase.BagStage1Id, 100, Day1, TestDatabase.WorkerAhmedId);
 
             using var scope = _db.CreateScope();
-            await _db.GetService<DayClosureService>(scope).CloseAsync(Day1);
+            await _db.GetService<DayClosureService>(scope).CloseAsync(Day1, Password);
 
             var result = await _db.GetService<WorkdayCalculationService>(scope)
                 .DeleteProductionDayAsync(Day1, Password, "اليوم اتقفل بالغلط");

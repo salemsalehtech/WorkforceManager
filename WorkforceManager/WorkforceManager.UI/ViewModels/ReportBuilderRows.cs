@@ -55,13 +55,31 @@ namespace WorkforceManager.UI.ViewModels
     /// </summary>
     public partial class ColumnChoiceItem : ObservableObject
     {
-        public ColumnChoiceItem(string key, string defaultHeader, bool visible = true, string? header = null)
+        public ColumnChoiceItem(
+            string key, string defaultHeader, bool visible = true, string? header = null,
+            bool canSum = false, bool? sums = null)
         {
             Key = key;
             DefaultHeader = defaultHeader;
+            CanSum = canSum;
+            DefaultSums = canSum;
             _isVisible = visible;
             _header = header ?? defaultHeader;
+            _sums = sums ?? canSum;
         }
+
+        /// <summary>
+        /// العمود ده أصلاً ينفع يتجمّع؟ الأعمدة النصية (المرحلة، المنتج)
+        /// مالهاش إجمالي، فعلامة الجمع بتختفي عندها بدل ما تبقى موجودة
+        /// ومالهاش أي أثر.
+        /// </summary>
+        public bool CanSum { get; }
+
+        /// <summary>قرار البرنامج الأصلي — عشان زرار "رجّع"</summary>
+        public bool DefaultSums { get; }
+
+        [ObservableProperty]
+        private bool _sums;
 
         public string Key { get; }
 
@@ -85,7 +103,11 @@ namespace WorkforceManager.UI.ViewModels
             Visible = IsVisible,
             Header = string.IsNullOrWhiteSpace(Header) || Header.Trim() == DefaultHeader
                 ? null
-                : Header.Trim()
+                : Header.Trim(),
+
+            // null = سيب قرار البرنامج. بنبعت قيمة بس لما المستخدم
+            // يغيّرها فعلاً، فالقوالب القديمة متتأثرش
+            Sums = Sums == DefaultSums ? null : Sums
         };
     }
 

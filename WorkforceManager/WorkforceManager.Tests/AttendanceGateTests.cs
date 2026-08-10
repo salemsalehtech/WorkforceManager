@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
 using WorkforceManager.Data;
@@ -32,6 +33,91 @@ namespace WorkforceManager.Tests
 
         private static (int, AttendanceStatus)[] OneAbsence =>
             new[] { (TestDatabase.WorkerAhmedId, AttendanceStatus.AbsentWithoutPermission) };
+
+        // ---------------- العمليات اللي دخلت البوابة بعد كده ----------------
+
+        [Fact]
+        public async Task Recording_production_with_a_wrong_password_is_refused()
+        {
+            // الإنتاج هو اللي اليوميات بتتحسب منه، واليوميات هي الأجر
+            await SetPasswordAsync();
+
+            using var scope = _db.CreateScope();
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.GetService<ProductionFlowService>(scope).RecordFlowAsync(
+                    TestDatabase.ProductBagId, Today,
+                    new[]
+                    {
+                        new FlowRangeDto
+                        {
+                            FromStageId = TestDatabase.BagStage1Id,
+                            ToStageId = TestDatabase.BagStage1Id, PieceCount = 100
+                        }
+                    },
+                    new[]
+                    {
+                        new FlowShareDto
+                        {
+                            ProductionStageId = TestDatabase.BagStage1Id,
+                            WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 100
+                        }
+                    },
+                    confirmOverride: true, operationsPassword: "غلط"));
+
+            Assert.NotEmpty(ex.Message);
+
+            // ولا سجل اتكتب — الرفض قبل أي كتابة
+            Assert.Empty(await _db.GetProductionAsync());
+        }
+
+        [Fact]
+        public async Task Recording_a_wage_adjustment_with_a_wrong_password_is_refused()
+        {
+            // دي كانت الحركة الوحيدة اللي بتلمس فلوس من غير كلمة سر
+            await SetPasswordAsync();
+
+            using var scope = _db.CreateScope();
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.GetService<WageAdjustmentService>(scope).RecordAdjustmentAsync(
+                    TestDatabase.WorkerAhmedId, Today, WageAdjustmentType.Bonus, 200m,
+                    note: null, operationsPassword: "غلط"));
+
+            Assert.NotEmpty(ex.Message);
+
+            var db = _db.GetService<AppDbContext>(scope);
+            Assert.Empty(await db.WageAdjustments.ToListAsync());
+        }
+
+        [Fact]
+        public async Task Closing_the_day_with_a_wrong_password_is_refused()
+        {
+            await SetPasswordAsync();
+
+            using var scope = _db.CreateScope();
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.GetService<DayClosureService>(scope).CloseAsync(Today, "غلط"));
+
+            Assert.NotEmpty(ex.Message);
+            Assert.False(await _db.GetService<DayClosureService>(scope).IsClosedAsync(Today));
+        }
+
+        [Fact]
+        public async Task The_right_password_lets_all_three_through()
+        {
+            await SetPasswordAsync();
+
+            using var scope = _db.CreateScope();
+
+            await _db.GetService<WageAdjustmentService>(scope).RecordAdjustmentAsync(
+                TestDatabase.WorkerAhmedId, Today, WageAdjustmentType.Bonus, 200m,
+                note: null, operationsPassword: Password);
+
+            await _db.GetService<DayClosureService>(scope).CloseAsync(Today, Password);
+
+            var db = _db.GetService<AppDbContext>(scope);
+            Assert.Single(await db.WageAdjustments.ToListAsync());
+            Assert.True(await _db.GetService<DayClosureService>(scope).IsClosedAsync(Today));
+        }
 
         [Fact]
         public async Task Saving_attendance_with_a_wrong_password_is_refused()

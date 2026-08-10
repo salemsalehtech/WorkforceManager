@@ -58,6 +58,17 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>اسم من عند المستخدم — null يعني سيب الاسم الأصلي</summary>
         public string? Header { get; init; }
+
+        /// <summary>
+        /// العمود ده يتجمّع في سطر الإجمالي؟
+        ///
+        /// null = سيب قرار البرنامج (<see cref="ReportColumn.Sums"/>).
+        /// المستخدم بيقدر يلغي جمع عمود البرنامج شايفه بيتجمع، أو
+        /// يجمّع عمود البرنامج مقفّله — لأن معنى "الإجمالي" بيختلف حسب
+        /// التقرير: مجموع أيام الحضور لكل العمال رقم ليه معنى، ومجموع
+        /// متوسط النجوم مالوش.
+        /// </summary>
+        public bool? Sums { get; init; }
     }
 
     /// <summary>
@@ -175,6 +186,11 @@ namespace WorkforceManager.Business.DTOs
                 .GroupBy(c => c.Key)
                 .ToDictionary(g => g.Key, g => g.Last().Header!);
 
+            var sumsByKey = layout
+                .Where(c => c.Sums is not null)
+                .GroupBy(c => c.Key)
+                .ToDictionary(g => g.Key, g => g.Last().Sums!.Value);
+
             var columns = order.Select(i =>
             {
                 var source = Columns[i];
@@ -183,7 +199,7 @@ namespace WorkforceManager.Business.DTOs
                     Key = source.Key,
                     Header = headerByKey.TryGetValue(source.Key, out var custom) ? custom : source.Header,
                     Kind = source.Kind,
-                    Sums = source.Sums
+                    Sums = sumsByKey.TryGetValue(source.Key, out var sums) ? sums : source.Sums
                 };
             }).ToList();
 

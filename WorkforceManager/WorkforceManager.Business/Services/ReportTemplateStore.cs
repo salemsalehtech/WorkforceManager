@@ -43,6 +43,7 @@ namespace WorkforceManager.Business.Services
         public string? SortKey { get; set; }
         public bool SortDescending { get; set; } = true;
         public int? TopN { get; set; }
+        public bool ShowTotals { get; set; } = true;
         public bool CompareWithPrevious { get; set; }
 
         // ------- التصدير -------
@@ -72,6 +73,7 @@ namespace WorkforceManager.Business.Services
                 SortKey = SortKey,
                 SortDescending = SortDescending,
                 TopN = TopN,
+                ShowTotals = ShowTotals,
                 CompareWithPrevious = CompareWithPrevious
             };
         }

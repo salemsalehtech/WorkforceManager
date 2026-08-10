@@ -142,12 +142,16 @@ namespace WorkforceManager.UI.ViewModels
             {
                 if (IsDayClosed)
                 {
-                    if (!Notify.Ask(
-                            $"فتح إنتاج يوم {EntryDate:yyyy/MM/dd} تاني؟\n" +
-                            "هيرجع ينفع يتسجل عليه إنتاج ويتعدّل.", "تأكيد"))
-                        return;
+                    var reopenGate = SensitiveActionDialog.Ask(
+                        Application.Current.MainWindow,
+                        "فتح إنتاج اليوم تاني",
+                        $"هيرجع ينفع يتسجل إنتاج على يوم {EntryDate:yyyy/MM/dd} ويتعدّل.",
+                        passwordRequired: true,
+                        reasonRequired: false);
 
-                    await service.ReopenAsync(EntryDate);
+                    if (reopenGate is null) return;
+
+                    await service.ReopenAsync(EntryDate, reopenGate.Password);
                     await LoadClosureStateAsync();
                     return;
                 }
@@ -156,7 +160,18 @@ namespace WorkforceManager.UI.ViewModels
                 var dialog = new DayClosureDialog(preview) { Owner = Application.Current.MainWindow };
                 if (dialog.ShowDialog() != true) return;
 
-                await service.CloseAsync(EntryDate);
+                // القفل بيوقف تسجيل اليوم كله — بوابة زي باقي العمليات
+                // اللي بتغيّر حالة القسم
+                var closeGate = SensitiveActionDialog.Ask(
+                    Application.Current.MainWindow,
+                    "قفل إنتاج اليوم",
+                    $"بعد القفل مش هينفع يتسجل إنتاج جديد على يوم {EntryDate:yyyy/MM/dd}.",
+                    passwordRequired: true,
+                    reasonRequired: false);
+
+                if (closeGate is null) return;
+
+                await service.CloseAsync(EntryDate, closeGate.Password);
                 await LoadClosureStateAsync();
 
                 Notify.Info($"اتقفل إنتاج يوم {EntryDate:yyyy/MM/dd}.\n" +
@@ -936,10 +951,30 @@ namespace WorkforceManager.UI.ViewModels
                 return;
             }
 
-            using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<WageAdjustmentService>();
-            await service.RecordAdjustmentAsync(
-                AdjustmentWorker.WorkerId, EntryDate, SelectedAdjustmentType.Value, amount, AdjustmentNote);
+            // فلوس بتتضاف أو تتخصم من الأجر مباشرة — بوابة زي الجزاءات
+            var typeName = SelectedAdjustmentType.Value == WageAdjustmentType.Bonus ? "حافز" : "سلفة";
+            var gate = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                $"تسجيل {typeName}",
+                $"{typeName} بمبلغ {amount:N0} ج على {AdjustmentWorker.FullName} بتاريخ {EntryDate:yyyy/MM/dd}.",
+                passwordRequired: true,
+                reasonRequired: false);
+
+            if (gate is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<WageAdjustmentService>();
+                await service.RecordAdjustmentAsync(
+                    AdjustmentWorker.WorkerId, EntryDate, SelectedAdjustmentType.Value, amount,
+                    AdjustmentNote, gate.Password);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Notify.Warn(ex.Message, "مش هينفع");
+                return;
+            }
 
             // تفريغ الفورم وإعادة تحميل قائمة اليوم
             AdjustmentAmount = string.Empty;
@@ -953,12 +988,28 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (row is null) return;
 
-            if (!Notify.Ask($"حذف {row.TypeName} ({row.AmountText}) عن {row.WorkerName}؟", "تأكيد"))
-                return;
+            // حذف سلفة بيرجّع فلوس لأجر العامل زي ما تسجيلها بتخصمها
+            var gate = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                $"حذف {row.TypeName}",
+                $"{row.TypeName} ({row.AmountText}) عن {row.WorkerName}.",
+                passwordRequired: true,
+                reasonRequired: false);
 
-            using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<WageAdjustmentService>();
-            await service.RemoveAdjustmentAsync(row.AdjustmentId);
+            if (gate is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<WageAdjustmentService>();
+                await service.RemoveAdjustmentAsync(row.AdjustmentId, gate.Password);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Notify.Warn(ex.Message, "مش هينفع");
+                return;
+            }
+
             await LoadAdjustmentsAsync();
         }
     }

@@ -13,18 +13,35 @@ namespace WorkforceManager.Business.Services
     public class WageAdjustmentService
     {
         private readonly IWageAdjustmentRepository _adjustmentRepo;
+        private readonly OperationsPasswordService _gate;
 
-        public WageAdjustmentService(IWageAdjustmentRepository adjustmentRepo)
+        public WageAdjustmentService(
+            IWageAdjustmentRepository adjustmentRepo,
+            OperationsPasswordService gate)
         {
             _adjustmentRepo = adjustmentRepo;
+            _gate = gate;
         }
 
-        /// <summary>يسجل سلفة أو حافز جديد على عامل في تاريخ معين بمبلغ بالجنيه</summary>
+        /// <summary>
+        /// يسجل سلفة أو حافز جديد على عامل في تاريخ معين بمبلغ بالجنيه.
+        ///
+        /// البوابة هنا في الخدمة مش في الشاشة عشان مفيش مسار يعدّي من
+        /// غيرها — نفس قاعدة الحضور والجزاءات. دي فلوس بتتضاف أو تتخصم
+        /// من الأجر مباشرة، وكانت **الحركة الوحيدة اللي بتلمس فلوس من
+        /// غير كلمة سر** مع إن نوعها معرّف في SensitiveAction من زمان
+        /// ومحدش استخدمه.
+        /// </summary>
         public async Task<WageAdjustment> RecordAdjustmentAsync(
-            int workerId, DateTime date, WageAdjustmentType type, decimal amountEgp, string? note = null)
+            int workerId, DateTime date, WageAdjustmentType type, decimal amountEgp,
+            string? note = null, string operationsPassword = "")
         {
             if (amountEgp <= 0)
                 throw new ArgumentException("المبلغ لازم يكون أكبر من صفر", nameof(amountEgp));
+
+            var gate = await _gate.VerifyAsync(SensitiveAction.SaveWageAdjustment, operationsPassword);
+            if (!gate.IsAllowed)
+                throw new InvalidOperationException(gate.Message);
 
             var adjustment = new WageAdjustment
             {
@@ -40,9 +57,17 @@ namespace WorkforceManager.Business.Services
             return adjustment;
         }
 
-        /// <summary>يحذف حركة مسجّلة بالخطأ (حذف فعلي، مالهاش قيمة تاريخية زي الجزاء الغلط)</summary>
-        public async Task RemoveAdjustmentAsync(int adjustmentId)
+        /// <summary>
+        /// يحذف حركة مسجّلة بالخطأ (حذف فعلي، مالهاش قيمة تاريخية زي
+        /// الجزاء الغلط). بكلمة سر برضه: حذف سلفة بيرجّع فلوس لأجر
+        /// العامل زي ما تسجيلها بيخصمها.
+        /// </summary>
+        public async Task RemoveAdjustmentAsync(int adjustmentId, string operationsPassword = "")
         {
+            var gate = await _gate.VerifyAsync(SensitiveAction.SaveWageAdjustment, operationsPassword);
+            if (!gate.IsAllowed)
+                throw new InvalidOperationException(gate.Message);
+
             var adjustment = await _adjustmentRepo.GetByIdAsync(adjustmentId)
                 ?? throw new InvalidOperationException("الحركة المحددة غير موجودة");
 

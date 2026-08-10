@@ -61,10 +61,11 @@ namespace WorkforceManager.Business.Services
             // الترتيب قبل التخطيط عشان ينفع بعمود مخفي، والاتنين قبل
             // الإجماليات عشان الإجمالي يطلع على الأعمدة والصفوف
             // المعروضة فعلاً
-            return table
+            table = table
                 .ApplySort(spec.SortKey, spec.SortDescending, spec.TopN)
-                .ApplyLayout(spec.ColumnLayout)
-                .WithTotals();
+                .ApplyLayout(spec.ColumnLayout);
+
+            return spec.ShowTotals ? table.WithTotals() : table;
         }
 
         /// <summary>

@@ -986,14 +986,29 @@
             <!-- (أنماط النصوص كلها فوق مع سلّم الخطوط) -->
 
             <!-- ــــــــــ الجداول الحديثة ــــــــــ -->
+            <!--
+              **الرأس بيتحاذى زي الخلية اللي تحته.**
+
+              كان مالوش HorizontalContentAlignment خالص، فبياخد الافتراضي
+              (بداية السطر) — بينما خلايا الأرقام متحاذية في النص. النتيجة
+              رأس على ناحية والأرقام تحته على ناحية تانية في كل جدول في
+              البرنامج. الأعمدة النصية بتاخد النمط ده (بداية السطر)،
+              والرقمية بتاخد ModernGridHeaderCentered.
+            -->
             <Style x:Key="ModernGridHeader" TargetType="DataGridColumnHeader">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="FontSize" Value="12.5" />
                 <Setter Property="Padding" Value="10,9" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
                 <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
                 <Setter Property="BorderThickness" Value="0,0,0,1" />
+            </Style>
+
+            <Style x:Key="ModernGridHeaderCentered" TargetType="DataGridColumnHeader"
+                   BasedOn="{StaticResource ModernGridHeader}">
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
             </Style>
 
             <Style x:Key="ModernGridCell" TargetType="DataGridCell">
@@ -1036,6 +1051,16 @@
                 <Setter Property="ColumnHeaderStyle" Value="{StaticResource ModernGridHeader}" />
                 <Setter Property="CellStyle" Value="{StaticResource ModernGridCell}" />
                 <Setter Property="RowStyle" Value="{StaticResource ModernGridRow}" />
+
+                <!-- **تمرير أفقي.** كان مقفول، والأعمدة بتتزنق في عرض
+                     الشاشة — فاسم زي "عبدالله السيد عبدالجواد" بيتقص
+                     ويطلع "د عبدالله السيد عب". الاسم المقصوص في كشف
+                     أجور مش مشكلة شكل: المستخدم مش عارف ده مين. -->
+                <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+                <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+
+                <!-- النص بيلتف بدل ما يتقص لما العمود يضيق -->
+                <Setter Property="ColumnWidth" Value="SizeToCells" />
             </Style>
 
             <!-- ــــــــــ عناصر القائمة الجانبية ــــــــــ -->

@@ -30,6 +30,7 @@ namespace WorkforceManager.Business.Services
         private readonly IAttendanceRepository _attendanceRepo;
         private readonly IProductionDayClosureRepository _closureRepo;
         private readonly WorkerAssignmentGuard _assignmentGuard;
+        private readonly OperationsPasswordService _gate;
         private readonly IUnitOfWork _unitOfWork;
 
         public ProductionFlowService(
@@ -39,6 +40,7 @@ namespace WorkforceManager.Business.Services
             IAttendanceRepository attendanceRepo,
             IProductionDayClosureRepository closureRepo,
             WorkerAssignmentGuard assignmentGuard,
+            OperationsPasswordService gate,
             IUnitOfWork unitOfWork)
         {
             _productRepo = productRepo;
@@ -47,6 +49,7 @@ namespace WorkforceManager.Business.Services
             _attendanceRepo = attendanceRepo;
             _closureRepo = closureRepo;
             _assignmentGuard = assignmentGuard;
+            _gate = gate;
             _unitOfWork = unitOfWork;
         }
 
@@ -181,10 +184,17 @@ namespace WorkforceManager.Business.Services
             int productId, DateTime date,
             IReadOnlyList<FlowRangeDto> ranges,
             IReadOnlyList<FlowShareDto> shares,
-            bool confirmOverride = false)
+            bool confirmOverride = false,
+            string operationsPassword = "")
         {
             if (ranges.Count == 0)
                 throw new InvalidOperationException("سجّل نطاق إنتاج واحد على الأقل (من مرحلة إلى مرحلة بعدد قطع)");
+
+            // الإنتاج هو اللي اليوميات بتتحسب منه، واليوميات هي الأجر —
+            // فالتسجيل عملية بتلمس فلوس زي أي واحدة تانية في القايمة
+            var gate = await _gate.VerifyAsync(SensitiveAction.RecordProduction, operationsPassword);
+            if (!gate.IsAllowed)
+                throw new InvalidOperationException(gate.Message);
             if (shares.Count == 0)
                 throw new InvalidOperationException("وزّع العمال على المراحل الأول قبل الحفظ");
 
