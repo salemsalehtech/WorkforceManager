@@ -120,10 +120,27 @@ namespace WorkforceManager.Business.Services
                     sheet.Column(first + 2).Width = GapWidth;
             }
 
-            var lastRow = LastRow(breakdownLines);
+            // **آخر سطر بيتقاس من اللي اتكتب فعلًا، مش من معادلة تانية.**
+            // كان فيه معادلة منفصلة (18 + عدد المراحل) بتحسب نفس الرقم
+            // من برّه، وكانت غلط بخمس سطور — فالإطار وخط القص كانوا
+            // بيقفوا عند "الحساب" وسايبين أجر اليوميات والحوافز والسلف
+            // و**الصافي المستحق** برّه الإطار. أي سطر يتزوّد في القسيمة
+            // كان هيكسّرها تاني، فالمعادلة اتشالت من أصلها.
+            var lastRow = 0;
 
             for (var slot = 0; slot < workers.Count; slot++)
-                WriteSlip(sheet, workers[slot], payroll, options, slot, breakdownLines, lastRow);
+                lastRow = Math.Max(
+                    lastRow,
+                    WriteSlip(sheet, workers[slot], payroll, options, slot, breakdownLines));
+
+            // إطار كل قسيمة — حدود الورقة اللي هتتقص
+            for (var slot = 0; slot < workers.Count; slot++)
+            {
+                var col = SlotFirstColumn(slot);
+                sheet.Range(1, col, lastRow, col + 1).Style
+                    .Border.SetOutsideBorder(XLBorderStyleValues.Medium)
+                    .Border.SetOutsideBorderColor(Ink);
+            }
 
             // الفاصل بين القسايم = خط القص. منقّط عشان يبان إنه خط قص
             // مش حد جدول، وأسود عشان يفضل يتشاف بعد الطباعة
@@ -150,19 +167,17 @@ namespace WorkforceManager.Business.Services
         private static int SlotFirstColumn(int slot) => slot * 3 + 1;
 
         /// <summary>
-        /// آخر سطر في القسيمة. بيتحسب من عدد سطور المراحل عشان القسايم
-        /// كلها تنتهي عند نفس السطر — ده شرط خط القص المستقيم.
+        /// بيكتب قسيمة واحدة وبيرجّع آخر سطر كتبه. القسايم كلها بتنتهي
+        /// عند نفس السطر لأن عدد سطور المراحل واحد فيهم كلهم — وده شرط
+        /// خط القص المستقيم.
         /// </summary>
-        private static int LastRow(int breakdownLines) => 18 + breakdownLines;
-
-        private void WriteSlip(
+        private int WriteSlip(
             IXLWorksheet sheet,
             WorkerPayrollDto worker,
             PeriodPayrollDto payroll,
             ReportExportOptions options,
             int slot,
-            int breakdownLines,
-            int lastRow)
+            int breakdownLines)
         {
             var col = SlotFirstColumn(slot);
             var value = col + 1;
@@ -200,34 +215,34 @@ namespace WorkforceManager.Business.Services
                 .Border.SetBottomBorder(XLBorderStyleValues.Medium)
                 .Border.SetBottomBorderColor(Ink);
             sheet.Row(row).Height = 20;
-            row += 2;
+            row = Gap(sheet, row + 1);
 
             // ---------- الشغل ----------
             row = Section(sheet, col, value, row, "الشغل");
             row = Line(sheet, col, value, row, "سعر اليومية", worker.DailyWageEgp, MoneyFormat);
             row = Line(sheet, col, value, row, "يوميات منتجة", worker.ProducedWorkdays, DaysFormat);
             row = Line(sheet, col, value, row, "أيام فيها شغل", worker.DaysWorked, PiecesFormat);
-            row++;
+            row = Gap(sheet, row);
 
             // ---------- اشتغل على إيه ----------
             row = Section(sheet, col, value, row, "اشتغل على");
             row = WriteBreakdown(sheet, col, value, row, worker, breakdownLines);
             row = Line(sheet, col, value, row, "إجمالي القطع", worker.TotalPieces, PiecesFormat, strong: true);
-            row++;
+            row = Gap(sheet, row);
 
             // ---------- الخصومات ----------
             row = Section(sheet, col, value, row, "الخصومات");
             row = Line(sheet, col, value, row, "خصم غياب", worker.AbsenceDeduction, DaysFormat);
             row = Line(sheet, col, value, row, "خصم جزاءات", worker.PenaltyDeduction, DaysFormat);
             row = Line(sheet, col, value, row, "صافي اليوميات", worker.NetWorkdays, DaysFormat, strong: true);
-            row++;
+            row = Gap(sheet, row);
 
             // ---------- الحساب ----------
             row = Section(sheet, col, value, row, "الحساب");
             row = Line(sheet, col, value, row, "أجر اليوميات", worker.WorkdaysWageEgp, MoneyFormat);
             row = Line(sheet, col, value, row, "حوافز", worker.BonusEgp, MoneyFormat);
             row = Line(sheet, col, value, row, "سلف", worker.AdvanceEgp, MoneyFormat);
-            row++;
+            row = Gap(sheet, row);
 
             // ---------- الصافي المستحق ----------
             sheet.Cell(row, col).Value = "الصافي المستحق";
@@ -251,10 +266,17 @@ namespace WorkforceManager.Business.Services
                 .Border.SetBottomBorderColor(Ink);
             sheet.Row(row).Height = 34;
 
-            // إطار القسيمة كلها — حدود الورقة اللي هتتقص
-            sheet.Range(1, col, lastRow, value).Style
-                .Border.SetOutsideBorder(XLBorderStyleValues.Medium)
-                .Border.SetOutsideBorderColor(Ink);
+            return row;
+        }
+
+        /// <summary>
+        /// سطر فاصل بين الأقسام. رفيع مقصود: بالارتفاع العادي القسيمة
+        /// بتبقى مفكّكة وأربع فجوات بتاكل ٦٠ نقطة من طول الورقة.
+        /// </summary>
+        private static int Gap(IXLWorksheet sheet, int row)
+        {
+            sheet.Row(row).Height = 6;
+            return row + 1;
         }
 
         /// <summary>
@@ -310,6 +332,11 @@ namespace WorkforceManager.Business.Services
             }
 
             StyleLine(sheet, col, valueCol, row, strong: false);
+
+            // "كبش الماني — الكبشه كاملة" أطول من عرض العمود، والباقي
+            // بيتقص لأن الخانة اللي جنبه مليانة. التصغير التلقائي
+            // بيخلّيه يبان كامل بدل ما نص اسم المنتج يضيع.
+            sheet.Cell(row, col).Style.Alignment.SetShrinkToFit(true);
             return row + 1;
         }
 

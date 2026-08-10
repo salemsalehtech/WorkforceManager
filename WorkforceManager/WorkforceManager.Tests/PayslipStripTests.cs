@@ -121,6 +121,29 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task TheFrameCoversTheWholeSlip_DownToTheNetRow()
+        {
+            // الإطار وخط القص كانوا بيتحسبوا بمعادلة منفصلة عن اللي
+            // بيتكتب فعلًا (18 + عدد المراحل)، وكانت غلط بخمس سطور —
+            // فالورقة المطبوعة كان إطارها بيقف عند "الحساب" وسايب أجر
+            // اليوميات والحوافز والسلف و**الصافي المستحق** برّه.
+            // المعادلة اتشالت وبقى الإطار بيتقاس من آخر سطر اتكتب،
+            // والاختبار ده هو اللي بيثبّت إن الاتنين مربوطين.
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+            await RecordAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage2Id, 50);
+
+            var path = Export(await PayrollAsync());
+
+            using var workbook = new XLWorkbook(path);
+            var sheet = workbook.Worksheets.First();
+
+            var lastContentRow = LastUsedRow(sheet, column: 1);
+
+            Assert.Equal(lastContentRow, LastRowWithBottomFrame(sheet, column: 1));
+            Assert.Equal(lastContentRow, LastRowOfCutLine(sheet, gapColumn: 3));
+        }
+
+        [Fact]
         public async Task ZeroLinesAreWritten_NotSkipped()
         {
             // عامل مفيش عليه جزاءات ولا سلف: السطور دي لازم تظهر بصفر
@@ -240,5 +263,28 @@ namespace WorkforceManager.Tests
             sheet.Column(column).CellsUsed().Any()
                 ? sheet.Column(column).CellsUsed().Last().Address.RowNumber
                 : 0;
+
+        /// <summary>آخر سطر عليه الحد السفلي للإطار — يعني قاع القسيمة</summary>
+        private static int LastRowWithBottomFrame(IXLWorksheet sheet, int column) =>
+            LastRowWhere(sheet, r =>
+                sheet.Cell(r, column).Style.Border.BottomBorder == XLBorderStyleValues.Medium);
+
+        /// <summary>آخر سطر فيه خط القص المنقّط</summary>
+        private static int LastRowOfCutLine(IXLWorksheet sheet, int gapColumn) =>
+            LastRowWhere(sheet, r =>
+                sheet.Cell(r, gapColumn).Style.Border.LeftBorder == XLBorderStyleValues.Dashed);
+
+        private static int LastRowWhere(IXLWorksheet sheet, Func<int, bool> match)
+        {
+            // بنعدّي شوية سطور بعد المحتوى كمان: لو الإطار طال أكتر من
+            // اللازم ده عيب برضه، والاختبار لازم يشوفه
+            var limit = sheet.LastRowUsed()!.RowNumber() + 5;
+            var last = 0;
+
+            for (var row = 1; row <= limit; row++)
+                if (match(row)) last = row;
+
+            return last;
+        }
     }
 }
