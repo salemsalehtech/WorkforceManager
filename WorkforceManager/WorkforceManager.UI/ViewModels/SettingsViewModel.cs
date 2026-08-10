@@ -72,6 +72,64 @@ namespace WorkforceManager.UI.ViewModels
             Notify.Success(value ? "الوضع الليلي اشتغل" : "الوضع الفاتح رجع");
         }
 
+        // ------- هوية التقارير المطبوعة -------
+
+        /// <summary>
+        /// اسم المصنع فوق كل تقرير مصدَّر. التقرير بيخرج من البرنامج
+        /// ويروح لناس مشافوش البرنامج (محاسب، مالك، جهة خارجية) فلازم
+        /// يقول هو بتاع مين من غير ما حد يشرح.
+        /// </summary>
+        [ObservableProperty]
+        private string _factoryName = "";
+
+        partial void OnFactoryNameChanged(string value)
+        {
+            if (_loadingSettings) return;
+
+            var settings = AppSettingsStore.Load();
+            settings.FactoryName = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            AppSettingsStore.Save(settings);
+        }
+
+        [ObservableProperty]
+        private string _logoPath = "";
+
+        public string LogoText => string.IsNullOrWhiteSpace(LogoPath)
+            ? "مفيش شعار — التقارير هتطلع من غيره"
+            : System.IO.Path.GetFileName(LogoPath);
+
+        partial void OnLogoPathChanged(string value) => OnPropertyChanged(nameof(LogoText));
+
+        [RelayCommand]
+        private void ChooseLogo()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "اختار صورة الشعار",
+                Filter = "صور (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp"
+            };
+
+            if (dialog.ShowDialog() != true) return;
+
+            LogoPath = dialog.FileName;
+
+            var settings = AppSettingsStore.Load();
+            settings.LogoPath = dialog.FileName;
+            AppSettingsStore.Save(settings);
+
+            Notify.Success("الشعار اتحفظ — هيظهر فوق التقارير المصدَّرة");
+        }
+
+        [RelayCommand]
+        private void ClearLogo()
+        {
+            LogoPath = "";
+
+            var settings = AppSettingsStore.Load();
+            settings.LogoPath = null;
+            AppSettingsStore.Save(settings);
+        }
+
         /// <summary>عدد أيام الاحتفاظ بالنسخ الاحتياطية</summary>
         [ObservableProperty]
         private int _retentionDays = AppSettings.DefaultBackupRetentionDays;
@@ -315,8 +373,11 @@ namespace WorkforceManager.UI.ViewModels
             DarkMode = settings.DarkMode;
             LogRetentionDays = settings.ActivityLogRetentionDays;
             LogFinancialRetentionDays = settings.ActivityLogFinancialRetentionDays;
+            FactoryName = settings.FactoryName ?? "";
+            LogoPath = settings.LogoPath ?? "";
             _loadingSettings = false;
             OnPropertyChanged(nameof(LogRetentionText));
+            OnPropertyChanged(nameof(LogoText));
 
             SafeAsync.Run(LoadAccountAsync);
 

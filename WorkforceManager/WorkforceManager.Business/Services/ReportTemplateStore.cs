@@ -19,6 +19,34 @@ namespace WorkforceManager.Business.Services
         public ReportPeriodKind Period { get; set; } = ReportPeriodKind.ThisWeek;
         public WorkerKindFilter WorkerKind { get; set; } = WorkerKindFilter.All;
 
+        // ------- الفلاتر -------
+        // القالب كان بيحفظ الموضوع والتفصيل والمدة بس، فالمدير اللي
+        // بيعمل "إنتاج الخمس عمال دول" كل شهر كان بيعيد اختيارهم كل مرة —
+        // يعني المرونة بتكلّفه شغل بدل ما توفّر عليه.
+
+        public List<int>? WorkerIds { get; set; }
+        public List<int>? ProductIds { get; set; }
+        public List<int>? StageIds { get; set; }
+
+        // ------- شكل الجدول -------
+
+        /// <summary>
+        /// الأعمدة بترتيبها وأسمائها. بتتحفظ بـ **مفتاح** العمود مش
+        /// باسمه المعروض، فلو المستخدم سمّى عمود باسمه القالب بيفضل
+        /// شغال، ولو البرنامج غيّر الاسم الافتراضي القالب برضه بيفضل شغال.
+        /// </summary>
+        public List<ReportColumnChoice>? ColumnLayout { get; set; }
+
+        public string? SortKey { get; set; }
+        public bool SortDescending { get; set; } = true;
+        public int? TopN { get; set; }
+        public bool CompareWithPrevious { get; set; }
+
+        // ------- التصدير -------
+
+        public bool ExportDetailSheet { get; set; } = true;
+        public bool ExportSheetPerGroup { get; set; }
+
         /// <summary>قالب جاهز مع البرنامج — مبيتحذفش</summary>
         public bool IsBuiltIn { get; set; }
 
@@ -32,7 +60,15 @@ namespace WorkforceManager.Business.Services
                 GroupBy = GroupBy,
                 From = from,
                 To = to,
-                WorkerKind = WorkerKind
+                WorkerKind = WorkerKind,
+                WorkerIds = WorkerIds,
+                ProductIds = ProductIds,
+                StageIds = StageIds,
+                ColumnLayout = ColumnLayout,
+                SortKey = SortKey,
+                SortDescending = SortDescending,
+                TopN = TopN,
+                CompareWithPrevious = CompareWithPrevious
             };
         }
     }

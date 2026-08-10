@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Interfaces;
+using WorkforceManager.Data;
 
 namespace WorkforceManager.UI.ViewModels
 {
@@ -57,6 +58,7 @@ namespace WorkforceManager.UI.ViewModels
         partial void OnSelectedSubjectChanged(SubjectOption value)
         {
             RefreshGroupings();
+            RefreshColumnChoices(); // كل موضوع وأعمدته
             OnPropertyChanged(nameof(UsesPeriod));
             RequestPreview();
         }
@@ -64,7 +66,12 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private GroupingOption? _selectedGrouping;
 
-        partial void OnSelectedGroupingChanged(GroupingOption? value) => RequestPreview();
+        partial void OnSelectedGroupingChanged(GroupingOption? value)
+        {
+            // المهارات بتغيّر عمودين مع التفصيل، فالقايمة لازم تتحدّث
+            RefreshColumnChoices();
+            RequestPreview();
+        }
 
         [ObservableProperty]
         private PeriodOption _selectedPeriod;
@@ -133,49 +140,267 @@ namespace WorkforceManager.UI.ViewModels
 
         // ------- الفلاتر -------
 
-        public ObservableCollection<WorkerFilterItem> Workers { get; } = new();
-        public ObservableCollection<ProductFilterItem> Products { get; } = new();
+        /// <summary>
+        /// العمال والمنتجات باختيار **متعدد**. المحرك بيقبل مجموعة من
+        /// زمان (<see cref="ReportSpec.WorkerIds"/>) بس الشاشة كانت
+        /// بتبعت واحد بس — يعني "تقرير عن الخمس عمال دول" مكانش ينفع
+        /// أصلاً مع إن المحرك عامله.
+        /// </summary>
+        public ObservableCollection<CheckableItem> Workers { get; } = new();
+        public ObservableCollection<CheckableItem> Products { get; } = new();
+
+        /// <summary>فلتر المرحلة — كان في المحرك ومش ظاهر في الشاشة</summary>
+        public ObservableCollection<StageFilterItem> Stages { get; } = new();
 
         [ObservableProperty]
-        private WorkerFilterItem? _selectedWorker;
+        private StageFilterItem? _selectedStage;
 
-        partial void OnSelectedWorkerChanged(WorkerFilterItem? value)
+        partial void OnSelectedStageChanged(StageFilterItem? value)
         {
-            OnPropertyChanged(nameof(CanPrintPayslip));
+            OnPropertyChanged(nameof(ActiveFilterCount));
+            OnPropertyChanged(nameof(HasFilters));
+            RequestPreview();
+        }
+
+        /// <summary>بالقطعة / بالساعة — كان في المحرك ومش ظاهر كمان</summary>
+        public IReadOnlyList<WorkerKindOption> WorkerKinds { get; } = new[]
+        {
+            new WorkerKindOption(WorkerKindFilter.All, "الكل"),
+            new WorkerKindOption(WorkerKindFilter.ByProduction, "بالقطعة"),
+            new WorkerKindOption(WorkerKindFilter.Hourly, "بالساعة")
+        };
+
+        [ObservableProperty]
+        private WorkerKindOption? _selectedWorkerKind;
+
+        partial void OnSelectedWorkerKindChanged(WorkerKindOption? value)
+        {
+            OnPropertyChanged(nameof(ActiveFilterCount));
+            OnPropertyChanged(nameof(HasFilters));
             RequestPreview();
         }
 
         [ObservableProperty]
-        private ProductFilterItem? _selectedProduct;
-
-        partial void OnSelectedProductChanged(ProductFilterItem? value) => RequestPreview();
-
-        [ObservableProperty]
         private bool _isFilterMenuOpen;
 
-        public bool HasFilters => SelectedWorker?.Id is not null || SelectedProduct?.Id is not null;
+        /// <summary>مفيش علامات = الفلتر مقفول (مش "طابق ولا حاجة")</summary>
+        private static IReadOnlyCollection<int>? CheckedIds(IEnumerable<CheckableItem> items)
+        {
+            var ids = items.Where(i => i.IsChecked).Select(i => i.Id).ToList();
+            return ids.Count == 0 ? null : ids;
+        }
+
+        public bool HasFilters => ActiveFilterCount > 0;
 
         public int ActiveFilterCount =>
-            (SelectedWorker?.Id is not null ? 1 : 0) + (SelectedProduct?.Id is not null ? 1 : 0);
+            (Workers.Any(w => w.IsChecked) ? 1 : 0) +
+            (Products.Any(p => p.IsChecked) ? 1 : 0) +
+            (SelectedStage?.Id is not null ? 1 : 0) +
+            (SelectedWorkerKind is { Kind: not WorkerKindFilter.All } ? 1 : 0);
+
+        /// <summary>بيتنادى من أي عنصر اتعلّم أو اتشال منه العلامة</summary>
+        private void OnFilterToggled()
+        {
+            OnPropertyChanged(nameof(HasFilters));
+            OnPropertyChanged(nameof(ActiveFilterCount));
+            OnPropertyChanged(nameof(CanPrintPayslip));
+            RequestPreview();
+        }
+
+        private void OnCheckableChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(CheckableItem.IsChecked)) OnFilterToggled();
+        }
 
         [RelayCommand]
         private void ClearFilters()
         {
-            // الاتنين بيتغيّروا مع بعض، فمعاينة واحدة في الآخر بدل
-            // اتنين ورا بعض على نفس الجدول
+            // كل الفلاتر بتتغيّر مع بعض، فمعاينة واحدة في الآخر بدل
+            // معاينة لكل واحد فيهم
             _suppressPreview = true;
             try
             {
-                SelectedWorker = Workers.FirstOrDefault();
-                SelectedProduct = Products.FirstOrDefault();
+                foreach (var w in Workers) w.IsChecked = false;
+                foreach (var p in Products) p.IsChecked = false;
+                SelectedStage = Stages.FirstOrDefault();
+                SelectedWorkerKind = WorkerKinds[0];
             }
             finally
             {
                 _suppressPreview = false;
             }
 
+            OnFilterToggled();
+        }
+
+        // ------- شكل الجدول: الأعمدة -------
+
+        /// <summary>
+        /// أعمدة الموضوع المختار: المستخدم بيعلّم اللي عايزه، بيرتّبهم،
+        /// وبيغيّر أسماءهم.
+        /// </summary>
+        public ObservableCollection<ColumnChoiceItem> ColumnChoices { get; } = new();
+
+        [ObservableProperty]
+        private bool _isColumnMenuOpen;
+
+        public int HiddenColumnCount => ColumnChoices.Count(c => !c.IsVisible);
+        public bool HasColumnChanges => ColumnChoices.Any(c => !c.IsVisible || c.IsRenamed);
+
+        /// <summary>
+        /// بيعيد بناء قايمة الأعمدة لما الموضوع أو التفصيل يتغيّر،
+        /// **ومحافظ على اختيار المستخدم** للأعمدة اللي لسه موجودة
+        /// بمفتاحها — فتغيير التفصيل مش بيضيّع شغله.
+        /// </summary>
+        private void RefreshColumnChoices()
+        {
+            var previous = ColumnChoices.ToDictionary(c => c.Key);
+
+            foreach (var choice in ColumnChoices) choice.PropertyChanged -= OnColumnChoiceChanged;
+            ColumnChoices.Clear();
+
+            var available = ReportBuilderService.ColumnsFor(
+                SelectedSubject.Subject,
+                SelectedGrouping?.Grouping ?? ReportGrouping.Worker);
+
+            foreach (var column in available)
+            {
+                var item = previous.TryGetValue(column.Key, out var old)
+                    ? new ColumnChoiceItem(column.Key, column.Header, old.IsVisible,
+                        old.IsRenamed ? old.Header : null)
+                    : new ColumnChoiceItem(column.Key, column.Header);
+
+                item.PropertyChanged += OnColumnChoiceChanged;
+                ColumnChoices.Add(item);
+            }
+
+            RefreshSortOptions();
+
+            OnPropertyChanged(nameof(HiddenColumnCount));
+            OnPropertyChanged(nameof(HasColumnChanges));
+        }
+
+        private void OnColumnChoiceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is not (nameof(ColumnChoiceItem.IsVisible) or nameof(ColumnChoiceItem.Header)))
+                return;
+
+            OnPropertyChanged(nameof(HiddenColumnCount));
+            OnPropertyChanged(nameof(HasColumnChanges));
+            RefreshSortOptions();
             RequestPreview();
         }
+
+        [RelayCommand]
+        private void MoveColumnUp(ColumnChoiceItem? item) => MoveColumn(item, -1);
+
+        [RelayCommand]
+        private void MoveColumnDown(ColumnChoiceItem? item) => MoveColumn(item, +1);
+
+        private void MoveColumn(ColumnChoiceItem? item, int direction)
+        {
+            if (item is null) return;
+
+            var index = ColumnChoices.IndexOf(item);
+            var target = index + direction;
+
+            if (index < 0 || target < 0 || target >= ColumnChoices.Count) return;
+
+            ColumnChoices.Move(index, target);
+            RequestPreview();
+        }
+
+        [RelayCommand]
+        private void ResetColumns()
+        {
+            _suppressPreview = true;
+            try
+            {
+                foreach (var choice in ColumnChoices)
+                {
+                    choice.IsVisible = true;
+                    choice.Header = choice.DefaultHeader;
+                }
+
+                RefreshColumnChoices();
+            }
+            finally
+            {
+                _suppressPreview = false;
+            }
+
+            OnPropertyChanged(nameof(HiddenColumnCount));
+            OnPropertyChanged(nameof(HasColumnChanges));
+            RequestPreview();
+        }
+
+        // ------- الترتيب وأعلى N -------
+
+        public ObservableCollection<SortOption> SortOptions { get; } = new();
+
+        [ObservableProperty]
+        private SortOption? _selectedSort;
+
+        partial void OnSelectedSortChanged(SortOption? value) => RequestPreview();
+
+        [ObservableProperty]
+        private bool _sortDescending = true;
+
+        partial void OnSortDescendingChanged(bool value) => RequestPreview();
+
+        public IReadOnlyList<TopNOption> TopNOptions { get; } = new[]
+        {
+            new TopNOption(null, "كل الصفوف"),
+            new TopNOption(5, "أعلى 5"),
+            new TopNOption(10, "أعلى 10"),
+            new TopNOption(20, "أعلى 20"),
+            new TopNOption(50, "أعلى 50")
+        };
+
+        [ObservableProperty]
+        private TopNOption? _selectedTopN;
+
+        partial void OnSelectedTopNChanged(TopNOption? value) => RequestPreview();
+
+        private void RefreshSortOptions()
+        {
+            var current = SelectedSort?.Key;
+
+            SortOptions.Clear();
+            SortOptions.Add(new SortOption(null, "الترتيب الطبيعي"));
+            SortOptions.Add(new SortOption(ReportTable.LabelColumnKey, "بالاسم"));
+
+            // بالأعمدة كلها حتى المخفية: "رتّب بالأجر بس متعرضهوش"
+            // طلب معقول، والمحرك بيدعمه
+            foreach (var column in ColumnChoices)
+                SortOptions.Add(new SortOption(column.Key, column.Header));
+
+            _suppressPreview = true;
+            try
+            {
+                SelectedSort = SortOptions.FirstOrDefault(o => o.Key == current) ?? SortOptions[0];
+            }
+            finally
+            {
+                _suppressPreview = false;
+            }
+        }
+
+        // ------- المقارنة وخيارات التصدير -------
+
+        [ObservableProperty]
+        private bool _compareWithPrevious;
+
+        partial void OnCompareWithPreviousChanged(bool value) => RequestPreview();
+
+        [ObservableProperty]
+        private bool _exportDetailSheet = true;
+
+        [ObservableProperty]
+        private bool _exportSheetPerGroup;
+
+        [ObservableProperty]
+        private bool _isExportMenuOpen;
 
         // ======================= المعاينة =======================
 
@@ -218,8 +443,19 @@ namespace WorkforceManager.UI.ViewModels
                 GroupBy = SelectedGrouping?.Grouping ?? ReportGrouping.Worker,
                 From = from,
                 To = to,
-                WorkerIds = SelectedWorker?.Id is { } w ? new[] { w } : null,
-                ProductIds = SelectedProduct?.Id is { } p ? new[] { p } : null
+
+                WorkerIds = CheckedIds(Workers),
+                ProductIds = CheckedIds(Products),
+                StageIds = SelectedStage?.Id is { } s ? new[] { s } : null,
+                WorkerKind = SelectedWorkerKind?.Kind ?? WorkerKindFilter.All,
+
+                // ترتيب القايمة **هو** ترتيب الأعمدة في التقرير
+                ColumnLayout = ColumnChoices.Select(c => c.ToChoice()).ToList(),
+                SortKey = SelectedSort?.Key,
+                SortDescending = SortDescending,
+                TopN = SelectedTopN?.Count,
+
+                CompareWithPrevious = CompareWithPrevious
             };
         }
 
@@ -303,6 +539,28 @@ namespace WorkforceManager.UI.ViewModels
             }
 
             var table = _current;
+            var spec = BuildSpec();
+
+            var settings = AppSettingsStore.Load();
+            var options = new ReportExportOptions
+            {
+                IncludeDetailSheet = ExportDetailSheet,
+                SheetPerGroup = ExportSheetPerGroup,
+                FactoryName = settings.FactoryName,
+                LogoPath = settings.LogoPath
+            };
+
+            // التفاصيل بتتبني بس لما تكون مطلوبة — دي أتقل استعلام في
+            // الشاشة (سجل لكل صف)، ومفيش داعي نحمّله على كل تصدير
+            ReportDetail? detail = null;
+
+            if (options.IncludeDetailSheet || options.SheetPerGroup)
+            {
+                using var scope = _scopeFactory.CreateScope();
+                detail = await scope.ServiceProvider
+                    .GetRequiredService<ReportBuilderService>()
+                    .BuildDetailAsync(spec);
+            }
 
             await ExcelExport.RunAsync(
                 "حفظ التقرير",
@@ -311,7 +569,7 @@ namespace WorkforceManager.UI.ViewModels
                 {
                     using var scope = _scopeFactory.CreateScope();
                     scope.ServiceProvider.GetRequiredService<ReportTableExcelService>()
-                        .Export(table, path);
+                        .Export(table, path, detail, options);
                     return Task.CompletedTask;
                 });
         }
@@ -323,14 +581,28 @@ namespace WorkforceManager.UI.ViewModels
         /// العام. بتظهر لما المستخدم يختار عامل واحد في الفلاتر: ساعتها
         /// بس السؤال "قسيمة مين؟" يبقى ليه إجابة.
         /// </summary>
-        public bool CanPrintPayslip => SelectedWorker?.Id is not null;
+        /// <summary>
+        /// القسيمة ورقة عامل **واحد**، فبتظهر لما يبقى فيه واحد بالظبط
+        /// متعلّم في الفلاتر — لا صفر (مفيش إجابة لسؤال "قسيمة مين؟")
+        /// ولا اتنين (مش هنطبع قسيمة الأول ونسيب التاني).
+        /// </summary>
+        public bool CanPrintPayslip => SingleCheckedWorkerId is not null;
+
+        private int? SingleCheckedWorkerId
+        {
+            get
+            {
+                var checkedWorkers = Workers.Where(w => w.IsChecked).Take(2).ToList();
+                return checkedWorkers.Count == 1 ? checkedWorkers[0].Id : null;
+            }
+        }
 
         [RelayCommand]
         private async Task PrintPayslipAsync()
         {
-            if (SelectedWorker?.Id is not { } workerId)
+            if (SingleCheckedWorkerId is not { } workerId)
             {
-                Notify.Info("اختار عامل من الفلاتر الأول عشان تطبع قسيمته");
+                Notify.Info("علّم على عامل واحد بس في الفلاتر عشان تطبع قسيمته");
                 return;
             }
 
@@ -369,13 +641,77 @@ namespace WorkforceManager.UI.ViewModels
                 SelectedGrouping = Groupings.FirstOrDefault(g => g.Grouping == value.GroupBy)
                                    ?? Groupings.FirstOrDefault();
                 SelectedPeriod = Periods.First(p => p.Kind == value.Period);
+
+                ApplyFilters(value);
+                ApplyColumns(value);
+
+                SelectedSort = SortOptions.FirstOrDefault(o => o.Key == value.SortKey) ?? SortOptions[0];
+                SortDescending = value.SortDescending;
+                SelectedTopN = TopNOptions.FirstOrDefault(o => o.Count == value.TopN) ?? TopNOptions[0];
+                CompareWithPrevious = value.CompareWithPrevious;
+
+                ExportDetailSheet = value.ExportDetailSheet;
+                ExportSheetPerGroup = value.ExportSheetPerGroup;
             }
             finally
             {
                 _suppressPreview = false;
             }
 
-            RequestPreview();
+            OnFilterToggled();
+        }
+
+        private void ApplyFilters(ReportTemplate template)
+        {
+            var workerIds = template.WorkerIds?.ToHashSet() ?? new HashSet<int>();
+            foreach (var w in Workers) w.IsChecked = workerIds.Contains(w.Id);
+
+            var productIds = template.ProductIds?.ToHashSet() ?? new HashSet<int>();
+            foreach (var p in Products) p.IsChecked = productIds.Contains(p.Id);
+
+            var stageId = template.StageIds?.FirstOrDefault();
+            SelectedStage = Stages.FirstOrDefault(s => s.Id == stageId) ?? Stages.FirstOrDefault();
+
+            SelectedWorkerKind = WorkerKinds.FirstOrDefault(k => k.Kind == template.WorkerKind)
+                                 ?? WorkerKinds[0];
+        }
+
+        /// <summary>
+        /// بيطبّق أعمدة القالب: الترتيب من القالب، والأعمدة اللي القالب
+        /// ميعرفهاش بتفضل في الآخر ظاهرة.
+        ///
+        /// قالب اتحفظ قبل ما عمود جديد يتزوّد لازم يفضل يفتح — والعمود
+        /// الجديد يبان، مش يختفي من غير ما حد ياخد باله.
+        /// </summary>
+        private void ApplyColumns(ReportTemplate template)
+        {
+            RefreshColumnChoices(); // أعمدة الموضوع الجديد بحالتها الأصلية
+
+            if (template.ColumnLayout is not { Count: > 0 }) return;
+
+            var byKey = ColumnChoices.ToDictionary(c => c.Key);
+            var ordered = new List<ColumnChoiceItem>();
+
+            foreach (var saved in template.ColumnLayout)
+            {
+                if (!byKey.TryGetValue(saved.Key, out var item)) continue; // عمود اتشال من البرنامج
+
+                item.IsVisible = saved.Visible;
+                if (!string.IsNullOrWhiteSpace(saved.Header)) item.Header = saved.Header!;
+
+                ordered.Add(item);
+            }
+
+            foreach (var item in ColumnChoices)
+                if (!ordered.Contains(item))
+                    ordered.Add(item);
+
+            ColumnChoices.Clear();
+            foreach (var item in ordered) ColumnChoices.Add(item);
+
+            RefreshSortOptions();
+            OnPropertyChanged(nameof(HiddenColumnCount));
+            OnPropertyChanged(nameof(HasColumnChanges));
         }
 
         [ObservableProperty]
@@ -392,12 +728,28 @@ namespace WorkforceManager.UI.ViewModels
             var name = NewTemplateName.Trim();
             if (name.Length == 0) return;
 
+            // القالب بيحفظ **كل** اللي المستخدم ظبّطه، مش الموضوع
+            // والمدة بس — وإلا هيعيد نفس الشغل كل مرة يفتحه
             ReportTemplateStore.Save(new ReportTemplate
             {
                 Name = name,
                 Subject = SelectedSubject.Subject,
                 GroupBy = SelectedGrouping?.Grouping ?? ReportGrouping.Worker,
-                Period = SelectedPeriod.Kind
+                Period = SelectedPeriod.Kind,
+
+                WorkerIds = CheckedIds(Workers)?.ToList(),
+                ProductIds = CheckedIds(Products)?.ToList(),
+                StageIds = SelectedStage?.Id is { } s ? new List<int> { s } : null,
+                WorkerKind = SelectedWorkerKind?.Kind ?? WorkerKindFilter.All,
+
+                ColumnLayout = ColumnChoices.Select(c => c.ToChoice()).ToList(),
+                SortKey = SelectedSort?.Key,
+                SortDescending = SortDescending,
+                TopN = SelectedTopN?.Count,
+                CompareWithPrevious = CompareWithPrevious,
+
+                ExportDetailSheet = ExportDetailSheet,
+                ExportSheetPerGroup = ExportSheetPerGroup
             });
 
             NewTemplateName = "";
@@ -437,20 +789,41 @@ namespace WorkforceManager.UI.ViewModels
                 var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
                 var productRepo = scope.ServiceProvider.GetRequiredService<IProductRepository>();
 
+                foreach (var w in Workers) w.PropertyChanged -= OnCheckableChanged;
                 Workers.Clear();
-                Workers.Add(new WorkerFilterItem(null, "كل العمال"));
+
                 foreach (var w in (await workerRepo.GetAllWithSkillsAsync()).OrderBy(w => w.FullName))
-                    Workers.Add(new WorkerFilterItem(w.Id, w.FullName));
+                {
+                    var item = new CheckableItem(w.Id, w.FullName);
+                    item.PropertyChanged += OnCheckableChanged;
+                    Workers.Add(item);
+                }
 
+                foreach (var p in Products) p.PropertyChanged -= OnCheckableChanged;
                 Products.Clear();
-                Products.Add(new ProductFilterItem(null, "كل المنتجات"));
-                foreach (var p in (await productRepo.GetAllWithStagesAsync()).OrderBy(p => p.Name))
-                    Products.Add(new ProductFilterItem(p.Id, p.Name));
 
-                // جوّه الـ try عن قصد: لسه _ready = false هنا، فالسطرين
-                // دول مش هيطلبوا معاينة لوحدهم
-                SelectedWorker = Workers.FirstOrDefault();
-                SelectedProduct = Products.FirstOrDefault();
+                Stages.Clear();
+                Stages.Add(new StageFilterItem(null, "كل المراحل"));
+
+                foreach (var p in (await productRepo.GetAllWithStagesAsync()).OrderBy(p => p.Name))
+                {
+                    var item = new CheckableItem(p.Id, p.Name);
+                    item.PropertyChanged += OnCheckableChanged;
+                    Products.Add(item);
+
+                    // اسم المرحلة لوحده مش كافي: "قص" موجودة في أكتر من
+                    // منتج، فاسم المنتج لازم يبقى معاها
+                    foreach (var stage in ProductionLine.Active(p))
+                        Stages.Add(new StageFilterItem(stage.Id, $"{p.Name} — {stage.StageName}"));
+                }
+
+                // جوّه الـ try عن قصد: لسه _ready = false هنا، فالسطور
+                // دي مش هتطلب معاينة لوحدها
+                SelectedStage = Stages[0];
+                SelectedWorkerKind = WorkerKinds[0];
+                SelectedTopN = TopNOptions[0];
+
+                RefreshColumnChoices();
             }
             finally
             {

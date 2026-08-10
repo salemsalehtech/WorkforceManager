@@ -848,6 +848,17 @@
             </Style>
 
             <!-- لوحة بتنزل من زرار ToolbarToggle -->
+            <!-- إطار حوالين قايمة اختيار متعدد جوّه فلتر منسدل: بيفصل
+                 قايمة العلامات عن باقي الفلاتر عشان المستخدم يعرف
+                 فين بتبدأ وفين بتخلص لما تكون طويلة وبتتمرّر -->
+            <Style x:Key="FilterListBox" TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="{DynamicResource RadiusSmall}" />
+                <Setter Property="Padding" Value="9,7" />
+            </Style>
+
             <Style x:Key="ToolbarPopupCard" TargetType="Border">
                 <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />

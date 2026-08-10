@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 
@@ -10,6 +11,83 @@ namespace WorkforceManager.UI.ViewModels
     public record GroupingOption(ReportGrouping Grouping, string Display);
 
     public record PeriodOption(ReportPeriodKind Kind, string Display);
+
+    /// <summary>نوع العامل في الفلترة</summary>
+    public record WorkerKindOption(WorkerKindFilter Kind, string Display);
+
+    /// <summary>عمود الترتيب — null = الترتيب الطبيعي للموضوع</summary>
+    public record SortOption(string? Key, string Display);
+
+    /// <summary>أعلى كام صف — null = كل الصفوف</summary>
+    public record TopNOption(int? Count, string Display);
+
+    /// <summary>مرحلة في قايمة الفلترة — null = كل المراحل</summary>
+    public record StageFilterItem(int? Id, string Display);
+
+    /// <summary>
+    /// عنصر بيتعلّم في قايمة اختيار متعدد (عمال أو منتجات).
+    ///
+    /// لازم يكون <see cref="ObservableObject"/> مش record: المستخدم
+    /// بيعلّم ويشيل العلامة والشاشة لازم تسمع كل تغيير عشان تعيد بناء
+    /// المعاينة وتحدّث عدّاد الفلاتر.
+    /// </summary>
+    public partial class CheckableItem : ObservableObject
+    {
+        public CheckableItem(int id, string display)
+        {
+            Id = id;
+            Display = display;
+        }
+
+        public int Id { get; }
+        public string Display { get; }
+
+        [ObservableProperty]
+        private bool _isChecked;
+    }
+
+    /// <summary>
+    /// عمود في محرّر الأعمدة: يظهر ولا لأ، واسمه إيه، وترتيبه.
+    ///
+    /// <see cref="Key"/> هو الرابط بالمحرك وعمره ما بيتغيّر — الاسم
+    /// اللي المستخدم بيكتبه بيتحط في <see cref="Header"/> بس، عشان
+    /// إعادة التسمية متكسرش القوالب المحفوظة.
+    /// </summary>
+    public partial class ColumnChoiceItem : ObservableObject
+    {
+        public ColumnChoiceItem(string key, string defaultHeader, bool visible = true, string? header = null)
+        {
+            Key = key;
+            DefaultHeader = defaultHeader;
+            _isVisible = visible;
+            _header = header ?? defaultHeader;
+        }
+
+        public string Key { get; }
+
+        /// <summary>الاسم الأصلي — عشان زرار "رجّع الأسماء"</summary>
+        public string DefaultHeader { get; }
+
+        [ObservableProperty]
+        private bool _isVisible;
+
+        [ObservableProperty]
+        private string _header;
+
+        /// <summary>اسم متغيّر عن الأصلي؟ (بيتعرض بعلامة في القايمة)</summary>
+        public bool IsRenamed => !string.Equals(Header?.Trim(), DefaultHeader, StringComparison.Ordinal);
+
+        partial void OnHeaderChanged(string value) => OnPropertyChanged(nameof(IsRenamed));
+
+        public ReportColumnChoice ToChoice() => new()
+        {
+            Key = Key,
+            Visible = IsVisible,
+            Header = string.IsNullOrWhiteSpace(Header) || Header.Trim() == DefaultHeader
+                ? null
+                : Header.Trim()
+        };
+    }
 
     /// <summary>عامل في قايمة الفلترة — null = كل العمال</summary>
     public record WorkerFilterItem(int? Id, string Display);

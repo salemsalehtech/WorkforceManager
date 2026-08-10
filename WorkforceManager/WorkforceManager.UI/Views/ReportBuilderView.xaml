@@ -117,18 +117,52 @@
                                PlacementTarget="{Binding ElementName=FilterToggle}" Placement="Bottom"
                                AllowsTransparency="True" PopupAnimation="Fade">
                             <Border Style="{StaticResource ToolbarPopupCard}"
-                                    FlowDirection="RightToLeft" Width="280">
+                                    FlowDirection="RightToLeft" Width="300">
                                 <StackPanel>
-                                    <TextBlock Text="عامل معيّن" FontSize="11" Margin="0,0,0,3"
+                                    <!-- اختيار متعدد: المحرك بيقبل مجموعة من
+                                         زمان، والشاشة كانت بتبعت واحد بس -->
+                                    <TextBlock Text="عمال (علّم على اللي عايزه)" FontSize="11" Margin="0,0,0,4"
                                                Foreground="{DynamicResource TextMutedBrush}" />
-                                    <ComboBox ItemsSource="{Binding Workers}"
-                                              SelectedItem="{Binding SelectedWorker}"
+                                    <Border Style="{StaticResource FilterListBox}">
+                                        <ScrollViewer MaxHeight="150" VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding Workers}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox Content="{Binding Display}"
+                                                                  IsChecked="{Binding IsChecked}"
+                                                                  FontSize="12.5" Margin="0,2" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Border>
+
+                                    <TextBlock Text="منتجات" FontSize="11" Margin="0,10,0,4"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                    <Border Style="{StaticResource FilterListBox}">
+                                        <ScrollViewer MaxHeight="120" VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding Products}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox Content="{Binding Display}"
+                                                                  IsChecked="{Binding IsChecked}"
+                                                                  FontSize="12.5" Margin="0,2" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Border>
+
+                                    <TextBlock Text="مرحلة" FontSize="11" Margin="0,10,0,3"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                    <ComboBox ItemsSource="{Binding Stages}"
+                                              SelectedItem="{Binding SelectedStage}"
                                               DisplayMemberPath="Display" FontSize="12.5" />
 
-                                    <TextBlock Text="منتج معيّن" FontSize="11" Margin="0,10,0,3"
+                                    <TextBlock Text="نوع العامل" FontSize="11" Margin="0,10,0,3"
                                                Foreground="{DynamicResource TextMutedBrush}" />
-                                    <ComboBox ItemsSource="{Binding Products}"
-                                              SelectedItem="{Binding SelectedProduct}"
+                                    <ComboBox ItemsSource="{Binding WorkerKinds}"
+                                              SelectedItem="{Binding SelectedWorkerKind}"
                                               DisplayMemberPath="Display" FontSize="12.5" />
 
                                     <Button Command="{Binding ClearFiltersCommand}"
@@ -145,6 +179,118 @@
                             </Border>
                         </Popup>
                     </Grid>
+
+                    <!-- ===== محرّر الأعمدة ===== -->
+                    <Grid VerticalAlignment="Center" Margin="8,0,0,0">
+                        <ToggleButton x:Name="ColumnToggle" Style="{StaticResource ToolbarToggle}"
+                                      IsChecked="{Binding IsColumnMenuOpen, Mode=TwoWay}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ViewColumnOutline" Width="15" Height="15"
+                                                         VerticalAlignment="Center" />
+                                <TextBlock Text="الأعمدة" Margin="5,0,0,0" VerticalAlignment="Center" />
+                                <Border Background="{DynamicResource SidebarBrush}" CornerRadius="8"
+                                        Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                        Visibility="{Binding HasColumnChanges, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="✎" FontSize="10.5" FontWeight="Bold"
+                                               Foreground="{DynamicResource SidebarInkBrush}" />
+                                </Border>
+                                <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                         Margin="4,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ToggleButton>
+
+                        <Popup IsOpen="{Binding IsColumnMenuOpen, Mode=TwoWay}" StaysOpen="False"
+                               PlacementTarget="{Binding ElementName=ColumnToggle}" Placement="Bottom"
+                               AllowsTransparency="True" PopupAnimation="Fade">
+                            <Border Style="{StaticResource ToolbarPopupCard}"
+                                    FlowDirection="RightToLeft" Width="360">
+                                <StackPanel>
+                                    <TextBlock Text="علّم على اللي عايز يظهر، وغيّر الاسم لو حابب"
+                                               FontSize="11" Margin="0,0,0,8"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+
+                                    <ItemsControl ItemsSource="{Binding ColumnChoices}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,3">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsVisible}"
+                                                              VerticalAlignment="Center" Margin="0,0,7,0" />
+
+                                                    <!-- الاسم بيتغيّر هنا؛ المفتاح ورا الكواليس
+                                                         مبيتغيّرش فالقوالب القديمة بتفضل شغالة -->
+                                                    <TextBox Grid.Column="1" Text="{Binding Header, UpdateSourceTrigger=LostFocus}"
+                                                             FontSize="12.5" Padding="7,5" />
+
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                                Margin="6,0,0,0" VerticalAlignment="Center">
+                                                        <Button Style="{StaticResource IconButton}" Padding="5,3"
+                                                                ToolTip="فوق"
+                                                                Command="{Binding DataContext.MoveColumnUpCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                CommandParameter="{Binding}">
+                                                            <materialDesign:PackIcon Kind="ChevronUp" Width="15" Height="15" />
+                                                        </Button>
+                                                        <Button Style="{StaticResource IconButton}" Padding="5,3"
+                                                                ToolTip="تحت"
+                                                                Command="{Binding DataContext.MoveColumnDownCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                CommandParameter="{Binding}">
+                                                            <materialDesign:PackIcon Kind="ChevronDown" Width="15" Height="15" />
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <Button Command="{Binding ResetColumnsCommand}"
+                                            Style="{StaticResource GhostButton}" Padding="11,6"
+                                            HorizontalAlignment="Left" Margin="0,12,0,0"
+                                            Visibility="{Binding HasColumnChanges, Converter={StaticResource BoolToVis}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Restore" Width="14" Height="14"
+                                                                     VerticalAlignment="Center" />
+                                            <TextBlock Text="رجّع الأعمدة زي ما كانت" Margin="5,0,0,0" FontSize="12" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                </WrapPanel>
+
+                <!-- ===== الترتيب والمقارنة ===== -->
+                <WrapPanel Margin="0,10,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                        <TextBlock Text="ترتيب" FontSize="12.5" VerticalAlignment="Center"
+                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
+                        <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSort}"
+                                  DisplayMemberPath="Display" Width="150" FontSize="12.5" />
+
+                        <ToggleButton Style="{StaticResource ToolbarToggle}" Margin="6,0,0,0"
+                                      IsChecked="{Binding SortDescending, Mode=TwoWay}"
+                                      ToolTip="من الأكبر للأصغر">
+                            <materialDesign:PackIcon Kind="SortDescending" Width="15" Height="15" />
+                        </ToggleButton>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                        <TextBlock Text="أعلى" FontSize="12.5" VerticalAlignment="Center"
+                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
+                        <ComboBox ItemsSource="{Binding TopNOptions}" SelectedItem="{Binding SelectedTopN}"
+                                  DisplayMemberPath="Display" Width="115" FontSize="12.5" />
+                    </StackPanel>
+
+                    <CheckBox Content="قارن بالمدة اللي قبلها" FontSize="12.5" VerticalAlignment="Center"
+                              IsChecked="{Binding CompareWithPrevious}"
+                              ToolTip="بيزوّد لكل رقم: رقم المدة السابقة ونسبة التغير"
+                              Visibility="{Binding UsesPeriod, Converter={StaticResource BoolToVis}}" />
                 </WrapPanel>
             </StackPanel>
         </Border>
@@ -160,6 +306,49 @@
                 <Border Grid.Row="0" Padding="14,11" BorderThickness="0,0,0,1"
                         BorderBrush="{DynamicResource CardBorderBrush}">
                     <DockPanel>
+                        <!-- خيارات الملف جنب زرار التصدير مش جوّه نافذة
+                             تانية: المستخدم بيقرر شكل الملف وهو شايف
+                             التقرير قدامه -->
+                        <Grid DockPanel.Dock="Left" VerticalAlignment="Center" Margin="8,0,0,0">
+                            <ToggleButton x:Name="ExportToggle" Style="{StaticResource ToolbarToggle}"
+                                          IsChecked="{Binding IsExportMenuOpen, Mode=TwoWay}"
+                                          ToolTip="اللي هيتحط في ملف Excel">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="CogOutline" Width="15" Height="15"
+                                                             VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                             Margin="3,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <Popup IsOpen="{Binding IsExportMenuOpen, Mode=TwoWay}" StaysOpen="False"
+                                   PlacementTarget="{Binding ElementName=ExportToggle}" Placement="Bottom"
+                                   AllowsTransparency="True" PopupAnimation="Fade">
+                                <Border Style="{StaticResource ToolbarPopupCard}"
+                                        FlowDirection="RightToLeft" Width="290">
+                                    <StackPanel>
+                                        <TextBlock Text="اللي هيتحط في ملف Excel" FontSize="11"
+                                                   Margin="0,0,0,8"
+                                                   Foreground="{DynamicResource TextMutedBrush}" />
+
+                                        <CheckBox Content="شيت تفاصيل: كل سجل على حدة"
+                                                  IsChecked="{Binding ExportDetailSheet}"
+                                                  FontSize="12.5" Margin="0,3"
+                                                  ToolTip="سطر لكل سجل من غير تجميع — عشان تعمل Pivot بنفسك" />
+
+                                        <CheckBox Content="شيت لكل مجموعة"
+                                                  IsChecked="{Binding ExportSheetPerGroup}"
+                                                  FontSize="12.5" Margin="0,3"
+                                                  ToolTip="سجلات كل منتج/عامل في شيت لوحده — للطباعة والتوزيع" />
+
+                                        <TextBlock Text="اسم المصنع والشعار بيتظبطوا من الإعدادات"
+                                                   FontSize="10.5" Margin="0,10,0,0" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+                        </Grid>
+
                         <Button DockPanel.Dock="Left" Command="{Binding ExportCommand}"
                                 Style="{StaticResource SuccessButton}" Padding="15,8"
                                 IsEnabled="{Binding HasReport}">
