@@ -29,7 +29,14 @@ namespace WorkforceManager.Core.Models
     /// ما تتشال، فنسبها لعامل واحد قرار إداري مش حقيقة في البيانات.
     /// </summary>
     [Index(nameof(Date))]
-    [Index(nameof(ProductionStageId), nameof(Date))]
+
+    // فهرس مغطّي بنفس منطق فهرس DailyProduction: "الشغل الواقف" بيجمع
+    // كل الهالك من أول يوم مجمّعًا بالمرحلة، وبيتنده من شاشة الإنتاج
+    // اليومي. الجدول ده صغير دلوقتي، بس مصنع بيسجّل هالك على كل مرحلة
+    // كل يوم بيوصل لمئات الألوف في سنين — ونفس الاستعلام ساعتها بيبقى
+    // نفس المشكلة بالظبط. PieceCount جوه الفهرس عشان المجموع يتحسب من
+    // غير رجوع للجدول.
+    [Index(nameof(ProductionStageId), nameof(Date), nameof(PieceCount))]
     public class ProductionScrap
     {
         [Key]

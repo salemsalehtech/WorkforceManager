@@ -112,7 +112,8 @@ namespace WorkforceManager.Data
             // نسخة أمان بختم وقت كامل — اسمها مش بصيغة التاريخ اليومية عمدًا
             // عشان التنظيف التلقائي ميمسحهاش (TryParseExact بيتخطاها)
             var safetyPath = Path.Combine(backupsFolder,
-                $"{BackupPrefix}before_restore_{DateTime.Now:yyyy-MM-dd_HHmmss}.db");
+                BackupPrefix + "before_restore_"
+                + DateTime.Now.ToString("yyyy-MM-dd_HHmmss", CultureInfo.InvariantCulture) + ".db");
             if (File.Exists(dbPath))
                 File.Copy(dbPath, safetyPath);
 
@@ -125,7 +126,21 @@ namespace WorkforceManager.Data
         private static string LocalBackupsFolder(string dbPath) =>
             Path.Combine(Path.GetDirectoryName(dbPath)!, "Backups");
 
-        private static string TodayBackupName() => $"{BackupPrefix}{DateTime.Today:yyyy-MM-dd}.db";
+        /// <summary>
+        /// اسم ملف نسخة النهارده.
+        ///
+        /// **التاريخ بيتكتب بالتقويم الميلادي صراحةً، مش بتقويم ويندوز.**
+        /// الاسم ده معرّف للماكينة مش نص للعرض: التنظيف بيقراه تاني بـ
+        /// InvariantCulture عشان يعرف عمر النسخة.
+        ///
+        /// من غير التثبيت ده، ويندوز متظبط على تقويم هجري كان بيكتب
+        /// "workforce_1448-02-28.db"، والتنظيف بيقراها **سنة ميلادية
+        /// 1448** — أقدم من أي مدة احتفاظ — فبيمسح النسخة بعد ثواني من
+        /// أخدها. النتيجة: المستخدم فاكر إن عنده نسخ يومية وهو مش عنده
+        /// ولا واحدة، ومش هيكتشف ده غير يوم ما يحتاجها.
+        /// </summary>
+        private static string TodayBackupName() =>
+            BackupPrefix + DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + ".db";
 
         /// <summary>
         /// النسخ الخارجي التلقائي (عند بدء التشغيل): أي فشل بيتتجاهل بصمت —

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Input;
 using Microsoft.Win32;
 
 namespace WorkforceManager.UI.ViewModels
@@ -38,9 +39,22 @@ namespace WorkforceManager.UI.ViewModels
 
             if (dialog.ShowDialog() != true) return false;
 
+            // **الكتابة على خيط تاني.** كل المتصلين بيبعتوا دالة بتشتغل
+            // كلها فورًا وترجّع Task.CompletedTask، يعني كانت بتتنفّذ على
+            // خيط الواجهة: تصدير تقرير سنة (14 ألف سجل تفصيلي) بياخد أكتر
+            // من تلات ثواني، والشاشة واقفة فيهم — مفيش رسم ولا استجابة،
+            // وويندوز بيكتب "لا يستجيب" لو طوّلت. والمدة بتكبر مع تاريخ
+            // المصنع، فاللي كان مقبول في السنة الأولى بيبقى تعليق كامل
+            // بعد عشر سنين.
+            //
+            // آمن هنا لأن كل متصل بيعمل Scope خاص بيه جوه الدالة وبيشتغل
+            // على DTOs متبنية خلاص — مفيش DbContext ولا عنصر واجهة
+            // بيتلمس من الخيط التاني.
+            Mouse.OverrideCursor = Cursors.Wait;
+
             try
             {
-                await writeAsync(dialog.FileName);
+                await Task.Run(() => writeAsync(dialog.FileName));
             }
             catch (Exception ex)
             {
@@ -48,6 +62,12 @@ namespace WorkforceManager.UI.ViewModels
                 // المجلد محمي. كلها حاجات المستخدم يقدر يعملها
                 Notify.Warn($"تعذر حفظ الملف:\n{ex.Message}", "خطأ في التصدير");
                 return false;
+            }
+            finally
+            {
+                // في finally مش بعد الـ try: لو الكتابة وقعت، المؤشر
+                // كان هيفضل ساعة رملية للأبد
+                Mouse.OverrideCursor = null;
             }
 
             if (Notify.Ask($"تم حفظ الملف:\n{dialog.FileName}\n\nتفتحه دلوقتي؟", "تم التصدير"))

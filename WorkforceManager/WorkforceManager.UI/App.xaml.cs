@@ -21,8 +21,35 @@ namespace WorkforceManager.UI
         /// </summary>
         public static IHost AppHost { get; private set; } = null!;
 
+        /// <summary>
+        /// ثقافة البرنامج — **ثابتة، مش بتتاخد من إعدادات ويندوز**.
+        ///
+        /// كل تواريخ قاعدة البيانات ميلادية، وكل التقارير والقسايم
+        /// والنسخ الاحتياطية بتتكتب على أساس كده. لو المستخدم (أو صورة
+        /// ويندوز مثبتة على جهاز تاني) ظابط التقويم على هجري، نفس الكود
+        /// بيبدأ يكتب سنة 1448 مكان 2026 — التواريخ على الشاشة تخالف
+        /// اللي في الداتا، والأخطر إن اسم ملف النسخة الاحتياطية بيتقرا
+        /// غلط فالنسخ بتتمسح وهي لسه جديدة.
+        ///
+        /// التثبيت هنا بيقفل الباب ده كله: عربي مصري بالتقويم الميلادي —
+        /// أسماء الشهور والأيام بتفضل عربي، والأرقام بتفضل هي هي على أي
+        /// جهاز وفي أي سنة.
+        /// </summary>
+        private static void PinCulture()
+        {
+            var culture = new System.Globalization.CultureInfo("ar-EG");
+            culture.DateTimeFormat.Calendar = new System.Globalization.GregorianCalendar();
+
+            System.Globalization.CultureInfo.DefaultThreadCurrentCulture = culture;
+            System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = culture;
+            System.Globalization.CultureInfo.CurrentCulture = culture;
+            System.Globalization.CultureInfo.CurrentUICulture = culture;
+        }
+
         public App()
         {
+            PinCulture();
+
             AppHost = Host.CreateDefaultBuilder()
                 .ConfigureServices((context, services) =>
                 {
