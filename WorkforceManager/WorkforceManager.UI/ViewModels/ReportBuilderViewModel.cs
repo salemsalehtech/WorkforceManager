@@ -714,6 +714,75 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
+        /// <summary>
+        /// قسايم الأسبوع: ورقة تتطبع وتتقص بالطول، شريط لكل عامل.
+        ///
+        /// منفصلة عن "قسيمة أجر" (اللي بتطبع عامل واحد على نافذة): دي
+        /// للتوزيع الأسبوعي على القسم كله دفعة واحدة، وبتخرج Excel عشان
+        /// تتطبع من أي مكان من غير ما البرنامج يبقى مفتوح.
+        ///
+        /// الأرقام بتيجي من PayrollService — نفس اللي كشف الأجور بيقوله
+        /// بالحرف، فالورقة اللي في إيد العامل متطابقة مع الكشف.
+        /// </summary>
+        [RelayCommand]
+        private async Task ExportPayslipStripsAsync()
+        {
+            var (from, to) = SelectedPeriod.Kind == ReportPeriodKind.Custom
+                ? (CustomFrom, CustomTo)
+                : ReportPeriod.Resolve(SelectedPeriod.Kind);
+
+            PeriodPayrollDto payroll;
+
+            using (var scope = _scopeFactory.CreateScope())
+                payroll = await scope.ServiceProvider
+                    .GetRequiredService<PayrollService>()
+                    .GetPeriodPayrollAsync(from, to);
+
+            // فلتر العمال المختارين بينطبق هنا كمان: اللي عامل تقرير
+            // لعمال معيّنين عايز قسايمهم هما بس
+            var selected = CheckedIds(Workers);
+            if (selected is { Count: > 0 })
+                payroll = new PeriodPayrollDto
+                {
+                    From = payroll.From,
+                    To = payroll.To,
+                    Workers = payroll.Workers.Where(w => selected.Contains(w.WorkerId)).ToList()
+                };
+
+            if (payroll.Workers.Count == 0)
+            {
+                Notify.Info("مفيش عمال ليهم أجر في المدة دي", "مفيش قسايم");
+                return;
+            }
+
+            var settings = AppSettingsStore.Load();
+            var options = new ReportExportOptions
+            {
+                FactoryName = settings.FactoryName,
+                LogoPath = settings.LogoPath
+            };
+
+            var pages = (int)Math.Ceiling(
+                payroll.Workers.Count / (double)PayslipStripExcelService.SlipsPerPage);
+
+            await ExcelExport.RunAsync(
+                "حفظ قسايم الأجر",
+                $"قسايم الأجر {from:yyyy-MM-dd}",
+                path =>
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    scope.ServiceProvider.GetRequiredService<PayslipStripExcelService>()
+                        .Export(payroll, path, options);
+                    return Task.CompletedTask;
+                });
+
+            Notify.Info(
+                $"{payroll.Workers.Count} قسيمة على {pages} ورقة " +
+                $"({PayslipStripExcelService.SlipsPerPage} في الورقة).\n" +
+                "اطبع بالعرض (Landscape) وقص على الخطوط الرأسية.",
+                "القسايم جاهزة");
+        }
+
         [RelayCommand]
         private async Task PrintPayslipAsync()
         {

@@ -115,6 +115,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<ReportBuilderService>();
             services.AddScoped<NeedsAttentionService>();
             services.AddSingleton<ReportTableExcelService>();
+            services.AddSingleton<PayslipStripExcelService>();
 
             _provider = services.BuildServiceProvider();
 

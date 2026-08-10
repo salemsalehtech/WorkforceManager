@@ -94,6 +94,7 @@ namespace WorkforceManager.Business.Services
                     WorkerName = workerRef.FullName,
                     IsHourly = workerRef.IsHourly,
                     DailyWageEgp = workerRef.DailyWageEgp,
+                    TotalPieces = wp.Sum(p => p.PieceCount),
                     ProducedWorkdays = producedWorkdays,
                     // نفس قاعدة WeeklySummaryService بالحرف: أيام الغياب اللي ليها
                     // جزاء تلقائي بتتخصم من خلال الجزاء، فمبتتعدّش هنا كمان

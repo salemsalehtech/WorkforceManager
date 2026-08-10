@@ -85,6 +85,7 @@ namespace WorkforceManager.UI
                     // خدمة التصدير Singleton لأنها بدون حالة ولا بتلمس قاعدة البيانات
                     services.AddSingleton<WeeklyReportExcelService>();
                     services.AddSingleton<ReportTableExcelService>();
+                    services.AddSingleton<PayslipStripExcelService>();
 
                     // Windows / Views
                     services.AddSingleton<MainWindow>();

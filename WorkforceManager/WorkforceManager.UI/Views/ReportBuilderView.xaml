@@ -407,6 +407,19 @@
                             </StackPanel>
                         </Button>
 
+                        <!-- قسايم الأسبوع: ورقة تتقص بالطول، شريط لكل
+                             عامل. منفصلة عن "قسيمة أجر" اللي بتطبع واحد
+                             بس — دي للتوزيع على القسم كله دفعة واحدة -->
+                        <Button DockPanel.Dock="Left" Command="{Binding ExportPayslipStripsCommand}"
+                                Style="{StaticResource PrimaryButton}" Padding="14,8" Margin="0,0,8,0"
+                                ToolTip="ورقة A4 بالعرض فيها 4 قسايم — تتطبع وتتقص بالطول">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ContentCut" Width="16" Height="16"
+                                                         VerticalAlignment="Center" />
+                                <TextBlock Text="قسايم الأجر" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
+
                         <!-- القسيمة ورقة عامل واحد — بتظهر لما تختار عامل
                              من الفلاتر، لأن قبل كده السؤال "قسيمة مين؟"
                              مالوش إجابة -->

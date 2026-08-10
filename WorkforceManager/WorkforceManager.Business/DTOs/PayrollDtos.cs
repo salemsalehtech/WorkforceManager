@@ -26,6 +26,16 @@ namespace WorkforceManager.Business.DTOs
         /// <summary>عدد أيام العمل الفعلية (اللي فيها إنتاج أو شغل ساعة)</summary>
         public int DaysWorked { get; init; }
 
+        /// <summary>
+        /// القطع اللي العامل ده اشتغل عليها في المدة — مجموع سجلاته على
+        /// كل المراحل.
+        ///
+        /// **مش الإنتاج التام.** القطعة اللي عدّت على 11 مرحلة اشتغل
+        /// فيها 11 عامل، وكل واحد ليه قطعه. الرقم ده بيقيس شغل العامل
+        /// نفسه، وهو اللي بيهمه في قسيمته.
+        /// </summary>
+        public int TotalPieces { get; init; }
+
         /// <summary>إجمالي الحوافز/المكافآت بالجنيه خلال الفترة (تُضاف للأجر)</summary>
         public decimal BonusEgp { get; init; }
 
