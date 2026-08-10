@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -6,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using WorkforceManager.Business.Services;
+using WorkforceManager.Core.Models;
 using WorkforceManager.Data;
 using WorkforceManager.UI.Views;
 
@@ -128,6 +130,70 @@ namespace WorkforceManager.UI.ViewModels
             var settings = AppSettingsStore.Load();
             settings.LogoPath = null;
             AppSettingsStore.Save(settings);
+        }
+
+        // ------- أسباب الهالك -------
+
+        /// <summary>
+        /// قايمة أسباب الهالك — كل مصنع وأسبابه.
+        ///
+        /// من غير القايمة دي المستخدم بيكتب السبب بالإيد في خانة
+        /// الملاحظات كل مرة، وساعتها "الهالك راح فين؟" تبقى سؤال مالوش
+        /// إجابة لأن الملاحظات مبتتجمّعش في تقرير.
+        /// </summary>
+        public ObservableCollection<ScrapReason> ScrapReasons { get; } = new();
+
+        [ObservableProperty]
+        private string _newScrapReason = "";
+
+        private async Task LoadScrapReasonsAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var reasons = await scope.ServiceProvider
+                .GetRequiredService<ScrapService>()
+                .GetAllReasonsAsync();
+
+            ScrapReasons.Clear();
+            foreach (var reason in reasons) ScrapReasons.Add(reason);
+        }
+
+        [RelayCommand]
+        private async Task AddScrapReasonAsync()
+        {
+            var name = NewScrapReason.Trim();
+            if (name.Length == 0) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<ScrapService>().AddReasonAsync(name);
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "مش هينفع");
+                return;
+            }
+
+            NewScrapReason = "";
+            await LoadScrapReasonsAsync();
+        }
+
+        /// <summary>
+        /// بيوقف السبب أو بيرجّعه. **مفيش حذف** عن قصد: السبب المستخدم
+        /// في تقارير الشهور اللي فاتت لازم يفضل معروف — الموقوف بيختفي
+        /// من التسجيل الجديد بس.
+        /// </summary>
+        [RelayCommand]
+        private async Task ToggleScrapReasonAsync(ScrapReason? reason)
+        {
+            if (reason is null) return;
+
+            using (var scope = _scopeFactory.CreateScope())
+                await scope.ServiceProvider
+                    .GetRequiredService<ScrapService>()
+                    .SetReasonActiveAsync(reason.Id, !reason.IsActive);
+
+            await LoadScrapReasonsAsync();
         }
 
         /// <summary>عدد أيام الاحتفاظ بالنسخ الاحتياطية</summary>
@@ -380,6 +446,7 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(LogoText));
 
             SafeAsync.Run(LoadAccountAsync);
+            SafeAsync.Run(LoadScrapReasonsAsync);
 
             if (!HasExternal)
             {

@@ -684,10 +684,28 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
-        public void Production_can_be_cut_every_way()
+        public void Production_can_be_cut_by_every_dimension_a_production_record_has()
         {
-            foreach (var grouping in Enum.GetValues<ReportGrouping>())
+            // سجل الإنتاج عنده عامل ومرحلة (ومنها المنتج) وتاريخ —
+            // فالأربعة دول وأسبوعهم كلهم ينفعوا
+            foreach (var grouping in new[]
+                     {
+                         ReportGrouping.Worker, ReportGrouping.Product,
+                         ReportGrouping.Stage, ReportGrouping.Day, ReportGrouping.Week
+                     })
                 Assert.True(ReportSpec.IsAllowed(ReportSubject.Production, grouping));
+
+            // "سبب" بُعد بتاع الهالك لوحده — سجل الإنتاج مالوش سبب
+            Assert.False(ReportSpec.IsAllowed(ReportSubject.Production, ReportGrouping.Reason));
+            Assert.True(ReportSpec.IsAllowed(ReportSubject.Scrap, ReportGrouping.Reason));
+        }
+
+        [Fact]
+        public void Scrap_cannot_be_cut_by_worker_because_it_has_none()
+        {
+            // القطعة عدّت على مراحل كتير قبل ما تتشال، فنسبها لعامل
+            // واحد قرار إداري مش حقيقة في البيانات
+            Assert.False(ReportSpec.IsAllowed(ReportSubject.Scrap, ReportGrouping.Worker));
         }
 
         [Fact]

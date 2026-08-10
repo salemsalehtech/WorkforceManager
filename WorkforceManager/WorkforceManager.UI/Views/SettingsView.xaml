@@ -156,6 +156,83 @@
                 </StackPanel>
             </Border>
 
+            <!-- ===== أسباب الهالك =====
+                 من غير قايمة، المستخدم بيكتب السبب بالإيد في الملاحظات
+                 كل مرة — وساعتها "الهالك راح فين؟" مالهاش إجابة مجمّعة. -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="DeleteSweepOutline" Width="18" Height="18"
+                                                 Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="أسباب الهالك" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                               Text="بتظهر في نافذة تسجيل الهالك، وتقرير الهالك بيتجمّع بيها. السبب المستخدم مبيتحذفش — بيتوقف بس، عشان تقارير الشهور اللي فاتت تفضل تعرفه." />
+
+                    <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,10">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,10">
+                                <Button DockPanel.Dock="Left" Command="{Binding AddScrapReasonCommand}"
+                                        Style="{StaticResource PrimaryButton}" Padding="14,7">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Plus" Width="15" Height="15"
+                                                                 VerticalAlignment="Center" />
+                                        <TextBlock Text="إضافة" Margin="5,0,0,0" FontSize="12.5" />
+                                    </StackPanel>
+                                </Button>
+                                <TextBox Text="{Binding NewScrapReason, UpdateSourceTrigger=PropertyChanged}"
+                                         FontSize="13" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            </DockPanel>
+
+                            <ItemsControl ItemsSource="{Binding ScrapReasons}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="0,3">
+                                            <!-- إيقاف/تشغيل بدل الحذف -->
+                                            <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}"
+                                                    Padding="7,4"
+                                                    Command="{Binding DataContext.ToggleScrapReasonCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <TextBlock FontSize="11.5">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="إيقاف" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                                    <Setter Property="Text" Value="تشغيل" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Button>
+
+                                            <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+                                                        <Style.Triggers>
+                                                            <!-- الموقوف باهت: موجود للتقارير القديمة بس مش هيظهر في التسجيل -->
+                                                            <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                                <Setter Property="Foreground" Value="{DynamicResource InkFaintBrush}" />
+                                                                <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
             <!-- ===== تنظيف سجل العمليات =====
                  مدتين مش واحدة عن قصد: كل حدث في السجل ده إما حذف أو
                  حركة فلوس، واللي فيه فلوس السؤال عليه بييجي بعد شهور. -->

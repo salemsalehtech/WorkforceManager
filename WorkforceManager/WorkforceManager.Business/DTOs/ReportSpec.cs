@@ -8,7 +8,8 @@ namespace WorkforceManager.Business.DTOs
         Wages = 3,
         Penalties = 4,
         WageAdjustments = 5,
-        Skills = 6
+        Skills = 6,
+        Scrap = 7
     }
 
     /// <summary>الصفوف بتتجمّع على إيه</summary>
@@ -18,7 +19,13 @@ namespace WorkforceManager.Business.DTOs
         Product = 2,
         Stage = 3,
         Day = 4,
-        Week = 5
+        Week = 5,
+
+        /// <summary>
+        /// سبب الهالك — بُعد خاص بموضوع الهالك بس، عشان "الهالك راح
+        /// فين؟" تبقى ليها إجابة مجمّعة مش ملاحظات متفرقة.
+        /// </summary>
+        Reason = 6
     }
 
     /// <summary>نوع العامل — فلتر اختياري</summary>
@@ -173,6 +180,13 @@ namespace WorkforceManager.Business.DTOs
                 {
                     ReportGrouping.Worker, ReportGrouping.Product, ReportGrouping.Stage
                 },
+                // الهالك مالوش عامل (شوف ProductionScrap) — فالتجميع
+                // بالعامل مش معروض أصلاً بدل ما يوصل لتقرير فاضي
+                ReportSubject.Scrap => new[]
+                {
+                    ReportGrouping.Product, ReportGrouping.Stage,
+                    ReportGrouping.Reason, ReportGrouping.Day, ReportGrouping.Week
+                },
                 _ => new[] { ReportGrouping.Worker }
             };
 
@@ -194,6 +208,7 @@ namespace WorkforceManager.Business.DTOs
             ReportSubject.Penalties => "الجزاءات",
             ReportSubject.WageAdjustments => "السلف والحوافز",
             ReportSubject.Skills => "المهارات",
+            ReportSubject.Scrap => "الهالك",
             _ => "تقرير"
         };
 
@@ -208,6 +223,7 @@ namespace WorkforceManager.Business.DTOs
             ReportGrouping.Product => "المنتج",
             ReportGrouping.Stage => "المرحلة",
             ReportGrouping.Week => "الأسبوع",
+            ReportGrouping.Reason => "السبب",
             _ => "اليوم"
         };
 
@@ -218,6 +234,7 @@ namespace WorkforceManager.Business.DTOs
             ReportGrouping.Stage => "بالمرحلة",
             ReportGrouping.Day => "باليوم",
             ReportGrouping.Week => "بالأسبوع",
+            ReportGrouping.Reason => "بالسبب",
             _ => ""
         };
     }

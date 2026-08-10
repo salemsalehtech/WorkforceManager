@@ -229,6 +229,52 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task TheScrapReport_GroupedByReason_AnswersWhereTheScrapWent()
+        {
+            var reasons = await _db.InScopeAsync<ScrapService, List<Core.Models.ScrapReason>>(
+                s => s.GetActiveReasonsAsync());
+
+            await ScrapAsync(TestDatabase.BagStage1Id, 300, reasons[0].Id);
+            await ScrapAsync(TestDatabase.BagStage2Id, 120, reasons[0].Id);
+            await ScrapAsync(TestDatabase.BagStage1Id, 80, reasons[1].Id);
+
+            var table = await _db.InScopeAsync<ReportBuilderService, ReportTable>(s => s.BuildAsync(new ReportSpec
+            {
+                Subject = ReportSubject.Scrap,
+                GroupBy = ReportGrouping.Reason,
+                From = Day,
+                To = Day
+            }));
+
+            var pieces = table.Columns.FindIndex(c => c.Key == "scrap_pieces");
+
+            // الأكتر هالك الأول — ده ترتيب التقرير الطبيعي
+            Assert.Equal(reasons[0].Name, table.Rows[0].Label);
+            Assert.Equal(420, table.Rows[0].Values[pieces]);
+            Assert.Equal(80, table.Rows[1].Values[pieces]);
+            Assert.Equal(500, table.Totals!.Values[pieces]);
+        }
+
+        [Fact]
+        public async Task TheScrapReport_GroupedByStage_SeparatesEachStage()
+        {
+            await ScrapAsync(TestDatabase.BagStage1Id, 300);
+            await ScrapAsync(TestDatabase.BagStage3Id, 100);
+
+            var table = await _db.InScopeAsync<ReportBuilderService, ReportTable>(s => s.BuildAsync(new ReportSpec
+            {
+                Subject = ReportSubject.Scrap,
+                GroupBy = ReportGrouping.Stage,
+                From = Day,
+                To = Day
+            }));
+
+            Assert.Equal(2, table.Rows.Count);
+            Assert.Contains(table.Rows, r => r.Label.Contains("قص"));
+            Assert.Contains(table.Rows, r => r.Label.Contains("تشطيب"));
+        }
+
+        [Fact]
         public async Task GroupedByWorker_TheScrapColumnIsBlank_NotZero()
         {
             // الهالك مالوش عامل، فصفر هنا هيوهم إن العامل ده مالوش هالك

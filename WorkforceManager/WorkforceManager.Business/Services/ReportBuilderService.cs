@@ -224,6 +224,13 @@ namespace WorkforceManager.Business.Services
                 // السؤال "بيعرف كام مرحلة"، وبالمنتج/المرحلة السؤال
                 // المعكوس "المرحلة دي عندها كام عامل" — وده اللي بيمنع
                 // مرحلة تقف من غير ما حد ياخد باله
+                ReportSubject.Scrap => new[]
+                {
+                    new ReportColumn { Header = "قطع الهالك", Key = "scrap_pieces", Kind = ReportValueKind.Whole, Sums = true },
+                    new ReportColumn { Header = "عدد المرات", Key = "scrap_entries", Kind = ReportValueKind.Whole, Sums = true },
+                    new ReportColumn { Header = "أيام فيها هالك", Key = "scrap_days", Kind = ReportValueKind.Whole }
+                },
+
                 ReportSubject.Skills => grouping == ReportGrouping.Worker
                     ? new[]
                     {
@@ -266,6 +273,7 @@ namespace WorkforceManager.Business.Services
                 ReportSubject.Penalties => await PenaltiesDetailAsync(spec, names),
                 ReportSubject.WageAdjustments => await AdjustmentsDetailAsync(spec, names),
                 ReportSubject.Skills => await SkillsDetailAsync(spec),
+                ReportSubject.Scrap => await ScrapDetailAsync(spec),
 
                 // الأجور محسوبة لكل عامل عن المدة كلها — مفيش "سجل خام"
                 // تحتها غير الملخص نفسه، فمفيش شيت تفاصيل ليها
@@ -425,6 +433,92 @@ namespace WorkforceManager.Business.Services
             return detail;
         }
 
+        /// <summary>
+        /// تقرير الهالك: القطع اللي اتشالت من الخط، متجمّعة بالمنتج أو
+        /// المرحلة أو **السبب** أو اليوم.
+        ///
+        /// التجميع بالسبب هو اللي بيجاوب على "الهالك راح فين؟" — وهو
+        /// السؤال اللي التقرير ده موجود عشانه.
+        /// </summary>
+        private async Task<ReportTable> ScrapAsync(ReportSpec spec)
+        {
+            var records = FilterScrap(await _scrap.GetByRangeAsync(spec.From, spec.To), spec);
+
+            var groups = records
+                .GroupBy(s => ScrapKey(s, spec.GroupBy))
+                .OrderByDescending(g => g.Sum(s => s.PieceCount))
+                .ThenBy(g => g.Key.Label)
+                .ToList();
+
+            var table = NewTable(spec, ColumnsFor(spec.Subject, spec.GroupBy));
+
+            foreach (var g in groups)
+                table.Rows.Add(new ReportRow
+                {
+                    Label = g.Key.Label,
+                    Values =
+                    {
+                        g.Sum(s => s.PieceCount),
+                        g.Count(),
+                        g.Select(s => s.Date.Date).Distinct().Count()
+                    }
+                });
+
+            return table;
+        }
+
+        private static List<ScrapRecordDto> FilterScrap(
+            IReadOnlyList<ScrapRecordDto> records, ReportSpec spec) =>
+            records.Where(s =>
+                    (spec.StageIds is not { Count: > 0 } || spec.StageIds.Contains(s.ProductionStageId)) &&
+                    (spec.ProductIds is not { Count: > 0 } || spec.ProductIds.Contains(s.ProductId)))
+                .ToList();
+
+        private GroupKey ScrapKey(ScrapRecordDto record, ReportGrouping grouping) => grouping switch
+        {
+            ReportGrouping.Product => new GroupKey(record.ProductName, 0),
+            ReportGrouping.Stage => new GroupKey($"{record.ProductName} — {record.StageName}", 0),
+            ReportGrouping.Reason => new GroupKey(record.ReasonDisplay, 0),
+            ReportGrouping.Week => WeekKey(record.Date),
+            _ => DayKey(record.Date)
+        };
+
+        private async Task<ReportDetail> ScrapDetailAsync(ReportSpec spec)
+        {
+            var records = FilterScrap(await _scrap.GetByRangeAsync(spec.From, spec.To), spec);
+
+            var detail = new ReportDetail
+            {
+                SheetName = "سجلات الهالك",
+                Columns =
+                {
+                    Text("اليوم", "date"),
+                    Text("المنتج", "product"),
+                    Text("المرحلة", "stage"),
+                    new ReportColumn { Header = "القطع", Key = "pieces", Kind = ReportValueKind.Whole, Sums = true },
+                    Text("السبب", "reason"),
+                    Text("ملاحظة", "note")
+                }
+            };
+
+            foreach (var record in records.OrderBy(s => s.Date).ThenBy(s => s.ProductName))
+                detail.Rows.Add(new ReportDetailRow
+                {
+                    GroupLabel = ScrapKey(record, spec.GroupBy).Label,
+                    Cells =
+                    {
+                        ReportCell.Of(record.Date),
+                        ReportCell.Of(record.ProductName),
+                        ReportCell.Of(record.StageName),
+                        ReportCell.Of(record.PieceCount),
+                        ReportCell.Of(record.ReasonDisplay),
+                        ReportCell.Of(record.Note)
+                    }
+                });
+
+            return detail;
+        }
+
         private async Task<ReportDetail> SkillsDetailAsync(ReportSpec spec)
         {
             var workers = (await _workers.GetAllWithSkillsAsync())
@@ -475,6 +569,7 @@ namespace WorkforceManager.Business.Services
             ReportSubject.Penalties => await PenaltiesAsync(spec),
             ReportSubject.WageAdjustments => await AdjustmentsAsync(spec),
             ReportSubject.Skills => await SkillsAsync(spec),
+            ReportSubject.Scrap => await ScrapAsync(spec),
             _ => throw new InvalidOperationException("موضوع تقرير غير معروف")
         };
 
