@@ -7,6 +7,7 @@ using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
+using WorkforceManager.Core.Models;
 using WorkforceManager.UI.Views;
 
 namespace WorkforceManager.UI.ViewModels
@@ -104,6 +105,7 @@ namespace WorkforceManager.UI.ViewModels
             await LoadAttendanceAsync();
             await LoadPenaltiesAsync();
             await LoadAdjustmentsAsync();
+            await LoadScrapAsync();
             await LoadClosureStateAsync();
         }
 
@@ -112,6 +114,8 @@ namespace WorkforceManager.UI.ViewModels
         {
             await LoadAttendanceAsync();
             await LoadDayRecordsAsync();
+            // الرحلة ممكن تكون سجّلت هالك (البرنامج بيسأل عن الفرق بعد الحفظ)
+            await LoadScrapAsync();
             await LoadClosureStateAsync();
         }
 
@@ -993,6 +997,111 @@ namespace WorkforceManager.UI.ViewModels
             AdjustmentNote = string.Empty;
             AdjustmentWorker = null;
             await LoadAdjustmentsAsync();
+        }
+
+        // ======================= قسم الهالك =======================
+
+        /// <summary>
+        /// هالك اليوم: القطع اللي اتشالت من الخط ومش هتتكمّل.
+        ///
+        /// البرنامج بيسأل لوحده عن الفرق بين المراحل بعد حفظ الرحلة،
+        /// فالتبويب ده أساسًا للحالة اللي مفيش فيها فرق يظهر — قطعة
+        /// خلصت **آخر مرحلة** والجودة رفضتها.
+        /// </summary>
+        public ObservableCollection<ScrapRecordDto> DayScrap { get; } = new();
+
+        public string ScrapTotalText =>
+            DayScrap.Count == 0 ? "" : $"{DayScrap.Sum(s => s.PieceCount):N0} قطعة";
+
+        private async Task LoadScrapAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var records = await scope.ServiceProvider
+                .GetRequiredService<ScrapService>()
+                .GetByDateAsync(EntryDate);
+
+            DayScrap.Clear();
+            foreach (var record in records) DayScrap.Add(record);
+
+            OnPropertyChanged(nameof(ScrapTotalText));
+        }
+
+        [RelayCommand]
+        private async Task AddScrapAsync()
+        {
+            List<ScrapStageChoice> stages;
+            List<ScrapReason> reasons;
+
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var products = await scope.ServiceProvider
+                    .GetRequiredService<IProductRepository>()
+                    .GetAllWithStagesAsync();
+
+                // كل مراحل كل المنتجات: الهالك ممكن يتسجّل على أي مرحلة،
+                // وآخر مرحلة معلّمة عشان المستخدم يعرف إن دي اللي بتخصم
+                // من الإنتاج التام
+                stages = products
+                    .OrderBy(p => p.Name)
+                    .SelectMany(p =>
+                    {
+                        var line = ProductionLine.Active(p);
+                        return line.Select((stage, index) => new ScrapStageChoice(
+                            stage.Id,
+                            index == line.Count - 1
+                                ? $"{p.Name} — {stage.StageName} (آخر مرحلة)"
+                                : $"{p.Name} — {stage.StageName}",
+                            0));
+                    })
+                    .ToList();
+
+                reasons = await scope.ServiceProvider
+                    .GetRequiredService<ScrapService>()
+                    .GetActiveReasonsAsync();
+            }
+
+            if (stages.Count == 0)
+            {
+                Notify.Info("مفيش مراحل إنتاج متسجلة — ضيف منتج ومراحله الأول", "تنبيه");
+                return;
+            }
+
+            var dialog = ScrapDialog.ForStage(Application.Current.MainWindow, stages, reasons);
+            if (dialog.ShowDialog() != true) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<ScrapService>().RecordAsync(
+                    dialog.StageId, EntryDate, dialog.PieceCount,
+                    dialog.ReasonId, dialog.Note,
+                    scope.ServiceProvider.GetRequiredService<CurrentUserContext>().ActorName);
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "مش هينفع");
+                return;
+            }
+
+            await LoadScrapAsync();
+            await LoadDayRecordsAsync(); // ملخص اليوم بيتغيّر مع الهالك
+        }
+
+        [RelayCommand]
+        private async Task RemoveScrapAsync(ScrapRecordDto? row)
+        {
+            if (row is null) return;
+
+            if (!Notify.Ask(
+                    $"حذف {row.PieceCount:N0} قطعة هالك على \"{row.StageDisplay}\"؟\n" +
+                    "القطع هترجع تتحسب في الشغل الواقف أو الإنتاج التام.", "تأكيد"))
+                return;
+
+            using (var scope = _scopeFactory.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<ScrapService>().RemoveAsync(row.Id);
+
+            await LoadScrapAsync();
+            await LoadDayRecordsAsync();
         }
 
         [RelayCommand]
