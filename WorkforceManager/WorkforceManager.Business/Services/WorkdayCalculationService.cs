@@ -19,6 +19,7 @@ namespace WorkforceManager.Business.Services
         private readonly IProductRepository _productRepo;
         private readonly WorkerAssignmentGuard _assignmentGuard;
         private readonly SoftDeleteService _softDelete;
+        private readonly OperationsPasswordService _gate;
         private readonly IProductionDayClosureRepository _closureRepo;
         private readonly IUnitOfWork _unitOfWork;
 
@@ -29,6 +30,7 @@ namespace WorkforceManager.Business.Services
             IProductRepository productRepo,
             WorkerAssignmentGuard assignmentGuard,
             SoftDeleteService softDelete,
+            OperationsPasswordService gate,
             IProductionDayClosureRepository closureRepo,
             IUnitOfWork unitOfWork)
         {
@@ -38,6 +40,7 @@ namespace WorkforceManager.Business.Services
             _productRepo = productRepo;
             _assignmentGuard = assignmentGuard;
             _softDelete = softDelete;
+            _gate = gate;
             _closureRepo = closureRepo;
             _unitOfWork = unitOfWork;
         }
@@ -133,10 +136,19 @@ namespace WorkforceManager.Business.Services
         /// التسجيل (Snapshot) بتفضل زي ما هي — التصحيح للقطع بس،
         /// واليوميات بتتعاد حسابها تلقائيًا (خاصية محسوبة).
         /// </summary>
-        public async Task<DailyProduction> UpdateProductionAsync(int recordId, int newPieceCount)
+        public async Task<DailyProduction> UpdateProductionAsync(
+            int recordId, int newPieceCount, string operationsPassword = "")
         {
             if (newPieceCount <= 0)
                 throw new ArgumentException("عدد القطع يجب أن يكون أكبر من صفر", nameof(newPieceCount));
+
+            // تصحيح القطع بيعيد حساب اليومية، واليومية هي الأجر. النوع
+            // ده كان معرّف في SensitiveAction من زمان (EditProductionPieces)
+            // ومحدش استخدمه — فتعديل رقم إنتاج محفوظ كان بيعدّي من غير
+            // كلمة سر بينما حذفه بيتطلبها
+            var gate = await _gate.VerifyAsync(SensitiveAction.EditProductionPieces, operationsPassword);
+            if (!gate.IsAllowed)
+                throw new InvalidOperationException(gate.Message);
 
             var record = await _productionRepo.GetByIdAsync(recordId)
                 ?? throw new InvalidOperationException("سجل الإنتاج غير موجود");

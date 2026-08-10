@@ -16,6 +16,17 @@ namespace WorkforceManager.UI.Views
         {
             InitializeComponent();
             Loaded += (_, _) => UsernameBox.Focus();
+
+            // Enter في اسم المستخدم بينقّل للباسورد بدل ما يحاول يدخّل
+            // باسم من غير كلمة سر. الباسورد نفسه IsDefault بتاعته الزرار،
+            // فـ Enter هناك بيدخّل — يعني: اسم، Enter، سر، Enter.
+            UsernameBox.KeyDown += (_, e) =>
+            {
+                if (e.Key != Key.Enter) return;
+
+                PasswordBox.Focus();
+                e.Handled = true;
+            };
         }
 
         /// <summary>المستخدم اللي سجل دخول بنجاح (بيقرأه App بعد إغلاق الشاشة)</summary>

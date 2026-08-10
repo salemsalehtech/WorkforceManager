@@ -234,7 +234,8 @@
                           Style="{StaticResource ModernDataGrid}"
                           AutoGenerateColumns="False" IsReadOnly="True">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="*" />
+                        <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}"
+                                            Width="Auto" MinWidth="150" />
                         <DataGridTextColumn Header="القطع" Binding="{Binding TotalPieces}" Width="70" />
                         <DataGridTextColumn Header="اليوميات" Binding="{Binding TotalWorkdays}" Width="80" />
                         <DataGridTextColumn Header="مقارنة بالمتوسط" Binding="{Binding PercentText}" Width="110" />

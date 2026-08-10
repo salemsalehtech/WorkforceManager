@@ -11,6 +11,22 @@
         AllowsTransparency="True" Background="Transparent"
         FlowDirection="RightToLeft" FontFamily="{StaticResource AppFont}" FontSize="14">
 
+    <!--
+      **شاشة الدخول فاتحة دايمًا، حتى والبرنامج على الوضع الليلي.**
+
+      دي أول حاجة بتظهر قبل ما البرنامج يفتح أصلاً، ومالهاش سياق شغل
+      لسه — الأسود هنا بيخليها تبان زي شاشة تحميل مش زي باب البرنامج.
+      لوحة الفاتح متحطوطة على النافذة نفسها، وموارد النافذة بتتحل قبل
+      موارد التطبيق، فالشاشة دي بتاخد الفاتح والباقي بياخد ثيم المستخدم.
+    -->
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Themes/Palette.Light.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
     <!-- شاشة الدخول الترحيبية: بطاقة عائمة بلا إطار نظام —
          يمين: لوحة الهوية بتدرج SidebarBrush (أسود دافي)، شمال: فورم الدخول -->
     <Border CornerRadius="20" Background="{DynamicResource SurfaceBrush}" MouseLeftButtonDown="Window_Drag">
@@ -25,13 +41,11 @@
             </Grid.ColumnDefinitions>
 
             <!-- ══════ لوحة الهوية (يمين) ══════ -->
-            <Border Grid.Column="0" CornerRadius="20,0,0,20">
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="{DynamicResource SidebarAltColor}" Offset="0" />
-                        <GradientStop Color="{DynamicResource SidebarColor}" Offset="1" />
-                    </LinearGradientBrush>
-                </Border.Background>
+            <!-- تدرج الهوية من اللوحة مش متكتب هنا: نفس التدرج المستخدم
+                 في الكروت البطلة، فلو الهوية اتظبطت مرة بتتظبط في
+                 الاتنين -->
+            <Border Grid.Column="0" CornerRadius="20,0,0,20"
+                    Background="{DynamicResource InkGradientBrush}">
 
                 <Grid>
                     <!-- دواير زخرفية شفافة — عمق بصري بسيط من غير زحمة -->

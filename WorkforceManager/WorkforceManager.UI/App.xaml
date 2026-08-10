@@ -1016,6 +1016,13 @@
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Padding" Value="8,0" />
                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+
+                <!-- **لون الخلية لازم يتحدد هنا.** الـ TextBlock اللي
+                     العمود بيولّده بياخد ElementStyle خاص بالعمود، فالنمط
+                     الضمني بتاع TextBlock (اللي بيحط لون الحبر) مبيوصلوش —
+                     وبيقع على أسود الـ DataGrid الافتراضي. النتيجة جدول
+                     بحروف سودا على كارت أسود في الوضع الليلي. -->
+                <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
                 <Style.Triggers>
                     <!-- التحديد بيتلون على مستوى الصف — الخلية نفسها بتفضل شفافة عشان مفيش أزرق افتراضي -->
                     <Trigger Property="IsSelected" Value="True">
@@ -1047,6 +1054,7 @@
                 <Setter Property="CanUserAddRows" Value="False" />
                 <Setter Property="RowHeight" Value="38" />
                 <Setter Property="FontSize" Value="13" />
+                <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
                 <Setter Property="RowBackground" Value="Transparent" />
                 <Setter Property="ColumnHeaderStyle" Value="{StaticResource ModernGridHeader}" />
                 <Setter Property="CellStyle" Value="{StaticResource ModernGridCell}" />

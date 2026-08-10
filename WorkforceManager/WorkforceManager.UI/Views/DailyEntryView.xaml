@@ -785,8 +785,8 @@
                                       Style="{StaticResource ModernDataGrid}"
                                       AutoGenerateColumns="False" IsReadOnly="True">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="*" />
-                                    <DataGridTextColumn Header="المنتج / المرحلة" Binding="{Binding StageDisplay}" Width="*" />
+                                    <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="Auto" MinWidth="150" />
+                                    <DataGridTextColumn Header="المنتج / المرحلة" Binding="{Binding StageDisplay}" Width="Auto" MinWidth="170" />
                                     <DataGridTextColumn Header="القطع" Binding="{Binding PieceCount}" Width="90" />
                                     <DataGridTextColumn Header="يومية وقتها" Binding="{Binding QuotaAtEntry}" Width="90" />
                                     <DataGridTextColumn Header="اليوميات" Binding="{Binding Workdays}" Width="80" />
@@ -1191,7 +1191,7 @@
                                   Style="{StaticResource ModernDataGrid}"
                                   AutoGenerateColumns="False" IsReadOnly="True">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="العامل" Binding="{Binding WorkerName}" Width="*" />
+                                <DataGridTextColumn Header="العامل" Binding="{Binding WorkerName}" Width="Auto" MinWidth="150" />
                                 <DataGridTextColumn Header="السبب" Binding="{Binding Reason}" Width="2*" />
                                 <DataGridTextColumn Header="الخصم" Binding="{Binding DeductionName}" Width="90" />
                                 <DataGridTemplateColumn Header="" Width="60">
@@ -1290,7 +1290,7 @@
                                   Style="{StaticResource ModernDataGrid}"
                                   AutoGenerateColumns="False" IsReadOnly="True">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="العامل" Binding="{Binding WorkerName}" Width="*" />
+                                <DataGridTextColumn Header="العامل" Binding="{Binding WorkerName}" Width="Auto" MinWidth="150" />
                                 <!-- النوع بلونه: سلفة حمرا، حافز أخضر -->
                                 <DataGridTemplateColumn Header="النوع" Width="90">
                                     <DataGridTemplateColumn.CellTemplate>

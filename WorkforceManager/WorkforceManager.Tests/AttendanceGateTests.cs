@@ -89,6 +89,31 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task Correcting_a_saved_piece_count_with_a_wrong_password_is_refused()
+        {
+            // تعديل رقم إنتاج محفوظ كان بيعدّي من غير كلمة سر بينما
+            // **حذف** نفس السجل بيتطلبها — والاتنين بيغيّروا نفس الأجر
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100, Today);
+
+            var recordId = (await _db.GetProductionAsync()).Single().Id;
+            await SetPasswordAsync();
+
+            using (var scope = _db.CreateScope())
+            {
+                var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    _db.GetService<WorkdayCalculationService>(scope)
+                        .UpdateProductionAsync(recordId, 999, "غلط"));
+
+                Assert.NotEmpty(ex.Message);
+            }
+
+            // الرقم زي ما هو — الرفض قبل أي كتابة
+            Assert.Equal(100, (await _db.GetProductionAsync()).Single().PieceCount);
+        }
+
+        [Fact]
         public async Task Closing_the_day_with_a_wrong_password_is_refused()
         {
             await SetPasswordAsync();

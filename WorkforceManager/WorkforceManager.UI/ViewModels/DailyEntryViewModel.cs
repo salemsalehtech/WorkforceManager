@@ -379,11 +379,23 @@ namespace WorkforceManager.UI.ViewModels
             dialog.LoadRecord(row.WorkerName, row.StageDisplay, row.PieceCount);
             if (dialog.ShowDialog() != true) return;
 
+            // تصحيح القطع بيعيد حساب اليومية، واليومية هي الأجر — نفس
+            // بوابة حذف السجل بالظبط
+            var gate = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                "تصحيح عدد القطع",
+                $"{row.WorkerName} — {row.StageDisplay}\n" +
+                $"من {row.PieceCount:N0} قطعة إلى {dialog.NewPieceCount:N0}.",
+                passwordRequired: true,
+                reasonRequired: false);
+
+            if (gate is null) return;
+
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 var workdayService = scope.ServiceProvider.GetRequiredService<WorkdayCalculationService>();
-                await workdayService.UpdateProductionAsync(row.RecordId, dialog.NewPieceCount);
+                await workdayService.UpdateProductionAsync(row.RecordId, dialog.NewPieceCount, gate.Password);
 
                 // إعادة تحميل كل حاجة مرتبطة باليوم — الأرقام بتتصحح في كل مكان فورًا
                 await ReloadForDateAsync();
