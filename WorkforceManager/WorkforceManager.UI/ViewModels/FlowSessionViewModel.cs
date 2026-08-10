@@ -807,6 +807,7 @@ namespace WorkforceManager.UI.ViewModels
                 "حفظ رحلة الإنتاج",
                 $"رحلة \"{SelectedProduct.Name}\" بتاريخ {entryDate:yyyy/MM/dd}: " +
                 $"{totalPieces:N0} قطعة على {workerCount} عامل.",
+                SensitiveActionKind.Save,
                 passwordRequired: true,
                 reasonRequired: false);
 

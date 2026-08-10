@@ -135,6 +135,75 @@
         <Setter Property="Effect" Value="{DynamicResource CardShadow}" />
     </Style>
 
+    <!-- ============ كارت كله زرار ============
+         الكارت اللي كله زرار (زي كارت أحسن عامل). مكانش ليه نمط، فكان
+         بياخد IconButton — ودي بتكبّر العنصر **15%** عند المرور. ده
+         معقول لأيقونة حذف 15 بكسل، وكارثة لكارت بعرض الشاشة: الكارت
+         بيتنفخ ويخرج من مكانه ويغطي القايمة الجانبية واللي تحته، وكل
+         حاجة على الشاشة بتهتز معاه.
+
+         هنا الاستجابة **مفيهاش أي تكبير**: إطار دهبي بيسيح جوّه عند
+         المرور، والضغط بيغمّق الكارت شوية. الكارت بيفضل في مكانه
+         بالظبط، وده اللي المفروض يحصل لعنصر بالحجم ده. -->
+    <Style x:Key="CardButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="Root">
+                        <ContentPresenter />
+
+                        <!-- الإطار جوّه حدود الكارت (مش Margin سالب) عشان
+                             ميزوّدش المساحة اللي الكارت بياخدها -->
+                        <Border x:Name="Ring" CornerRadius="{DynamicResource RadiusCard}"
+                                BorderBrush="{DynamicResource GoldBrush}" BorderThickness="1.6"
+                                Opacity="0" IsHitTestVisible="False" />
+                    </Grid>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Ring"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="0:0:0.16"
+                                                         EasingFunction="{StaticResource EaseOut}" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Ring"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="0:0:0.20"
+                                                         EasingFunction="{StaticResource EaseOut}" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="Opacity" Value="0.88" />
+                            <Setter TargetName="Ring" Property="Opacity" Value="1" />
+                        </Trigger>
+
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Ring" Property="Opacity" Value="1" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ============ الخط الشعري الدهبي ============
          تحت عنوان الصفحة. بيبدأ مصمت من ناحية العنوان وبيسيح لشفاف —
          خط مصمت من الحرف للحرف بيبان قاطع، والمتلاشي بيبان مقصود. -->

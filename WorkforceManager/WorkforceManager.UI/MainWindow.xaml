@@ -29,11 +29,17 @@
                     <StackPanel Orientation="Horizontal">
                         <views:WmsLogo Width="46" Height="46" />
                         <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="WMS" FontSize="19" FontWeight="Bold"
-                                       FlowDirection="LeftToRight"
-                                       Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="إدارة الإنتاج والأجور" FontSize="11"
-                                       Margin="0,1,0,0"
+                            <!-- كان مكتوب "إدارة الإنتاج والأجور" — جملة
+                                 بتوصف البرنامج، والبرنامج مفتوح قدام
+                                 المستخدم أصلاً. اسم المصنع والقسم بيقولوا
+                                 النسخة دي بتاعة مين، وبيتظبطوا من
+                                 الإعدادات. لو مفيش اسم بيرجع للاسم
+                                 العام بدل سطر فاضي. -->
+                            <TextBlock x:Name="FactoryText" Text="WMS" FontSize="17" FontWeight="Bold"
+                                       Foreground="{DynamicResource GoldBrush}"
+                                       TextTrimming="CharacterEllipsis" MaxWidth="160" />
+                            <TextBlock x:Name="DepartmentText" FontSize="11"
+                                       Margin="0,1,0,0" TextTrimming="CharacterEllipsis" MaxWidth="160"
                                        Foreground="{DynamicResource SidebarInkSoftBrush}" />
                         </StackPanel>
                     </StackPanel>

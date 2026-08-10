@@ -113,7 +113,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<ProductionReportService>();
             services.AddScoped<WageAdjustmentService>();
             services.AddScoped<ReportBuilderService>();
-            services.AddScoped<NeedsAttentionService>();
+            services.AddScoped<ProductionChartService>();
             services.AddSingleton<ReportTableExcelService>();
             services.AddSingleton<PayslipStripExcelService>();
 

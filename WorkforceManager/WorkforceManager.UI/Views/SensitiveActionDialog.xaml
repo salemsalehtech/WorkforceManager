@@ -13,7 +13,10 @@
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
-            <Border DockPanel.Dock="Top" Background="{DynamicResource DangerBrush}"
+            <!-- الأحمر للحذف بس. الحفظ كان بياخد نفس الرأس الأحمر ونفس
+                 زرار "أكّد الحذف" — يعني حفظ رحلة إنتاج كان بيسأل
+                 المستخدم يأكّد حذف، وهو بيحفظ. -->
+            <Border x:Name="HeaderBar" DockPanel.Dock="Top" Background="{DynamicResource DangerBrush}"
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Foreground="{DynamicResource SidebarInkBrush}"
@@ -45,7 +48,7 @@
 
                 <!-- بيختفي للعمليات المتكررة اللي مش بتمسح حاجة (حفظ الحضور) -->
                 <StackPanel x:Name="ReasonSection">
-                    <TextBlock Text="سبب الحذف" FontWeight="Bold" FontSize="12.5" Margin="0,12,0,4" />
+                    <TextBlock x:Name="ReasonLabel" Text="سبب الحذف" FontWeight="Bold" FontSize="12.5" Margin="0,12,0,4" />
                     <TextBox x:Name="ReasonBox" Padding="8,6" FontSize="13.5"
                              AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60"
                              VerticalScrollBarVisibility="Auto" />
@@ -62,8 +65,9 @@
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,14,0,0">
                     <Button Style="{StaticResource GhostButton}" Padding="16,8" IsCancel="True" Content="إلغاء" />
+                    <!-- النص والنمط بيتحطوا من الكود حسب نوع العملية -->
                     <Button x:Name="ConfirmButton" Style="{StaticResource DangerButton}" Padding="16,8"
-                            Margin="8,0,0,0" IsDefault="True" Click="Confirm_Click" Content="أكّد الحذف" />
+                            Margin="8,0,0,0" IsDefault="True" Click="Confirm_Click" />
                 </StackPanel>
             </StackPanel>
         </DockPanel>

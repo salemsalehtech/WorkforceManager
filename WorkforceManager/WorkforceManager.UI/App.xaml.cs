@@ -53,7 +53,6 @@ namespace WorkforceManager.UI
                     // Business Services
                     services.AddScoped<WorkerAssignmentGuard>();
                     services.AddScoped<WorkdayCalculationService>();
-                    services.AddScoped<PerformanceEvaluationService>();
                     services.AddScoped<AttendanceAutomationService>();
                     services.AddScoped<AttendanceService>();
                     services.AddScoped<PenaltyService>();
@@ -72,7 +71,6 @@ namespace WorkforceManager.UI
                     services.AddScoped<ProductionReportService>();
                     services.AddScoped<WageAdjustmentService>();
                     services.AddScoped<ReportBuilderService>();
-                    services.AddScoped<NeedsAttentionService>();
                     // الهوية المشتركة: مصدر واحد لـ"مين عمل كده" — الحذف الناعم
                     // وسجل العمليات الاتنين بيقروا منه
                     services.AddSingleton<CurrentUserContext>();
@@ -256,6 +254,12 @@ namespace WorkforceManager.UI
 
             ApplyPalette(app, darkMode);
             ApplyMaterialDesignBaseTheme(darkMode);
+
+            // شريط عنوان النافذة برّه WPF، فمفيش Brush بيوصله — لازم
+            // يتلوّن بنداء صريح مع كل تبديل ثيم، وإلا بيفضل أبيض فوق
+            // برنامج كله أسود
+            foreach (Window window in app.Windows)
+                WindowChromeColors.Apply(window);
         }
 
         /// <summary>لوحة ألوان الهوية — الملف بيتبدّل في مكانه.</summary>

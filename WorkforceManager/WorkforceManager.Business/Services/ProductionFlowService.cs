@@ -32,6 +32,7 @@ namespace WorkforceManager.Business.Services
         private readonly WorkerAssignmentGuard _assignmentGuard;
         private readonly OperationsPasswordService _gate;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ActivityLogService _log;
 
         public ProductionFlowService(
             IProductRepository productRepo,
@@ -41,8 +42,10 @@ namespace WorkforceManager.Business.Services
             IProductionDayClosureRepository closureRepo,
             WorkerAssignmentGuard assignmentGuard,
             OperationsPasswordService gate,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            ActivityLogService log)
         {
+            _log = log;
             _productRepo = productRepo;
             _workerRepo = workerRepo;
             _productionRepo = productionRepo;
@@ -391,6 +394,16 @@ namespace WorkforceManager.Business.Services
                 })
                 .OrderByDescending(t => t.TotalWorkdays)
                 .ToList();
+
+            // تسجيل الإنتاج هو المصدر الأساسي لكل يوميات العمال وأجورهم،
+            // فبيتسجّل بعد ما المعاملة تنجح — لا قبلها (حدث لعملية
+            // اترجعت) ولا جواها (السجل بيتلغي معاها لو رجعت)
+            await _log.LogAsync(
+                ActivityEventType.ProductionRecorded, "Product", product.Id,
+                entityName: product.Name,
+                details: $"{shares.Sum(s => s.PieceCount):N0} قطعة على "
+                         + $"{shares.Select(s => s.WorkerId).Distinct().Count()} عامل "
+                         + $"يوم {date:yyyy/MM/dd}");
 
             return new FlowSaveResultDto
             {

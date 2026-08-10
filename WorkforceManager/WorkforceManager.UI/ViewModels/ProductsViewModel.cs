@@ -569,6 +569,7 @@ namespace WorkforceManager.UI.ViewModels
                     Application.Current.MainWindow,
                     "حذف منتج",
                     $"{SelectedProduct.Name} — هيختفي هو ومراحله من كل القوايم. سجلات الإنتاج القديمة عليه هتفضل محفوظة.",
+                    SensitiveActionKind.Delete,
                     await gate.IsConfiguredAsync());
 
                 if (input is null) return;
@@ -715,6 +716,7 @@ namespace WorkforceManager.UI.ViewModels
                     Application.Current.MainWindow,
                     "حذف مرحلة",
                     $"{stage.StageName} — هتختفي من الخط. سجلات الإنتاج عليها وأجور العمال هتفضل زي ما هي.",
+                    SensitiveActionKind.Delete,
                     await gate.IsConfiguredAsync());
 
                 if (input is null) return;

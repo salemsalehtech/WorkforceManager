@@ -29,9 +29,50 @@ namespace WorkforceManager.UI
             TodayText.Text = DateTime.Today.ToString(
                 "dddd d MMMM yyyy", new System.Globalization.CultureInfo("ar-EG"));
 
+            ShowIdentity();
+
+            // شريط عنوان النافذة بيتلوّن بعد ما الـ Handle يتعمل — قبل
+            // كده مفيش نافذة فعلية تتلوّن
+            SourceInitialized += (_, _) => WindowChromeColors.Apply(this);
+
             // الشاشة الافتراضية عند فتح البرنامج: شاشة العمال
             MainContent.Content = App.AppHost.Services.GetRequiredService<WorkersView>();
         }
+
+        /// <summary>
+        /// اسم المصنع والقسم في رأس القايمة الجانبية وفي عنوان النافذة.
+        ///
+        /// كان مكتوب "إدارة الإنتاج والأجور" — جملة بتوصف البرنامج
+        /// للمستخدم اللي فاتح البرنامج. المكان ده يجاوب سؤال أنفع:
+        /// النسخة دي بتاعة مين.
+        /// </summary>
+        public void ShowIdentity()
+        {
+            var settings = Data.AppSettingsStore.Load();
+
+            var factory = string.IsNullOrWhiteSpace(settings.FactoryName)
+                ? "WMS"
+                : settings.FactoryName!.Trim();
+
+            var department = settings.DepartmentName?.Trim() ?? "";
+
+            FactoryText.Text = factory;
+
+            // اللاتيني بيتقلب في واجهة عربية لو اتساب على اتجاه الأب
+            FactoryText.FlowDirection = HasArabic(factory)
+                ? FlowDirection.RightToLeft
+                : FlowDirection.LeftToRight;
+
+            DepartmentText.Text = department;
+            DepartmentText.Visibility = department.Length == 0
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+
+            Title = department.Length == 0 ? factory : $"{factory} — {department}";
+        }
+
+        private static bool HasArabic(string text) =>
+            text.Any(c => c >= '؀' && c <= 'ۿ');
 
         private void NavWorkers_Checked(object sender, RoutedEventArgs e)
         {

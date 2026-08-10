@@ -17,8 +17,13 @@ namespace WorkforceManager.Core.Enums
     public static class ActivityEventRetention
     {
         /// <summary>
-        /// أحداث الحذف الإداري: بتخص "إيه اللي حصل في المصنع" مش
-        /// "مين وياخد كام". مدتها أقصر.
+        /// أحداث بتخص "إيه اللي حصل في المصنع" مش "مين وياخد كام":
+        /// الحذف الإداري، والحفظ اليومي المتكرر.
+        ///
+        /// **الحفظ اليومي هو النوع الوحيد الروتيني في السجل**، واتحط هنا
+        /// عن قصد: تسجيل الإنتاج والحضور بيحصلوا كل يوم على كل منتج،
+        /// فسنة منهم بتغرق السجل وتخفي الحاجات اللي فعلًا بيتسأل عنها.
+        /// تلات شهور كفاية للسؤال اللي بيتسأل عليهم ("مين حفظ اليوم ده؟").
         /// </summary>
         private static readonly HashSet<ActivityEventType> ShortLived = new()
         {
@@ -26,7 +31,18 @@ namespace WorkforceManager.Core.Enums
             ActivityEventType.ProductionRecordDeleted,
             ActivityEventType.WorkerDeleted,
             ActivityEventType.ProductDeleted,
-            ActivityEventType.StageDeleted
+            ActivityEventType.StageDeleted,
+
+            // الروتيني: بيتكرر كل يوم
+            ActivityEventType.ProductionRecorded,
+            ActivityEventType.AttendanceSaved,
+            ActivityEventType.ProductionDayClosed,
+            ActivityEventType.ProductionDayReopened,
+
+            // الإضافات: بتتعمل مرة والنتيجة نفسها باينة في الشاشات
+            ActivityEventType.WorkerCreated,
+            ActivityEventType.ProductCreated,
+            ActivityEventType.StageCreated
         };
 
         /// <summary>ينفع يتمسح بمدة الاحتفاظ القصيرة</summary>

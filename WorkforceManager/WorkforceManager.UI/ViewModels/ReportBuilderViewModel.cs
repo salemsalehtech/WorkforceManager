@@ -61,8 +61,21 @@ namespace WorkforceManager.UI.ViewModels
             RefreshThenByOptions();
             RefreshColumnChoices(); // كل موضوع وأعمدته
             OnPropertyChanged(nameof(UsesPeriod));
+            OnPropertyChanged(nameof(IsWagesReport));
+            OnPropertyChanged(nameof(CanPrintPayslip));
             RequestPreview();
         }
+
+        /// <summary>
+        /// القسايم بتاعت الأجور — مش بتاعت أي تقرير.
+        ///
+        /// زرار القسايم كان ظاهر على كل تقرير: تقرير حضور أو هالك أو
+        /// مهارات، وجنبه زرار بيطبع أجور. الزرار كان **شغال** برضه لأنه
+        /// بيسأل PayrollService مباشرة، فالمستخدم بيطلع قسايم أجر وهو
+        /// شايف قدامه جدول حضور — نفس المدة، بس مش نفس التقرير. ده مش
+        /// مجرد زحمة، ده اقتراح غلط للي بيبصّ على الشاشة.
+        /// </summary>
+        public bool IsWagesReport => SelectedSubject.Subject == ReportSubject.Wages;
 
         [ObservableProperty]
         private GroupingOption? _selectedGrouping;
@@ -433,7 +446,11 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private SortOption? _selectedSort;
 
-        partial void OnSelectedSortChanged(SortOption? value) => RequestPreview();
+        partial void OnSelectedSortChanged(SortOption? value)
+        {
+            OnPropertyChanged(nameof(HasDisplayChanges));
+            RequestPreview();
+        }
 
         [ObservableProperty]
         private bool _sortDescending = true;
@@ -452,7 +469,26 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private TopNOption? _selectedTopN;
 
-        partial void OnSelectedTopNChanged(TopNOption? value) => RequestPreview();
+        partial void OnSelectedTopNChanged(TopNOption? value)
+        {
+            OnPropertyChanged(nameof(HasDisplayChanges));
+            RequestPreview();
+        }
+
+        /// <summary>قايمة "الترتيب والعرض" — الترتيب وأعلى N والإجمالي والمقارنة</summary>
+        [ObservableProperty]
+        private bool _isDisplayMenuOpen;
+
+        /// <summary>
+        /// فيه إعداد عرض مش على وضعه الافتراضي. الشارة على الزرار
+        /// بتقول كده، لأن الإعداد ده جوّه قايمة مقفولة: من غير شارة
+        /// المستخدم بيشوف 10 صفوف بس وميعرفش إن هو نفسه اللي طلب كده.
+        /// </summary>
+        public bool HasDisplayChanges =>
+            SelectedSort?.Key is not null
+            || SelectedTopN?.Count is not null
+            || !ShowTotals
+            || CompareWithPrevious;
 
         private void RefreshSortOptions()
         {
@@ -488,12 +524,20 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private bool _showTotals = true;
 
-        partial void OnShowTotalsChanged(bool value) => RequestPreview();
+        partial void OnShowTotalsChanged(bool value)
+        {
+            OnPropertyChanged(nameof(HasDisplayChanges));
+            RequestPreview();
+        }
 
         [ObservableProperty]
         private bool _compareWithPrevious;
 
-        partial void OnCompareWithPreviousChanged(bool value) => RequestPreview();
+        partial void OnCompareWithPreviousChanged(bool value)
+        {
+            OnPropertyChanged(nameof(HasDisplayChanges));
+            RequestPreview();
+        }
 
         [ObservableProperty]
         private bool _exportDetailSheet = true;
@@ -699,11 +743,12 @@ namespace WorkforceManager.UI.ViewModels
         /// بس السؤال "قسيمة مين؟" يبقى ليه إجابة.
         /// </summary>
         /// <summary>
-        /// القسيمة ورقة عامل **واحد**، فبتظهر لما يبقى فيه واحد بالظبط
-        /// متعلّم في الفلاتر — لا صفر (مفيش إجابة لسؤال "قسيمة مين؟")
-        /// ولا اتنين (مش هنطبع قسيمة الأول ونسيب التاني).
+        /// القسيمة ورقة عامل **واحد** في تقرير **أجور**، فبتظهر لما
+        /// يبقى فيه واحد بالظبط متعلّم في الفلاتر — لا صفر (مفيش إجابة
+        /// لسؤال "قسيمة مين؟") ولا اتنين (مش هنطبع قسيمة الأول ونسيب
+        /// التاني).
         /// </summary>
-        public bool CanPrintPayslip => SingleCheckedWorkerId is not null;
+        public bool CanPrintPayslip => IsWagesReport && SingleCheckedWorkerId is not null;
 
         private int? SingleCheckedWorkerId
         {

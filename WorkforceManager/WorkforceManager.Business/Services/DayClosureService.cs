@@ -22,17 +22,20 @@ namespace WorkforceManager.Business.Services
         private readonly DailyProductionReportService _reportService;
         private readonly OperationsPasswordService _gate;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ActivityLogService _log;
 
         public DayClosureService(
             IProductionDayClosureRepository closureRepo,
             DailyProductionReportService reportService,
             OperationsPasswordService gate,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            ActivityLogService log)
         {
             _closureRepo = closureRepo;
             _reportService = reportService;
             _gate = gate;
             _unitOfWork = unitOfWork;
+            _log = log;
         }
 
         /// <summary>اليوم ده مقفول؟</summary>
@@ -108,6 +111,11 @@ namespace WorkforceManager.Business.Services
             await _closureRepo.SaveChangesAsync();
             await transaction.CommitAsync();
 
+            await _log.LogAsync(
+                ActivityEventType.ProductionDayClosed, "ProductionDayClosure", closure.Id,
+                entityName: $"يوم {date:yyyy/MM/dd}",
+                details: $"تام {closure.CompletedPieces:N0} — دخل {closure.StartedPieces:N0}");
+
             return closure;
         }
 
@@ -124,6 +132,11 @@ namespace WorkforceManager.Business.Services
 
             _closureRepo.Remove(closure);
             await _closureRepo.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.ProductionDayReopened, "ProductionDayClosure", closure.Id,
+                entityName: $"يوم {date:yyyy/MM/dd}",
+                details: "اترجع يفتح للتعديل");
         }
     }
 }

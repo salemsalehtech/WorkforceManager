@@ -91,7 +91,33 @@ namespace WorkforceManager.UI.ViewModels
             var settings = AppSettingsStore.Load();
             settings.FactoryName = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
             AppSettingsStore.Save(settings);
+            RefreshMainWindowIdentity();
         }
+
+        /// <summary>
+        /// القسم اللي النسخة دي بتديره. بيتعرض تحت اسم المصنع في
+        /// القايمة الجانبية وفي عنوان النافذة — المصنع الواحد فيه أكتر
+        /// من قسم، واسم المصنع لوحده مبيقولش النسخة دي بتاعة مين.
+        /// </summary>
+        [ObservableProperty]
+        private string _departmentName = "";
+
+        partial void OnDepartmentNameChanged(string value)
+        {
+            if (_loadingSettings) return;
+
+            var settings = AppSettingsStore.Load();
+            settings.DepartmentName = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            AppSettingsStore.Save(settings);
+            RefreshMainWindowIdentity();
+        }
+
+        /// <summary>
+        /// الاسم بيتغيّر في القايمة الجانبية على طول — من غير كده
+        /// المستخدم بيكتبه ومبيشوفش أثره غير لما يقفل ويفتح
+        /// </summary>
+        private static void RefreshMainWindowIdentity() =>
+            (Application.Current.MainWindow as MainWindow)?.ShowIdentity();
 
         [ObservableProperty]
         private string _logoPath = "";
@@ -440,6 +466,7 @@ namespace WorkforceManager.UI.ViewModels
             LogRetentionDays = settings.ActivityLogRetentionDays;
             LogFinancialRetentionDays = settings.ActivityLogFinancialRetentionDays;
             FactoryName = settings.FactoryName ?? "";
+            DepartmentName = settings.DepartmentName ?? "";
             LogoPath = settings.LogoPath ?? "";
             _loadingSettings = false;
             OnPropertyChanged(nameof(LogRetentionText));

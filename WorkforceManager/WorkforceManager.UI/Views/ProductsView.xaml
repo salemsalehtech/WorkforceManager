@@ -153,14 +153,14 @@
             <!-- كانت "شغّالين الأسبوع ده على" — والمدة مكتوبة على زرارها
                  جنبه على طول، فمكانش ليها لزوم تتكرر جوّه الشريط كمان -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
-                <RadioButton Content="شغّالين" Style="{StaticResource FilterChip}"
+                <RadioButton Content="شغّالين" Style="{StaticResource Chip}"
                              ToolTip="المنتجات اللي اتسجل عليها شغل فعلي في المدة المختارة"
                              IsChecked="{Binding IsFilterWorked, Mode=OneWay}"
                              Command="{Binding SetFilterCommand}" CommandParameter="worked" />
-                <RadioButton Content="الكل" Style="{StaticResource FilterChip}"
+                <RadioButton Content="الكل" Style="{StaticResource Chip}"
                              IsChecked="{Binding IsFilterAll, Mode=OneWay}"
                              Command="{Binding SetFilterCommand}" CommandParameter="all" />
-                <RadioButton Content="موقوف" Style="{StaticResource FilterChip}"
+                <RadioButton Content="موقوف" Style="{StaticResource Chip}"
                              IsChecked="{Binding IsFilterInactive, Mode=OneWay}"
                              Command="{Binding SetFilterCommand}" CommandParameter="inactive" />
             </StackPanel>

@@ -515,40 +515,16 @@
             </Style>
 
             <!--
-                زرار فلترة سريع (الكل / بالإنتاج / بالساعة / موقوفين).
-                RadioButton عشان الاختيار يبقى واحد بس، بس شكله شريحة —
-                المفعّل بلون البراند والباقي باهت.
+                "FilterChip" اتشال من هنا وشاشة المنتجات بقت على "Chip"
+                اللي في Core.xaml (نفس اللي شاشة العمال بتستخدمه).
+
+                الشريحة المختارة كانت خلفيتها BrandBrush ونصها "White"
+                بالنص. وBrandBrush هو **لون الحبر** — في الثيم الغامق
+                بقى #EDEDED، يعني شريحة بيضا عليها نص أبيض: المستخدم
+                بيدوس على الفلتر وميقراش اسمه. Chip المختار دهبي ونصه
+                InkOnAccentBrush، فهو صحيح في اللوحتين بالتكوين مش
+                بالصدفة.
             -->
-            <Style x:Key="FilterChip" TargetType="RadioButton">
-                <Setter Property="Cursor" Value="Hand" />
-                <Setter Property="Margin" Value="0,0,6,0" />
-                <Setter Property="SnapsToDevicePixels" Value="True" />
-                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="RadioButton">
-                            <Border x:Name="Bd" Background="{DynamicResource CardBgBrush}"
-                                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1.4"
-                                    CornerRadius="15" Padding="14,7">
-                                <TextBlock x:Name="Txt" Text="{TemplateBinding Content}"
-                                           FontSize="12.5" FontWeight="Medium" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextMutedBrush}" />
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
-                                </Trigger>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource BrandBrush}" />
-                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrandBrush}" />
-                                    <Setter TargetName="Txt" Property="Foreground" Value="White" />
-                                    <Setter TargetName="Txt" Property="FontWeight" Value="Bold" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
 
             <!-- بطاقة عامل واحد في قائمة الحضور (بتعلى شوية مع الماوس) -->
             <Style x:Key="WorkerCard" TargetType="Border">

@@ -14,13 +14,16 @@ namespace WorkforceManager.Business.Services
     {
         private readonly IWageAdjustmentRepository _adjustmentRepo;
         private readonly OperationsPasswordService _gate;
+        private readonly ActivityLogService _log;
 
         public WageAdjustmentService(
             IWageAdjustmentRepository adjustmentRepo,
-            OperationsPasswordService gate)
+            OperationsPasswordService gate,
+            ActivityLogService log)
         {
             _adjustmentRepo = adjustmentRepo;
             _gate = gate;
+            _log = log;
         }
 
         /// <summary>
@@ -54,6 +57,13 @@ namespace WorkforceManager.Business.Services
 
             await _adjustmentRepo.AddAsync(adjustment);
             await _adjustmentRepo.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.WageAdjustmentSaved, "WageAdjustment", adjustment.Id,
+                entityName: type == WageAdjustmentType.Advance ? "سلفة" : "حافز",
+                reason: adjustment.Note,
+                details: $"{amountEgp:N0} ج يوم {adjustment.Date:yyyy/MM/dd}");
+
             return adjustment;
         }
 
@@ -73,6 +83,11 @@ namespace WorkforceManager.Business.Services
 
             _adjustmentRepo.Remove(adjustment);
             await _adjustmentRepo.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.WageAdjustmentDeleted, "WageAdjustment", adjustment.Id,
+                entityName: adjustment.Type == WageAdjustmentType.Advance ? "سلفة" : "حافز",
+                details: $"كانت {adjustment.AmountEgp:N0} ج يوم {adjustment.Date:yyyy/MM/dd}");
         }
 
         /// <summary>كل حركات يوم معين لكل العمال (لعرضها وحذفها في شاشة التسجيل اليومي)</summary>

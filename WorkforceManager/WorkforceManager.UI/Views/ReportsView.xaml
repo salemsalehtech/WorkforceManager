@@ -9,255 +9,14 @@
              d:DesignHeight="650" d:DesignWidth="1100">
 
     <!-- شاشة التقييم والمتابعة: بتتشاف وبيتصرّف منها، مش بتطلّع ورق.
-         التقارير اللي بتتصدّر اتنقلت لشاشة "التقارير" وبقت قوالب في
-         مُنشئ التقارير — نفس الأربعة، بس بقى ينفع تعدّلهم وتعمل زيّهم. -->
+         التقارير اللي بتتصدّر في شاشة "التقارير".
+
+         **تبويب "تقييم اليوم" اتشال.** كان بيكرر أرقام "إنتاج اليوم"
+         بصياغة تانية، وجدوله (كل عامل مقارن بمتوسط زمايله) موجود في
+         مُنشئ التقارير وبيتصدّر Excel كمان. -->
     <TabControl>
 
-        <!-- ============ تبويب تقييم اليوم ============ -->
-        <TabItem Header="  تقييم اليوم  ">
-            <Grid Margin="10">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <!-- ===== محتاج تصرّف =====
-                     فوق كل حاجة عن قصد: باقي الشاشة بيقول "إيه اللي
-                     حصل"، والقايمة دي بتقول "اعمل إيه". المدير بيفتح
-                     الشاشة عشان يتصرّف، مش عشان يقرا متوسطات. -->
-                <Border Grid.Row="0" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,10"
-                        Visibility="{Binding HasAttention, Converter={StaticResource BoolToVis}}">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,9">
-                            <materialDesign:PackIcon Kind="AlertCircleOutline" Width="18" Height="18"
-                                                     VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource WarnBrush}" />
-                            <TextBlock Text="محتاج تصرّف" FontWeight="Bold" FontSize="14"
-                                       Margin="7,0,0,0" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" />
-                            <TextBlock Text="{Binding AttentionSummary}" FontSize="12"
-                                       Margin="10,0,0,0" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextMutedBrush}" />
-                        </StackPanel>
-
-                        <ItemsControl ItemsSource="{Binding Attention}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8"
-                                            Padding="11,8" Margin="0,0,0,5">
-                                        <DockPanel>
-                                            <!-- الإجراء من نفس الصف -->
-                                            <Button DockPanel.Dock="Left"
-                                                    Command="{Binding DataContext.OpenWorkerCommand,
-                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}"
-                                                    Padding="10,5"
-                                                    VerticalAlignment="Center" FontSize="11.5">
-                                                <Button.Style>
-                                                    <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding WorkerId}" Value="{x:Null}">
-                                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="AccountOutline" Width="13" Height="13"
-                                                                             VerticalAlignment="Center" />
-                                                    <TextBlock Text="افتح العامل" Margin="4,0,0,0" />
-                                                </StackPanel>
-                                            </Button>
-
-                                            <!-- شريط الخطورة: اللي بيوقف الإنتاج أحمر -->
-                                            <Border DockPanel.Dock="Right" Width="4" CornerRadius="2"
-                                                    Margin="0,0,10,0">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="{DynamicResource WarnBrush}" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Severity}" Value="0">
-                                                                <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                            </Border>
-
-                                            <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                <TextBlock Text="{Binding Detail}" FontSize="11.5" TextWrapping="Wrap"
-                                                           Foreground="{DynamicResource TextMutedBrush}" />
-                                            </StackPanel>
-                                        </DockPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
-
-                <!-- اختيار اليوم + سطر الملخص -->
-                <Border Grid.Row="1" Style="{StaticResource ToolbarCard}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <DatePicker SelectedDate="{Binding DailyDate}" Width="160" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding DailySummaryText}" Foreground="{DynamicResource BrandBrush}" FontWeight="SemiBold"
-                                   VerticalAlignment="Center" Margin="20,0,0,0" />
-                    </StackPanel>
-                </Border>
-
-                <!-- ===== اليوم في سطر =====
-                     خمس حقايق المدير بيسأل عنها أول ما يفتح الشاشة، كلها
-                     محسوبة من سجلات اليوم. المنتجات من ProductActivityService —
-                     نفس خدمة شاشة المنتجات، مفيش حساب موازي. -->
-                <Grid Grid.Row="2" Margin="0,10,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- إنتاج اليوم + أكتر منتج -->
-                    <Border Grid.Column="0" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,5,0">
-                        <StackPanel>
-                            <TextBlock Text="إنتاج النهارده" FontSize="11.5" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextMutedBrush}" />
-                            <TextBlock Text="{Binding DailyTotalPiecesText}" FontSize="26" FontWeight="Bold"
-                                       Margin="0,2,0,0" Foreground="{DynamicResource BrandBrush}" />
-                            <TextBlock Text="قطعة تامة على كل المنتجات" FontSize="11"
-                                       Foreground="{DynamicResource TextMutedBrush}" />
-
-                            <Border Background="{DynamicResource SuccessBgBrush}" CornerRadius="7"
-                                    Padding="9,6" Margin="0,9,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="أكتر منتج شغل" FontSize="10.5"
-                                               Foreground="{DynamicResource SuccessBrush}" />
-                                    <TextBlock Text="{Binding DailyTopProductText}" FontSize="13" FontWeight="Bold"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    <TextBlock Text="{Binding DailyTopProductPiecesText}" FontSize="10.5"
-                                               Foreground="{DynamicResource SuccessBrush}" />
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- المنتجات اللي اتشغل عليها -->
-                    <Border Grid.Column="1" Style="{StaticResource Card}" Padding="14,12" Margin="5,0">
-                        <StackPanel>
-                            <TextBlock Text="اتشغل على" FontSize="11.5" FontWeight="SemiBold" Margin="0,0,0,7"
-                                       Foreground="{DynamicResource TextMutedBrush}" />
-
-                            <TextBlock Text="مفيش شغل مسجّل النهارده" FontSize="12"
-                                       Foreground="{DynamicResource TextMutedBrush}"
-                                       Visibility="{Binding HasDailyProducts, Converter={StaticResource InverseBoolToVis}}" />
-
-                            <ItemsControl ItemsSource="{Binding DailyProducts}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="7"
-                                                Padding="9,6" Margin="0,0,0,4">
-                                            <DockPanel>
-                                                <TextBlock DockPanel.Dock="Left" Text="{Binding PiecesText}"
-                                                           FontSize="11.5" FontWeight="Bold"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource BrandBrush}" />
-                                                <StackPanel Margin="0,0,9,0">
-                                                    <TextBlock Text="{Binding ProductName}" FontSize="12.5" FontWeight="SemiBold"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                    <TextBlock Text="{Binding WorkersText}" FontSize="10.5"
-                                                               Foreground="{DynamicResource TextMutedBrush}" />
-                                                </StackPanel>
-                                            </DockPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- أحسن وأقل عامل -->
-                    <Border Grid.Column="2" Style="{StaticResource Card}" Padding="14,12" Margin="5,0,0,0">
-                        <StackPanel>
-                            <TextBlock Text="أحسن وأقل عامل" FontSize="11.5" FontWeight="SemiBold" Margin="0,0,0,7"
-                                       Foreground="{DynamicResource TextMutedBrush}" />
-
-                            <Border Background="{DynamicResource SuccessBgBrush}" CornerRadius="7" Padding="9,6">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="TrendingUp" Width="13" Height="13"
-                                                                 VerticalAlignment="Center"
-                                                                 Foreground="{DynamicResource SuccessBrush}" />
-                                        <TextBlock Text="{Binding DailyBestWorkerText}" FontSize="12.5" FontWeight="Bold"
-                                                   Margin="5,0,0,0" TextTrimming="CharacterEllipsis"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding DailyBestWorkerDetail}" FontSize="10.5" Margin="0,2,0,0"
-                                               Foreground="{DynamicResource SuccessBrush}" />
-                                </StackPanel>
-                            </Border>
-
-                            <!-- بيختفي لما يكون فيه عامل واحد منتج: الأحسن
-                                 والأقل هيبقوا هو، وعرضهم مرتين بيوحي بمقارنة محصلتش -->
-                            <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="7" Padding="9,6"
-                                    Margin="0,6,0,0"
-                                    Visibility="{Binding DailyHasComparison, Converter={StaticResource BoolToVis}}">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="TrendingDown" Width="13" Height="13"
-                                                                 VerticalAlignment="Center"
-                                                                 Foreground="{DynamicResource WarnBrush}" />
-                                        <TextBlock Text="{Binding DailyWorstWorkerText}" FontSize="12.5" FontWeight="Bold"
-                                                   Margin="5,0,0,0" TextTrimming="CharacterEllipsis"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    </StackPanel>
-                                    <TextBlock Text="{Binding DailyWorstWorkerDetail}" FontSize="10.5" Margin="0,2,0,0"
-                                               Foreground="{DynamicResource WarnBrush}" />
-                                </StackPanel>
-                            </Border>
-
-                            <TextBlock Text="المقارنة بين اللي أنتجوا فعلاً — الغايبين مش داخلين"
-                                       FontSize="10" TextWrapping="Wrap" Margin="0,7,0,0"
-                                       Foreground="{DynamicResource TextMutedBrush}" />
-                        </StackPanel>
-                    </Border>
-                </Grid>
-
-                <!-- جدول التقييم اليومي -->
-                <Border Grid.Row="3" Style="{StaticResource Card}" Padding="6" Margin="0,10,0,0">
-                <DataGrid ItemsSource="{Binding DailyRows}"
-                          Style="{StaticResource ModernDataGrid}"
-                          AutoGenerateColumns="False" IsReadOnly="True">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}"
-                                            Width="Auto" MinWidth="150" />
-                        <DataGridTextColumn Header="القطع" Binding="{Binding TotalPieces}" Width="70" />
-                        <DataGridTextColumn Header="اليوميات" Binding="{Binding TotalWorkdays}" Width="80" />
-                        <DataGridTextColumn Header="مقارنة بالمتوسط" Binding="{Binding PercentText}" Width="110" />
-                        <!-- التقييم بلونه المميز (اللون جاي جاهز من الـ ViewModel) -->
-                        <DataGridTemplateColumn Header="التقييم" Width="140">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding RatingText}" ui:ThemeBrush.ForegroundKey="{Binding RatingColor}"
-                                               FontWeight="Bold" VerticalAlignment="Center" Margin="4,0" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTextColumn Header="الحضور" Binding="{Binding AttendanceText}" Width="100" />
-                        <DataGridTextColumn Header="اشتغل على" Binding="{Binding BreakdownText}" Width="2*" />
-                        <DataGridTextColumn Header="جزاءات اليوم" Binding="{Binding PenaltiesText}" Width="150" />
-                    </DataGrid.Columns>
-                </DataGrid>
-                </Border>
-            </Grid>
-        </TabItem>
-
-        <!-- ============ تبويب إنتاج اليوم: خلص كام ودخل كام ============ -->
+        <!-- ============ إنتاج اليوم: خلص كام ودخل كام واتهلك كام ============ -->
         <TabItem Header="  إنتاج اليوم  ">
             <Grid Margin="10">
                 <Grid.RowDefinitions>
@@ -285,8 +44,8 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ملخص اليوم في رقمين -->
-                <UniformGrid Grid.Row="1" Columns="2" Margin="0,8,0,8">
+                <!-- ملخص اليوم في تلات أرقام: خلص، دخل، واتهلك -->
+                <UniformGrid Grid.Row="1" Columns="3" Margin="0,8,0,8">
                     <Border Style="{StaticResource Card}" Padding="14,11" Margin="0,0,4,0">
                         <StackPanel>
                             <TextBlock Text="{Binding OutputCompletedText}" FontSize="24" FontWeight="Bold"
@@ -296,12 +55,37 @@
                                        Foreground="{DynamicResource TextMutedBrush}" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource Card}" Padding="14,11" Margin="4,0,0,0">
+                    <Border Style="{StaticResource Card}" Padding="14,11" Margin="4,0">
                         <StackPanel>
                             <TextBlock Text="{Binding OutputStartedText}" FontSize="24" FontWeight="Bold"
                                        HorizontalAlignment="Center"
-                                       Foreground="{DynamicResource BrandBrush}" />
+                                       Foreground="{DynamicResource GoldDeepBrush}" />
                             <TextBlock Text="قطعة دخلت الخط النهارده" FontSize="11.5" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource TextMutedBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- الهالك جنب الإنتاج مش في شاشة تانية: الرقمين
+                         بيتقروا مع بعض أو ميقولوش حاجة -->
+                    <Border Style="{StaticResource Card}" Padding="14,11" Margin="4,0,0,0">
+                        <StackPanel>
+                            <TextBlock Text="{Binding OutputScrapText}" FontSize="24" FontWeight="Bold"
+                                       HorizontalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding OutputHasScrap}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="قطعة هالك" FontSize="11.5" HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBlock Text="{Binding OutputScrapRateText}" FontSize="10.5"
+                                       HorizontalAlignment="Center"
                                        Foreground="{DynamicResource TextMutedBrush}" />
                         </StackPanel>
                     </Border>
@@ -318,34 +102,30 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8">
-                                        <StackPanel>
-                                            <DockPanel>
-                                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                                                    <Border Background="{DynamicResource SuccessBgBrush}" CornerRadius="7"
-                                                            Padding="11,5" VerticalAlignment="Center">
-                                                        <StackPanel>
-                                                            <TextBlock Text="{Binding CompletedPieces, StringFormat=N0}"
-                                                                       FontSize="17" FontWeight="Bold"
-                                                                       HorizontalAlignment="Center"
-                                                                       Foreground="{DynamicResource SuccessBrush}" />
-                                                            <TextBlock Text="مكتمل" FontSize="10" HorizontalAlignment="Center"
-                                                                       Foreground="{DynamicResource SuccessBrush}" />
-                                                        </StackPanel>
-                                                    </Border>
+                                        <DockPanel>
+                                            <Border DockPanel.Dock="Left" Background="{DynamicResource SuccessBgBrush}"
+                                                    CornerRadius="7" Padding="11,5" VerticalAlignment="Center">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding CompletedPieces, StringFormat=N0}"
+                                                               FontSize="17" FontWeight="Bold"
+                                                               HorizontalAlignment="Center"
+                                                               Foreground="{DynamicResource SuccessBrush}" />
+                                                    <TextBlock Text="مكتمل" FontSize="10" HorizontalAlignment="Center"
+                                                               Foreground="{DynamicResource SuccessBrush}" />
                                                 </StackPanel>
+                                            </Border>
 
-                                                <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
-                                                    <TextBlock Text="{Binding ProductName}" FontSize="15" FontWeight="Bold"
-                                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                    <TextBlock FontSize="11.5" Margin="0,2,0,0"
-                                                               Foreground="{DynamicResource TextMutedBrush}">
-                                                        <Run Text="دخل الخط النهارده:" />
-                                                        <Run Text="{Binding StartedPieces, Mode=OneWay, StringFormat=N0}" FontWeight="Bold" />
-                                                        <Run Text="قطعة" />
-                                                    </TextBlock>
-                                                </StackPanel>
-                                            </DockPanel>
-                                        </StackPanel>
+                                            <StackPanel VerticalAlignment="Center" Margin="0,0,10,0">
+                                                <TextBlock Text="{Binding ProductName}" FontSize="15" FontWeight="Bold"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                <TextBlock FontSize="11.5" Margin="0,2,0,0"
+                                                           Foreground="{DynamicResource TextMutedBrush}">
+                                                    <Run Text="دخل الخط النهارده:" />
+                                                    <Run Text="{Binding StartedPieces, Mode=OneWay, StringFormat=N0}" FontWeight="Bold" />
+                                                    <Run Text="قطعة" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </DockPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
@@ -355,7 +135,7 @@
             </Grid>
         </TabItem>
 
-        <!-- ============ تبويب كشف الأسبوع ============ -->
+        <!-- ============ رسم إنتاج المنتجات ============ -->
         <TabItem>
             <TabItem.Header>
                 <StackPanel Orientation="Horizontal">
@@ -364,37 +144,123 @@
                 </StackPanel>
             </TabItem.Header>
             <Grid Margin="10">
+                <!--
+                  كارت الرسم بياخد ارتفاعه من محتواه (Auto) والفاضي
+                  بيروح للسطر اللي بعده. كان نجمة، فالكارت بيتمدّ لآخر
+                  الشاشة والأعمدة ثابتة 200 بكسل في قاعه — نص الكارت
+                  كان بياض من غير سبب.
+                -->
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- اختيار المدة -->
+                <!-- ===== التقسيم + المدة + فلتر المنتجات ===== -->
                 <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="المدة: آخر" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <ComboBox ItemsSource="{Binding ChartWeeksOptions}"
-                                  SelectedItem="{Binding SelectedChartWeeks}" Width="70" />
-                        <TextBlock Text="أسبوع" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0,16,0" />
-                        <TextBlock Style="{StaticResource HintText}" FontSize="12" VerticalAlignment="Center"
-                                   Text="القطع المكتملة فقط: المسجلة على آخر مرحلة لكل منتج — الشغل الجاري على المراحل الأبكر مش بيتحسب" />
-                    </StackPanel>
+                    <DockPanel>
+                        <!-- شرايح التقسيم: يوم / أسبوع / شهر. شرايح مش
+                             قايمة عشان التلاتة يبانوا مع بعض — ده أول
+                             سؤال بيتسأل على الشاشة دي -->
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource Chip}" Content="بيوم" GroupName="ChartGrain"
+                                         IsChecked="{Binding IsGrainDay, Mode=OneWay}"
+                                         Command="{Binding SetGrainCommand}" CommandParameter="day" />
+                            <RadioButton Style="{StaticResource Chip}" Content="بأسبوع" GroupName="ChartGrain"
+                                         IsChecked="{Binding IsGrainWeek, Mode=OneWay}"
+                                         Command="{Binding SetGrainCommand}" CommandParameter="week" />
+                            <RadioButton Style="{StaticResource Chip}" Content="بشهر" GroupName="ChartGrain"
+                                         IsChecked="{Binding IsGrainMonth, Mode=OneWay}"
+                                         Command="{Binding SetGrainCommand}" CommandParameter="month" />
+                        </StackPanel>
+
+                        <ComboBox DockPanel.Dock="Right" ItemsSource="{Binding RangeOptions}"
+                                  SelectedItem="{Binding SelectedRange}" DisplayMemberPath="Display"
+                                  Width="130" Margin="10,0,0,0" VerticalAlignment="Center" />
+
+                        <!-- فلتر المنتجات — نفس نمط الفلاتر في باقي الشاشات -->
+                        <Grid DockPanel.Dock="Right" Margin="10,0,0,0" VerticalAlignment="Center">
+                            <ToggleButton x:Name="ProductToggle" Style="{StaticResource ToolbarToggle}"
+                                          IsChecked="{Binding IsProductMenuOpen, Mode=TwoWay}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ShapeOutline" Width="15" Height="15"
+                                                             VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ProductFilterText}" Margin="5,0,0,0"
+                                               VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                             Margin="4,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <Popup IsOpen="{Binding IsProductMenuOpen, Mode=TwoWay}" StaysOpen="False"
+                                   PlacementTarget="{Binding ElementName=ProductToggle}" Placement="Bottom"
+                                   AllowsTransparency="True" PopupAnimation="Fade"
+                                   HorizontalOffset="-6" VerticalOffset="2">
+                                <Border Style="{StaticResource ToolbarPopupCard}"
+                                        FlowDirection="RightToLeft" Width="260" MaxHeight="360">
+                                    <StackPanel>
+                                        <TextBlock Text="شيل العلامة عن اللي مش عايز تشوفه" FontSize="11"
+                                                   Margin="0,0,0,6" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                        <ScrollViewer MaxHeight="290" VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding ChartProducts}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsChecked}"
+                                                                  FontSize="12.5" Margin="0,2" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+                        </Grid>
+
+                        <TextBlock Text="{Binding ChartHint}" Style="{StaticResource HintText}" FontSize="11.5"
+                                   VerticalAlignment="Center" Margin="14,0,0,0" TextWrapping="Wrap" />
+                    </DockPanel>
                 </Border>
 
-                <!-- ===== اتجاه الإنتاج =====
-                     الرقم اللي المدير بياخد منه قرار: طالع ولا نازل؟
-                     الرسمة بتوريه التفاصيل، والسطر ده بيقول الخلاصة. -->
-                <Border Grid.Row="1" Style="{StaticResource Card}" Padding="14,10" Margin="0,0,0,8"
-                        Visibility="{Binding HasChartTrend, Converter={StaticResource BoolToVis}}">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="ChartTimelineVariant" Width="17" Height="17"
-                                                 VerticalAlignment="Center"
-                                                 ui:ThemeBrush.ForegroundKey="{Binding ChartTrendColor}" />
-                        <TextBlock Text="{Binding ChartTrendText}" FontSize="13" FontWeight="SemiBold"
-                                   Margin="7,0,0,0" VerticalAlignment="Center"
-                                   ui:ThemeBrush.ForegroundKey="{Binding ChartTrendColor}" />
+                <!-- ===== الخلاصة: الإجمالي والمقارنة والهالك والمتوسط ===== -->
+                <Border Grid.Row="1" Style="{StaticResource Card}" Padding="14,10" Margin="0,8,0,8">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal"
+                                    Visibility="{Binding HasChartTrend, Converter={StaticResource BoolToVis}}">
+                            <materialDesign:PackIcon Kind="ChartTimelineVariant" Width="17" Height="17"
+                                                     VerticalAlignment="Center"
+                                                     ui:ThemeBrush.ForegroundKey="{Binding ChartTrendColor}" />
+                            <TextBlock Text="{Binding ChartTrendText}" FontSize="13" FontWeight="SemiBold"
+                                       Margin="7,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
+                                       ui:ThemeBrush.ForegroundKey="{Binding ChartTrendColor}" />
+                        </StackPanel>
+
+                        <WrapPanel Margin="0,6,0,0">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,22,0">
+                                <materialDesign:PackIcon Kind="DeleteSweepOutline" Width="15" Height="15"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource DangerBrush}" />
+                                <TextBlock Text="الهالك:" FontSize="12" Margin="5,0,4,0" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding ChartScrapText}" FontSize="12.5" FontWeight="Bold"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource DangerBrush}" />
+                                <TextBlock Text="{Binding ChartScrapRateText}" FontSize="11.5" Margin="6,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextMutedBrush}" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ChartLine" Width="15" Height="15"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding ChartAverageText}" FontSize="12" Margin="5,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextMutedBrush}" />
+                            </StackPanel>
+                        </WrapPanel>
                     </StackPanel>
                 </Border>
 
@@ -415,13 +281,17 @@
                                            VerticalAlignment="Center" Margin="6,0,4,0" />
                                 <TextBlock Text="{Binding TotalText}" Foreground="{DynamicResource TextMutedBrush}"
                                            FontSize="11.5" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding ChangeText}" FontSize="11.5" FontWeight="Bold"
+                                           Margin="6,0,0,0" VerticalAlignment="Center"
+                                           ui:ThemeBrush.ForegroundKey="{Binding ChangeColor}"
+                                           Visibility="{Binding HasChange, Converter={StaticResource BoolToVis}}" />
                             </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
                 <!-- الرسم البياني -->
-                <Border Grid.Row="3" Style="{StaticResource Card}">
+                <Border Grid.Row="3" Style="{StaticResource Card}" MinHeight="330">
                     <Grid>
                         <!-- رسالة لما مفيش بيانات -->
                         <TextBlock Text="مفيش إنتاج مكتمل متسجل في الفترة دي — سجّل رحلات إنتاج توصل لآخر مرحلة وهتظهر هنا"
@@ -443,7 +313,7 @@
                         <!-- محور الزمن ثابت شمال ← يمين زي أي رسم بياني (مع بقاء النصوص عربي) -->
                         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                                       FlowDirection="LeftToRight" VerticalAlignment="Bottom">
-                            <ItemsControl ItemsSource="{Binding ChartWeekGroups}">
+                            <ItemsControl ItemsSource="{Binding ChartBuckets}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel Orientation="Horizontal" />
@@ -451,20 +321,31 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <!-- عمود مكدّس لأسبوع واحد: طول العمود = إنتاج
-                                             الأسبوع كله، والشرايح = نصيب كل منتج.
-                                             كانت أعمدة متجاورة (عمود لكل منتج): الأسبوع
-                                             مكانش ليه رقم واحد يتقري، والمقارنة بين
-                                             الأسابيع كانت محتاجة جمع بالعين. -->
+                                        <!-- عمود مكدّس لفترة واحدة: طول العمود = إنتاج
+                                             الفترة كلها، والشرايح = نصيب كل منتج،
+                                             والشريحة الحمرا اللي فوق = الهالك. -->
                                         <StackPanel Margin="9,0" MinWidth="46">
-                                            <!-- الإجمالي فوق العمود: رقم واحد لكل أسبوع
-                                                 بدل رقم على كل شريحة -->
                                             <TextBlock Text="{Binding TotalText}" FontSize="11.5" FontWeight="Bold"
                                                        HorizontalAlignment="Center" Margin="0,0,0,4"
                                                        Foreground="{DynamicResource TextPrimaryBrush}" />
 
-                                            <!-- الشرايح مثبتة على خط الأرض -->
-                                            <Grid Height="200">
+                                            <!-- لازم يفضل أكبر شوية من MaxBarHeight
+                                                 في الـ ViewModel، وإلا أطول عمود
+                                                 بيتقص من فوق -->
+                                            <Grid Height="272">
+                                                <!-- خط المتوسط: كل عمود بيرسم قطعته منه،
+                                                     فمع بعض بيقروا خط واحد. المسافة من
+                                                     تحت بترتفع بارتفاع فاضي مش بـ Margin
+                                                     مربوط — Thickness نوع قيمة والربط
+                                                     عليه بيكسر القالب وقت التشغيل. -->
+                                                <StackPanel VerticalAlignment="Bottom" IsHitTestVisible="False"
+                                                            Visibility="{Binding ShowAverage, Converter={StaticResource BoolToVis}}">
+                                                    <Border Height="1.2" Background="{DynamicResource LineStrongBrush}"
+                                                            Opacity="0.85" />
+                                                    <Border Height="{Binding AverageOffset}" Background="Transparent" />
+                                                </StackPanel>
+
+                                                <!-- الشرايح مثبتة على خط الأرض -->
                                                 <ItemsControl ItemsSource="{Binding Segments}" VerticalAlignment="Bottom"
                                                               HorizontalAlignment="Center">
                                                     <ItemsControl.ItemTemplate>
@@ -482,12 +363,12 @@
                                                 </ItemsControl>
                                             </Grid>
 
-                                            <!-- خط الأرض + تاريخ الأسبوع -->
+                                            <!-- خط الأرض + تاريخ الفترة -->
                                             <Border Height="1.5" Background="{DynamicResource CardBorderBrush}" Margin="0,0,0,4" />
-                                            <TextBlock Text="{Binding WeekLabel}" FontSize="11.5" FontWeight="SemiBold"
+                                            <TextBlock Text="{Binding Label}" FontSize="11" FontWeight="SemiBold"
                                                        HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                            <!-- الأسبوع الجاري: المقارنة بيه ناقصة لأنه لسه مكملش -->
-                                            <TextBlock Text="{Binding CurrentWeekNote}" FontSize="9.5"
+                                            <!-- الفترة الجارية: المقارنة بيها ناقصة لأنها لسه مكملتش -->
+                                            <TextBlock Text="{Binding CurrentNote}" FontSize="9.5"
                                                        HorizontalAlignment="Center"
                                                        Foreground="{DynamicResource TextMutedBrush}" />
                                         </StackPanel>

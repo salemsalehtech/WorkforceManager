@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 
 namespace WorkforceManager.UI.Views
@@ -15,18 +16,40 @@ namespace WorkforceManager.UI.Views
     /// في OperationsPasswordService عشان قاعدة القفل بعد المحاولات الغلط
     /// تفضل في مكان واحد.
     /// </summary>
+    /// <summary>
+    /// العملية اللي بيتأكّد منها: بتمسح حاجة، ولا بتحفظ/تسجّل حاجة.
+    ///
+    /// **الفرق ده كان ناقص**، فالنافذة كانت بتظهر بنفس الرأس الأحمر
+    /// ونفس زرار "أكّد الحذف" على الاتنين — يعني اللي بيحفظ رحلة إنتاج
+    /// كان بيتطلب منه يأكّد **حذف**. البوابة نفسها واحدة (كلمة السر)،
+    /// بس اللي بتقوله للمستخدم لازم يطابق اللي هيحصل.
+    /// </summary>
+    public enum SensitiveActionKind
+    {
+        /// <summary>بتشيل بيانات — أحمر، وبيطلب سبب مكتوب</summary>
+        Delete,
+
+        /// <summary>بتحفظ أو تسجّل — بلون الهوية، ومفيش كلام عن حذف</summary>
+        Save
+    }
+
     public partial class SensitiveActionDialog : Window
     {
         private readonly bool _reasonRequired;
+        private readonly SensitiveActionKind _kind;
 
         private SensitiveActionDialog(
-            string title, string subtitle, bool passwordRequired, bool reasonRequired)
+            string title, string subtitle, SensitiveActionKind kind,
+            bool passwordRequired, bool reasonRequired)
         {
             InitializeComponent();
 
             TitleText.Text = title;
             SubtitleText.Text = subtitle;
             _reasonRequired = reasonRequired;
+            _kind = kind;
+
+            ApplyKind(kind);
 
             // مفيش كلمة سر متسجّلة: بنخفي الخانة وبنوضّح السبب بدل ما
             // نطلب من المستخدم حاجة مش موجودة أصلاً
@@ -36,6 +59,26 @@ namespace WorkforceManager.UI.Views
             // العمليات المتكررة (حفظ الحضور) بتاخد كلمة سر بس: "اكتب سبب"
             // على شغل يومي بيتحوّل لخانة المستخدم بيكتب فيها نقطة
             ReasonSection.Visibility = reasonRequired ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// كل اللي بيفرّق بين الحذف والحفظ في مكان واحد: اللون، ونص
+        /// الزرار، وعنوان خانة السبب، وعنوان النافذة.
+        /// </summary>
+        private void ApplyKind(SensitiveActionKind kind)
+        {
+            var deleting = kind == SensitiveActionKind.Delete;
+
+            Title = deleting ? "تأكيد حذف" : "تأكيد عملية";
+
+            HeaderBar.SetResourceReference(
+                Border.BackgroundProperty, deleting ? "DangerBrush" : "SidebarBrush");
+
+            ConfirmButton.Content = deleting ? "أكّد الحذف" : "أكّد واحفظ";
+            ConfirmButton.SetResourceReference(
+                StyleProperty, deleting ? "DangerButton" : "PrimaryButton");
+
+            ReasonLabel.Text = deleting ? "سبب الحذف" : "السبب / ملاحظة";
         }
 
         /// <summary>كلمة السر اللي كتبها المستخدم (فاضية لو مفيش واحدة متسجّلة)</summary>
@@ -57,11 +100,16 @@ namespace WorkforceManager.UI.Views
         /// false للعمليات المتكررة اللي مش بتمسح حاجة (حفظ الحضور):
         /// كلمة سر بس من غير سبب مكتوب.
         /// </param>
+        /// <param name="kind">
+        /// حذف ولا حفظ. **إجباري عن قصد ومفيش قيمة افتراضية**: النافذة
+        /// دي شغلها إن المستخدم يفهم هو بيوافق على إيه، فاختيار غلط
+        /// بالسكوت أسوأ من خطأ ترجمة.
+        /// </param>
         public static SensitiveActionInput? Ask(
-            Window? owner, string title, string subtitle,
+            Window? owner, string title, string subtitle, SensitiveActionKind kind,
             bool passwordRequired, bool reasonRequired = true)
         {
-            var dialog = new SensitiveActionDialog(title, subtitle, passwordRequired, reasonRequired);
+            var dialog = new SensitiveActionDialog(title, subtitle, kind, passwordRequired, reasonRequired);
             if (owner is not null) dialog.Owner = owner;
 
             return dialog.ShowDialog() == true
@@ -74,7 +122,9 @@ namespace WorkforceManager.UI.Views
             var reason = ReasonBox.Text.Trim();
             if (_reasonRequired && reason.Length == 0)
             {
-                ShowError("لازم تكتب سبب الحذف");
+                ShowError(_kind == SensitiveActionKind.Delete
+                    ? "لازم تكتب سبب الحذف"
+                    : "لازم تكتب سبب العملية");
                 ReasonBox.Focus();
                 return;
             }

@@ -151,6 +151,7 @@ namespace WorkforceManager.UI.ViewModels
                         Application.Current.MainWindow,
                         "فتح إنتاج اليوم تاني",
                         $"هيرجع ينفع يتسجل إنتاج على يوم {EntryDate:yyyy/MM/dd} ويتعدّل.",
+                        SensitiveActionKind.Save,
                         passwordRequired: true,
                         reasonRequired: false);
 
@@ -171,6 +172,7 @@ namespace WorkforceManager.UI.ViewModels
                     Application.Current.MainWindow,
                     "قفل إنتاج اليوم",
                     $"بعد القفل مش هينفع يتسجل إنتاج جديد على يوم {EntryDate:yyyy/MM/dd}.",
+                    SensitiveActionKind.Save,
                     passwordRequired: true,
                     reasonRequired: false);
 
@@ -204,6 +206,7 @@ namespace WorkforceManager.UI.ViewModels
                 $"كل سجلات إنتاج يوم {EntryDate:yyyy/MM/dd} هتتشال.\n" +
                 "السجلات مش بتتمسح فعليًا — بتفضل محفوظة بسببها ومين شالها، " +
                 "بس بتختفي من كل الحسابات والأجور.",
+                SensitiveActionKind.Delete,
                 passwordRequired: true);
 
             if (input is null) return;
@@ -406,6 +409,7 @@ namespace WorkforceManager.UI.ViewModels
                 "تصحيح عدد القطع",
                 $"{row.WorkerName} — {row.StageDisplay}\n" +
                 $"من {row.PieceCount:N0} قطعة إلى {dialog.NewPieceCount:N0}.",
+                SensitiveActionKind.Save,
                 passwordRequired: true,
                 reasonRequired: false);
 
@@ -442,6 +446,7 @@ namespace WorkforceManager.UI.ViewModels
                     Application.Current.MainWindow,
                     "حذف سجل إنتاج",
                     $"{row.WorkerName} — {row.StageDisplay} ({row.PieceCount} قطعة). يومياته هتتخصم من حسابه.",
+                    SensitiveActionKind.Delete,
                     await gate.IsConfiguredAsync());
 
                 if (input is null) return;
@@ -731,6 +736,7 @@ namespace WorkforceManager.UI.ViewModels
                 "حفظ تعديلات الحضور",
                 $"هيتحفظ تعديل على {rowsToSave.Count} عامل ليوم {EntryDate:yyyy/MM/dd}."
                     + whoChanged + gateNote,
+                SensitiveActionKind.Save,
                 passwordRequired: true,
                 // مفيش سبب مكتوب: ده حفظ يومي مش حذف
                 reasonRequired: false);
@@ -833,6 +839,7 @@ namespace WorkforceManager.UI.ViewModels
                 "تسجيل جزاء",
                 $"جزاء \"{PenaltyReason}\" على {PenaltyWorker.FullName} " +
                 $"بخصم {SelectedDeduction.Display} يوم {EntryDate:yyyy/MM/dd}.",
+                SensitiveActionKind.Save,
                 passwordRequired: true,
                 reasonRequired: false);
 
@@ -877,6 +884,7 @@ namespace WorkforceManager.UI.ViewModels
                 Application.Current.MainWindow,
                 "تعديل جزاء",
                 $"تعديل جزاء {row.WorkerName} ليوم {EntryDate:yyyy/MM/dd}.",
+                SensitiveActionKind.Save,
                 passwordRequired: true,
                 reasonRequired: false);
 
@@ -989,6 +997,7 @@ namespace WorkforceManager.UI.ViewModels
                 Application.Current.MainWindow,
                 $"تسجيل {typeName}",
                 $"{typeName} بمبلغ {amount:N0} ج على {AdjustmentWorker.FullName} بتاريخ {EntryDate:yyyy/MM/dd}.",
+                SensitiveActionKind.Save,
                 passwordRequired: true,
                 reasonRequired: false);
 
@@ -1130,6 +1139,7 @@ namespace WorkforceManager.UI.ViewModels
                 Application.Current.MainWindow,
                 $"حذف {row.TypeName}",
                 $"{row.TypeName} ({row.AmountText}) عن {row.WorkerName}.",
+                SensitiveActionKind.Delete,
                 passwordRequired: true,
                 reasonRequired: false);
 

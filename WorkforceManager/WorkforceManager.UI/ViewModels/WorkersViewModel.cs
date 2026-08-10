@@ -878,6 +878,7 @@ namespace WorkforceManager.UI.ViewModels
                     Application.Current.MainWindow,
                     "حذف عامل",
                     $"{SelectedWorker.FullName} — هيختفي من كل القوايم. سجلات إنتاجه وأجوره القديمة هتفضل محفوظة ومقروءة.",
+                    SensitiveActionKind.Delete,
                     await gate.IsConfiguredAsync());
 
                 if (input is null) return;

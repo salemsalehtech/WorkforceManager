@@ -7,424 +7,492 @@
              mc:Ignorable="d"
              d:DesignHeight="650" d:DesignWidth="1100">
 
-    <!-- شاشة الإعدادات: النسخ الاحتياطي المحلي والخارجي والاسترجاع -->
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel MaxWidth="760" HorizontalAlignment="Right">
+    <!--
+      شاشة الإعدادات.
 
-            <!-- النسخ المحلي -->
-            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="DatabaseOutline" Width="18" Height="18"
-                                                  Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="النسخ الاحتياطي المحلي" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
-                    </StackPanel>
-                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10"
-                               Text="نسخة تلقائية بتتاخد كل يوم أول ما البرنامج يفتح، والنسخ الأقدم من 30 يوم بتتمسح لوحدها." />
-                    <TextBlock Text="{Binding LocalFolderText}" FontSize="12.5"
-                               Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding LocalStatusText}" FontSize="13" FontWeight="SemiBold"
-                               Foreground="{DynamicResource SuccessBrush}" Margin="0,4,0,10" />
-                    <StackPanel Orientation="Horizontal">
-                        <Button Command="{Binding BackupNowCommand}"
-                                Style="{StaticResource PrimaryButton}" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ContentSaveOutline" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="خد نسخة دلوقتي" Margin="6,0,0,0" />
-                            </StackPanel>
-                        </Button>
-                        <Button Command="{Binding OpenLocalFolderCommand}" Style="{StaticResource GhostButton}">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="FolderOpenOutline" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="فتح مجلد النسخ" Margin="6,0,0,0" />
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
+      **الترتيب من فوق لتحت = الأهمية.** الشاشة دي بيتفتح فيها إعداد
+      واحد وبتتقفل، فاللي فوق هو اللي المستخدم هيشوفه من غير ما يدوّر:
+      الحماية الأول (كلمة سر العمليات والنسخ الخارجي — دول اللي لو
+      مفعّلوش تضيع شغل)، بعدين إعدادات الشغل اليومي، وفي الآخر النادر
+      والخطر. **الاسترجاع آخر حاجة عن قصد**: بيمسح البيانات الحالية،
+      فمكانه بعيد عن إيد اللي بيتصفّح.
+    -->
+    <UserControl.Resources>
+        <!-- عنوان مجموعة: بيفصل الشاشة لتلات مناطق بدل قايمة كروت
+             طويلة كلها بنفس الوزن -->
+        <Style x:Key="GroupCaption" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Margin" Value="4,6,0,8" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        </Style>
+    </UserControl.Resources>
 
-                    <!-- ===== خيارات النسخ ===== -->
-                    <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8"
-                            Padding="12,10" Margin="0,12,0,0">
-                        <StackPanel>
-                            <DockPanel>
-                                <CheckBox DockPanel.Dock="Left" IsChecked="{Binding AutoBackupOnStartup}"
-                                          VerticalAlignment="Center" />
-                                <StackPanel Margin="8,0,0,0">
-                                    <TextBlock Text="نسخة تلقائية عند فتح البرنامج" FontSize="12.5" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    <TextBlock Text="مرة واحدة في اليوم مهما فتحت البرنامج، وقبل أي تعديل على قاعدة البيانات."
-                                               Style="{StaticResource HintText}" TextWrapping="Wrap" />
-                                </StackPanel>
-                            </DockPanel>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="14,10,14,14">
+        <!--
+          عمود المحتوى **بيبدأ من أول الصفحة** (اليمين في واجهة عربية)
+          والفاضي بيروح للناحية التانية.
 
-                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                <TextBlock Text="احتفظ بالنسخ لمدة:" FontSize="12.5" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                                <TextBox Text="{Binding RetentionDays, UpdateSourceTrigger=LostFocus}"
-                                         Width="60" Margin="8,0,6,0" Padding="6,4" FontSize="13"
-                                         VerticalContentAlignment="Center" />
-                                <TextBlock Text="يوم" FontSize="12.5" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                            </StackPanel>
-                            <TextBlock Text="{Binding RetentionText}" Style="{StaticResource HintText}"
-                                       Margin="0,4,0,0" TextWrapping="Wrap" />
+          كان StackPanel بـ HorizontalAlignment="Right" وMaxWidth —
+          وفي FlowDirection=RightToLeft الـ Right بيتعكس ويرسم على
+          الشمال، فالمحتوى كان بيبدأ من نص الشاشة وسايب فراغ على
+          اليمين. العمود الصريح هنا مبيتعكسش ولا بيحتاج حد يفتكر
+          القاعدة دي.
+        -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <!-- عمود المحتوى بياخد العرض كله لحد 940، والتاني Auto
+                     وفاضي فبياخد صفر — يعني الفاضي بيتولد من السقف
+                     مش من قسمة العرض. عمودين نجمة كانوا هيقسموا
+                     الشاشة نصين والكارت ياخد نص العرض بس. -->
+                <ColumnDefinition Width="*" MaxWidth="940" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+
+                <!-- ══════════ (١) الحماية ══════════ -->
+                <TextBlock Text="الحماية — لو دي مظبوطة الباقي كله بيهون"
+                           Style="{StaticResource GroupCaption}" Margin="4,0,0,8" />
+
+                <!-- كلمة سر العمليات: أول قسم عن قصد — من غيرها الحذف
+                     وتعديل الأجور والجزاءات كلهم مفتوحين لأي حد فتح
+                     البرنامج. كانت مكتوب عليها "أول قسم عن قصد" وهي
+                     تامنة في الترتيب. -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ShieldLockOutline" Width="18" Height="18"
+                                                      Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="كلمة سر العمليات" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
                         </StackPanel>
-                    </Border>
-                </StackPanel>
-            </Border>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                   Text="كلمة منفصلة عن كلمة الدخول: الدخول بيقول مين انت، ودي بتتطلب قبل الحذف وتعديل الأجور والجزاءات. الشغل اليومي (الحضور وتسجيل الإنتاج) مبيطلبهاش." />
 
-            <!-- النسخ الخارجي -->
-            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="ShieldCheckOutline" Width="18" Height="18"
-                                                  Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="النسخ الخارجي (فلاشة / قرص تاني)" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
-                    </StackPanel>
-                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10"
-                               Text="أهم حماية لبياناتك: النسخة المحلية على نفس الهارد — لو الهارد نفسه باظ بتضيع معاه. المجلد الخارجي بياخد نسخة تانية تلقائيًا كل يوم." />
-                    <TextBlock Text="{Binding ExternalFolderText}" FontSize="12.5" FontWeight="SemiBold"
-                               TextWrapping="Wrap" />
-                    <TextBlock Text="{Binding ExternalStatusText}" FontSize="12.5"
-                               Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,4,0,10" />
-                    <StackPanel Orientation="Horizontal">
-                        <Button Command="{Binding ChooseExternalFolderCommand}"
-                                Style="{StaticResource SuccessButton}" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="FolderOutline" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="اختيار المجلد الخارجي" Margin="6,0,0,0" />
-                            </StackPanel>
-                        </Button>
-                        <Button Content="إيقاف النسخ الخارجي" Command="{Binding DisableExternalCommand}"
-                                Foreground="{DynamicResource DangerBrush}">
-                            <Button.Style>
-                                <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                        <!-- حالة التفعيل: أخضر لو متسجّلة، أحمر لو لأ -->
+                        <Border CornerRadius="7" Padding="10,7" Margin="0,0,0,10">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{DynamicResource DangerBgBrush}" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding HasExternal}" Value="False">
-                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        <DataTrigger Binding="{Binding HasOperationsPassword}" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </Button.Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding OperationsStatusText}" FontSize="12.5" TextWrapping="Wrap"
+                                       FontWeight="SemiBold">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasOperationsPassword}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+
+                        <Button Command="{Binding SetOperationsPasswordCommand}"
+                                Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="KeyVariant" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding OperationsButtonText}" Margin="6,0,0,0" />
+                            </StackPanel>
                         </Button>
                     </StackPanel>
-                </StackPanel>
-            </Border>
+                </Border>
 
-            <!-- ===== هوية التقارير المطبوعة =====
-                 التقرير بيخرج من البرنامج ويروح لناس مشافوش البرنامج،
-                 فلازم يقول هو بتاع مين من غير ما حد يشرح. -->
-            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18"
-                                                 Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="هوية التقارير المصدَّرة" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
-                    </StackPanel>
-                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
-                               Text="الاسم والشعار بيتكتبوا فوق كل ملف Excel بيتصدّر من شاشة التقارير." />
-
-                    <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,10">
-                        <StackPanel>
-                            <TextBlock Text="اسم المصنع" FontSize="12.5" FontWeight="SemiBold"
-                                       Margin="0,0,0,4" />
-                            <TextBox Text="{Binding FactoryName, UpdateSourceTrigger=LostFocus}"
-                                     FontSize="13" />
-
-                            <TextBlock Text="الشعار" FontSize="12.5" FontWeight="SemiBold"
-                                       Margin="0,12,0,4" />
-                            <StackPanel Orientation="Horizontal">
-                                <Button Command="{Binding ChooseLogoCommand}"
-                                        Style="{StaticResource GhostButton}" Padding="12,7">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="ImageOutline" Width="15" Height="15"
-                                                                 VerticalAlignment="Center" />
-                                        <TextBlock Text="اختار صورة" Margin="6,0,0,0" FontSize="12.5" />
-                                    </StackPanel>
-                                </Button>
-
-                                <Button Command="{Binding ClearLogoCommand}"
-                                        Style="{StaticResource GhostButton}" Padding="12,7" Margin="8,0,0,0">
-                                    <TextBlock Text="شيل الشعار" FontSize="12.5" />
-                                </Button>
-
-                                <TextBlock Text="{Binding LogoText}" FontSize="12" Margin="12,0,0,0"
-                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                           Foreground="{DynamicResource TextMutedBrush}" />
-                            </StackPanel>
+                <!-- النسخ الخارجي قبل المحلي: المحلي شغال لوحده من غير
+                     ما حد يعمل حاجة، والخارجي هو الوحيد اللي محتاج قرار
+                     من المستخدم — وهو كمان الوحيد اللي بينفع لو الهارد
+                     نفسه باظ. -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ShieldCheckOutline" Width="18" Height="18"
+                                                      Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="النسخ الخارجي (فلاشة / قرص تاني)" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
                         </StackPanel>
-                    </Border>
-                </StackPanel>
-            </Border>
-
-            <!-- ===== أسباب الهالك =====
-                 من غير قايمة، المستخدم بيكتب السبب بالإيد في الملاحظات
-                 كل مرة — وساعتها "الهالك راح فين؟" مالهاش إجابة مجمّعة. -->
-            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="DeleteSweepOutline" Width="18" Height="18"
-                                                 Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="أسباب الهالك" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                   Text="أهم حماية لبياناتك: النسخة المحلية على نفس الهارد — لو الهارد نفسه باظ بتضيع معاه. المجلد الخارجي بياخد نسخة تانية تلقائيًا كل يوم." />
+                        <TextBlock Text="{Binding ExternalFolderText}" FontSize="12.5" FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding ExternalStatusText}" FontSize="12.5"
+                                   Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,4,0,10" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Command="{Binding ChooseExternalFolderCommand}"
+                                    Style="{StaticResource SuccessButton}" Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FolderOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="اختيار المجلد الخارجي" Margin="6,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <Button Content="إيقاف النسخ الخارجي" Command="{Binding DisableExternalCommand}"
+                                    Foreground="{DynamicResource DangerBrush}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasExternal}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
                     </StackPanel>
-                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
-                               Text="بتظهر في نافذة تسجيل الهالك، وتقرير الهالك بيتجمّع بيها. السبب المستخدم مبيتحذفش — بيتوقف بس، عشان تقارير الشهور اللي فاتت تفضل تعرفه." />
+                </Border>
 
-                    <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,10">
-                        <StackPanel>
-                            <DockPanel Margin="0,0,0,10">
-                                <Button DockPanel.Dock="Left" Command="{Binding AddScrapReasonCommand}"
-                                        Style="{StaticResource PrimaryButton}" Padding="14,7">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Plus" Width="15" Height="15"
-                                                                 VerticalAlignment="Center" />
-                                        <TextBlock Text="إضافة" Margin="5,0,0,0" FontSize="12.5" />
+                <!-- النسخ المحلي -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="DatabaseOutline" Width="18" Height="18"
+                                                      Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="النسخ الاحتياطي المحلي" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                   Text="نسخة تلقائية بتتاخد كل يوم أول ما البرنامج يفتح، والنسخ الأقدم من 30 يوم بتتمسح لوحدها." />
+                        <TextBlock Text="{Binding LocalFolderText}" FontSize="12.5"
+                                   Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding LocalStatusText}" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SuccessBrush}" Margin="0,4,0,10" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Command="{Binding BackupNowCommand}"
+                                    Style="{StaticResource PrimaryButton}" Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ContentSaveOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="خد نسخة دلوقتي" Margin="6,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <Button Command="{Binding OpenLocalFolderCommand}" Style="{StaticResource GhostButton}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FolderOpenOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="فتح مجلد النسخ" Margin="6,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- ===== خيارات النسخ ===== -->
+                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8"
+                                Padding="12,10" Margin="0,12,0,0">
+                            <StackPanel>
+                                <DockPanel>
+                                    <CheckBox DockPanel.Dock="Left" IsChecked="{Binding AutoBackupOnStartup}"
+                                              VerticalAlignment="Center" />
+                                    <StackPanel Margin="8,0,0,0">
+                                        <TextBlock Text="نسخة تلقائية عند فتح البرنامج" FontSize="12.5" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        <TextBlock Text="مرة واحدة في اليوم مهما فتحت البرنامج، وقبل أي تعديل على قاعدة البيانات."
+                                                   Style="{StaticResource HintText}" TextWrapping="Wrap" />
                                     </StackPanel>
-                                </Button>
-                                <TextBox Text="{Binding NewScrapReason, UpdateSourceTrigger=PropertyChanged}"
-                                         FontSize="13" Margin="0,0,10,0" VerticalAlignment="Center" />
-                            </DockPanel>
+                                </DockPanel>
 
-                            <ItemsControl ItemsSource="{Binding ScrapReasons}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <DockPanel Margin="0,3">
-                                            <!-- إيقاف/تشغيل بدل الحذف -->
-                                            <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}"
-                                                    Padding="7,4"
-                                                    Command="{Binding DataContext.ToggleScrapReasonCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <TextBlock FontSize="11.5">
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <TextBlock Text="احتفظ بالنسخ لمدة:" FontSize="12.5" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBox Text="{Binding RetentionDays, UpdateSourceTrigger=LostFocus}"
+                                             Width="60" Margin="8,0,6,0" Padding="6,4" FontSize="13"
+                                             VerticalContentAlignment="Center" />
+                                    <TextBlock Text="يوم" FontSize="12.5" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding RetentionText}" Style="{StaticResource HintText}"
+                                           Margin="0,4,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- ══════════ (٢) إعدادات الشغل ══════════ -->
+                <TextBlock Text="إعدادات الشغل — دي اللي بتتغيّر مع شغل المصنع"
+                           Style="{StaticResource GroupCaption}" />
+
+                <!-- ===== أسباب الهالك =====
+                     من غير قايمة، المستخدم بيكتب السبب بالإيد في الملاحظات
+                     كل مرة — وساعتها "الهالك راح فين؟" مالهاش إجابة مجمّعة. -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="DeleteSweepOutline" Width="18" Height="18"
+                                                     Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="أسباب الهالك" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                   Text="بتظهر في نافذة تسجيل الهالك، وتقرير الهالك بيتجمّع بيها. السبب المستخدم مبيتحذفش — بيتوقف بس، عشان تقارير الشهور اللي فاتت تفضل تعرفه." />
+
+                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,10">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,10">
+                                    <Button DockPanel.Dock="Left" Command="{Binding AddScrapReasonCommand}"
+                                            Style="{StaticResource PrimaryButton}" Padding="14,7">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="Plus" Width="15" Height="15"
+                                                                     VerticalAlignment="Center" />
+                                            <TextBlock Text="إضافة" Margin="5,0,0,0" FontSize="12.5" />
+                                        </StackPanel>
+                                    </Button>
+                                    <TextBox Text="{Binding NewScrapReason, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="13" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                </DockPanel>
+
+                                <ItemsControl ItemsSource="{Binding ScrapReasons}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,3">
+                                                <!-- إيقاف/تشغيل بدل الحذف -->
+                                                <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}"
+                                                        Padding="7,4"
+                                                        Command="{Binding DataContext.ToggleScrapReasonCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <TextBlock FontSize="11.5">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="إيقاف" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                                        <Setter Property="Text" Value="تشغيل" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Button>
+
+                                                <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
-                                                            <Setter Property="Text" Value="إيقاف" />
-                                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
                                                             <Style.Triggers>
+                                                                <!-- الموقوف باهت: موجود للتقارير القديمة بس مش هيظهر في التسجيل -->
                                                                 <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                                                    <Setter Property="Text" Value="تشغيل" />
-                                                                    <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource InkFaintBrush}" />
+                                                                    <Setter Property="TextDecorations" Value="Strikethrough" />
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
                                                     </TextBlock.Style>
                                                 </TextBlock>
-                                            </Button>
-
-                                            <TextBlock Text="{Binding Name}" FontSize="13" VerticalAlignment="Center">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
-                                                        <Style.Triggers>
-                                                            <!-- الموقوف باهت: موجود للتقارير القديمة بس مش هيظهر في التسجيل -->
-                                                            <DataTrigger Binding="{Binding IsActive}" Value="False">
-                                                                <Setter Property="Foreground" Value="{DynamicResource InkFaintBrush}" />
-                                                                <Setter Property="TextDecorations" Value="Strikethrough" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </Border>
-
-            <!-- ===== تنظيف سجل العمليات =====
-                 مدتين مش واحدة عن قصد: كل حدث في السجل ده إما حذف أو
-                 حركة فلوس، واللي فيه فلوس السؤال عليه بييجي بعد شهور. -->
-            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="DeleteClockOutline" Width="18" Height="18"
-                                                 Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="تنظيف سجل العمليات" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
-                    </StackPanel>
-                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
-                               Text="سجل العمليات بيقول مين عمل إيه وإمتى وليه. السطور القديمة بتتمسح لوحدها عشان الشاشة تفضل مقروءة — البيانات نفسها (الإنتاج والأجور والجزاءات) مش بتتمس." />
-
-                    <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,10">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="أحداث الحذف (مسح يوم / سجل / عامل / منتج / مرحلة):"
-                                           FontSize="12.5" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                                <TextBox Text="{Binding LogRetentionDays, UpdateSourceTrigger=LostFocus}"
-                                         Width="60" Margin="8,0,6,0" Padding="6,4" FontSize="13"
-                                         VerticalContentAlignment="Center" />
-                                <TextBlock Text="يوم" FontSize="12.5" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
-
-                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                <TextBlock Text="أحداث الفلوس (أجر / جزاء / سلفة / تصحيح قطع):"
-                                           FontSize="12.5" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                                <TextBox Text="{Binding LogFinancialRetentionDays, UpdateSourceTrigger=LostFocus}"
-                                         Width="60" Margin="8,0,6,0" Padding="6,4" FontSize="13"
-                                         VerticalContentAlignment="Center" />
-                                <TextBlock Text="يوم" FontSize="12.5" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                            </StackPanel>
-
-                            <TextBlock Text="{Binding LogRetentionText}" Style="{StaticResource HintText}"
-                                       Margin="0,8,0,0" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </Border>
-
-            <!-- ===== الحساب: اسم الدخول وكلمة مروره وحسابات إضافية ===== -->
-            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="AccountCircleOutline" Width="18" Height="18"
-                                                 Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="الحساب" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        </Border>
                     </StackPanel>
-                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10"
-                               Text="كلمة الدخول بتفتح البرنامج. كلمة سر العمليات (تحت) هي اللي بتحمي الحذف والأجور — الاتنين منفصلين عن قصد." />
+                </Border>
 
-                    <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,9"
-                            Margin="0,0,0,10">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="داخل باسم:" FontSize="12.5"
+                <!-- ===== هوية التقارير المطبوعة =====
+                     التقرير بيخرج من البرنامج ويروح لناس مشافوش البرنامج،
+                     فلازم يقول هو بتاع مين من غير ما حد يشرح. -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18"
+                                                     Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="هوية التقارير المصدَّرة" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                   Text="الاسم والشعار بيتكتبوا فوق كل ملف Excel بيتصدّر من شاشة التقارير. والاسم والقسم كمان بيظهروا في رأس القايمة الجانبية وفي شريط عنوان النافذة." />
+
+                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,10">
+                            <StackPanel>
+                                <TextBlock Text="اسم المصنع" FontSize="12.5" FontWeight="SemiBold"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding FactoryName, UpdateSourceTrigger=LostFocus}"
+                                         FontSize="13" />
+
+                                <TextBlock Text="القسم" FontSize="12.5" FontWeight="SemiBold"
+                                           Margin="0,12,0,4" />
+                                <TextBox Text="{Binding DepartmentName, UpdateSourceTrigger=LostFocus}"
+                                         FontSize="13" />
+                                <TextBlock Text="المصنع الواحد فيه أكتر من قسم، وكل قسم ليه عماله وخط إنتاجه — القسم بيقول النسخة دي بتاعة مين."
+                                           Style="{StaticResource HintText}" Margin="2,3,0,0" TextWrapping="Wrap" />
+
+                                <TextBlock Text="الشعار" FontSize="12.5" FontWeight="SemiBold"
+                                           Margin="0,12,0,4" />
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Command="{Binding ChooseLogoCommand}"
+                                            Style="{StaticResource GhostButton}" Padding="12,7">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="ImageOutline" Width="15" Height="15"
+                                                                     VerticalAlignment="Center" />
+                                            <TextBlock Text="اختار صورة" Margin="6,0,0,0" FontSize="12.5" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button Command="{Binding ClearLogoCommand}"
+                                            Style="{StaticResource GhostButton}" Padding="12,7" Margin="8,0,0,0">
+                                        <TextBlock Text="شيل الشعار" FontSize="12.5" />
+                                    </Button>
+
+                                    <TextBlock Text="{Binding LogoText}" FontSize="12" Margin="12,0,0,0"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== الحساب: اسم الدخول وكلمة مروره وحسابات إضافية ===== -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="AccountCircleOutline" Width="18" Height="18"
+                                                     Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="الحساب" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                   Text="كلمة الدخول بتفتح البرنامج. كلمة سر العمليات (فوق) هي اللي بتحمي الحذف والأجور — الاتنين منفصلين عن قصد." />
+
+                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,9"
+                                Margin="0,0,0,10">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="داخل باسم:" FontSize="12.5"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                    <TextBlock Text="{Binding CurrentUsername}" FontSize="13" FontWeight="Bold"
+                                               Margin="6,0,0,0"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding AccountsSummary}" FontSize="11.5" Margin="0,3,0,0"
+                                           TextWrapping="Wrap"
                                            Foreground="{DynamicResource TextMutedBrush}" />
-                                <TextBlock Text="{Binding CurrentUsername}" FontSize="13" FontWeight="Bold"
-                                           Margin="6,0,0,0"
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button Command="{Binding ChangeUsernameCommand}"
+                                    Style="{StaticResource GhostButton}" Padding="14,8" Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="AccountEditOutline" Width="15" Height="15"
+                                                             VerticalAlignment="Center" />
+                                    <TextBlock Text="غيّر اسم المستخدم" Margin="6,0,0,0" FontSize="12.5" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Command="{Binding ChangeLoginPasswordCommand}"
+                                    Style="{StaticResource GhostButton}" Padding="14,8" Margin="0,0,8,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FormTextboxPassword" Width="15" Height="15"
+                                                             VerticalAlignment="Center" />
+                                    <TextBlock Text="غيّر كلمة الدخول" Margin="6,0,0,0" FontSize="12.5" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Command="{Binding AddAccountCommand}"
+                                    Style="{StaticResource PrimaryButton}" Padding="14,8">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="AccountPlusOutline" Width="15" Height="15"
+                                                             VerticalAlignment="Center" />
+                                    <TextBlock Text="ضيف حساب دخول" Margin="6,0,0,0" FontSize="12.5" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ══════════ (٣) نادر وخطر ══════════ -->
+                <TextBlock Text="حاجات بتتظبط مرة وتتنسي"
+                           Style="{StaticResource GroupCaption}" />
+
+                <!-- ===== المظهر ===== -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ThemeLightDark" Width="18" Height="18"
+                                                     Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="المظهر" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        </StackPanel>
+
+                        <DockPanel Margin="0,8,0,0">
+                            <CheckBox DockPanel.Dock="Left" IsChecked="{Binding DarkMode}"
+                                      VerticalAlignment="Center" />
+                            <StackPanel Margin="8,0,0,0">
+                                <TextBlock Text="الوضع الليلي" FontSize="13" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="ألوان غامقة أريح للعين في الإضاءة الواطية. بيتفعّل بعد إعادة تشغيل البرنامج."
+                                           Style="{StaticResource HintText}" TextWrapping="Wrap" />
                             </StackPanel>
-                            <TextBlock Text="{Binding AccountsSummary}" FontSize="11.5" Margin="0,3,0,0"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource TextMutedBrush}" />
-                        </StackPanel>
-                    </Border>
-
-                    <StackPanel Orientation="Horizontal">
-                        <Button Command="{Binding ChangeUsernameCommand}"
-                                Style="{StaticResource GhostButton}" Padding="14,8" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="AccountEditOutline" Width="15" Height="15"
-                                                         VerticalAlignment="Center" />
-                                <TextBlock Text="غيّر اسم المستخدم" Margin="6,0,0,0" FontSize="12.5" />
-                            </StackPanel>
-                        </Button>
-
-                        <Button Command="{Binding ChangeLoginPasswordCommand}"
-                                Style="{StaticResource GhostButton}" Padding="14,8" Margin="0,0,8,0">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="FormTextboxPassword" Width="15" Height="15"
-                                                         VerticalAlignment="Center" />
-                                <TextBlock Text="غيّر كلمة الدخول" Margin="6,0,0,0" FontSize="12.5" />
-                            </StackPanel>
-                        </Button>
-
-                        <Button Command="{Binding AddAccountCommand}"
-                                Style="{StaticResource PrimaryButton}" Padding="14,8">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="AccountPlusOutline" Width="15" Height="15"
-                                                         VerticalAlignment="Center" />
-                                <TextBlock Text="ضيف حساب دخول" Margin="6,0,0,0" FontSize="12.5" />
-                            </StackPanel>
-                        </Button>
+                        </DockPanel>
                     </StackPanel>
-                </StackPanel>
-            </Border>
+                </Border>
 
-            <!-- ===== المظهر ===== -->
-            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="ThemeLightDark" Width="18" Height="18"
-                                                 Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="المظهر" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
-                    </StackPanel>
-
-                    <DockPanel Margin="0,8,0,0">
-                        <CheckBox DockPanel.Dock="Left" IsChecked="{Binding DarkMode}"
-                                  VerticalAlignment="Center" />
-                        <StackPanel Margin="8,0,0,0">
-                            <TextBlock Text="الوضع الليلي" FontSize="13" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" />
-                            <TextBlock Text="ألوان غامقة أريح للعين في الإضاءة الواطية. بيتفعّل بعد إعادة تشغيل البرنامج."
-                                       Style="{StaticResource HintText}" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </DockPanel>
-                </StackPanel>
-            </Border>
-
-            <!-- كلمة سر العمليات — أول قسم عن قصد: من غيرها كل الحماية مقفولة -->
-            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="ShieldLockOutline" Width="18" Height="18"
-                                                  Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="كلمة سر العمليات" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
-                    </StackPanel>
-                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10"
-                               Text="كلمة منفصلة عن كلمة الدخول: الدخول بيقول مين انت، ودي بتتطلب قبل الحذف وتعديل الأجور والجزاءات. الشغل اليومي (الحضور وتسجيل الإنتاج) مبيطلبهاش." />
-
-                    <!-- حالة التفعيل: أخضر لو متسجّلة، أحمر لو لأ -->
-                    <Border CornerRadius="7" Padding="10,7" Margin="0,0,0,10">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="{DynamicResource DangerBgBrush}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding HasOperationsPassword}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <TextBlock Text="{Binding OperationsStatusText}" FontSize="12.5" TextWrapping="Wrap"
-                                   FontWeight="SemiBold">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding HasOperationsPassword}" Value="True">
-                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </Border>
-
-                    <Button Command="{Binding SetOperationsPasswordCommand}"
-                            Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right">
+                <!-- ===== تنظيف سجل العمليات =====
+                     مدتين مش واحدة عن قصد: كل حدث في السجل ده إما حذف أو
+                     حركة فلوس، واللي فيه فلوس السؤال عليه بييجي بعد شهور. -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="KeyVariant" Width="15" Height="15" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding OperationsButtonText}" Margin="6,0,0,0" />
+                            <materialDesign:PackIcon Kind="DeleteClockOutline" Width="18" Height="18"
+                                                     Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="تنظيف سجل العمليات" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
                         </StackPanel>
-                    </Button>
-                </StackPanel>
-            </Border>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                   Text="سجل العمليات بيقول مين عمل إيه وإمتى وليه. السطور القديمة بتتمسح لوحدها عشان الشاشة تفضل مقروءة — البيانات نفسها (الإنتاج والأجور والجزاءات) مش بتتمس." />
 
-            <!-- الاسترجاع -->
-            <Border Style="{StaticResource Card}">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="History" Width="18" Height="18"
-                                                  Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="استرجاع نسخة احتياطية" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,10">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="أحداث الحذف (مسح يوم / سجل / عامل / منتج / مرحلة):"
+                                               FontSize="12.5" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBox Text="{Binding LogRetentionDays, UpdateSourceTrigger=LostFocus}"
+                                             Width="60" Margin="8,0,6,0" Padding="6,4" FontSize="13"
+                                             VerticalContentAlignment="Center" />
+                                    <TextBlock Text="يوم" FontSize="12.5" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <TextBlock Text="أحداث الفلوس (أجر / جزاء / سلفة / تصحيح قطع):"
+                                               FontSize="12.5" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBox Text="{Binding LogFinancialRetentionDays, UpdateSourceTrigger=LostFocus}"
+                                             Width="60" Margin="8,0,6,0" Padding="6,4" FontSize="13"
+                                             VerticalContentAlignment="Center" />
+                                    <TextBlock Text="يوم" FontSize="12.5" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </StackPanel>
+
+                                <TextBlock Text="{Binding LogRetentionText}" Style="{StaticResource HintText}"
+                                           Margin="0,8,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
-                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10"
-                               Text="لو حصلت مشكلة كبيرة في البيانات، تقدر ترجع لأي نسخة سابقة. البيانات الحالية بتتستبدل — وبناخد نسخة أمان منها الأول تلقائيًا، والبرنامج بيعيد تشغيل نفسه بعد الاسترجاع." />
-                    <Button Command="{Binding RestoreBackupCommand}"
-                            Style="{StaticResource DangerButton}" HorizontalAlignment="Right">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="Restore" Width="15" Height="15" VerticalAlignment="Center" />
-                            <TextBlock Text="استرجاع من نسخة..." Margin="6,0,0,0" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </Border>
+                </Border>
 
-        </StackPanel>
+                <!-- الاسترجاع آخر حاجة في الصفحة عن قصد: بيمسح البيانات
+                     الحالية ويعيد تشغيل البرنامج، فمش المفروض يكون في
+                     طريق حد بيتصفّح الإعدادات. -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="History" Width="18" Height="18"
+                                                      Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="استرجاع نسخة احتياطية" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                   Text="لو حصلت مشكلة كبيرة في البيانات، تقدر ترجع لأي نسخة سابقة. البيانات الحالية بتتستبدل — وبناخد نسخة أمان منها الأول تلقائيًا، والبرنامج بيعيد تشغيل نفسه بعد الاسترجاع." />
+                        <Button Command="{Binding RestoreBackupCommand}"
+                                Style="{StaticResource DangerButton}" HorizontalAlignment="Right">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Restore" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="استرجاع من نسخة..." Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </Grid>
     </ScrollViewer>
 </UserControl>

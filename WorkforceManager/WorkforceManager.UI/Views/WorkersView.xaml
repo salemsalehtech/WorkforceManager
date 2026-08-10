@@ -305,14 +305,9 @@
                      الكارت الوحيد اللي بياخد الدهبي كخلفية في الشاشة —
                      عشان كده بيبان من غير ما يبقى أكبر من غيره. -->
                 <Button Grid.Row="0" Command="{Binding OpenBestWorkerCommand}"
-                        HorizontalContentAlignment="Stretch" Margin="0,0,0,12"
+                        Style="{StaticResource CardButton}" Margin="0,0,0,12"
                         Visibility="{Binding HasBestWorker, Converter={StaticResource BoolToVis}}"
                         ToolTip="اعرض بروفايله">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
-                            <Setter Property="Padding" Value="0" />
-                        </Style>
-                    </Button.Style>
 
                     <Border CornerRadius="{DynamicResource RadiusCard}" Padding="16,13"
                             Background="{DynamicResource SidebarBrush}">

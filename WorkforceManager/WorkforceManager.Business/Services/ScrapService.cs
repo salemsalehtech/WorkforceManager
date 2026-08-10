@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Business.DTOs;
+using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Models;
 using WorkforceManager.Data;
 
@@ -19,10 +20,12 @@ namespace WorkforceManager.Business.Services
     public class ScrapService
     {
         private readonly AppDbContext _db;
+        private readonly ActivityLogService _log;
 
-        public ScrapService(AppDbContext db)
+        public ScrapService(AppDbContext db, ActivityLogService log)
         {
             _db = db;
+            _log = log;
         }
 
         // ======================= التسجيل =======================
@@ -60,6 +63,7 @@ namespace WorkforceManager.Business.Services
                         : $"{existing.Note} — {note.Trim()}";
 
                 await _db.SaveChangesAsync();
+                await LogScrapAsync(existing, pieceCount, note);
                 return existing;
             }
 
@@ -75,7 +79,27 @@ namespace WorkforceManager.Business.Services
 
             await _db.ProductionScraps.AddAsync(record);
             await _db.SaveChangesAsync();
+            await LogScrapAsync(record, pieceCount, note);
             return record;
+        }
+
+        /// <summary>
+        /// الهالك حركة ليها قيمة: قطع خرجت من الخط ومش هتكمّل، والعمال
+        /// اللي بعد المرحلة دي مش هيشوفوها. بيتسجّل **العدد اللي اتضاف
+        /// دلوقتي** مش الإجمالي التراكمي — السجل بيحكي اللي حصل، مش
+        /// الحالة النهائية.
+        /// </summary>
+        private async Task LogScrapAsync(ProductionScrap record, int addedPieces, string? note)
+        {
+            var stage = await _db.ProductionStages
+                .Include(s => s.Product)
+                .FirstOrDefaultAsync(s => s.Id == record.ProductionStageId);
+
+            await _log.LogAsync(
+                ActivityEventType.ScrapRecorded, "ProductionScrap", record.Id,
+                entityName: stage is null ? null : $"{stage.Product.Name} — {stage.StageName}",
+                reason: note,
+                details: $"{addedPieces:N0} قطعة يوم {record.Date:yyyy/MM/dd}");
         }
 
         public async Task RemoveAsync(int scrapId)
