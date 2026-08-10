@@ -23,13 +23,16 @@ namespace WorkforceManager.Business.Services
     {
         private readonly IDailyProductionRepository _production;
         private readonly IProductRepository _products;
+        private readonly ScrapService _scrap;
 
         public PendingWorkService(
             IDailyProductionRepository production,
-            IProductRepository products)
+            IProductRepository products,
+            ScrapService scrap)
         {
             _production = production;
             _products = products;
+            _scrap = scrap;
         }
 
         /// <summary>الشغل الواقف على منتج واحد لحد اليوم ده (شامله)</summary>
@@ -39,7 +42,8 @@ namespace WorkforceManager.Business.Services
             if (product is null) return null;
 
             var totals = await _production.GetStageTotalsUpToAsync(asOf);
-            return Describe(product, totals);
+            var scrap = await _scrap.GetStageTotalsUpToAsync(asOf);
+            return Describe(product, totals, scrap);
         }
 
         /// <summary>الشغل الواقف على كل المنتجات — المنتجات اللي فيها حاجة بس</summary>
@@ -47,9 +51,10 @@ namespace WorkforceManager.Business.Services
         {
             var products = await _products.GetAllWithStagesAsync();
             var totals = await _production.GetStageTotalsUpToAsync(asOf);
+            var scrap = await _scrap.GetStageTotalsUpToAsync(asOf);
 
             return products
-                .Select(p => Describe(p, totals))
+                .Select(p => Describe(p, totals, scrap))
                 .Where(p => p.HasPending || p.HasDataError)
                 .OrderByDescending(p => p.TotalPending)
                 .ThenBy(p => p.ProductName)
@@ -63,7 +68,9 @@ namespace WorkforceManager.Business.Services
         /// مرة واحدة لكل المنتجات مش مرة لكل منتج.
         /// </summary>
         private static ProductPendingDto Describe(
-            Core.Models.Product product, IReadOnlyDictionary<int, int> totals)
+            Core.Models.Product product,
+            IReadOnlyDictionary<int, int> totals,
+            IReadOnlyDictionary<int, int> scrapTotals)
         {
             var line = ProductionLine.Active(product);
 
@@ -77,13 +84,18 @@ namespace WorkforceManager.Business.Services
             if (line.Count < 2) return result;
 
             int Total(int stageId) => totals.TryGetValue(stageId, out var pieces) ? pieces : 0;
+            int Scrap(int stageId) => scrapTotals.TryGetValue(stageId, out var pieces) ? pieces : 0;
 
             var stages = new List<PendingStageDto>();
 
             // المقارنة بين كل مرحلة واللي قبلها مباشرة
             for (var i = 1; i < line.Count; i++)
             {
-                var before = Total(line[i - 1].Id);
+                // **الهالك بيتشال من الواقف.** القطعة اللي خلصت المرحلة
+                // اللي قبل وماكملتش مش دايمًا مستنية دورها — ممكن تكون
+                // اتشالت خالص. من غير الطرح ده الـ500 هالك بيفضلوا
+                // ظاهرين "واقفين" للأبد والبرنامج مستنيهم يتكمّلوا.
+                var before = Total(line[i - 1].Id) - Scrap(line[i - 1].Id);
                 var current = Total(line[i].Id);
                 var difference = before - current;
 
@@ -109,10 +121,13 @@ namespace WorkforceManager.Business.Services
                 ProductName = result.ProductName,
                 LastStageId = result.LastStageId,
                 Stages = stages,
-                // اللي دخل الخط ناقص اللي خرج منه. بيتصفّر عند السالب:
-                // إجمالي سالب معناه إن البيانات فيها غلط مش إن الخط
-                // أنتج أكتر من اللي دخله
-                TotalPending = Math.Max(0, Total(line[0].Id) - Total(line[^1].Id))
+                // اللي دخل الخط ناقص اللي خرج منه **وناقص اللي اتشال في
+                // الطريق**. بيتصفّر عند السالب: إجمالي سالب معناه إن
+                // البيانات فيها غلط مش إن الخط أنتج أكتر من اللي دخله
+                TotalPending = Math.Max(0,
+                    Total(line[0].Id)
+                    - Total(line[^1].Id)
+                    - line.Take(line.Count - 1).Sum(s => Scrap(s.Id)))
             };
         }
     }

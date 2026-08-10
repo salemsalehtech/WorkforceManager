@@ -37,6 +37,8 @@ namespace WorkforceManager.Data
                 await db.SaveChangesAsync();
             }
 
+            await SeedScrapReasonsAsync(db);
+
             // ربط المهارات بيعتمد على وجود المنتجات والعمال مع بعض —
             // بيتشغل بس أول مرة (تركيب جديد) عشان ميتعارضش مع تعديلات
             // المستخدم اليدوية اللاحقة على مهارات العمال من الشاشة
@@ -48,6 +50,29 @@ namespace WorkforceManager.Data
             // الأدوار بالساعة للعمال الوصفيين — Upsert آمن (بيتخطى اللي متحدد
             // نوعه بالفعل) فينفع يتشغل على قاعدة موجودة من غير ما يلمس تعديلات المستخدم
             await SeedHourlyRolesAsync(db);
+        }
+
+        /// <summary>
+        /// أسباب الهالك الافتراضية — بتتزرع مرة واحدة بس.
+        ///
+        /// الشرط على الجدول كله مش على كل سبب: المستخدم اللي شال سبب
+        /// من الإعدادات مش عايزه يرجع تاني كل ما البرنامج يفتح.
+        /// </summary>
+        public static async Task SeedScrapReasonsAsync(AppDbContext db)
+        {
+            if (await db.ScrapReasons.AnyAsync()) return;
+
+            var defaults = new[] { "عيب خامة", "غلط تشغيل", "عطل مكنة", "مقاس غلط", "أخرى" };
+
+            await db.ScrapReasons.AddRangeAsync(
+                defaults.Select((name, index) => new ScrapReason
+                {
+                    Name = name,
+                    SortOrder = index + 1,
+                    IsActive = true
+                }));
+
+            await db.SaveChangesAsync();
         }
 
         /// <summary>

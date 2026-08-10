@@ -319,7 +319,11 @@ namespace WorkforceManager.Tests
                 new ReportColumnChoice { Key = "workdays_with_work", Visible = false }
             }));
 
-            Assert.Equal(new[] { "pieces", "workers" }, table.Columns.Select(c => c.Key));
+            // المخفي اختفى، والمذكور فضل بترتيبه
+            Assert.DoesNotContain(table.Columns, c => c.Key == "workdays");
+            Assert.DoesNotContain(table.Columns, c => c.Key == "workdays_with_work");
+            Assert.Equal("pieces", table.Columns[0].Key);
+            Assert.Equal("workers", table.Columns[1].Key);
 
             // العدد لازم يطابق عدد الأعمدة — صف فيه قيم زيادة معناه
             // الأرقام اتزحلقت تحت أعمدة غلط
@@ -344,9 +348,11 @@ namespace WorkforceManager.Tests
                 new ReportColumnChoice { Key = "workdays_with_work" }
             }));
 
+            // أول أربع أعمدة بالترتيب اللي المستخدم طلبه — واللي
+            // ماتذكرش (الهالك ونسبته) بيتزوّد بعدهم
             Assert.Equal(
                 new[] { "workdays", "pieces", "workers", "workdays_with_work" },
-                table.Columns.Select(c => c.Key));
+                table.Columns.Take(4).Select(c => c.Key));
 
             Assert.Equal(10, table.Rows[0].Values[0]);   // اليوميات
             Assert.Equal(100, table.Rows[0].Values[1]);  // القطع

@@ -6,14 +6,26 @@ namespace WorkforceManager.Business.DTOs
         public int ProductId { get; init; }
         public string ProductName { get; init; } = string.Empty;
 
-        /// <summary>قطع خلصت آخر مرحلة في اليوم ده = المنتج التام</summary>
+        /// <summary>
+        /// المنتج **الصالح** اللي خرج النهارده = إنتاج آخر مرحلة ناقص
+        /// هالكها. القطعة اللي خلصت الخط والجودة رفضتها مش منتج تام.
+        /// </summary>
         public int CompletedPieces { get; init; }
 
         /// <summary>قطع دخلت أول مرحلة في اليوم ده</summary>
         public int StartedPieces { get; init; }
 
+        /// <summary>
+        /// كل الهالك المسجّل على المنتج ده النهارده — على أي مرحلة.
+        ///
+        /// منفصل عن <see cref="CompletedPieces"/> عن قصد: الهالك في نص
+        /// الخط مبيأثرش على التام (القطع دي أصلاً ماوصلتش الآخر)، بس
+        /// المستخدم عايز يشوفه.
+        /// </summary>
+        public int ScrapPieces { get; init; }
+
         /// <summary>فيه حركة على المنتج ده النهارده؟ (لإخفاء المنتجات الساكنة)</summary>
-        public bool HasActivity => CompletedPieces > 0 || StartedPieces > 0;
+        public bool HasActivity => CompletedPieces > 0 || StartedPieces > 0 || ScrapPieces > 0;
     }
 
     /// <summary>تقرير الإنتاج اليومي كامل</summary>

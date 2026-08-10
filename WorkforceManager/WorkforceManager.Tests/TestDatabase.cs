@@ -109,6 +109,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<AuthService>();
             services.AddScoped<ProductActivityService>();
             services.AddScoped<PendingWorkService>();
+            services.AddScoped<ScrapService>();
             services.AddScoped<ProductionReportService>();
             services.AddScoped<WageAdjustmentService>();
             services.AddScoped<ReportBuilderService>();
@@ -121,6 +122,11 @@ namespace WorkforceManager.Tests
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             db.Database.EnsureCreated();
             Seed(db);
+
+            // أسباب الهالك بتتزرع من نفس الدالة اللي التركيب الحقيقي
+            // بيستخدمها — عشان الاختبار يشوف نفس القايمة اللي المستخدم
+            // هيشوفها، مش قايمة تانية مكتوبة هنا
+            DatabaseSeeder.SeedScrapReasonsAsync(db).GetAwaiter().GetResult();
         }
 
         /// <summary>يوم الإنتاج اللي كل الاختبارات بتشتغل عليه</summary>

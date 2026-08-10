@@ -30,6 +30,7 @@ namespace WorkforceManager.Business.Services
         private readonly IWorkerRepository _workers;
         private readonly IProductRepository _products;
         private readonly PayrollService _payroll;
+        private readonly ScrapService _scrap;
 
         public ReportBuilderService(
             IDailyProductionRepository production,
@@ -39,7 +40,8 @@ namespace WorkforceManager.Business.Services
             IHourlyWorkLogRepository hourly,
             IWorkerRepository workers,
             IProductRepository products,
-            PayrollService payroll)
+            PayrollService payroll,
+            ScrapService scrap)
         {
             _production = production;
             _attendance = attendance;
@@ -49,6 +51,7 @@ namespace WorkforceManager.Business.Services
             _workers = workers;
             _products = products;
             _payroll = payroll;
+            _scrap = scrap;
         }
 
         public async Task<ReportTable> BuildAsync(ReportSpec spec)
@@ -179,7 +182,9 @@ namespace WorkforceManager.Business.Services
                     new ReportColumn { Header = "القطع", Key = "pieces", Kind = ReportValueKind.Whole, Sums = true },
                     new ReportColumn { Header = "اليوميات", Key = "workdays", Kind = ReportValueKind.Fraction, Sums = true },
                     new ReportColumn { Header = "عدد العمال", Key = "workers", Kind = ReportValueKind.Whole },
-                    new ReportColumn { Header = "أيام فيها شغل", Key = "workdays_with_work", Kind = ReportValueKind.Whole }
+                    new ReportColumn { Header = "أيام فيها شغل", Key = "workdays_with_work", Kind = ReportValueKind.Whole },
+                    new ReportColumn { Header = "هالك", Key = "scrap", Kind = ReportValueKind.Whole, Sums = true },
+                    new ReportColumn { Header = "نسبة الهالك %", Key = "scrap_rate", Kind = ReportValueKind.Fraction }
                 },
 
                 ReportSubject.Attendance => new[]
@@ -535,6 +540,13 @@ namespace WorkforceManager.Business.Services
 
             var table = NewTable(spec, levelColumns.Concat(ColumnsFor(spec.Subject, spec.GroupBy)));
 
+            // **الهالك مالوش عامل** (شوف ProductionScrap)، فالتقرير
+            // المجمّع بالعامل عمود الهالك فيه بيفضل فاضي — شرطة معناها
+            // "السؤال ده مالوش إجابة هنا"، مش صفر يوهم إن مفيش هالك.
+            var scrapByGroup = levels.Contains(ReportGrouping.Worker)
+                ? null
+                : await ScrapByGroupAsync(spec, levels);
+
             var groups = rows
                 .GroupBy(r => new CompositeKey(levels.Select(level => Key(r, level).Label).ToList()))
                 .OrderBy(g => g.Key.Parts[0])
@@ -554,14 +566,22 @@ namespace WorkforceManager.Business.Services
                     row.Texts.Add(g.Key.Parts[i]);
                 }
 
+                var pieces = lastStageIds is null
+                    ? g.Sum(r => r.PieceCount)
+                    : g.Where(r => lastStageIds.Contains(r.ProductionStageId)).Sum(r => r.PieceCount);
+
+                decimal? scrap = scrapByGroup is null
+                    ? null
+                    : scrapByGroup.TryGetValue(g.Key, out var s) ? s : 0;
+
                 foreach (var value in new decimal?[]
                 {
-                    lastStageIds is null
-                        ? g.Sum(r => r.PieceCount)
-                        : g.Where(r => lastStageIds.Contains(r.ProductionStageId)).Sum(r => r.PieceCount),
+                    pieces,
                     g.Sum(r => r.WorkdaysCompleted),
                     g.Select(r => r.WorkerId).Distinct().Count(),
-                    g.Select(r => r.Date.Date).Distinct().Count()
+                    g.Select(r => r.Date.Date).Distinct().Count(),
+                    scrap,
+                    ScrapRate(pieces, scrap)
                 })
                 {
                     row.Values.Add(value);
@@ -572,6 +592,56 @@ namespace WorkforceManager.Business.Services
             }
 
             return table;
+        }
+
+        /// <summary>
+        /// نسبة الهالك = الهالك ÷ (اللي طلع سليم + الهالك).
+        ///
+        /// المقام هو **كل اللي اتشتغل عليه وخرج**، فالنسبة بتجاوب على
+        /// "من كل 100 قطعة اشتغلنا عليها، كام واحدة راحت؟". القسمة على
+        /// السليم لوحده بتدّي رقم أكبر من الحقيقة.
+        /// </summary>
+        private static decimal? ScrapRate(decimal pieces, decimal? scrap)
+        {
+            if (scrap is null) return null;
+
+            var handled = pieces + scrap.Value;
+            return handled <= 0 ? null : Math.Round(scrap.Value / handled * 100m, 1);
+        }
+
+        /// <summary>
+        /// الهالك موزّع على نفس مجموعات التقرير.
+        ///
+        /// سجل الهالك عنده مرحلة وتاريخ بس، فالمفتاح بيتبني من نفس
+        /// دوال <see cref="Key"/> على الأبعاد اللي موجودة عنده — وده
+        /// اللي بيخلي الرقم يقع في السطر الصح من غير حساب موازي.
+        /// </summary>
+        private async Task<Dictionary<CompositeKey, int>> ScrapByGroupAsync(
+            ReportSpec spec, IReadOnlyList<ReportGrouping> levels)
+        {
+            var records = await _scrap.GetByRangeAsync(spec.From, spec.To);
+
+            var filtered = records.Where(s =>
+                (spec.StageIds is not { Count: > 0 } || spec.StageIds.Contains(s.ProductionStageId)) &&
+                (spec.ProductIds is not { Count: > 0 } || spec.ProductIds.Contains(s.ProductId)));
+
+            var result = new Dictionary<CompositeKey, int>();
+
+            foreach (var record in filtered)
+            {
+                var parts = levels.Select(level => level switch
+                {
+                    ReportGrouping.Product => record.ProductName,
+                    ReportGrouping.Stage => $"{record.ProductName} — {record.StageName}",
+                    ReportGrouping.Week => WeekKey(record.Date).Label,
+                    _ => DayKey(record.Date).Label
+                }).ToList();
+
+                var key = new CompositeKey(parts);
+                result[key] = result.TryGetValue(key, out var total) ? total + record.PieceCount : record.PieceCount;
+            }
+
+            return result;
         }
 
         /// <summary>مفتاح مركّب من كل مستويات التجميع</summary>

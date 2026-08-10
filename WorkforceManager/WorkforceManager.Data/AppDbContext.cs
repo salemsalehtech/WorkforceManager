@@ -25,6 +25,8 @@ namespace WorkforceManager.Data
         public DbSet<ProductionDayClosure> ProductionDayClosures => Set<ProductionDayClosure>();
         public DbSet<ActivityEvent> ActivityEvents => Set<ActivityEvent>();
         public DbSet<OperationsCredential> OperationsCredentials => Set<OperationsCredential>();
+        public DbSet<ProductionScrap> ProductionScraps => Set<ProductionScrap>();
+        public DbSet<ScrapReason> ScrapReasons => Set<ScrapReason>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -124,6 +126,27 @@ namespace WorkforceManager.Data
 
             modelBuilder.Entity<Penalty>()
                 .HasIndex(p => p.Date);
+
+            // ---------- الهالك ----------
+            // حذف مرحلة بيحذف هالكها: الهالك بيوصف قطع خلصت المرحلة دي،
+            // فمن غيرها الرقم مالوش معنى — نفس قاعدة سجلات الإنتاج
+            modelBuilder.Entity<ProductionScrap>()
+                .HasOne(s => s.ProductionStage)
+                .WithMany()
+                .HasForeignKey(s => s.ProductionStageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // السبب بيتفضّى مش بيحذف السجل: تقرير الشهر اللي فات لازم
+            // يفضل يعرض الكمية حتى لو السبب اتشال من الإعدادات
+            modelBuilder.Entity<ProductionScrap>()
+                .HasOne(s => s.Reason)
+                .WithMany(r => r.ScrapRecords)
+                .HasForeignKey(s => s.ScrapReasonId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<ScrapReason>()
+                .HasIndex(r => r.Name)
+                .IsUnique(); // سببين بنفس الاسم بيخلّوا التقرير يتقسم على نفسه
 
             // سعر اليومية بالجنيه بدقة عشرية كافية
             modelBuilder.Entity<Worker>()

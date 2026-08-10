@@ -24,15 +24,18 @@ namespace WorkforceManager.Business.Services
         private readonly IDailyProductionRepository _productionRepo;
         private readonly IProductionDayClosureRepository _closureRepo;
         private readonly IProductRepository _productRepo;
+        private readonly ScrapService _scrap;
 
         public DailyProductionReportService(
             IDailyProductionRepository productionRepo,
             IProductionDayClosureRepository closureRepo,
-            IProductRepository productRepo)
+            IProductRepository productRepo,
+            ScrapService scrap)
         {
             _productionRepo = productionRepo;
             _closureRepo = closureRepo;
             _productRepo = productRepo;
+            _scrap = scrap;
         }
 
         public async Task<DailyProductionReportDto> GetAsync(DateTime date)
@@ -40,11 +43,12 @@ namespace WorkforceManager.Business.Services
             var day = date.Date;
 
             var today = await _productionRepo.GetStageTotalsOnAsync(day);
+            var scrapToday = await _scrap.GetStageTotalsOnAsync(day);
             var closure = await _closureRepo.GetByDateAsync(day);
             var products = await _productRepo.GetAllWithStagesAsync();
 
             var rows = products
-                .Select(product => Describe(product, today))
+                .Select(product => Describe(product, today, scrapToday))
                 .Where(row => row.HasActivity)
                 .OrderByDescending(row => row.CompletedPieces)
                 .ThenBy(row => row.ProductName)
@@ -60,20 +64,30 @@ namespace WorkforceManager.Business.Services
         }
 
         private static DailyProductReportDto Describe(
-            Product product, IReadOnlyDictionary<int, int> today)
+            Product product,
+            IReadOnlyDictionary<int, int> today,
+            IReadOnlyDictionary<int, int> scrapToday)
         {
             var line = ProductionLine.Active(product);
             if (line.Count == 0)
                 return new DailyProductReportDto { ProductId = product.Id, ProductName = product.Name };
 
             int Today(ProductionStage s) => today.TryGetValue(s.Id, out var v) ? v : 0;
+            int Scrap(ProductionStage s) => scrapToday.TryGetValue(s.Id, out var v) ? v : 0;
 
             return new DailyProductReportDto
             {
                 ProductId = product.Id,
                 ProductName = product.Name,
-                CompletedPieces = Today(line[^1]),
-                StartedPieces = Today(line[0])
+
+                // التام = آخر مرحلة ناقص هالكها. القطعة اللي خلصت الخط
+                // والجودة رفضتها مش منتج تام — ودي الحالة الوحيدة اللي
+                // الفرق بين المراحل مش بيكشفها لأن مفيش مرحلة بعدها
+                CompletedPieces = Math.Max(0, Today(line[^1]) - Scrap(line[^1])),
+                StartedPieces = Today(line[0]),
+
+                // الهالك على كل مراحل المنتج — مش على آخر مرحلة بس
+                ScrapPieces = line.Sum(Scrap)
             };
         }
     }
