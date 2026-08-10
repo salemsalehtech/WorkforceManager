@@ -171,6 +171,21 @@
                                                Foreground="{DynamicResource TextMutedBrush}" />
                                     <TextBlock Text="منتج" Style="{StaticResource SummaryLabel}" />
                                 </StackPanel>
+
+                                <!-- الهالك بيظهر بس لما يكون موجود: "صفر
+                                     هالك" مش معلومة، وبياخد مساحة من
+                                     الأرقام اللي بتتقري كل يوم -->
+                                <Border Style="{StaticResource SummaryDivider}"
+                                        Visibility="{Binding DayHasScrap, Converter={StaticResource BoolToVis}}" />
+
+                                <StackPanel Style="{StaticResource SummaryStat}"
+                                            Visibility="{Binding DayHasScrap, Converter={StaticResource BoolToVis}}"
+                                            ToolTip="قطع اتشالت من الخط ومش هتتكمّل">
+                                    <TextBlock Text="{Binding DayScrapPieces, StringFormat={}{0:N0}}"
+                                               Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource DangerBrush}" />
+                                    <TextBlock Text="هالك" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
                             </StackPanel>
                         </DockPanel>
                     </Border>

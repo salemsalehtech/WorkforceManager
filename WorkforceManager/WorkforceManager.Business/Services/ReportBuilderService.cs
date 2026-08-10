@@ -642,6 +642,12 @@ namespace WorkforceManager.Business.Services
                 ? null
                 : await ScrapByGroupAsync(spec, levels);
 
+            // هالك آخر مرحلة لوحده — ده اللي بيتخصم من التام. الهالك في
+            // نص الخط مبيأثرش عليه لأن القطع دي أصلاً ماوصلتش الآخر.
+            var lastStageScrapByGroup = lastStageIds is null
+                ? null
+                : await ScrapByGroupAsync(spec, levels, lastStageIds);
+
             var groups = rows
                 .GroupBy(r => new CompositeKey(levels.Select(level => Key(r, level).Label).ToList()))
                 .OrderBy(g => g.Key.Parts[0])
@@ -661,9 +667,15 @@ namespace WorkforceManager.Business.Services
                     row.Texts.Add(g.Key.Parts[i]);
                 }
 
+                // لما العمود بيقيس **التام**، هالك آخر مرحلة بيتخصم منه:
+                // القطعة اللي خلصت الخط والجودة رفضتها مش منتج تام.
+                // ولما بيقيس الشغل المبذول، الهالك مالوش علاقة — العامل
+                // اشتغل على القطعة فعلًا قبل ما تتشال.
                 var pieces = lastStageIds is null
                     ? g.Sum(r => r.PieceCount)
-                    : g.Where(r => lastStageIds.Contains(r.ProductionStageId)).Sum(r => r.PieceCount);
+                    : Math.Max(0,
+                        g.Where(r => lastStageIds.Contains(r.ProductionStageId)).Sum(r => r.PieceCount)
+                        - (lastStageScrapByGroup?.GetValueOrDefault(g.Key) ?? 0));
 
                 decimal? scrap = scrapByGroup is null
                     ? null
@@ -711,12 +723,16 @@ namespace WorkforceManager.Business.Services
         /// دوال <see cref="Key"/> على الأبعاد اللي موجودة عنده — وده
         /// اللي بيخلي الرقم يقع في السطر الصح من غير حساب موازي.
         /// </summary>
+        /// <param name="onlyStages">
+        /// مراحل معيّنة بس (آخر مرحلة مثلاً) — null يعني كل المراحل.
+        /// </param>
         private async Task<Dictionary<CompositeKey, int>> ScrapByGroupAsync(
-            ReportSpec spec, IReadOnlyList<ReportGrouping> levels)
+            ReportSpec spec, IReadOnlyList<ReportGrouping> levels, HashSet<int>? onlyStages = null)
         {
             var records = await _scrap.GetByRangeAsync(spec.From, spec.To);
 
             var filtered = records.Where(s =>
+                (onlyStages is null || onlyStages.Contains(s.ProductionStageId)) &&
                 (spec.StageIds is not { Count: > 0 } || spec.StageIds.Contains(s.ProductionStageId)) &&
                 (spec.ProductIds is not { Count: > 0 } || spec.ProductIds.Contains(s.ProductId)));
 

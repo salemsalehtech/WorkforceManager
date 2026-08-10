@@ -51,6 +51,26 @@
                     </Border>
                 </UniformGrid>
 
+                <!-- الهالك: بيظهر قبل القفل عشان المستخدم يراجعه وهو لسه
+                     يقدر يعدّله — بعد القفل مش هينفع يتسجّل على اليوم.
+                     بيختفي خالص لما مفيش هالك بدل ما يعرض صفر. -->
+                <Border x:Name="ScrapCard" Background="{DynamicResource DangerBgBrush}"
+                        CornerRadius="10" Padding="12,10" Margin="0,0,0,12"
+                        Visibility="Collapsed">
+                    <DockPanel>
+                        <TextBlock x:Name="ScrapText" DockPanel.Dock="Left" FontSize="18" FontWeight="Bold"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DangerBrush}" />
+                        <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="قطعة هالك النهارده" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource DangerBrush}" />
+                            <TextBlock Text="اتشالت من الخط ومش هتتكمّل — الهالك على آخر مرحلة متخصوم من التام فوق"
+                                       FontSize="10.5" TextWrapping="Wrap" Margin="0,2,0,0"
+                                       Foreground="{DynamicResource TextMutedBrush}" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
                 <TextBlock x:Name="CarriedHeader" Text="إنتاج اليوم لكل منتج" FontWeight="Bold" FontSize="13"
                            Margin="0,0,0,6" />
 
@@ -67,6 +87,25 @@
                                             <TextBlock Text="{Binding CompletedPieces, StringFormat=N0}" FontSize="13.5" FontWeight="Bold"
                                                        Foreground="{DynamicResource SuccessBrush}" />
                                         </Border>
+                                        <!-- هالك المنتج على الشمال — بيختفي
+                                             لما مفيش هالك عليه -->
+                                        <Border DockPanel.Dock="Right" Background="{DynamicResource DangerBgBrush}"
+                                                CornerRadius="6" Padding="8,3" Margin="6,0,0,0"
+                                                VerticalAlignment="Center">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ScrapPieces}" Value="0">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding ScrapText}" FontSize="11.5" FontWeight="Bold"
+                                                       Foreground="{DynamicResource DangerBrush}" />
+                                        </Border>
+
                                         <StackPanel Margin="9,0,0,0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding ProductName}" FontSize="12.5" FontWeight="Bold"
                                                        Foreground="{DynamicResource TextPrimaryBrush}" />

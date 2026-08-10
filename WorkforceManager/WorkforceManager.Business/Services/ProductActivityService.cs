@@ -20,13 +20,16 @@ namespace WorkforceManager.Business.Services
     {
         private readonly IDailyProductionRepository _production;
         private readonly IProductRepository _products;
+        private readonly ScrapService _scrap;
 
         public ProductActivityService(
             IDailyProductionRepository production,
-            IProductRepository products)
+            IProductRepository products,
+            ScrapService scrap)
         {
             _production = production;
             _products = products;
+            _scrap = scrap;
         }
 
         /// <summary>
@@ -46,6 +49,13 @@ namespace WorkforceManager.Business.Services
         {
             var records = await _production.GetByRangeAsync(from, to);
             var products = await _products.GetAllWithStagesAsync();
+
+            // هالك آخر مرحلة بيتخصم من التام — نفس القاعدة في ملخص
+            // اليوم والقفل والتقرير العام، عشان "أكتر منتج إنتاجًا"
+            // يبقى محسوب بنفس الرقم اللي الشاشات التانية بتعرضه
+            var scrapByStage = (await _scrap.GetByRangeAsync(from, to))
+                .GroupBy(s => s.ProductionStageId)
+                .ToDictionary(g => g.Key, g => g.Sum(s => s.PieceCount));
 
             // تجميع مرة واحدة بالمنتج: القطع، المراحل اللي اشتغلت،
             // والعمال اللي اشتغلوا
@@ -75,13 +85,18 @@ namespace WorkforceManager.Business.Services
                         stage is not null && stats is not null &&
                         stats.ByStage.TryGetValue(stage.Id, out var pieces) ? pieces : 0;
 
+                    int ScrapOn(ProductionStage? stage) =>
+                        stage is not null && scrapByStage.TryGetValue(stage.Id, out var scrap) ? scrap : 0;
+
                     return new ProductActivityDto
                     {
                         ProductId = product.Id,
                         ProductName = product.Name,
                         IsActive = product.IsActive,
-                        // التام = آخر مرحلة. الداخل = أول مرحلة.
-                        CompletedPieces = OnStage(line.Count > 0 ? line[^1] : null),
+                        // التام = آخر مرحلة ناقص هالكها. الداخل = أول مرحلة.
+                        CompletedPieces = Math.Max(0,
+                            OnStage(line.Count > 0 ? line[^1] : null)
+                            - ScrapOn(line.Count > 0 ? line[^1] : null)),
                         StartedPieces = OnStage(line.Count > 0 ? line[0] : null),
                         StageWorkPieces = stats?.StageWork ?? 0,
                         WorkerIds = stats?.Workers ?? new HashSet<int>(),

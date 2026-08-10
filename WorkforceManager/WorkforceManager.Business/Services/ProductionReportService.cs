@@ -26,6 +26,7 @@ namespace WorkforceManager.Business.Services
         private readonly IProductRepository _productRepo;
         private readonly IWorkerRepository _workerRepo;
         private readonly IWageAdjustmentRepository _adjustmentRepo;
+        private readonly ScrapService _scrap;
 
         public ProductionReportService(
             IDailyProductionRepository productionRepo,
@@ -34,7 +35,8 @@ namespace WorkforceManager.Business.Services
             IHourlyWorkLogRepository hourlyRepo,
             IProductRepository productRepo,
             IWorkerRepository workerRepo,
-            IWageAdjustmentRepository adjustmentRepo)
+            IWageAdjustmentRepository adjustmentRepo,
+            ScrapService scrap)
         {
             _productionRepo = productionRepo;
             _attendanceRepo = attendanceRepo;
@@ -43,6 +45,7 @@ namespace WorkforceManager.Business.Services
             _productRepo = productRepo;
             _workerRepo = workerRepo;
             _adjustmentRepo = adjustmentRepo;
+            _scrap = scrap;
         }
 
         /// <summary>آخر مرحلة لكل منتج — القاعدة في <see cref="ProductionLine"/></summary>
@@ -116,9 +119,16 @@ namespace WorkforceManager.Business.Services
             byWorker = byWorker.OrderByDescending(w => w.TotalWorkdays).ToList();
 
             // الملخص الإجمالي
-            var completedPieces = production
+            // التام = آخر مرحلة **ناقص هالكها**. القطعة اللي خلصت الخط
+            // والجودة رفضتها مش منتج تام — نفس القاعدة في كل الشاشات
+            var scrapRecords = await _scrap.GetByRangeAsync(fromDate, toDate);
+            var lastStageScrap = scrapRecords
+                .Where(s => lastStageIds.Contains(s.ProductionStageId))
+                .Sum(s => s.PieceCount);
+
+            var completedPieces = Math.Max(0, production
                 .Where(r => lastStageIds.Contains(r.ProductionStageId))
-                .Sum(r => r.PieceCount);
+                .Sum(r => r.PieceCount) - lastStageScrap);
             var totalWorkdays = production.Sum(r => r.WorkdaysCompleted) + hourly.Sum(h => h.WorkdaysCredited);
             var productionDays = production.Select(r => r.Date.Date)
                 .Concat(hourly.Select(h => h.Date.Date)).Distinct().Count();

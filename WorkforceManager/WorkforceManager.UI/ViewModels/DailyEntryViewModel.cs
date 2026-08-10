@@ -92,6 +92,7 @@ namespace WorkforceManager.UI.ViewModels
             await LoadAttendanceAsync();
             await LoadPenaltiesAsync();
             await LoadAdjustmentsAsync();
+            await LoadScrapAsync();
             await LoadClosureStateAsync();
         }
 
@@ -320,6 +321,19 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private int _dayProductsCount;
 
+        /// <summary>
+        /// هالك النهارده في ملخص اليوم.
+        ///
+        /// بيظهر بس لما يكون فيه هالك فعلاً (<see cref="DayHasScrap"/>) —
+        /// "صفر هالك" مش معلومة وبياخد مساحة من الأرقام اللي بتتقري.
+        /// </summary>
+        [ObservableProperty]
+        private int _dayScrapPieces;
+
+        public bool DayHasScrap => DayScrapPieces > 0;
+
+        partial void OnDayScrapPiecesChanged(int value) => OnPropertyChanged(nameof(DayHasScrap));
+
         /// <summary>مفيش أي إنتاج مسجل لسه (بيخفي أرقام الملخص)</summary>
         public bool DayHasNoProduction => DayRecords.Count == 0;
 
@@ -329,6 +343,7 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(DayHasOnlyStarted));
             OnPropertyChanged(nameof(DayPiecesLabel));
             OnPropertyChanged(nameof(DayHeadlinePieces));
+            OnPropertyChanged(nameof(DayHasScrap));
         }
 
         partial void OnDayTotalPiecesChanged(int value) => RefreshDaySummaryFlags();
@@ -348,6 +363,7 @@ namespace WorkforceManager.UI.ViewModels
             var report = await reportService.GetAsync(EntryDate);
             DayTotalPieces = report.TotalCompletedPieces;
             DayStartedPieces = report.TotalStartedPieces;
+            DayScrapPieces = report.TotalScrapPieces;
 
             // الباقي مقاييس شغل مش إنتاج، فمجموع السجلات صح فيها:
             // اليومية بتتحسب على اللي العامل عمله فعلاً على مرحلته

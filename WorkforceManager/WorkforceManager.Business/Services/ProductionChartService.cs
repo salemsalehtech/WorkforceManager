@@ -16,13 +16,16 @@ namespace WorkforceManager.Business.Services
     {
         private readonly IDailyProductionRepository _productionRepo;
         private readonly IProductRepository _productRepo;
+        private readonly ScrapService _scrap;
 
         public ProductionChartService(
             IDailyProductionRepository productionRepo,
-            IProductRepository productRepo)
+            IProductRepository productRepo,
+            ScrapService scrap)
         {
             _productionRepo = productionRepo;
             _productRepo = productRepo;
+            _scrap = scrap;
         }
 
         /// <summary>
@@ -44,6 +47,16 @@ namespace WorkforceManager.Business.Services
 
             var records = await _productionRepo.GetByRangeAsync(rangeStart, rangeEnd);
 
+            // الهالك على آخر مرحلة بيتخصم من التام — نفس القاعدة اللي
+            // ملخص اليوم وقفل اليوم شغالين بيها، عشان الرسم ميقولش رقم
+            // غير اللي الشاشات التانية بتقوله
+            var scrapRecords = await _scrap.GetByRangeAsync(rangeStart, rangeEnd);
+            var scrapByWeekProduct = scrapRecords
+                .Where(s => lastStageByProduct.TryGetValue(s.ProductId, out var last)
+                            && s.ProductionStageId == last)
+                .GroupBy(s => (WeekStart: WeeklySummaryService.GetWorkWeekRange(s.Date).WeekStart, s.ProductId))
+                .ToDictionary(g => g.Key, g => g.Sum(s => s.PieceCount));
+
             // القطع المكتملة بس: السجلات اللي على آخر مرحلة لمنتجها
             return records
                 .Where(r => lastStageByProduct.TryGetValue(r.ProductionStage.ProductId, out var lastStageId)
@@ -56,7 +69,8 @@ namespace WorkforceManager.Business.Services
                     WeekEnd = g.Key.WeekStart.AddDays(6),
                     ProductId = g.Key.ProductId,
                     ProductName = g.First().ProductionStage.Product.Name,
-                    CompletedPieces = g.Sum(r => r.PieceCount)
+                    CompletedPieces = Math.Max(0, g.Sum(r => r.PieceCount)
+                        - (scrapByWeekProduct.TryGetValue(g.Key, out var scrap) ? scrap : 0))
                 })
                 .OrderBy(p => p.WeekStart).ThenByDescending(p => p.CompletedPieces)
                 .ToList();

@@ -199,6 +199,91 @@ namespace WorkforceManager.Tests
             Assert.Equal(reason.Name, records.Single().ReasonName);
         }
 
+        /// <summary>
+        /// نفس رقم "التام" لازم يطلع من كل الشاشات.
+        ///
+        /// أربع خدمات بتحسب التام (ملخص اليوم، قفل اليوم، التقرير العام،
+        /// شاشة المنتجات، ومُنشئ التقارير) — ولو واحدة منهم نسيت تطرح
+        /// الهالك، المستخدم هيشوف رقمين لنفس اليوم ومش هيعرف يصدّق أنهي
+        /// واحد.
+        /// </summary>
+        [Fact]
+        public async Task EveryScreenReportsTheSameCompletedNumber()
+        {
+            await RecordAsync(TestDatabase.BagStage1Id, 1000);
+            await RecordAsync(TestDatabase.BagStage2Id, 1000);
+            await RecordAsync(TestDatabase.BagStage3Id, 1000);
+            await ScrapAsync(TestDatabase.BagStage3Id, 150);
+
+            const int expected = 850;
+
+            var daily = await DailyAsync();
+            Assert.Equal(expected,
+                daily.Products.Single(p => p.ProductId == TestDatabase.ProductBagId).CompletedPieces);
+
+            var closure = await _db.InScopeAsync<DayClosureService, DayClosurePreviewDto>(
+                s => s.PreviewAsync(Day));
+            Assert.Equal(expected, closure.CompletedPieces);
+
+            var general = await _db.InScopeAsync<ProductionReportService, GeneralProductionReportDto>(
+                s => s.GetGeneralReportAsync(Day, Day));
+            Assert.Equal(expected, general.TotalCompletedPieces);
+
+            var activity = await _db.InScopeAsync<ProductActivityService, IReadOnlyList<ProductActivityDto>>(
+                s => s.GetAsync(Day, Day));
+            Assert.Equal(expected,
+                activity.Single(p => p.ProductId == TestDatabase.ProductBagId).CompletedPieces);
+
+            var table = await _db.InScopeAsync<ReportBuilderService, ReportTable>(s => s.BuildAsync(new ReportSpec
+            {
+                Subject = ReportSubject.Production,
+                GroupBy = ReportGrouping.Product,
+                From = Day,
+                To = Day
+            }));
+            var pieces = table.Columns.FindIndex(c => c.Key == "pieces");
+            Assert.Equal(expected, table.Rows.Single(r => r.Label == "شنطة").Values[pieces]);
+        }
+
+        // ---------------- في ملخص اليوم وقفل اليوم ----------------
+
+        [Fact]
+        public async Task TheDayClosurePreview_ShowsTheScrapBeforeYouLockTheDay()
+        {
+            // بيتعرض قبل القفل عشان المستخدم يراجعه وهو لسه يقدر يعدّله —
+            // بعد القفل مش هينفع يتسجّل على اليوم
+            await RecordAsync(TestDatabase.BagStage1Id, 1000);
+            await RecordAsync(TestDatabase.BagStage2Id, 900);
+            await RecordAsync(TestDatabase.BagStage3Id, 900);
+
+            await ScrapAsync(TestDatabase.BagStage1Id, 100);
+            await ScrapAsync(TestDatabase.BagStage3Id, 50);
+
+            var preview = await _db.InScopeAsync<DayClosureService, DayClosurePreviewDto>(
+                s => s.PreviewAsync(Day));
+
+            Assert.True(preview.HasScrap);
+            Assert.Equal(150, preview.ScrapPieces);
+
+            // والتام في نفس الملخص ناقص هالك آخر مرحلة
+            Assert.Equal(850, preview.CompletedPieces);
+
+            var bag = preview.ByProduct.Single(p => p.ProductName == "شنطة");
+            Assert.Equal(150, bag.ScrapPieces);
+        }
+
+        [Fact]
+        public async Task ADayWithNoScrap_SaysSoInsteadOfShowingZero()
+        {
+            await RecordAsync(TestDatabase.BagStage1Id, 100);
+
+            var preview = await _db.InScopeAsync<DayClosureService, DayClosurePreviewDto>(
+                s => s.PreviewAsync(Day));
+
+            Assert.False(preview.HasScrap);
+            Assert.Equal(0, preview.ScrapPieces);
+        }
+
         // ---------------- في التقارير ----------------
 
         [Fact]
@@ -219,13 +304,17 @@ namespace WorkforceManager.Tests
             }));
 
             var row = table.Rows.Single(r => r.Label == "شنطة");
+            var pieces = table.Columns.FindIndex(c => c.Key == "pieces");
             var scrap = table.Columns.FindIndex(c => c.Key == "scrap");
             var rate = table.Columns.FindIndex(c => c.Key == "scrap_rate");
 
+            // 900 خلصوا آخر مرحلة، الجودة رفضت 100 → 800 سليمة بس
+            Assert.Equal(800, row.Values[pieces]);
             Assert.Equal(100, row.Values[scrap]);
 
-            // 100 هالك من 900 خرجت سليمة = 10% من الـ1000 اللي اتشتغل عليها
-            Assert.Equal(10m, row.Values[rate]);
+            // 100 من 900 اتشتغل عليها فعلًا = 11.1%. المقام هو اللي
+            // اتسجّل على آخر مرحلة، مش رقم متخيّل أكبر منه.
+            Assert.Equal(11.1m, row.Values[rate]);
         }
 
         [Fact]

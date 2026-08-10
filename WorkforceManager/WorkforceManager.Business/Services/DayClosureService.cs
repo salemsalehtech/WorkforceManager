@@ -61,12 +61,14 @@ namespace WorkforceManager.Business.Services
                 AlreadyClosed = await _closureRepo.IsClosedAsync(date),
                 CompletedPieces = report.TotalCompletedPieces,
                 StartedPieces = report.TotalStartedPieces,
+                ScrapPieces = report.TotalScrapPieces,
                 ByProduct = report.Products
                     .Select(p => new ProductOutputDto
                     {
                         ProductName = p.ProductName,
                         CompletedPieces = p.CompletedPieces,
-                        StartedPieces = p.StartedPieces
+                        StartedPieces = p.StartedPieces,
+                        ScrapPieces = p.ScrapPieces
                     })
                     .ToList()
             };

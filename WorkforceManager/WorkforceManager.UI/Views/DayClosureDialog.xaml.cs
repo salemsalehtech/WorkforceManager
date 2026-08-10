@@ -18,6 +18,11 @@ namespace WorkforceManager.UI.Views
             CompletedText.Text = preview.CompletedPieces.ToString("N0");
             CarriedText.Text = preview.StartedPieces.ToString("N0");
 
+            // الهالك بيختفي خالص لما ميكونش موجود بدل ما يعرض صفر —
+            // صفر هالك مش معلومة، وبياخد مساحة من الأرقام اللي بتتقري
+            ScrapCard.Visibility = preview.HasScrap ? Visibility.Visible : Visibility.Collapsed;
+            ScrapText.Text = preview.ScrapPieces.ToString("N0");
+
             LotsList.ItemsSource = preview.ByProduct;
 
             var hasActivity = preview.ByProduct.Count > 0;
