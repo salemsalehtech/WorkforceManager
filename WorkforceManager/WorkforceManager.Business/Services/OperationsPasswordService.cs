@@ -29,10 +29,13 @@ namespace WorkforceManager.Business.Services
         public const int MinPasswordLength = 4;
 
         private readonly IGenericRepository<OperationsCredential> _credentials;
+        private readonly ActivityLogService _log;
 
-        public OperationsPasswordService(IGenericRepository<OperationsCredential> credentials)
+        public OperationsPasswordService(
+            IGenericRepository<OperationsCredential> credentials, ActivityLogService log)
         {
             _credentials = credentials;
+            _log = log;
         }
 
         /// <summary>فيه كلمة سر عمليات متسجّلة؟</summary>
@@ -140,6 +143,13 @@ namespace WorkforceManager.Business.Services
             }
 
             await _credentials.SaveChangesAsync();
+
+            // دي البوابة اللي بتحمي كل العمليات التانية، فمين غيّرها
+            // وإمتى جزء من نفس السؤال
+            await _log.LogAsync(
+                ActivityEventType.OperationsPasswordChanged, "OperationsCredential", 0,
+                entityName: "كلمة سر العمليات",
+                details: credential is null ? "اتحطت لأول مرة" : "اتغيّرت");
         }
 
         /// <summary>الصف الوحيد في الجدول (null = لسه ما اتسجلتش)</summary>

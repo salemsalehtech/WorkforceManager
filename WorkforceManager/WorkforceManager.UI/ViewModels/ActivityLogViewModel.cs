@@ -28,6 +28,7 @@ namespace WorkforceManager.UI.ViewModels
         public ActivityLogViewModel(IServiceScopeFactory scopeFactory)
         {
             _scopeFactory = scopeFactory;
+            _selectedEventGroup = EventGroups[0];
         }
 
         /// <summary>الأحداث المعروضة دلوقتي (بعد الفلترة والبحث)</summary>
@@ -50,6 +51,25 @@ namespace WorkforceManager.UI.ViewModels
         private bool _isEmpty = true;
 
         partial void OnSearchTextChanged(string value) => ApplyFilter();
+
+        // ------- فلتر نوع العملية -------
+        // السجل بقى بيسجّل كل عملية ليها قيمة مش الحذف بس، فعدد
+        // الأنواع بقى بيغرق اللي بيدوّر على نوع واحد. المجموعات هنا
+        // بتجاوب الأسئلة اللي بتتسأل فعلًا: "مين مسح؟" و"مين لمس فلوس؟"
+
+        public IReadOnlyList<EventGroupOption> EventGroups { get; } = new[]
+        {
+            new EventGroupOption(EventGroup.All, "كل العمليات"),
+            new EventGroupOption(EventGroup.Money, "فلوس وأجور"),
+            new EventGroupOption(EventGroup.Deletions, "حذف"),
+            new EventGroupOption(EventGroup.Production, "إنتاج وحضور"),
+            new EventGroupOption(EventGroup.Setup, "إضافة وإعدادات")
+        };
+
+        [ObservableProperty]
+        private EventGroupOption? _selectedEventGroup;
+
+        partial void OnSelectedEventGroupChanged(EventGroupOption? value) => ApplyFilter();
 
         /// <summary>
         /// بيقول للمستخدم إن السجل بيقصّر لوحده وقد إيه.
@@ -112,14 +132,16 @@ namespace WorkforceManager.UI.ViewModels
         private void ApplyFilter()
         {
             var query = SearchText?.Trim() ?? "";
+            var group = SelectedEventGroup?.Group ?? EventGroup.All;
 
-            var visible = query.Length == 0
-                ? _loaded
-                : _loaded.Where(e =>
-                    (e.EntityName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                    e.Actor.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                    (e.Reason?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
-                    .ToList();
+            var visible = _loaded
+                .Where(e => EventGroups_Match(group, e.EventType))
+                .Where(e => query.Length == 0
+                    || (e.EntityName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || e.Actor.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || (e.Reason?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (e.Details?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
+                .ToList();
 
             Events.Clear();
             foreach (var item in visible) Events.Add(new ActivityEventRow(item));
@@ -129,7 +151,54 @@ namespace WorkforceManager.UI.ViewModels
                 ? "مفيش عمليات مسجّلة في الفترة دي"
                 : $"{Events.Count} عملية من {_loaded.Count} في الفترة";
         }
+
+        private static bool EventGroups_Match(EventGroup group, ActivityEventType type) => group switch
+        {
+            EventGroup.Money => type
+                is ActivityEventType.WorkerWageChanged
+                or ActivityEventType.ProductionPiecesEdited
+                or ActivityEventType.PenaltySaved
+                or ActivityEventType.PenaltyDeleted
+                or ActivityEventType.WageAdjustmentSaved
+                or ActivityEventType.WageAdjustmentDeleted,
+
+            EventGroup.Deletions => type
+                is ActivityEventType.ProductionDayDeleted
+                or ActivityEventType.ProductionRecordDeleted
+                or ActivityEventType.WorkerDeleted
+                or ActivityEventType.ProductDeleted
+                or ActivityEventType.StageDeleted
+                or ActivityEventType.PenaltyDeleted
+                or ActivityEventType.WageAdjustmentDeleted,
+
+            EventGroup.Production => type
+                is ActivityEventType.ProductionRecorded
+                or ActivityEventType.AttendanceSaved
+                or ActivityEventType.ProductionDayClosed
+                or ActivityEventType.ProductionDayReopened
+                or ActivityEventType.ScrapRecorded,
+
+            EventGroup.Setup => type
+                is ActivityEventType.WorkerCreated
+                or ActivityEventType.ProductCreated
+                or ActivityEventType.StageCreated
+                or ActivityEventType.OperationsPasswordChanged,
+
+            _ => true
+        };
     }
+
+    /// <summary>تقسيم العمليات لمجموعات بيتسأل عنها فعلًا</summary>
+    public enum EventGroup
+    {
+        All,
+        Money,
+        Deletions,
+        Production,
+        Setup
+    }
+
+    public record EventGroupOption(EventGroup Group, string Display);
 
     /// <summary>سطر واحد في جدول السجل — بيحوّل الحدث لنص وأيقونة ولون</summary>
     public class ActivityEventRow
@@ -159,6 +228,15 @@ namespace WorkforceManager.UI.ViewModels
             ActivityEventType.PenaltyDeleted => "حذف جزاء",
             ActivityEventType.WageAdjustmentSaved => "سلفة أو حافز",
             ActivityEventType.OperationsPasswordChanged => "تغيير كلمة سر العمليات",
+            ActivityEventType.WageAdjustmentDeleted => "حذف سلفة أو حافز",
+            ActivityEventType.ProductionRecorded => "تسجيل إنتاج",
+            ActivityEventType.AttendanceSaved => "حفظ الحضور",
+            ActivityEventType.ProductionDayClosed => "قفل يوم إنتاج",
+            ActivityEventType.ProductionDayReopened => "فتح يوم مقفول",
+            ActivityEventType.ScrapRecorded => "تسجيل هالك",
+            ActivityEventType.WorkerCreated => "إضافة عامل",
+            ActivityEventType.ProductCreated => "إضافة منتج",
+            ActivityEventType.StageCreated => "إضافة مرحلة",
             _ => _event.EventType.ToString()
         };
 
@@ -169,6 +247,21 @@ namespace WorkforceManager.UI.ViewModels
             or ActivityEventType.WorkerDeleted
             or ActivityEventType.ProductDeleted
             or ActivityEventType.StageDeleted
-            or ActivityEventType.PenaltyDeleted;
+            or ActivityEventType.PenaltyDeleted
+            or ActivityEventType.WageAdjustmentDeleted;
+
+        /// <summary>
+        /// حركة فلوس — بتتلوّن دهبي. المراجع بيدوّر على الاتنين دول:
+        /// اللي اتمسح، واللي لمس أجر حد.
+        /// </summary>
+        public bool IsMoney => _event.EventType
+            is ActivityEventType.WorkerWageChanged
+            or ActivityEventType.ProductionPiecesEdited
+            or ActivityEventType.PenaltySaved
+            or ActivityEventType.WageAdjustmentSaved;
+
+        /// <summary>مفتاح فرشاة من اللوحة — مش كود لون (شوف <see cref="ThemeBrush"/>)</summary>
+        public string AccentColor =>
+            IsDeletion ? "DangerBrush" : IsMoney ? "GoldDeepBrush" : "InkSoftBrush";
     }
 }

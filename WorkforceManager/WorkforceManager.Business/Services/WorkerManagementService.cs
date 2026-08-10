@@ -17,16 +17,20 @@ namespace WorkforceManager.Business.Services
         private readonly SoftDeleteService _softDelete;
         private readonly DeletionScopeService _scope;
 
+        private readonly ActivityLogService _log;
+
         public WorkerManagementService(
             IWorkerRepository workerRepo,
             IGenericRepository<WorkerSkill> skillRepo,
             SoftDeleteService softDelete,
-            DeletionScopeService scope)
+            DeletionScopeService scope,
+            ActivityLogService log)
         {
             _workerRepo = workerRepo;
             _skillRepo = skillRepo;
             _softDelete = softDelete;
             _scope = scope;
+            _log = log;
         }
 
         /// <summary>
@@ -60,6 +64,12 @@ namespace WorkforceManager.Business.Services
 
             await _workerRepo.AddAsync(worker);
             await _workerRepo.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.WorkerCreated, "Worker", worker.Id,
+                entityName: worker.FullName,
+                details: dailyWageEgp > 0 ? $"سعر اليومية {dailyWageEgp:N0} ج" : "من غير سعر يومية");
+
             return worker;
         }
 
@@ -85,6 +95,10 @@ namespace WorkforceManager.Business.Services
             var worker = await _workerRepo.GetByIdAsync(workerId)
                 ?? throw new InvalidOperationException("العامل المحدد غير موجود");
 
+            // السعر ده بيضرب في يوميات كل الفترات — القديمة كمان، لأنه
+            // مش لقطة وقت التسجيل. فتغييره حركة فلوس بمعنى الكلمة
+            var oldWage = worker.DailyWageEgp;
+
             worker.FullName = fullName.Trim();
             worker.PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
             worker.HireDate = hireDate;
@@ -93,6 +107,13 @@ namespace WorkforceManager.Business.Services
 
             _workerRepo.Update(worker);
             await _workerRepo.SaveChangesAsync();
+
+            if (oldWage != dailyWageEgp)
+                await _log.LogAsync(
+                    ActivityEventType.WorkerWageChanged, "Worker", worker.Id,
+                    entityName: worker.FullName,
+                    details: $"من {oldWage:N0} ج إلى {dailyWageEgp:N0} ج لليومية");
+
             return worker;
         }
 

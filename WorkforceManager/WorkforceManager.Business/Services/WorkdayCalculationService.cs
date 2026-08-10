@@ -22,6 +22,7 @@ namespace WorkforceManager.Business.Services
         private readonly OperationsPasswordService _gate;
         private readonly IProductionDayClosureRepository _closureRepo;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ActivityLogService _log;
 
         public WorkdayCalculationService(
             IDailyProductionRepository productionRepo,
@@ -32,8 +33,10 @@ namespace WorkforceManager.Business.Services
             SoftDeleteService softDelete,
             OperationsPasswordService gate,
             IProductionDayClosureRepository closureRepo,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            ActivityLogService log)
         {
+            _log = log;
             _productionRepo = productionRepo;
             _stageRepo = stageRepo;
             _workerRepo = workerRepo;
@@ -157,9 +160,17 @@ namespace WorkforceManager.Business.Services
             // عليها وممكن يكون طبعها
             await EnsureDayIsOpenAsync(record.Date);
 
+            var oldPieceCount = record.PieceCount;
+
             record.PieceCount = newPieceCount;
             _productionRepo.Update(record);
             await _productionRepo.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.ProductionPiecesEdited, "DailyProduction", record.Id,
+                entityName: record.Worker?.FullName,
+                details: $"من {oldPieceCount:N0} إلى {newPieceCount:N0} قطعة يوم {record.Date:yyyy/MM/dd}");
+
             return record;
         }
 

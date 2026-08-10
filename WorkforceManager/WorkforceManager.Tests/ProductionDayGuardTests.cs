@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Data;
+using WorkforceManager.Core.Enums;
 using Xunit;
 
 namespace WorkforceManager.Tests
@@ -188,8 +189,13 @@ namespace WorkforceManager.Tests
             // مفيش سجل فاضل — لا ظاهر ولا متعلّم
             Assert.Empty(await db.DailyProductions.IgnoreQueryFilters().ToListAsync());
 
-            // وكل واحد اتشال ليه حدث في السجل بسببه
-            var events = await db.ActivityEvents.ToListAsync();
+            // وكل واحد اتشال ليه حدث في السجل بسببه. بنفلتر على نوع
+            // الحذف لأن التحضير نفسه (تسجيل الإنتاج وكلمة السر) بيكتب
+            // أحداث كمان دلوقتي
+            var events = await db.ActivityEvents
+                .Where(e => e.EventType == ActivityEventType.ProductionRecordDeleted)
+                .ToListAsync();
+
             Assert.Equal(2, events.Count);
             Assert.All(events, e => Assert.Equal("اليوم اتسجل على تاريخ غلط", e.Reason));
         }

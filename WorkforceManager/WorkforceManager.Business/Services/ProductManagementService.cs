@@ -18,16 +18,20 @@ namespace WorkforceManager.Business.Services
         private readonly SoftDeleteService _softDelete;
         private readonly DeletionScopeService _scope;
 
+        private readonly ActivityLogService _log;
+
         public ProductManagementService(
             IProductRepository productRepo,
             IGenericRepository<ProductionStage> stageRepo,
             SoftDeleteService softDelete,
-            DeletionScopeService scope)
+            DeletionScopeService scope,
+            ActivityLogService log)
         {
             _productRepo = productRepo;
             _stageRepo = stageRepo;
             _softDelete = softDelete;
             _scope = scope;
+            _log = log;
         }
 
         // ======================= المنتجات =======================
@@ -46,6 +50,11 @@ namespace WorkforceManager.Business.Services
 
             await _productRepo.AddAsync(product);
             await _productRepo.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.ProductCreated, "Product", product.Id,
+                entityName: product.Name);
+
             return product;
         }
 
@@ -188,6 +197,12 @@ namespace WorkforceManager.Business.Services
 
             await _stageRepo.AddAsync(stage);
             await _stageRepo.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.StageCreated, "ProductionStage", stage.Id,
+                entityName: $"{product.Name} — {trimmedName}",
+                details: $"اليومية {piecesPerWorkday:N0} قطعة");
+
             return stage;
         }
 

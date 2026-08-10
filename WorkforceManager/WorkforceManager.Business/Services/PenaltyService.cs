@@ -14,11 +14,14 @@ namespace WorkforceManager.Business.Services
     {
         private readonly IPenaltyRepository _penaltyRepo;
         private readonly OperationsPasswordService _gate;
+        private readonly ActivityLogService _log;
 
-        public PenaltyService(IPenaltyRepository penaltyRepo, OperationsPasswordService gate)
+        public PenaltyService(
+            IPenaltyRepository penaltyRepo, OperationsPasswordService gate, ActivityLogService log)
         {
             _penaltyRepo = penaltyRepo;
             _gate = gate;
+            _log = log;
         }
 
         /// <summary>
@@ -60,6 +63,16 @@ namespace WorkforceManager.Business.Services
 
             await _penaltyRepo.AddAsync(penalty);
             if (saveChanges) await _penaltyRepo.SaveChangesAsync();
+
+            // الجزاء التلقائي مش بيتسجّل: هو انعكاس لحالة الحضور اللي
+            // اتسجّلت خلاص، فتسجيله تاني بيبقى نفس الحدث مرتين
+            if (source == PenaltySource.Manual)
+                await _log.LogAsync(
+                    ActivityEventType.PenaltySaved, "Penalty", penalty.Id,
+                    entityName: penalty.Reason,
+                    details: $"خصم {deduction.ToArabicName()} يوم {penalty.Date:yyyy/MM/dd}",
+                    saveChanges: saveChanges);
+
             return penalty;
         }
 
@@ -94,6 +107,12 @@ namespace WorkforceManager.Business.Services
 
             _penaltyRepo.Update(penalty);
             await _penaltyRepo.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.PenaltySaved, "Penalty", penalty.Id,
+                entityName: penalty.Reason,
+                details: $"تعديل — خصم {deduction.ToArabicName()} يوم {penalty.Date:yyyy/MM/dd}");
+
             return penalty;
         }
 
@@ -124,6 +143,11 @@ namespace WorkforceManager.Business.Services
 
             _penaltyRepo.Remove(penalty);
             await _penaltyRepo.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.PenaltyDeleted, "Penalty", penalty.Id,
+                entityName: penalty.Reason,
+                details: $"كان خصم {penalty.Deduction.ToArabicName()} يوم {penalty.Date:yyyy/MM/dd}");
         }
 
         /// <summary>كل جزاءات يوم معين لكل العمال (لعرضها في شاشة التسجيل اليومي)</summary>

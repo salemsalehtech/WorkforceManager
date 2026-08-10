@@ -20,14 +20,17 @@ namespace WorkforceManager.Business.Services
         private readonly AttendanceAutomationService _automation;
         private readonly OperationsPasswordService _gate;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ActivityLogService _log;
 
         public AttendanceService(
             IAttendanceRepository attendanceRepo,
             IDailyProductionRepository productionRepo,
             AttendanceAutomationService automation,
             OperationsPasswordService gate,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            ActivityLogService log)
         {
+            _log = log;
             _attendanceRepo = attendanceRepo;
             _productionRepo = productionRepo;
             _automation = automation;
@@ -120,6 +123,13 @@ namespace WorkforceManager.Business.Services
                 date, statusesByWorker, statusesByWorker.Keys.ToList());
 
             await transaction.CommitAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.AttendanceSaved, "Attendance", 0,
+                entityName: $"يوم {date:yyyy/MM/dd}",
+                details: $"{entryList.Count} عامل"
+                         + (created > 0 ? $" — {created} جزاء غياب اتولّد" : "")
+                         + (removed > 0 ? $" — {removed} جزاء غياب اتشال" : ""));
 
             return new AttendanceSaveResultDto
             {

@@ -89,7 +89,9 @@ namespace WorkforceManager.Tests
             Assert.False(record.IsDeleted);
 
             using var check = _db.CreateScope();
-            Assert.Empty(await _db.GetService<ActivityLogService>(check).GetRecentAsync());
+            Assert.DoesNotContain(
+                await _db.GetService<ActivityLogService>(check).GetRecentAsync(),
+                e => e.EventType == ActivityEventType.ProductionRecordDeleted);
         }
 
         [Fact]
@@ -206,7 +208,8 @@ namespace WorkforceManager.Tests
                 .AsNoTracking().Where(r => r.Id == recordId).ToListAsync());
 
             // ومين/إمتى/ليه عايشين في سجل العمليات
-            var logged = await db.ActivityEvents.AsNoTracking().SingleAsync();
+            var logged = await db.ActivityEvents.AsNoTracking()
+                .SingleAsync(e => e.EventType == ActivityEventType.ProductionRecordDeleted);
             Assert.Equal("مدير القسم", logged.Actor);
             Assert.Equal("اتسجل مرتين بالغلط", logged.Reason);
         }
@@ -403,8 +406,10 @@ namespace WorkforceManager.Tests
             using var check = _db.CreateScope();
             var events = await _db.GetService<ActivityLogService>(check).GetRecentAsync();
 
-            var logged = Assert.Single(events);
-            Assert.Equal(ActivityEventType.ProductionRecordDeleted, logged.EventType);
+            // السجل بقى بيسجّل التسجيل وتحديد كلمة السر كمان، فالتحضير
+            // نفسه بيكتب أحداث — بندوّر على حدث الحذف مش على "الحدث الوحيد"
+            var logged = Assert.Single(events,
+                e => e.EventType == ActivityEventType.ProductionRecordDeleted);
             Assert.Equal("مدير القسم", logged.Actor);
             Assert.Equal("مكرر", logged.Reason);
             Assert.Equal(nameof(DailyProduction), logged.EntityType);
@@ -426,7 +431,8 @@ namespace WorkforceManager.Tests
             // الاتنين حصلوا — الحذف والحدث في معاملة واحدة
             Assert.Empty(await db.DailyProductions.IgnoreQueryFilters()
                 .AsNoTracking().ToListAsync());
-            Assert.Equal(1, await db.ActivityEvents.CountAsync());
+            Assert.Equal(1, await db.ActivityEvents
+                .CountAsync(e => e.EventType == ActivityEventType.ProductionRecordDeleted));
         }
 
         // ======================= نظام 4: تقييم المهارة =======================
@@ -807,7 +813,8 @@ namespace WorkforceManager.Tests
             Assert.Empty(await db.DailyProductions.IgnoreQueryFilters()
                 .AsNoTracking().ToListAsync());           // 2) اتشال خالص
 
-            var logged = await db.ActivityEvents.AsNoTracking().SingleAsync();
+            var logged = await db.ActivityEvents.AsNoTracking()
+                .SingleAsync(e => e.EventType == ActivityEventType.ProductionRecordDeleted);
             Assert.Equal("مدير القسم", logged.Actor);     // 3) الحدث اتسجل
             Assert.Equal("تصحيح إدخال", logged.Reason);
         }

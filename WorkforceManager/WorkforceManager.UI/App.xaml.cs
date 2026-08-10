@@ -254,6 +254,12 @@ namespace WorkforceManager.UI
 
             ApplyPalette(app, darkMode);
             ApplyMaterialDesignBaseTheme(darkMode);
+
+            // شريط عنوان النافذة برّه WPF، فمفيش Brush بيوصله — لازم
+            // يتلوّن بنداء صريح مع كل تبديل ثيم، وإلا بيفضل أبيض فوق
+            // برنامج كله أسود
+            foreach (Window window in app.Windows)
+                WindowChromeColors.Apply(window);
         }
 
         /// <summary>لوحة ألوان الهوية — الملف بيتبدّل في مكانه.</summary>
