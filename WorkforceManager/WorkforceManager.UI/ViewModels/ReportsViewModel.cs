@@ -1,24 +1,24 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Win32;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
-using WorkforceManager.Core.Enums;
-using WorkforceManager.Core.Interfaces;
 
 namespace WorkforceManager.UI.ViewModels
 {
     /// <summary>
-    /// عقل شاشة التقارير والتقييم، وفيها تبويبين:
-    /// 1) تقييم اليوم: كل عامل مقارن بمتوسط زمايله اللي أنتجوا في نفس
-    ///    اليوم، بتصنيف ملوّن (الأفضل / فوق المتوسط / متوسط / تحت
-    ///    المتوسط / غياب بدون إذن)، مع تفاصيل إنتاجه وجزاءاته.
-    /// 2) كشف الأسبوع: الترتيب النهائي بصافي اليوميات (بعد كل الخصومات)
-    ///    مع تنقّل بين الأسابيع وتصدير الكشف لملف Excel منسّق.
+    /// عقل شاشة "التقييم والمتابعة"، وفيها تبويبين:
+    ///
+    /// 1) إنتاج اليوم: خلص كام ودخل كام واتهلك كام، لكل منتج وللمصنع كله.
+    /// 2) رسم إنتاج المنتجات: نفس الأرقام على مدى، مقسومة بيوم أو أسبوع
+    ///    أو شهر، مع الهالك والمتوسط والمقارنة بالفترة اللي قبلها.
+    ///
+    /// **تبويب "تقييم اليوم" اتشال بالكامل.** كان بيعرض كروت بتكرر
+    /// أرقام تبويب إنتاج اليوم بصياغة تانية، وجدول بيقارن كل عامل
+    /// بمتوسط زمايله. الجدول ده موجود في مُنشئ التقارير (الإنتاج
+    /// بالعامل) وبيتصدّر Excel كمان، فوجوده هنا كان تكرار — والتكرار
+    /// هو اللي كان بيخلي رقمين مختلفين شكلًا لنفس اليوم على شاشتين.
     /// </summary>
     public partial class ReportsViewModel : ObservableObject
     {
@@ -27,220 +27,20 @@ namespace WorkforceManager.UI.ViewModels
         public ReportsViewModel(IServiceScopeFactory scopeFactory)
         {
             _scopeFactory = scopeFactory;
+
+            // الحقل مباشرة مش الخاصية: الخاصية بتنادي RefreshRangeOptions
+            // وتطلب تحميل، والشاشة لسه مش جاهزة
+            _selectedGrain = Grains[1];
+            RefreshRangeOptions();
         }
 
-        // ======================= محتاج تصرّف =======================
-        // القايمة دي فوق كل حاجة عن قصد: الجدول بيقول حقيقة، وده
-        // بيقول اعمل إيه. المدير بيفتح الشاشة عشان يعرف يتصرّف في إيه،
-        // مش عشان يقرا متوسطات.
-
-        public ObservableCollection<AttentionItem> Attention { get; } = new();
-
-        public bool HasAttention => Attention.Count > 0;
-
-        [ObservableProperty]
-        private string _attentionSummary = "";
-
-        private async Task LoadAttentionAsync()
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<NeedsAttentionService>();
-
-            Attention.Clear();
-            foreach (var item in await service.GetAsync(DailyDate)) Attention.Add(item);
-
-            AttentionSummary = Attention.Count == 0
-                ? "مفيش حاجة محتاجة تصرّف — كله تمام"
-                : $"{Attention.Count} حاجة محتاجة تصرّف";
-
-            OnPropertyChanged(nameof(HasAttention));
-        }
-
-        /// <summary>بيفتح شاشة العمال على العامل ده — الإجراء بيتم من مكانه</summary>
-        [RelayCommand]
-        private void OpenWorker(AttentionItem? item)
-        {
-            if (item?.WorkerId is null) return;
-
-            Notify.Info(
-                $"افتح شاشة \"العمال والمهارات\" ودوّر على \"{item.Title}\" — " +
-                "من هناك تقدر تغيّر نجومه أو تظبّط سعر يوميته.",
-                "الإجراء");
-        }
-
-        /// <summary>
-        /// أول تحميل: اللي محتاج تصرّف الأول، وبعده تقييم اليوم وإنتاجه
-        /// والرسم البياني.
-        ///
-        /// الكشوف والتقارير اللي كانت هنا اتنقلت لشاشة "التقارير" — دي
-        /// شاشة بتتشاف وبيتصرّف منها، مش بتطلّع ورق.
-        /// </summary>
         public async Task InitializeAsync()
         {
-            await LoadAttentionAsync();
-            await LoadDailyAsync();
             await LoadOutputAsync();
             await LoadChartAsync();
         }
 
-        /// <summary>حساب مدى التاريخ للأزرار السريعة (اليوم/الأسبوع/الشهر)</summary>
-        private static (DateTime from, DateTime to) ResolveQuickPeriod(string period)
-        {
-            var today = DateTime.Today;
-            return period switch
-            {
-                "week" => WeeklySummaryService.GetWorkWeekRange(today), // أسبوع العمل: خميس → أربع
-                "month" => (new DateTime(today.Year, today.Month, 1), today), // من أول الشهر لليوم
-                _ => (today, today) // اليوم
-            };
-        }
-
-        // ======================= تبويب تقييم اليوم =======================
-
-        [ObservableProperty]
-        private DateTime _dailyDate = DateTime.Today;
-
-        partial void OnDailyDateChanged(DateTime value)
-        {
-            // تغيير اليوم بيعيد تحميل التقرير (وأي خطأ بيظهر مش بيضيع بصمت)
-            SafeAsync.Run(LoadDailyAsync);
-        }
-
-        /// <summary>سطر ملخص فوق الجدول: متوسط الفريق وعدد المنتجين</summary>
-        [ObservableProperty]
-        private string _dailySummaryText = string.Empty;
-
-        public ObservableCollection<DailyReportRow> DailyRows { get; } = new();
-
-        // ------- لوحة "اليوم في سطر" -------
-        // خمس حقايق المدير بيسأل عنها أول ما يفتح الشاشة: اشتغلنا على
-        // إيه، أنتجنا كام، أكتر منتج، وأحسن وأقل عامل. كلها محسوبة من
-        // سجلات اليوم — مفيش رقم مكتوب بالإيد.
-
-        /// <summary>المنتجات اللي اتشغل عليها النهارده، مرتبة بالأكتر إنتاجًا</summary>
-        public ObservableCollection<DailyProductRow> DailyProducts { get; } = new();
-
-        public bool HasDailyProducts => DailyProducts.Count > 0;
-
-        [ObservableProperty]
-        private string _dailyTotalPiecesText = "0";
-
-        [ObservableProperty]
-        private string _dailyTopProductText = "—";
-
-        [ObservableProperty]
-        private string _dailyTopProductPiecesText = "";
-
-        [ObservableProperty]
-        private string _dailyBestWorkerText = "—";
-
-        [ObservableProperty]
-        private string _dailyBestWorkerDetail = "";
-
-        [ObservableProperty]
-        private string _dailyWorstWorkerText = "—";
-
-        [ObservableProperty]
-        private string _dailyWorstWorkerDetail = "";
-
-        /// <summary>
-        /// عامل واحد بس أنتج — "الأحسن" و"الأقل" هيبقوا هو، وعرضهم
-        /// مرتين بيوحي بمقارنة محصلتش
-        /// </summary>
-        [ObservableProperty]
-        private bool _dailyHasComparison;
-
-        private async Task LoadDailyAsync()
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var evaluationService = scope.ServiceProvider.GetRequiredService<PerformanceEvaluationService>();
-            var penaltyService = scope.ServiceProvider.GetRequiredService<PenaltyService>();
-            var activityService = scope.ServiceProvider.GetRequiredService<ProductActivityService>();
-
-            var evaluations = await evaluationService.EvaluateDayAsync(DailyDate);
-
-            // منتجات اليوم من نفس خدمة نشاط المنتجات اللي شاشة المنتجات
-            // شغالة بيها — مفيش حساب تاني موازي
-            var activity = (await activityService.GetAsync(DailyDate, DailyDate))
-                .Where(p => p.WorkedInPeriod)
-                .ToList();
-
-            DailyProducts.Clear();
-            foreach (var product in activity)
-                DailyProducts.Add(new DailyProductRow
-                {
-                    ProductName = product.ProductName,
-                    // المنتج التام = اللي خلص آخر مرحلة. جمع المراحل كان
-                    // بيحسب القطعة الواحدة مرة لكل مرحلة (5,000 قطعة على
-                    // 11 مرحلة كانت بتطلع 55,000)
-                    Pieces = product.CompletedPieces,
-                    StartedPieces = product.StartedPieces,
-                    WorkerCount = product.WorkerIds.Count
-                });
-
-            OnPropertyChanged(nameof(HasDailyProducts));
-
-            DailyTotalPiecesText = activity.Sum(p => p.CompletedPieces).ToString("N0");
-
-            // الأكتر إنتاجًا = الأكتر **تام**. الخدمة بترجّعهم مرتبين كده.
-            var top = activity.FirstOrDefault(p => p.CompletedPieces > 0);
-            DailyTopProductText = top?.ProductName ?? "—";
-            DailyTopProductPiecesText = top is null ? "" : $"{top.CompletedPieces:N0} قطعة";
-
-            RefreshDailyExtremes(evaluations);
-            // جزاءات اليوم بتتضم للعرض (مش جزء من تقييم الأداء نفسه)
-            var penaltiesByWorker = (await penaltyService.GetPenaltiesByDateAsync(DailyDate))
-                .GroupBy(p => p.WorkerId)
-                .ToDictionary(g => g.Key,
-                    g => string.Join("، ", g.Select(p => $"{p.Reason} ({p.Deduction.ToArabicName()})")));
-
-            DailyRows.Clear();
-            foreach (var e in evaluations)
-            {
-                penaltiesByWorker.TryGetValue(e.WorkerId, out var penaltiesText);
-                DailyRows.Add(DailyReportRow.From(e, penaltiesText ?? ""));
-            }
-
-            var producers = evaluations.Where(e => e.TotalPieces > 0).ToList();
-            DailySummaryText = producers.Count == 0
-                ? "لا يوجد إنتاج مسجّل في هذا اليوم"
-                : $"عدد المنتجين: {producers.Count} عامل   |   متوسط الفريق: {producers[0].TeamAverageWorkdays:0.##} يومية";
-        }
-
-        /// <summary>
-        /// أحسن وأقل عامل في اليوم — من العمال اللي **أنتجوا فعلاً** بس.
-        ///
-        /// الغايبين واللي محصلش لهم تسجيل مستبعدين عن قصد: "أقل عامل"
-        /// اللي إنتاجه صفر لأنه أجازة مش معلومة، هي تشويش. المقارنة بين
-        /// اللي اشتغلوا هي اللي بتقول حاجة.
-        /// </summary>
-        private void RefreshDailyExtremes(IReadOnlyList<WorkerDailySummaryDto> evaluations)
-        {
-            var producers = evaluations
-                .Where(e => e.TotalPieces > 0)
-                .OrderByDescending(e => e.TotalWorkdays)
-                .ThenBy(e => e.WorkerName)
-                .ToList();
-
-            DailyHasComparison = producers.Count > 1;
-
-            if (producers.Count == 0)
-            {
-                DailyBestWorkerText = DailyWorstWorkerText = "—";
-                DailyBestWorkerDetail = DailyWorstWorkerDetail = "مفيش إنتاج مسجّل";
-                return;
-            }
-
-            var best = producers[0];
-            DailyBestWorkerText = best.WorkerName;
-            DailyBestWorkerDetail = $"{best.TotalWorkdays:0.##} يومية — {best.TotalPieces:N0} قطعة";
-
-            var worst = producers[^1];
-            DailyWorstWorkerText = worst.WorkerName;
-            DailyWorstWorkerDetail = $"{worst.TotalWorkdays:0.##} يومية — {worst.TotalPieces:N0} قطعة";
-        }
-
-        // ======================= تبويب إنتاج اليوم (الدفعات) =======================
+        // ======================= تبويب إنتاج اليوم =======================
 
         [ObservableProperty]
         private DateTime _outputDate = DateTime.Today;
@@ -256,6 +56,17 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private string _outputStartedText = "0";
 
+        /// <summary>هالك اليوم — على كل المراحل، مش آخر مرحلة بس</summary>
+        [ObservableProperty]
+        private string _outputScrapText = "0";
+
+        /// <summary>نسبة الهالك لليوم — رقم لوحده مبيقولش هو كتير ولا لأ</summary>
+        [ObservableProperty]
+        private string _outputScrapRateText = "";
+
+        [ObservableProperty]
+        private bool _outputHasScrap;
+
         [ObservableProperty]
         private bool _outputIsClosed;
 
@@ -263,15 +74,18 @@ namespace WorkforceManager.UI.ViewModels
         private bool _outputIsEmpty = true;
 
         /// <summary>
-        /// تقرير إنتاج اليوم: كام قطعة خلصت آخر مرحلة (= منتج تام) وكام قطعة
-        /// دخلت أول مرحلة. الرقمين محسوبين من سجلات الإنتاج نفسها.
+        /// تقرير إنتاج اليوم: كام قطعة خلصت آخر مرحلة (= منتج تام)، وكام
+        /// قطعة دخلت أول مرحلة، وكام هالك اتسجّل. الأرقام محسوبة من
+        /// السجلات نفسها.
         /// </summary>
         private async Task LoadOutputAsync()
         {
             using var scope = _scopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<DailyProductionReportService>();
+            var scrapService = scope.ServiceProvider.GetRequiredService<ScrapService>();
 
             var report = await service.GetAsync(OutputDate);
+            var scrap = await scrapService.GetByDateAsync(OutputDate);
 
             OutputProducts.Clear();
             foreach (var product in report.Products) OutputProducts.Add(product);
@@ -280,38 +94,184 @@ namespace WorkforceManager.UI.ViewModels
             OutputStartedText = report.TotalStartedPieces.ToString("N0");
             OutputIsClosed = report.IsClosed;
             OutputIsEmpty = report.Products.Count == 0;
+
+            var scrapTotal = scrap.Sum(s => s.PieceCount);
+            OutputScrapText = scrapTotal.ToString("N0");
+            OutputHasScrap = scrapTotal > 0;
+
+            // النسبة على التام + الهالك: "كام من اللي اشتغلناه ضاع".
+            // النسبة على التام لوحده كانت بتطلع أكبر من 100% في يوم
+            // إنتاجه كله اتهلك.
+            // "0% من شغل اليوم" تحت "0 قطعة هالك" بتقول نفس الحاجة مرتين
+            var baseline = report.TotalCompletedPieces + scrapTotal;
+            OutputScrapRateText = scrapTotal == 0 || baseline == 0
+                ? ""
+                : $"{(double)scrapTotal / baseline * 100:0.#}% من شغل اليوم";
         }
 
         // ======================= تبويب رسم إنتاج المنتجات =======================
 
-        /// <summary>خيارات مدة الرسم (بالأسابيع، منتهية بالأسبوع الحالي)</summary>
-        public List<int> ChartWeeksOptions { get; } = new() { 4, 8, 12, 24 };
+        /// <summary>
+        /// التقسيم الزمني. الافتراضي أسبوع: اليوم بيبقى ضوضاء على مدى
+        /// طويل، والشهر بيخبّي التفاصيل — الأسبوع هو وحدة الشغل هنا
+        /// أصلاً (خميس → أربع).
+        /// </summary>
+        public IReadOnlyList<GrainOption> Grains { get; } = new[]
+        {
+            new GrainOption(ChartGrain.Day, "بيوم"),
+            new GrainOption(ChartGrain.Week, "بأسبوع"),
+            new GrainOption(ChartGrain.Month, "بشهر")
+        };
 
         [ObservableProperty]
-        private int _selectedChartWeeks = 8;
+        private GrainOption _selectedGrain;
 
-        partial void OnSelectedChartWeeksChanged(int value)
+        partial void OnSelectedGrainChanged(GrainOption value)
         {
+            // كل تقسيم وعدد فتراته المعقول: 30 يوم يبقوا 30 عمود، بس
+            // 30 شهر يبقوا سنتين ونص — فالخيارات بتتغيّر مع التقسيم
+            RefreshRangeOptions();
+
+            OnPropertyChanged(nameof(IsGrainDay));
+            OnPropertyChanged(nameof(IsGrainWeek));
+            OnPropertyChanged(nameof(IsGrainMonth));
+
             SafeAsync.Run(LoadChartAsync);
         }
 
-        /// <summary>أعمدة الرسم مجمعة بالأسبوع (بالترتيب الزمني)</summary>
-        public ObservableCollection<ChartWeekGroup> ChartWeekGroups { get; } = new();
+        public bool IsGrainDay => SelectedGrain.Grain == ChartGrain.Day;
+        public bool IsGrainWeek => SelectedGrain.Grain == ChartGrain.Week;
+        public bool IsGrainMonth => SelectedGrain.Grain == ChartGrain.Month;
 
-        /// <summary>مفتاح الألوان: منتج → لون + إجمالي الفترة</summary>
+        [RelayCommand]
+        private void SetGrain(string? key)
+        {
+            var grain = key switch
+            {
+                "day" => ChartGrain.Day,
+                "month" => ChartGrain.Month,
+                _ => ChartGrain.Week
+            };
+
+            SelectedGrain = Grains.First(g => g.Grain == grain);
+        }
+
+        public ObservableCollection<RangeOption> RangeOptions { get; } = new();
+
+        [ObservableProperty]
+        private RangeOption? _selectedRange;
+
+        partial void OnSelectedRangeChanged(RangeOption? value)
+        {
+            if (!_suppressReload) SafeAsync.Run(LoadChartAsync);
+        }
+
+        private bool _suppressReload;
+
+        private void RefreshRangeOptions()
+        {
+            var counts = SelectedGrain.Grain switch
+            {
+                ChartGrain.Day => new[] { 7, 14, 30, 60 },
+                ChartGrain.Week => new[] { 4, 8, 12, 24 },
+                _ => new[] { 3, 6, 12, 24 }
+            };
+
+            var unit = SelectedGrain.Grain switch
+            {
+                ChartGrain.Day => "يوم",
+                ChartGrain.Week => "أسبوع",
+                _ => "شهر"
+            };
+
+            // العلم بيمنع تغيير الاختيار إنه يطلب تحميل تاني — التقسيم
+            // بيحمّل مرة واحدة في الآخر
+            _suppressReload = true;
+            try
+            {
+                RangeOptions.Clear();
+                foreach (var count in counts)
+                    RangeOptions.Add(new RangeOption(count, $"آخر {count} {unit}"));
+
+                SelectedRange = RangeOptions[1];
+            }
+            finally
+            {
+                _suppressReload = false;
+            }
+        }
+
+        /// <summary>
+        /// فلتر المنتجات: مفيش علامة على حاجة = اعرض الكل. المستخدم
+        /// اللي بيشيل كل العلامات قصده يشوف الكل تاني، مش يشوف رسم فاضي.
+        /// </summary>
+        public ObservableCollection<ChartProductFilterItem> ChartProducts { get; } = new();
+
+        [ObservableProperty]
+        private bool _isProductMenuOpen;
+
+        public bool HasProductFilter => ChartProducts.Any(p => !p.IsChecked);
+
+        public string ProductFilterText
+        {
+            get
+            {
+                var shown = ChartProducts.Count(p => p.IsChecked);
+                return shown == ChartProducts.Count ? "كل المنتجات" : $"{shown} من {ChartProducts.Count}";
+            }
+        }
+
+        private void OnProductFilterChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != nameof(ChartProductFilterItem.IsChecked)) return;
+
+            OnPropertyChanged(nameof(HasProductFilter));
+            OnPropertyChanged(nameof(ProductFilterText));
+            RebuildChart();
+        }
+
+        /// <summary>أعمدة الرسم بالترتيب الزمني</summary>
+        public ObservableCollection<ChartBucket> ChartBuckets { get; } = new();
+
+        /// <summary>مفتاح الألوان: منتج → لون + إجمالي الفترة + تغيّره</summary>
         public ObservableCollection<ChartLegendItem> ChartLegend { get; } = new();
 
         [ObservableProperty]
         private bool _chartHasData;
+
+        [ObservableProperty]
+        private string _chartTotalText = "0";
+
+        /// <summary>الهالك في الفترة كلها + نسبته</summary>
+        [ObservableProperty]
+        private string _chartScrapText = "0";
+
+        [ObservableProperty]
+        private string _chartScrapRateText = "";
+
+        [ObservableProperty]
+        private string _chartAverageText = "";
+
+        [ObservableProperty]
+        private string _chartHint = "";
+
+        // ------- المقارنة بالفترة اللي فاتت -------
+
+        [ObservableProperty]
+        private string _chartTrendText = "";
+
+        /// <summary>مفتاح فرشاة من اللوحة — مش كود لون (شوف <see cref="ThemeBrush"/>)</summary>
+        [ObservableProperty]
+        private string _chartTrendColor = "InkSoftBrush";
+
+        [ObservableProperty]
+        private bool _hasChartTrend;
 
         /// <summary>
         /// سلاسل المنتجات — ترتيب ثابت، بيتوزّع على المنتجات بالمعرّف
         /// مش بالترتيب، فالمنتج بياخد نفس اللون مهما اتغيّر الفلتر.
         ///
         /// **دي مفاتيح فُرَش مش أكواد ألوان** (شوف <see cref="ThemeBrush"/>).
-        /// اللوحة القديمة كانت أزرق وبرتقالي وأحمر وبنفسجي وأخضر — سبع
-        /// هويات في رسم واحد، ومكتوبة بالإيد فمكانتش بتتغير مع الثيم.
-        /// الدرجات الفعلية في Palette.Light/Dark، وكل ثيم ليه نسخته.
         /// </summary>
         private static readonly string[] ChartPalette =
         {
@@ -327,36 +287,124 @@ namespace WorkforceManager.UI.ViewModels
         /// </summary>
         private const string OtherProductsColor = "SeriesOtherBrush";
 
-        /// <summary>اسم مجموعة "الباقي" في المفتاح</summary>
         private const string OtherProductsLabel = "منتجات تانية";
 
-        /// <summary>أقصى ارتفاع للعمود بالبكسل — الباقي بيتحسب نسبيًا عليه</summary>
-        private const double MaxBarHeight = 190;
+        /// <summary>لون الهالك — مميز عن ألوان المنتجات عن قصد</summary>
+        private const string ScrapColor = "DangerBrush";
+
+        /// <summary>
+        /// أقصى ارتفاع للعمود بالبكسل — الباقي بيتحسب نسبيًا عليه.
+        /// لازم يفضل أقل من ارتفاع منطقة الرسم في XAML بفرق بسيط.
+        /// </summary>
+        private const double MaxBarHeight = 260;
 
         /// <summary>الفاصل بين شرايح العمود الواحد — بيخلي الحدود تبان</summary>
         private const double SegmentGap = 2;
 
+        /// <summary>نقاط الفترة المعروضة — الفلتر بيشتغل عليها من غير استعلام تاني</summary>
+        private List<ProductOutputPointDto> _points = new();
+
+        /// <summary>إجمالي الفترة اللي قبل المعروضة — للمقارنة</summary>
+        private int _previousPeriodTotal;
+
+        private Dictionary<int, int> _previousByProduct = new();
+
         private async Task LoadChartAsync()
         {
-            List<ProductWeeklyPointDto> points;
+            if (SelectedRange is null) return;
+
+            var count = SelectedRange.Count;
+            var grain = SelectedGrain.Grain;
+
+            var from = ProductionChartService.StartOfLast(count, grain);
+            var to = DateTime.Today;
+
+            // الفترة اللي قبلها بنفس الطول بالظبط — المقارنة لازم تبقى
+            // زي بزي، مش شهر مقابل أسبوعين
+            var previousTo = from.AddDays(-1);
+            var previousFrom = ProductionChartService.BucketOf(previousTo, grain).Start;
+            for (var i = 1; i < count; i++)
+                previousFrom = grain switch
+                {
+                    ChartGrain.Day => previousFrom.AddDays(-1),
+                    ChartGrain.Week => previousFrom.AddDays(-7),
+                    _ => previousFrom.AddMonths(-1)
+                };
+
+            List<ProductOutputPointDto> previous;
+
             using (var scope = _scopeFactory.CreateScope())
             {
                 var chartService = scope.ServiceProvider.GetRequiredService<ProductionChartService>();
-                var to = DateTime.Today;
-                var from = to.AddDays(-7 * (SelectedChartWeeks - 1));
-                points = await chartService.GetProductWeeklyCompletedAsync(from, to);
+                _points = await chartService.GetProductOutputAsync(from, to, grain);
+                previous = await chartService.GetProductOutputAsync(previousFrom, previousTo, grain);
             }
 
-            // المنتجات اللي ليها إنتاج مكتمل في الفترة — الأكتر إنتاجًا الأول، ولون ثابت لكل منتج
+            _previousPeriodTotal = previous.Sum(p => p.CompletedPieces);
+            _previousByProduct = previous
+                .GroupBy(p => p.ProductId)
+                .ToDictionary(g => g.Key, g => g.Sum(p => p.CompletedPieces));
+
+            RefreshProductFilter();
+            RebuildChart();
+        }
+
+        /// <summary>
+        /// بيحدّث قايمة الفلتر مع الفترة الجديدة، وبيحافظ على اللي
+        /// المستخدم شاله — منتج شيلته من الرسم مايرجعش لوحده لما تغيّر
+        /// المدة.
+        /// </summary>
+        private void RefreshProductFilter()
+        {
+            var unchecked_ = ChartProducts.Where(p => !p.IsChecked).Select(p => p.Id).ToHashSet();
+
+            foreach (var item in ChartProducts) item.PropertyChanged -= OnProductFilterChanged;
+            ChartProducts.Clear();
+
+            foreach (var product in _points
+                         .GroupBy(p => (p.ProductId, p.ProductName))
+                         .Select(g => (g.Key.ProductId, g.Key.ProductName, Total: g.Sum(x => x.CompletedPieces)))
+                         .OrderByDescending(x => x.Total)
+                         .ThenBy(x => x.ProductName))
+            {
+                var item = new ChartProductFilterItem
+                {
+                    Id = product.ProductId,
+                    Name = product.ProductName,
+                    IsChecked = !unchecked_.Contains(product.ProductId)
+                };
+
+                item.PropertyChanged += OnProductFilterChanged;
+                ChartProducts.Add(item);
+            }
+
+            OnPropertyChanged(nameof(HasProductFilter));
+            OnPropertyChanged(nameof(ProductFilterText));
+        }
+
+        /// <summary>
+        /// بيبني الرسم من النقاط المحمّلة. منفصل عن التحميل عشان الفلتر
+        /// يشتغل من غير استعلام جديد على قاعدة البيانات.
+        /// </summary>
+        private void RebuildChart()
+        {
+            var grain = SelectedGrain.Grain;
+            var count = SelectedRange?.Count ?? 8;
+
+            var visible = ChartProducts.Where(p => p.IsChecked).Select(p => p.Id).ToHashSet();
+
+            // مفيش علامة على حاجة = اعرض الكل (الفلتر مقفول مش "طابق ولا حاجة")
+            var points = visible.Count == 0
+                ? _points
+                : _points.Where(p => visible.Contains(p.ProductId)).ToList();
+
+            // المنتجات مرتبة بالأكتر إنتاجًا، ولون ثابت لكل منتج
             var productTotals = points
                 .GroupBy(p => (p.ProductId, p.ProductName))
                 .Select(g => (g.Key.ProductId, g.Key.ProductName, Total: g.Sum(x => x.CompletedPieces)))
                 .OrderByDescending(x => x.Total)
                 .ToList();
 
-            // أول 8 منتجات بلون خاص، والباقي بيتجمّع في "منتجات تانية".
-            // اللف على اللوحة من أولها كان بيدي لونين متطابقين لمنتجين
-            // مختلفين، والمستخدم مش هيعرف إن ده حصل.
             var namedProducts = productTotals.Take(ChartPalette.Length).ToList();
 
             var colorByProduct = namedProducts
@@ -367,7 +415,7 @@ namespace WorkforceManager.UI.ViewModels
                 colorByProduct.TryGetValue(productId, out var color) ? color : OtherProductsColor;
 
             // ترتيب الشرايح جوه العمود: نفس ترتيب المفتاح دايمًا، عشان
-            // العين تلاقي المنتج في نفس المكان من أسبوع للتاني
+            // العين تلاقي المنتج في نفس المكان من فترة للتانية
             var orderByProduct = namedProducts
                 .Select((p, i) => (p.ProductId, Order: i))
                 .ToDictionary(x => x.ProductId, x => x.Order);
@@ -375,122 +423,188 @@ namespace WorkforceManager.UI.ViewModels
             int OrderFor(int productId) =>
                 orderByProduct.TryGetValue(productId, out var order) ? order : ChartPalette.Length;
 
+            BuildLegend(productTotals, namedProducts, ColorFor);
+
+            // كل فترات المدى بالترتيب الزمني (حتى الفاضية — محور الزمن
+            // لازم يكون متصل)
+            var firstBucket = ProductionChartService.StartOfLast(count, grain);
+            var pointsByBucket = points.ToLookup(p => p.BucketStart);
+            var currentBucket = ProductionChartService.BucketOf(DateTime.Today, grain).Start;
+
+            // المقياس على **إجمالي الفترة + هالكها**: العمود بقى بيحمل
+            // الاتنين، فلو المقياس على التام لوحده الهالك بيطلع برّه
+            var bucketTotals = points
+                .GroupBy(p => p.BucketStart)
+                .ToDictionary(g => g.Key, g => g.Sum(p => p.CompletedPieces) + g.Sum(p => p.ScrapPieces));
+
+            var maxBucketTotal = bucketTotals.Count == 0 ? 1 : Math.Max(1, bucketTotals.Values.Max());
+
+            // المتوسط على الفترات اللي فيها شغل بس: الفترات الفاضية
+            // بتنزّل المتوسط لرقم مالوش معنى (أجازات ويوم الجمعة)
+            var workedTotals = points
+                .GroupBy(p => p.BucketStart)
+                .Select(g => g.Sum(p => p.CompletedPieces))
+                .Where(t => t > 0)
+                .ToList();
+
+            var average = workedTotals.Count == 0 ? 0 : workedTotals.Average();
+            var averageOffset = average / maxBucketTotal * MaxBarHeight;
+            var showAverage = workedTotals.Count >= 2;
+
+            ChartBuckets.Clear();
+
+            for (var bucket = firstBucket;
+                 bucket <= DateTime.Today;
+                 bucket = ProductionChartService.NextBucket(bucket, grain))
+            {
+                var bucketPoints = pointsByBucket[bucket]
+                    .OrderBy(p => OrderFor(p.ProductId))
+                    .ThenBy(p => p.ProductName)
+                    .ToList();
+
+                var completed = bucketPoints.Sum(p => p.CompletedPieces);
+                var scrapped = bucketPoints.Sum(p => p.ScrapPieces);
+                var end = ProductionChartService.BucketOf(bucket, grain).End;
+
+                double HeightOf(int pieces) =>
+                    pieces <= 0 ? 0 : Math.Max(3, (double)pieces / maxBucketTotal * MaxBarHeight - SegmentGap);
+
+                var segments = bucketPoints
+                    .Where(p => p.CompletedPieces > 0)
+                    .Select(p => new ChartBar
+                    {
+                        Color = ColorFor(p.ProductId),
+                        Height = HeightOf(p.CompletedPieces),
+                        Tooltip = $"{p.ProductName}\n{LabelFor(bucket, end, grain)}\n" +
+                                  $"{p.CompletedPieces:N0} قطعة مكتملة"
+                    })
+                    .ToList();
+
+                // الهالك فوق العمود: بيبان كزيادة على الشغل، مش جزء منه
+                if (scrapped > 0)
+                    segments.Insert(0, new ChartBar
+                    {
+                        Color = ScrapColor,
+                        Height = HeightOf(scrapped),
+                        Tooltip = $"هالك\n{LabelFor(bucket, end, grain)}\n{scrapped:N0} قطعة"
+                    });
+
+                ChartBuckets.Add(new ChartBucket
+                {
+                    Label = ShortLabel(bucket, grain),
+                    Total = completed,
+                    TotalText = completed == 0 ? "" : $"{completed:N0}",
+                    HasWork = completed > 0 || scrapped > 0,
+                    IsCurrent = bucket == currentBucket,
+                    AverageOffset = averageOffset,
+                    ShowAverage = showAverage,
+                    Segments = segments
+                });
+            }
+
+            var totalCompleted = points.Sum(p => p.CompletedPieces);
+            var totalScrap = points.Sum(p => p.ScrapPieces);
+
+            ChartTotalText = $"{totalCompleted:N0}";
+            ChartScrapText = $"{totalScrap:N0}";
+
+            // زي شاشة اليوم: "0%" جنب "0 قطعة" بتقول نفس الحاجة مرتين
+            var baseline = totalCompleted + totalScrap;
+            ChartScrapRateText = totalScrap == 0 || baseline == 0
+                ? ""
+                : $"{(double)totalScrap / baseline * 100:0.#}% من الشغل";
+
+            ChartAverageText = showAverage
+                ? $"متوسط {UnitName(grain)}: {average:N0} قطعة"
+                : "";
+
+            ChartHint = grain switch
+            {
+                ChartGrain.Day => "القطع المكتملة فقط: المسجلة على آخر مرحلة لكل منتج. الهالك محسوب على كل المراحل.",
+                ChartGrain.Week => "الأسبوع خميس → أربع. القطع المكتملة فقط، والهالك على كل المراحل.",
+                _ => "الشهر بالتقويم. القطع المكتملة فقط، والهالك على كل المراحل."
+            };
+
+            ChartHasData = points.Count > 0;
+            RefreshTrend(totalCompleted, grain);
+        }
+
+        private void BuildLegend(
+            List<(int ProductId, string ProductName, int Total)> productTotals,
+            List<(int ProductId, string ProductName, int Total)> namedProducts,
+            Func<int, string> colorFor)
+        {
             ChartLegend.Clear();
+
             foreach (var p in namedProducts)
             {
+                var (changeText, changeColor) = DescribeChange(
+                    p.Total,
+                    _previousByProduct.TryGetValue(p.ProductId, out var before) ? before : 0);
+
                 ChartLegend.Add(new ChartLegendItem
                 {
-                    Color = ColorFor(p.ProductId),
+                    Color = colorFor(p.ProductId),
                     ProductName = p.ProductName,
-                    TotalText = $"{p.Total:N0} قطعة"
+                    TotalText = $"{p.Total:N0} قطعة",
+                    ChangeText = changeText,
+                    ChangeColor = changeColor
                 });
             }
 
             var otherTotal = productTotals.Skip(ChartPalette.Length).Sum(p => p.Total);
             if (otherTotal > 0)
-            {
                 ChartLegend.Add(new ChartLegendItem
                 {
                     Color = OtherProductsColor,
                     ProductName = $"{OtherProductsLabel} ({productTotals.Count - namedProducts.Count})",
                     TotalText = $"{otherTotal:N0} قطعة"
                 });
-            }
-
-            // كل أسابيع الفترة بالترتيب الزمني (حتى الفاضية — محور الزمن لازم يكون متصل)
-            var (firstWeekStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today.AddDays(-7 * (SelectedChartWeeks - 1)));
-            var pointsByWeek = points.ToLookup(p => p.WeekStart);
-
-            // المقياس بقى على **إجمالي الأسبوع** مش على أعلى منتج: الأعمدة
-            // بقت مكدّسة، فطول العمود بيمثّل إنتاج الأسبوع كله. المقياس
-            // القديم (أعلى منتج) كان هيخلي الأعمدة تطلع برّه الرسمة.
-            var weekTotals = points
-                .GroupBy(p => p.WeekStart)
-                .ToDictionary(g => g.Key, g => g.Sum(p => p.CompletedPieces));
-
-            var maxWeekTotal = weekTotals.Count == 0 ? 1 : weekTotals.Values.Max();
-
-            ChartWeekGroups.Clear();
-            for (var week = firstWeekStart; week <= DateTime.Today; week = week.AddDays(7))
-            {
-                var weekPoints = pointsByWeek[week]
-                    .OrderBy(p => OrderFor(p.ProductId))
-                    .ThenBy(p => p.ProductName)
-                    .ToList();
-
-                var weekTotal = weekPoints.Sum(p => p.CompletedPieces);
-                var weekEnd = week.AddDays(6);
-
-                ChartWeekGroups.Add(new ChartWeekGroup
-                {
-                    WeekLabel = $"{week:dd/MM}",
-                    TotalText = weekTotal == 0 ? "" : $"{weekTotal:N0}",
-                    HasWork = weekTotal > 0,
-                    // الأسبوع الحالي بيتعلّم: المقارنة بيه ناقصة لأنه لسه مكملش
-                    IsCurrentWeek = week == WeeklySummaryService.GetWorkWeekRange(DateTime.Today).WeekStart,
-                    Segments = weekPoints.Select(p => new ChartBar
-                    {
-                        Color = ColorFor(p.ProductId),
-                        // الارتفاع نسبي لإجمالي أعلى أسبوع. الفاصل بين
-                        // الشرايح بيتخصم من الارتفاع عشان مجموع العمود
-                        // يفضل مظبوط بصريًا
-                        Height = Math.Max(3,
-                            (double)p.CompletedPieces / maxWeekTotal * MaxBarHeight - SegmentGap),
-                        Tooltip = $"{p.ProductName}\nأسبوع {week:dd/MM} → {weekEnd:dd/MM}\n" +
-                                  $"{p.CompletedPieces:N0} قطعة مكتملة"
-                    }).ToList()
-                });
-            }
-
-            ChartHasData = points.Count > 0;
-            RefreshChartTrend();
         }
 
-        // ------- اتجاه الإنتاج -------
+        /// <summary>
+        /// نسبة التغيّر عن نفس الرقم في الفترة اللي قبلها. بترجع فاضي
+        /// لو مفيش أساس للمقارنة — "زاد ∞%" مش معلومة.
+        /// </summary>
+        private static (string Text, string Color) DescribeChange(int now, int before)
+        {
+            if (before <= 0) return ("", "InkSoftBrush");
 
-        [ObservableProperty]
-        private string _chartTrendText = "";
+            var change = (double)(now - before) / before * 100;
 
-        /// <summary>مفتاح فرشاة من اللوحة — مش كود لون (شوف <see cref="ThemeBrush"/>)</summary>
-        [ObservableProperty]
-        private string _chartTrendColor = "InkSoftBrush";
-
-        [ObservableProperty]
-        private bool _hasChartTrend;
+            return change switch
+            {
+                > 1 => ($"▲ {change:0}%", "GoodBrush"),
+                < -1 => ($"▼ {Math.Abs(change):0}%", "DangerBrush"),
+                _ => ("= زي الفترة اللي فاتت", "InkSoftBrush")
+            };
+        }
 
         /// <summary>
-        /// مقارنة آخر أسبوع **مكتمل** بالأسبوع اللي قبله.
+        /// مقارنة الفترة المعروضة كلها بالفترة اللي قبلها بنفس الطول.
         ///
-        /// الأسبوع الحالي مستبعد عن قصد: لسه مكملش، فمقارنته بأسبوع كامل
-        /// بتقول "الإنتاج نازل" كل يوم أحد — وده مش صحيح.
+        /// كانت بتقارن آخر أسبوعين مكتملين بس، فتغيير المدة مكانش بيغيّر
+        /// الجملة — والمستخدم اللي بيبص على 24 أسبوع كان بياخد خلاصة
+        /// عن أسبوعين منهم.
         /// </summary>
-        private void RefreshChartTrend()
+        private void RefreshTrend(int total, ChartGrain grain)
         {
-            var completed = ChartWeekGroups.Where(w => !w.IsCurrentWeek && w.HasWork).ToList();
+            HasChartTrend = _previousPeriodTotal > 0;
 
-            HasChartTrend = completed.Count >= 2;
             if (!HasChartTrend)
             {
                 ChartTrendText = "";
                 return;
             }
 
-            var last = ParseTotal(completed[^1].TotalText);
-            var previous = ParseTotal(completed[^2].TotalText);
-
-            if (previous == 0)
-            {
-                HasChartTrend = false;
-                return;
-            }
-
-            var change = (double)(last - previous) / previous * 100;
+            var change = (double)(total - _previousPeriodTotal) / _previousPeriodTotal * 100;
+            var unit = SelectedRange?.Display ?? "الفترة";
 
             ChartTrendText = change switch
             {
-                > 1 => $"آخر أسبوع مكتمل أعلى بـ {change:0}% عن اللي قبله",
-                < -1 => $"آخر أسبوع مكتمل أقل بـ {Math.Abs(change):0}% عن اللي قبله",
-                _ => "آخر أسبوعين مكتملين تقريبًا زي بعض"
+                > 1 => $"{unit}: {total:N0} قطعة — أعلى بـ {change:0}% عن الفترة اللي قبلها ({_previousPeriodTotal:N0})",
+                < -1 => $"{unit}: {total:N0} قطعة — أقل بـ {Math.Abs(change):0}% عن الفترة اللي قبلها ({_previousPeriodTotal:N0})",
+                _ => $"{unit}: {total:N0} قطعة — تقريبًا زي الفترة اللي قبلها ({_previousPeriodTotal:N0})"
             };
 
             ChartTrendColor = change switch
@@ -501,8 +615,30 @@ namespace WorkforceManager.UI.ViewModels
             };
         }
 
-        private static int ParseTotal(string text) =>
-            int.TryParse(text.Replace(",", ""), out var value) ? value : 0;
+        private static string UnitName(ChartGrain grain) => grain switch
+        {
+            ChartGrain.Day => "اليوم",
+            ChartGrain.Week => "الأسبوع",
+            _ => "الشهر"
+        };
 
+        /// <summary>عنوان قصير تحت العمود — لازم يفضل مقروء وهو 60 عمود</summary>
+        private static string ShortLabel(DateTime bucket, ChartGrain grain) => grain switch
+        {
+            ChartGrain.Month => $"{bucket:MM/yyyy}",
+            _ => $"{bucket:dd/MM}"
+        };
+
+        /// <summary>الوصف الكامل في التلميح</summary>
+        private static string LabelFor(DateTime start, DateTime end, ChartGrain grain) => grain switch
+        {
+            ChartGrain.Day => $"يوم {start:yyyy/MM/dd}",
+            ChartGrain.Week => $"أسبوع {start:dd/MM} → {end:dd/MM}",
+            _ => $"شهر {start:MM/yyyy}"
+        };
     }
+
+    public record GrainOption(ChartGrain Grain, string Display);
+
+    public record RangeOption(int Count, string Display);
 }

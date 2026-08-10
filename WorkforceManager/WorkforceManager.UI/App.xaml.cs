@@ -53,7 +53,6 @@ namespace WorkforceManager.UI
                     // Business Services
                     services.AddScoped<WorkerAssignmentGuard>();
                     services.AddScoped<WorkdayCalculationService>();
-                    services.AddScoped<PerformanceEvaluationService>();
                     services.AddScoped<AttendanceAutomationService>();
                     services.AddScoped<AttendanceService>();
                     services.AddScoped<PenaltyService>();
@@ -72,7 +71,6 @@ namespace WorkforceManager.UI
                     services.AddScoped<ProductionReportService>();
                     services.AddScoped<WageAdjustmentService>();
                     services.AddScoped<ReportBuilderService>();
-                    services.AddScoped<NeedsAttentionService>();
                     // الهوية المشتركة: مصدر واحد لـ"مين عمل كده" — الحذف الناعم
                     // وسجل العمليات الاتنين بيقروا منه
                     services.AddSingleton<CurrentUserContext>();

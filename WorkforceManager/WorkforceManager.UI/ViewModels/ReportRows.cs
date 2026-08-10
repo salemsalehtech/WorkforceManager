@@ -1,101 +1,17 @@
-using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.Windows;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Win32;
-using WorkforceManager.Business.DTOs;
-using WorkforceManager.Business.Services;
-using WorkforceManager.Core.Enums;
-using WorkforceManager.Core.Interfaces;
-
 namespace WorkforceManager.UI.ViewModels
 {
-    // صفوف شاشات التقارير: تقييم اليوم والرسم البياني والكشوف
-    // والتقرير العام وتقرير العامل. كل نوع بيقابل جدول أو كارت في ReportsView.
+    // صفوف شاشة "التقييم والمتابعة": إنتاج اليوم ورسم إنتاج المنتجات.
+    //
+    // صفوف تبويب "تقييم اليوم" (DailyProductRow / DailyReportRow) اتشالت
+    // مع التبويب نفسه — الجدول اللي كانت بتعرضه موجود في مُنشئ التقارير
+    // (الإنتاج بالعامل) وبيتصدّر Excel كمان.
 
-    public class DailyProductRow
+    /// <summary>عمود واحد في رسم إنتاج المنتجات (يوم أو أسبوع أو شهر)</summary>
+    public class ChartBucket
     {
-        public string ProductName { get; init; } = "";
+        public string Label { get; init; } = "";
 
-        /// <summary>القطع اللي خلصت الخط كامل = المنتج التام</summary>
-        public int Pieces { get; init; }
-
-        /// <summary>القطع اللي دخلت أول مرحلة</summary>
-        public int StartedPieces { get; init; }
-
-        public int WorkerCount { get; init; }
-
-        /// <summary>
-        /// الرقم على الكارت. لو مفيش تام بيقول اللي دخل الخط بدل ما
-        /// يقول صفر — اليوم مش فاضي، هو شغل لسه ماوصلش لآخر الخط.
-        /// </summary>
-        public string PiecesText => Pieces > 0
-            ? $"{Pieces:N0} تام"
-            : StartedPieces > 0
-                ? $"{StartedPieces:N0} دخلت الخط"
-                : "شغل في نص الخط";
-
-        public string WorkersText => $"{WorkerCount} عامل";
-    }
-
-    /// <summary>سطر واحد في جدول تقييم اليوم، بتصنيف ملوّن جاهز للعرض</summary>
-    public class DailyReportRow
-    {
-        public string WorkerName { get; private init; } = "";
-        public int TotalPieces { get; private init; }
-        public decimal TotalWorkdays { get; private init; }
-        public string PercentText { get; private init; } = "";
-        public string RatingText { get; private init; } = "";
-        /// <summary>مفتاح فرشاة من اللوحة — مش كود لون (شوف <see cref="ThemeBrush"/>)</summary>
-        public string RatingColor { get; private init; } = "InkSoftBrush";
-        public string AttendanceText { get; private init; } = "";
-        public string BreakdownText { get; private init; } = "";
-        public string PenaltiesText { get; private init; } = "";
-
-        /// <summary>تحويل نتيجة التقييم من الخدمة لشكل العرض (نص + لون لكل تصنيف)</summary>
-        public static DailyReportRow From(WorkerDailySummaryDto dto, string penaltiesText)
-        {
-            var (ratingText, ratingColor) = dto.Rating switch
-            {
-                PerformanceRating.TopPerformer => ("⭐ الأفضل النهارده", "GoodBrush"),
-                PerformanceRating.AboveAverage => ("فوق المتوسط", "GoldDeepBrush"),
-                PerformanceRating.Average => ("متوسط", "InkSoftBrush"),
-                PerformanceRating.BelowAverage => ("تحت المتوسط", "WarnBrush"),
-                PerformanceRating.UnexcusedAbsence => ("غياب بدون إذن", "DangerBrush"),
-                _ => ("غير محدد", "InkSoftBrush")
-            };
-
-            return new DailyReportRow
-            {
-                WorkerName = dto.WorkerName,
-                TotalPieces = dto.TotalPieces,
-                TotalWorkdays = dto.TotalWorkdays,
-                // النسبة مالهاش معنى لو مفيش إنتاج أصلاً
-                PercentText = dto.TotalPieces == 0 ? "—" : $"{dto.PercentVsAverage:+0.#;-0.#;0}%",
-                RatingText = ratingText,
-                RatingColor = ratingColor,
-                AttendanceText = dto.AttendanceStatus switch
-                {
-                    Core.Enums.AttendanceStatus.Present => "حاضر",
-                    Core.Enums.AttendanceStatus.AbsentWithPermission => "غياب بإذن",
-                    Core.Enums.AttendanceStatus.AbsentWithoutPermission => "غياب بدون إذن",
-                    _ => "—"
-                },
-                BreakdownText = string.Join("، ",
-                    dto.Breakdown.Select(b => $"{b.ProductName}/{b.StageName}: {b.PieceCount}")),
-                PenaltiesText = penaltiesText
-            };
-        }
-    }
-
-    /// <summary>مجموعة أعمدة أسبوع واحد في رسم إنتاج المنتجات</summary>
-    public class ChartWeekGroup
-    {
-        public string WeekLabel { get; init; } = "";
-
-        /// <summary>إجمالي الأسبوع — بيتكتب فوق العمود كرقم واحد</summary>
+        /// <summary>إجمالي الفترة — بيتكتب فوق العمود كرقم واحد</summary>
         public string TotalText { get; init; } = "";
 
         /// <summary>شرايح العمود المكدّس، بترتيب المفتاح</summary>
@@ -103,13 +19,25 @@ namespace WorkforceManager.UI.ViewModels
 
         public bool HasWork { get; init; }
 
-        /// <summary>الأسبوع الجاري — لسه مكملش، فبيتعلّم عشان المقارنة بيه ناقصة</summary>
-        public bool IsCurrentWeek { get; init; }
+        /// <summary>الرقم الخام — المقارنة والمتوسط بيتحسبوا منه</summary>
+        public int Total { get; init; }
 
-        public string CurrentWeekNote => IsCurrentWeek ? "لسه شغال" : "";
+        /// <summary>الفترة الجارية — لسه مكملتش، فالمقارنة بيها ناقصة</summary>
+        public bool IsCurrent { get; init; }
+
+        public string CurrentNote => IsCurrent ? "لسه شغال" : "";
+
+        /// <summary>
+        /// ارتفاع خط المتوسط فوق خط الأرض. كل عمود بيرسم قطعته من الخط
+        /// بدل طبقة واحدة فوق الرسم كله — الطبقة كانت هتحتاج ربط على
+        /// Margin، وده نوع قيمة بيكسّر القالب وقت التشغيل.
+        /// </summary>
+        public double AverageOffset { get; init; }
+
+        public bool ShowAverage { get; init; }
     }
 
-    /// <summary>شريحة في العمود المكدّس: منتج في أسبوع (اللون بيميز المنتج)</summary>
+    /// <summary>شريحة في العمود المكدّس: منتج في فترة (اللون بيميز المنتج)</summary>
     public class ChartBar
     {
         public string Color { get; init; } = "Series1Brush";
@@ -117,11 +45,29 @@ namespace WorkforceManager.UI.ViewModels
         public string Tooltip { get; init; } = "";
     }
 
-    /// <summary>عنصر في مفتاح ألوان الرسم: المنتج ولونه وإجماليه في الفترة</summary>
+    /// <summary>عنصر في مفتاح ألوان الرسم: المنتج ولونه وإجماليه وتغيّره</summary>
     public class ChartLegendItem
     {
         public string Color { get; init; } = "Series1Brush";
         public string ProductName { get; init; } = "";
         public string TotalText { get; init; } = "";
+
+        /// <summary>التغيّر عن الفترة اللي قبلها — فاضي لو مفيش مقارنة</summary>
+        public string ChangeText { get; init; } = "";
+
+        /// <summary>مفتاح فرشاة — مش كود لون (شوف <see cref="WorkforceManager.UI.ThemeBrush"/>)</summary>
+        public string ChangeColor { get; init; } = "InkSoftBrush";
+
+        public bool HasChange => ChangeText.Length > 0;
+    }
+
+    /// <summary>منتج في فلتر الرسم — علامة بتظهره أو تخفيه</summary>
+    public partial class ChartProductFilterItem : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+    {
+        public int Id { get; init; }
+        public string Name { get; init; } = "";
+
+        [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+        private bool _isChecked = true;
     }
 }
