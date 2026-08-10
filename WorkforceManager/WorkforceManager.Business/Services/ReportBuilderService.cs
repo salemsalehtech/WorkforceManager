@@ -238,6 +238,229 @@ namespace WorkforceManager.Business.Services
         public IReadOnlyList<ReportColumn> AvailableColumns(ReportSubject subject, ReportGrouping grouping) =>
             ColumnsFor(subject, grouping);
 
+        /// <summary>
+        /// السجلات الخام ورا التقرير — سطر لكل سجل من غير أي تجميع.
+        ///
+        /// بيتصدّر في شيت لوحده عشان المستخدم يعمل Pivot بنفسه بدل ما
+        /// يستنى عمود جديد يتكتب في البرنامج. الفلاتر هي **نفسها**
+        /// المستخدمة في الملخص عشان الشيتين يتكلموا عن نفس الشغل —
+        /// شيت تفاصيل بيقول غير الملخص أسوأ من إنه مش موجود.
+        ///
+        /// الترتيب والتخطيط وأعلى/أقل N مش بتتطبّق هنا عن قصد: دي شكل
+        /// عرض الملخص، والتفاصيل غرضها تبقى خام وكاملة.
+        /// </summary>
+        public async Task<ReportDetail> BuildDetailAsync(ReportSpec spec)
+        {
+            var names = await WorkerNamesAsync();
+
+            return spec.Subject switch
+            {
+                ReportSubject.Production => await ProductionDetailAsync(spec),
+                ReportSubject.Attendance => await AttendanceDetailAsync(spec, names),
+                ReportSubject.Penalties => await PenaltiesDetailAsync(spec, names),
+                ReportSubject.WageAdjustments => await AdjustmentsDetailAsync(spec, names),
+                ReportSubject.Skills => await SkillsDetailAsync(spec),
+
+                // الأجور محسوبة لكل عامل عن المدة كلها — مفيش "سجل خام"
+                // تحتها غير الملخص نفسه، فمفيش شيت تفاصيل ليها
+                _ => new ReportDetail { SheetName = "تفاصيل" }
+            };
+        }
+
+        private static ReportColumn Text(string header, string key) =>
+            new() { Header = header, Key = key, Kind = ReportValueKind.Text };
+
+        private async Task<ReportDetail> ProductionDetailAsync(ReportSpec spec)
+        {
+            var rows = Filter(await _production.GetByRangeAsync(spec.From, spec.To), spec);
+
+            var detail = new ReportDetail
+            {
+                SheetName = "سجلات الإنتاج",
+                Columns =
+                {
+                    Text("اليوم", "date"),
+                    Text("العامل", "worker"),
+                    Text("المنتج", "product"),
+                    Text("المرحلة", "stage"),
+                    new ReportColumn { Header = "القطع", Key = "pieces", Kind = ReportValueKind.Whole, Sums = true },
+                    new ReportColumn { Header = "اليوميات", Key = "workdays", Kind = ReportValueKind.Fraction, Sums = true },
+                    new ReportColumn { Header = "الكوتة وقت التسجيل", Key = "quota", Kind = ReportValueKind.Whole }
+                }
+            };
+
+            foreach (var r in rows.OrderBy(r => r.Date).ThenBy(r => r.Worker?.FullName))
+                detail.Rows.Add(new ReportDetailRow
+                {
+                    GroupLabel = Key(r, spec.GroupBy).Label,
+                    Cells =
+                    {
+                        ReportCell.Of(r.Date),
+                        ReportCell.Of(r.Worker?.FullName),
+                        ReportCell.Of(r.ProductionStage?.Product?.Name),
+                        ReportCell.Of(r.ProductionStage?.StageName),
+                        ReportCell.Of(r.PieceCount),
+                        ReportCell.Of(r.WorkdaysCompleted),
+                        ReportCell.Of(r.PiecesPerWorkdayAtEntry)
+                    }
+                });
+
+            return detail;
+        }
+
+        private async Task<ReportDetail> AttendanceDetailAsync(
+            ReportSpec spec, IReadOnlyDictionary<int, string> names)
+        {
+            var allowed = await AllowedWorkerIdsAsync(spec);
+            var rows = (await _attendance.GetByRangeAsync(spec.From, spec.To))
+                .Where(a => allowed is null || allowed.Contains(a.WorkerId))
+                .ToList();
+
+            var detail = new ReportDetail
+            {
+                SheetName = "سجلات الحضور",
+                Columns = { Text("اليوم", "date"), Text("العامل", "worker"), Text("الحالة", "status") }
+            };
+
+            foreach (var a in rows.OrderBy(a => a.Date).ThenBy(a => names.GetValueOrDefault(a.WorkerId)))
+                detail.Rows.Add(new ReportDetailRow
+                {
+                    GroupLabel = spec.GroupBy == ReportGrouping.Worker
+                        ? names.GetValueOrDefault(a.WorkerId, "—")
+                        : DayKey(a.Date).Label,
+                    Cells =
+                    {
+                        ReportCell.Of(a.Date),
+                        ReportCell.Of(names.GetValueOrDefault(a.WorkerId, "—")),
+                        ReportCell.Of(a.Status.ToArabicName())
+                    }
+                });
+
+            return detail;
+        }
+
+        private async Task<ReportDetail> PenaltiesDetailAsync(
+            ReportSpec spec, IReadOnlyDictionary<int, string> names)
+        {
+            var allowed = await AllowedWorkerIdsAsync(spec);
+            var rows = (await _penalties.GetByRangeAsync(spec.From, spec.To))
+                .Where(p => allowed is null || allowed.Contains(p.WorkerId))
+                .ToList();
+
+            var detail = new ReportDetail
+            {
+                SheetName = "سجلات الجزاءات",
+                Columns =
+                {
+                    Text("اليوم", "date"),
+                    Text("العامل", "worker"),
+                    Text("السبب", "reason"),
+                    new ReportColumn { Header = "الخصم (يومية)", Key = "deduction", Kind = ReportValueKind.Fraction, Sums = true },
+                    Text("المصدر", "source")
+                }
+            };
+
+            foreach (var p in rows.OrderBy(p => p.Date).ThenBy(p => names.GetValueOrDefault(p.WorkerId)))
+                detail.Rows.Add(new ReportDetailRow
+                {
+                    GroupLabel = spec.GroupBy == ReportGrouping.Worker
+                        ? names.GetValueOrDefault(p.WorkerId, "—")
+                        : DayKey(p.Date).Label,
+                    Cells =
+                    {
+                        ReportCell.Of(p.Date),
+                        ReportCell.Of(names.GetValueOrDefault(p.WorkerId, "—")),
+                        ReportCell.Of(p.Reason),
+                        ReportCell.Of(p.DeductedWorkdays),
+                        ReportCell.Of(p.IsAutoGenerated ? "تلقائي (غياب)" : "يدوي")
+                    }
+                });
+
+            return detail;
+        }
+
+        private async Task<ReportDetail> AdjustmentsDetailAsync(
+            ReportSpec spec, IReadOnlyDictionary<int, string> names)
+        {
+            var allowed = await AllowedWorkerIdsAsync(spec);
+            var rows = (await _adjustments.GetByRangeAsync(spec.From, spec.To))
+                .Where(a => allowed is null || allowed.Contains(a.WorkerId))
+                .ToList();
+
+            var detail = new ReportDetail
+            {
+                SheetName = "سجلات السلف والحوافز",
+                Columns =
+                {
+                    Text("اليوم", "date"),
+                    Text("العامل", "worker"),
+                    Text("النوع", "type"),
+                    new ReportColumn { Header = "المبلغ", Key = "amount", Kind = ReportValueKind.Money, Sums = true },
+                    Text("ملاحظة", "note")
+                }
+            };
+
+            foreach (var a in rows.OrderBy(a => a.Date).ThenBy(a => names.GetValueOrDefault(a.WorkerId)))
+                detail.Rows.Add(new ReportDetailRow
+                {
+                    GroupLabel = spec.GroupBy == ReportGrouping.Worker
+                        ? names.GetValueOrDefault(a.WorkerId, "—")
+                        : DayKey(a.Date).Label,
+                    Cells =
+                    {
+                        ReportCell.Of(a.Date),
+                        ReportCell.Of(names.GetValueOrDefault(a.WorkerId, "—")),
+                        ReportCell.Of(a.Type == WageAdjustmentType.Bonus ? "حافز" : "سلفة"),
+                        ReportCell.Of(a.AmountEgp),
+                        ReportCell.Of(a.Note)
+                    }
+                });
+
+            return detail;
+        }
+
+        private async Task<ReportDetail> SkillsDetailAsync(ReportSpec spec)
+        {
+            var workers = (await _workers.GetAllWithSkillsAsync())
+                .Where(w => Matches(w, spec))
+                .ToList();
+
+            var detail = new ReportDetail
+            {
+                SheetName = "سجلات المهارات",
+                Columns =
+                {
+                    Text("العامل", "worker"),
+                    Text("المنتج", "product"),
+                    Text("المرحلة", "stage"),
+                    new ReportColumn { Header = "النجوم", Key = "stars", Kind = ReportValueKind.Whole }
+                }
+            };
+
+            foreach (var w in workers.OrderBy(w => w.FullName))
+                foreach (var s in w.Skills.Where(s => s.ProductionStage?.Product is not null))
+                {
+                    var product = s.ProductionStage.Product;
+
+                    if (spec.ProductIds is { Count: > 0 } && !spec.ProductIds.Contains(product.Id)) continue;
+                    if (spec.StageIds is { Count: > 0 } && !spec.StageIds.Contains(s.ProductionStageId)) continue;
+
+                    detail.Rows.Add(new ReportDetailRow
+                    {
+                        GroupLabel = spec.GroupBy == ReportGrouping.Worker ? w.FullName : product.Name,
+                        Cells =
+                        {
+                            ReportCell.Of(w.FullName),
+                            ReportCell.Of(product.Name),
+                            ReportCell.Of(s.ProductionStage.StageName),
+                            ReportCell.Of(s.Stars)
+                        }
+                    });
+                }
+
+            return detail;
+        }
+
         private async Task<ReportTable> BuildTableAsync(ReportSpec spec) => spec.Subject switch
         {
             ReportSubject.Production => await ProductionAsync(spec),
