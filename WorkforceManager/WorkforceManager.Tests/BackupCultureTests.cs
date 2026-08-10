@@ -17,6 +17,7 @@ namespace WorkforceManager.Tests
     /// النتيجة كانت أسوأ من "مفيش تنظيف": مفيش **نسخ** خالص، والمستخدم
     /// مش هيكتشف ده غير يوم ما يحتاج يرجّع بيانات.
     /// </summary>
+    [Collection("Backup")]
     public class BackupCultureTests : IDisposable
     {
         private readonly CultureInfo _original = CultureInfo.CurrentCulture;
