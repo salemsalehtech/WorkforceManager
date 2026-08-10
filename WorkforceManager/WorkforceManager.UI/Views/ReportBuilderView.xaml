@@ -9,109 +9,185 @@
 
     <!-- شاشة التقارير: اختار عن إيه ولمدة إيه ومتفصّل إزاي، شوفه،
          وصدّره. بدّلت أربع تبويبات كان كل واحد فيهم تقرير ثابت. -->
+    <UserControl.Resources>
+        <!--
+          الشاشة كانت صف واحد فيه تمن اختيارات بنفس الوزن البصري
+          وتحته صف تاني من غير أي عنوان — فالمستخدم مش عارف يبدأ
+          منين ولا إيه اللي بيأثر في إيه. الأقسام التلاتة بتقسّمها
+          لتلات أسئلة: التقرير عن إيه؟ لمدة إيه؟ ونشوفه إزاي؟
+        -->
+        <Style x:Key="StepBadge" TargetType="Border">
+            <Setter Property="Width" Value="21" />
+            <Setter Property="Height" Value="21" />
+            <Setter Property="CornerRadius" Value="10.5" />
+            <Setter Property="Background" Value="{DynamicResource GoldBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="StepIcon" TargetType="materialDesign:PackIcon">
+            <Setter Property="Width" Value="13" />
+            <Setter Property="Height" Value="13" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
+        </Style>
+
+        <Style x:Key="StepCaption" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Margin" Value="7,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        </Style>
+
+        <!-- القسم كله: عنوان فوق واختياراته تحته -->
+        <Style x:Key="StepSection" TargetType="StackPanel">
+            <Setter Property="Margin" Value="0,0,30,4" />
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,7,0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        </Style>
+    </UserControl.Resources>
+
     <Grid Margin="14,10,14,10">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- ===== القوالب: أسرع طريق لتقرير بيتعمل كل شهر ===== -->
-        <Border Grid.Row="0" Style="{StaticResource Card}" Padding="14,11" Margin="0,0,0,10">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                    <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="17" Height="17"
-                                             VerticalAlignment="Center"
-                                             Foreground="{DynamicResource BrandBrush}" />
-                    <TextBlock Text="قالب جاهز:" FontWeight="Bold" FontSize="13"
-                               VerticalAlignment="Center" Margin="6,0,10,0" />
-                    <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
-                              DisplayMemberPath="Name" Width="200" FontSize="12.5"
-                              ToolTip="بيملّي الاختيارات تحت — تقدر تعدّل عليها بعدها عادي" />
-                    <Button Command="{Binding DeleteTemplateCommand}"
-                            CommandParameter="{Binding SelectedTemplate}"
-                            Style="{StaticResource IconButton}" Padding="7,5" Margin="4,0,0,0"
-                            Foreground="{DynamicResource DangerBrush}"
-                            ToolTip="حذف القالب (القوالب الجاهزة مبتتحذفش)">
-                        <materialDesign:PackIcon Kind="DeleteOutline" Width="15" Height="15" />
-                    </Button>
-                </StackPanel>
-
-                <!-- حفظ الإعداد الحالي كقالب جديد -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                    <TextBlock Text="احفظ الحالي باسم:" FontSize="12.5" VerticalAlignment="Center"
-                               Margin="24,0,8,0" Foreground="{DynamicResource TextMutedBrush}" />
-                    <TextBox Text="{Binding NewTemplateName, UpdateSourceTrigger=PropertyChanged}"
-                             Width="160" Padding="7,5" FontSize="12.5" VerticalContentAlignment="Center" />
-                    <Button Command="{Binding SaveTemplateCommand}" IsEnabled="{Binding CanSaveTemplate}"
-                            Style="{StaticResource GhostButton}" Padding="11,6" Margin="6,0,0,0">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ContentSaveOutline" Width="14" Height="14"
-                                                     VerticalAlignment="Center" />
-                            <TextBlock Text="حفظ" Margin="5,0,0,0" FontSize="12" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </DockPanel>
-        </Border>
-
-        <!-- ===== المُنشئ: أربع اختيارات ===== -->
-        <Border Grid.Row="1" Style="{StaticResource ToolbarCard}" Padding="14,12" Margin="0,0,0,10">
+        <!-- ===== الإعداد: القوالب فوق والخطوات تحتها في كارت واحد =====
+             كانوا كارتين متجاورين، والفصل بينهم كان بياخد مساحة من
+             الجدول من غير ما يوضّح حاجة — القالب هو اختصار الخطوات
+             اللي تحته، فمكانه فوقها في نفس الكارت. -->
+        <Border Grid.Row="0" Style="{StaticResource ToolbarCard}" Padding="0" Margin="0,0,0,10">
             <StackPanel>
-                <WrapPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
-                        <TextBlock Text="التقرير عن" FontSize="12.5" VerticalAlignment="Center"
-                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
-                        <ComboBox ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject}"
-                                  DisplayMemberPath="Display" Width="150" FontSize="12.5" />
+                <!-- ===== القوالب: أسرع طريق لتقرير بيتعمل كل شهر ===== -->
+                <Border Padding="14,9" BorderThickness="0,0,0,1"
+                        BorderBrush="{DynamicResource CardBorderBrush}">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                            <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="17" Height="17"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource GoldDeepBrush}" />
+                            <TextBlock Text="قالب جاهز:" FontWeight="Bold" FontSize="13"
+                                       VerticalAlignment="Center" Margin="6,0,10,0" />
+                            <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
+                                      DisplayMemberPath="Name" Width="200" FontSize="12.5"
+                                      ToolTip="بيملّي الاختيارات تحت — تقدر تعدّل عليها بعدها عادي" />
+                            <Button Command="{Binding DeleteTemplateCommand}"
+                                    CommandParameter="{Binding SelectedTemplate}"
+                                    Style="{StaticResource IconButton}" Padding="7,5" Margin="4,0,0,0"
+                                    Foreground="{DynamicResource DangerBrush}"
+                                    ToolTip="حذف القالب (القوالب الجاهزة مبتتحذفش)">
+                                <materialDesign:PackIcon Kind="DeleteOutline" Width="15" Height="15" />
+                            </Button>
+                        </StackPanel>
+
+                        <!-- حفظ الإعداد الحالي كقالب جديد -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="احفظ الحالي باسم:" FontSize="12.5" VerticalAlignment="Center"
+                                       Margin="24,0,8,0" Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBox Text="{Binding NewTemplateName, UpdateSourceTrigger=PropertyChanged}"
+                                     Width="160" Padding="7,5" FontSize="12.5" VerticalContentAlignment="Center" />
+                            <Button Command="{Binding SaveTemplateCommand}" IsEnabled="{Binding CanSaveTemplate}"
+                                    Style="{StaticResource GhostButton}" Padding="11,6" Margin="6,0,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ContentSaveOutline" Width="14" Height="14"
+                                                             VerticalAlignment="Center" />
+                                    <TextBlock Text="حفظ" Margin="5,0,0,0" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- ===== الخطوات التلاتة ===== -->
+                <WrapPanel Margin="14,11,14,8">
+
+                    <!-- ————— (١) التقرير عن إيه ————— -->
+                    <StackPanel Style="{StaticResource StepSection}">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                            <Border Style="{StaticResource StepBadge}">
+                                <materialDesign:PackIcon Kind="FileDocumentOutline"
+                                                         Style="{StaticResource StepIcon}" />
+                            </Border>
+                            <TextBlock Text="التقرير عن إيه؟" Style="{StaticResource StepCaption}" />
+                        </StackPanel>
+
+                        <WrapPanel>
+                            <ComboBox ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject}"
+                                      DisplayMemberPath="Display" Width="150" FontSize="12.5"
+                                      Margin="0,0,10,4" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,10,4">
+                                <TextBlock Text="متفصّل" Style="{StaticResource FieldLabel}" />
+                                <!-- الاختيارات بتتغيّر مع الموضوع: التركيبة اللي
+                                     مالهاش معنى مبتتعرضش أصلاً -->
+                                <ComboBox ItemsSource="{Binding Groupings}" SelectedItem="{Binding SelectedGrouping}"
+                                          DisplayMemberPath="Display" Width="130" FontSize="12.5" />
+                            </StackPanel>
+
+                            <!-- مستويات إضافية: "بالمنتج ثم العامل ثم المرحلة".
+                                 ده اللي بيجاوب على "مين اشتغل على إيه" — سؤال
+                                 محتاج بُعدين أو تلاتة مش واحد. -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4"
+                                        Visibility="{Binding SupportsLevels, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="ثم" Style="{StaticResource FieldLabel}" />
+                                <ComboBox ItemsSource="{Binding ThenByOptions}" SelectedItem="{Binding ThenBy1}"
+                                          DisplayMemberPath="Display" Width="110" FontSize="12.5" />
+
+                                <TextBlock Text="ثم" Style="{StaticResource FieldLabel}" Margin="8,0,7,0" />
+                                <ComboBox ItemsSource="{Binding ThenByOptions}" SelectedItem="{Binding ThenBy2}"
+                                          DisplayMemberPath="Display" Width="110" FontSize="12.5" />
+                            </StackPanel>
+                        </WrapPanel>
                     </StackPanel>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
-                        <TextBlock Text="متفصّل" FontSize="12.5" VerticalAlignment="Center"
-                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
-                        <!-- الاختيارات بتتغيّر مع الموضوع: التركيبة اللي
-                             مالهاش معنى مبتتعرضش أصلاً -->
-                        <ComboBox ItemsSource="{Binding Groupings}" SelectedItem="{Binding SelectedGrouping}"
-                                  DisplayMemberPath="Display" Width="130" FontSize="12.5" />
-                    </StackPanel>
-
-                    <!-- مستويات إضافية: "بالمنتج ثم العامل ثم المرحلة".
-                         ده اللي بيجاوب على "مين اشتغل على إيه" — سؤال
-                         محتاج بُعدين أو تلاتة مش واحد. -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0"
-                                Visibility="{Binding SupportsLevels, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="ثم" FontSize="12.5" VerticalAlignment="Center"
-                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
-                        <ComboBox ItemsSource="{Binding ThenByOptions}" SelectedItem="{Binding ThenBy1}"
-                                  DisplayMemberPath="Display" Width="110" FontSize="12.5" />
-
-                        <TextBlock Text="ثم" FontSize="12.5" VerticalAlignment="Center"
-                                   Margin="8,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
-                        <ComboBox ItemsSource="{Binding ThenByOptions}" SelectedItem="{Binding ThenBy2}"
-                                  DisplayMemberPath="Display" Width="110" FontSize="12.5" />
-                    </StackPanel>
-
-                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0"
+                    <!-- ————— (٢) لمدة إيه — بيختفي مع المهارات (حالة مش مدة) ————— -->
+                    <StackPanel Style="{StaticResource StepSection}"
                                 Visibility="{Binding UsesPeriod, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="المدة" FontSize="12.5" VerticalAlignment="Center"
-                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
-                        <ComboBox ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}"
-                                  DisplayMemberPath="Display" Width="130" FontSize="12.5" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                            <Border Style="{StaticResource StepBadge}">
+                                <materialDesign:PackIcon Kind="CalendarRange"
+                                                         Style="{StaticResource StepIcon}" />
+                            </Border>
+                            <TextBlock Text="لمدة إيه؟" Style="{StaticResource StepCaption}" />
+                        </StackPanel>
+
+                        <WrapPanel>
+                            <ComboBox ItemsSource="{Binding Periods}" SelectedItem="{Binding SelectedPeriod}"
+                                      DisplayMemberPath="Display" Width="130" FontSize="12.5"
+                                      Margin="0,0,10,4" />
+
+                            <!-- الداتتين بيظهروا مع "مدة مخصوصة" بس -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4"
+                                        Visibility="{Binding IsCustomPeriod, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="من" Style="{StaticResource FieldLabel}" Margin="0,0,5,0" />
+                                <DatePicker SelectedDate="{Binding CustomFrom}" Width="125" FontSize="12.5" />
+                                <TextBlock Text="إلى" Style="{StaticResource FieldLabel}" Margin="8,0,5,0" />
+                                <DatePicker SelectedDate="{Binding CustomTo}" Width="125" FontSize="12.5" />
+                            </StackPanel>
+                        </WrapPanel>
                     </StackPanel>
 
-                    <!-- الداتتين بيظهروا مع "مدة مخصوصة" بس -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0"
-                                Visibility="{Binding IsCustomPeriod, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="من" FontSize="12.5" VerticalAlignment="Center" Margin="0,0,5,0"
-                                   Foreground="{DynamicResource TextMutedBrush}" />
-                        <DatePicker SelectedDate="{Binding CustomFrom}" Width="125" FontSize="12.5" />
-                        <TextBlock Text="إلى" FontSize="12.5" VerticalAlignment="Center" Margin="8,0,5,0"
-                                   Foreground="{DynamicResource TextMutedBrush}" />
-                        <DatePicker SelectedDate="{Binding CustomTo}" Width="125" FontSize="12.5" />
-                    </StackPanel>
+                    <!-- ————— (٣) نشوفه إزاي ————— -->
+                    <StackPanel Style="{StaticResource StepSection}" Margin="0,0,0,4">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                            <Border Style="{StaticResource StepBadge}">
+                                <materialDesign:PackIcon Kind="TuneVariant"
+                                                         Style="{StaticResource StepIcon}" />
+                            </Border>
+                            <TextBlock Text="نشوفه إزاي؟" Style="{StaticResource StepCaption}" />
+                        </StackPanel>
+
+                        <WrapPanel>
 
                     <!-- الفلاتر جوّه زرار — نفس نمط شاشتي العمال والمنتجات -->
-                    <Grid VerticalAlignment="Center">
+                    <Grid VerticalAlignment="Center" Margin="0,0,8,4">
                         <ToggleButton x:Name="FilterToggle" Style="{StaticResource ToolbarToggle}"
                                       IsChecked="{Binding IsFilterMenuOpen, Mode=TwoWay}">
                             <StackPanel Orientation="Horizontal">
@@ -207,7 +283,7 @@
                     </Grid>
 
                     <!-- ===== محرّر الأعمدة ===== -->
-                    <Grid VerticalAlignment="Center" Margin="8,0,0,0">
+                    <Grid VerticalAlignment="Center" Margin="0,0,8,4">
                         <ToggleButton x:Name="ColumnToggle" Style="{StaticResource ToolbarToggle}"
                                       IsChecked="{Binding IsColumnMenuOpen, Mode=TwoWay}">
                             <StackPanel Orientation="Horizontal">
@@ -232,12 +308,23 @@
                             <Border Style="{StaticResource ToolbarPopupCard}"
                                     FlowDirection="RightToLeft" Width="420" MaxHeight="460">
                                 <StackPanel>
+                                    <!-- التلميح و"إجمالي" كانوا في نفس خانة الـ Grid
+                                         (مفيش أعمدة أصلاً)، فالنصين كانوا بيتكتبوا
+                                         فوق بعض. عمودين: التلميح بيقصّر نفسه
+                                         و"إجمالي" بتفضل فوق خانة الجمع بالظبط. -->
                                     <Grid Margin="0,0,0,8">
-                                        <TextBlock Text="علّم على اللي عايز يظهر، وغيّر الاسم لو حابب"
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0"
+                                                   Text="علّم على اللي يظهر، وغيّر الاسم لو حابب"
                                                    FontSize="11" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"
                                                    Foreground="{DynamicResource TextMutedBrush}" />
-                                        <TextBlock Text="إجمالي" FontSize="11" HorizontalAlignment="Left"
-                                                   Margin="0,0,72,0" VerticalAlignment="Center"
+                                        <TextBlock Grid.Column="1" Text="إجمالي" FontSize="11"
+                                                   Margin="8,0,62,0" VerticalAlignment="Center"
                                                    Foreground="{DynamicResource TextMutedBrush}" />
                                     </Grid>
 
@@ -307,44 +394,79 @@
                             </Border>
                         </Popup>
                     </Grid>
-                </WrapPanel>
 
-                <!-- ===== الترتيب والمقارنة ===== -->
-                <WrapPanel Margin="0,10,0,0">
-                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
-                        <TextBlock Text="ترتيب" FontSize="12.5" VerticalAlignment="Center"
-                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
-                        <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SelectedSort}"
-                                  DisplayMemberPath="Display" Width="150" FontSize="12.5" />
-
-                        <ToggleButton Style="{StaticResource ToolbarToggle}" Margin="6,0,0,0"
-                                      IsChecked="{Binding SortDescending, Mode=TwoWay}"
-                                      ToolTip="من الأكبر للأصغر">
-                            <materialDesign:PackIcon Kind="SortDescending" Width="15" Height="15" />
+                    <!-- ===== الترتيب والعرض =====
+                         كانوا صف تاني كامل من غير عنوان: ترتيب وأعلى-N
+                         وسطر إجمالي ومقارنة، أربع اختيارات ظاهرة على طول
+                         بينافسوا اختيار الموضوع نفسه على انتباه المستخدم.
+                         بقوا جوّه زرار بشارة: مبيزحموش الشاشة، والشارة
+                         بتقول إن فيه حاجة منهم متغيّرة. -->
+                    <Grid VerticalAlignment="Center" Margin="0,0,0,4">
+                        <ToggleButton x:Name="DisplayToggle" Style="{StaticResource ToolbarToggle}"
+                                      IsChecked="{Binding IsDisplayMenuOpen, Mode=TwoWay}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="SortVariant" Width="15" Height="15"
+                                                         VerticalAlignment="Center" />
+                                <TextBlock Text="الترتيب والعرض" Margin="5,0,0,0" VerticalAlignment="Center" />
+                                <Border Background="{DynamicResource SidebarBrush}" CornerRadius="8"
+                                        Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                        Visibility="{Binding HasDisplayChanges, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="✎" FontSize="10.5" FontWeight="Bold"
+                                               Foreground="{DynamicResource SidebarInkBrush}" />
+                                </Border>
+                                <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                         Margin="4,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
                         </ToggleButton>
+
+                        <Popup IsOpen="{Binding IsDisplayMenuOpen, Mode=TwoWay}" StaysOpen="False"
+                               PlacementTarget="{Binding ElementName=DisplayToggle}" Placement="Bottom"
+                               AllowsTransparency="True" PopupAnimation="Fade"
+                               HorizontalOffset="-6" VerticalOffset="2">
+                            <Border Style="{StaticResource ToolbarPopupCard}"
+                                    FlowDirection="RightToLeft" Width="310">
+                                <StackPanel>
+                                    <TextBlock Text="ترتيب الصفوف" FontSize="11" Margin="0,0,0,4"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                    <DockPanel>
+                                        <ToggleButton DockPanel.Dock="Left" Style="{StaticResource ToolbarToggle}"
+                                                      Margin="6,0,0,0"
+                                                      IsChecked="{Binding SortDescending, Mode=TwoWay}"
+                                                      ToolTip="من الأكبر للأصغر">
+                                            <materialDesign:PackIcon Kind="SortDescending" Width="15" Height="15" />
+                                        </ToggleButton>
+                                        <ComboBox ItemsSource="{Binding SortOptions}"
+                                                  SelectedItem="{Binding SelectedSort}"
+                                                  DisplayMemberPath="Display" FontSize="12.5" />
+                                    </DockPanel>
+
+                                    <TextBlock Text="كام سطر" FontSize="11" Margin="0,12,0,4"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                    <ComboBox ItemsSource="{Binding TopNOptions}"
+                                              SelectedItem="{Binding SelectedTopN}"
+                                              DisplayMemberPath="Display" FontSize="12.5" />
+
+                                    <CheckBox Content="سطر الإجمالي تحت الجدول" FontSize="12.5"
+                                              Margin="0,14,0,0" IsChecked="{Binding ShowTotals}"
+                                              ToolTip="الأعمدة اللي بتدخل في الإجمالي بتتحدد من محرّر الأعمدة" />
+
+                                    <CheckBox Content="قارن بالمدة اللي قبلها" FontSize="12.5"
+                                              Margin="0,8,0,0" IsChecked="{Binding CompareWithPrevious}"
+                                              ToolTip="بيزوّد لكل رقم: رقم المدة السابقة ونسبة التغير"
+                                              Visibility="{Binding UsesPeriod, Converter={StaticResource BoolToVis}}" />
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+                    </Grid>
+
+                        </WrapPanel>
                     </StackPanel>
-
-                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
-                        <TextBlock Text="أعلى" FontSize="12.5" VerticalAlignment="Center"
-                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
-                        <ComboBox ItemsSource="{Binding TopNOptions}" SelectedItem="{Binding SelectedTopN}"
-                                  DisplayMemberPath="Display" Width="115" FontSize="12.5" />
-                    </StackPanel>
-
-                    <CheckBox Content="سطر الإجمالي" FontSize="12.5" VerticalAlignment="Center"
-                              Margin="0,0,20,0" IsChecked="{Binding ShowTotals}"
-                              ToolTip="الأعمدة اللي بتدخل في الإجمالي بتتحدد من محرّر الأعمدة" />
-
-                    <CheckBox Content="قارن بالمدة اللي قبلها" FontSize="12.5" VerticalAlignment="Center"
-                              IsChecked="{Binding CompareWithPrevious}"
-                              ToolTip="بيزوّد لكل رقم: رقم المدة السابقة ونسبة التغير"
-                              Visibility="{Binding UsesPeriod, Converter={StaticResource BoolToVis}}" />
                 </WrapPanel>
             </StackPanel>
         </Border>
 
         <!-- ===== المعاينة + التصدير ===== -->
-        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="0">
+        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -353,11 +475,38 @@
 
                 <Border Grid.Row="0" Padding="14,11" BorderThickness="0,0,0,1"
                         BorderBrush="{DynamicResource CardBorderBrush}">
-                    <DockPanel>
+                    <!--
+                      عمودين صريحين مش DockPanel: العنوان كان بيدخل تحت
+                      زرار التصدير لما يطول، لأن DockPanel مبيقصّش الطفل
+                      الأخير — النص بيفضل مرسوم والزرار بيتغطى عليه.
+                      العمود النجمة + التقصير بالنقط بيخلّي العنوان يقصّر
+                      نفسه بدل ما يتخبّى ورا الأزرار.
+                    -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,14,0">
+                            <TextBlock Text="{Binding ReportTitle}" FontWeight="Bold" FontSize="15"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource GoldDeepBrush}" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding ReportPeriodText}" FontSize="12"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding ResultsText}" FontSize="12" Margin="12,0,0,0"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextMutedBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <!-- خيارات الملف جنب زرار التصدير مش جوّه نافذة
                              تانية: المستخدم بيقرر شكل الملف وهو شايف
                              التقرير قدامه -->
-                        <Grid DockPanel.Dock="Left" VerticalAlignment="Center" Margin="8,0,0,0">
+                        <Grid VerticalAlignment="Center" Margin="8,0,0,0">
                             <ToggleButton x:Name="ExportToggle" Style="{StaticResource ToolbarToggle}"
                                           IsChecked="{Binding IsExportMenuOpen, Mode=TwoWay}"
                                           ToolTip="اللي هيتحط في ملف Excel">
@@ -397,7 +546,7 @@
                             </Popup>
                         </Grid>
 
-                        <Button DockPanel.Dock="Left" Command="{Binding ExportCommand}"
+                        <Button Command="{Binding ExportCommand}"
                                 Style="{StaticResource SuccessButton}" Padding="15,8"
                                 IsEnabled="{Binding HasReport}">
                             <StackPanel Orientation="Horizontal">
@@ -409,22 +558,28 @@
 
                         <!-- قسايم الأسبوع: ورقة تتقص بالطول، شريط لكل
                              عامل. منفصلة عن "قسيمة أجر" اللي بتطبع واحد
-                             بس — دي للتوزيع على القسم كله دفعة واحدة -->
-                        <Button DockPanel.Dock="Left" Command="{Binding ExportPayslipStripsCommand}"
-                                Style="{StaticResource PrimaryButton}" Padding="14,8" Margin="0,0,8,0"
+                             بس — دي للتوزيع على القسم كله دفعة واحدة.
+
+                             **بتظهر مع تقرير الأجور بس.** كانت ظاهرة على
+                             كل تقرير — يعني وإنت شايف جدول حضور أو هالك
+                             قدامك يبقى جنبه زرار بيطلّع أجور، وهو شغال
+                             فعلاً لأنه بيسأل PayrollService مباشرة. -->
+                        <Button Command="{Binding ExportPayslipStripsCommand}"
+                                Style="{StaticResource PrimaryButton}" Padding="14,8" Margin="8,0,0,0"
+                                Visibility="{Binding IsWagesReport, Converter={StaticResource BoolToVis}}"
                                 ToolTip="ورقة A4 بالعرض فيها 4 قسايم — تتطبع وتتقص بالطول">
                             <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="ContentCut" Width="16" Height="16"
+                                <materialDesign:PackIcon Kind="ReceiptTextOutline" Width="16" Height="16"
                                                          VerticalAlignment="Center" />
                                 <TextBlock Text="قسايم الأجر" Margin="6,0,0,0" />
                             </StackPanel>
                         </Button>
 
-                        <!-- القسيمة ورقة عامل واحد — بتظهر لما تختار عامل
-                             من الفلاتر، لأن قبل كده السؤال "قسيمة مين؟"
-                             مالوش إجابة -->
-                        <Button DockPanel.Dock="Left" Command="{Binding PrintPayslipCommand}"
-                                Style="{StaticResource PrimaryButton}" Padding="14,8" Margin="0,0,8,0"
+                        <!-- القسيمة ورقة عامل واحد — بتظهر في تقرير الأجور
+                             لما تختار عامل واحد من الفلاتر، لأن قبل كده
+                             السؤال "قسيمة مين؟" مالوش إجابة -->
+                        <Button Command="{Binding PrintPayslipCommand}"
+                                Style="{StaticResource PrimaryButton}" Padding="14,8" Margin="8,0,0,0"
                                 Visibility="{Binding CanPrintPayslip, Converter={StaticResource BoolToVis}}">
                             <StackPanel Orientation="Horizontal">
                                 <materialDesign:PackIcon Kind="PrinterOutline" Width="16" Height="16"
@@ -432,19 +587,8 @@
                                 <TextBlock Text="قسيمة أجر" Margin="6,0,0,0" />
                             </StackPanel>
                         </Button>
-
-                        <StackPanel>
-                            <TextBlock Text="{Binding ReportTitle}" FontWeight="Bold" FontSize="15"
-                                       Foreground="{DynamicResource BrandBrush}" />
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding ReportPeriodText}" FontSize="12"
-                                           Foreground="{DynamicResource TextMutedBrush}" />
-                                <TextBlock Text="{Binding ResultsText}" FontSize="12" Margin="12,0,0,0"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextMutedBrush}" />
-                            </StackPanel>
                         </StackPanel>
-                    </DockPanel>
+                    </Grid>
                 </Border>
 
                 <!-- الجدول بيتبني في الكود لأن أعمدته بتتغيّر مع الموضوع -->
