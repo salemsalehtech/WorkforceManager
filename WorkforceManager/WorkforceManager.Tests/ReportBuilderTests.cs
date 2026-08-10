@@ -458,6 +458,154 @@ namespace WorkforceManager.Tests
                 }
         }
 
+        // ======================= التجميع بأكتر من مستوى =======================
+
+        private static ReportSpec Levels(ReportGrouping groupBy, params ReportGrouping[] thenBy) => new()
+        {
+            Subject = ReportSubject.Production,
+            GroupBy = groupBy,
+            ThenBy = thenBy,
+            From = Day,
+            To = Day
+        };
+
+        [Fact]
+        public async Task GroupingByWorkerThenStage_GivesOneRowPerStage_NotOnePerWorker()
+        {
+            // أحمد اشتغل مرحلتين — عايزينه سطرين، كل رقم منسوب لمرحلته
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage2Id, 60);
+
+            var table = await BuildAsync(Levels(ReportGrouping.Worker, ReportGrouping.Stage));
+
+            Assert.Equal(2, table.Rows.Count);
+            Assert.All(table.Rows, r => Assert.Equal("أحمد", r.Label));
+
+            var stageColumn = table.Columns.FindIndex(c => c.Key == "dim_stage");
+            Assert.True(stageColumn >= 0, "لازم يبقى فيه عمود للمرحلة");
+
+            var stages = table.Rows.Select(r => r.Texts[stageColumn]).ToList();
+            Assert.Contains(stages, s => s!.Contains("قص"));
+            Assert.Contains(stages, s => s!.Contains("خياطة"));
+        }
+
+        [Fact]
+        public async Task TheExtraLevelIsARealColumn_SoTheColumnEditorCanHideIt()
+        {
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+
+            var table = await BuildAsync(new ReportSpec
+            {
+                Subject = ReportSubject.Production,
+                GroupBy = ReportGrouping.Worker,
+                ThenBy = new[] { ReportGrouping.Stage },
+                From = Day,
+                To = Day,
+                ColumnLayout = new[]
+                {
+                    new ReportColumnChoice { Key = "dim_stage", Visible = false },
+                    new ReportColumnChoice { Key = "pieces" }
+                }
+            });
+
+            Assert.DoesNotContain(table.Columns, c => c.Key == "dim_stage");
+            Assert.Equal(100, table.Rows[0].Values[table.Columns.FindIndex(c => c.Key == "pieces")]);
+        }
+
+        [Fact]
+        public async Task ProductThenWorkerThenStage_AnswersWhoWorkedOnThisProduct()
+        {
+            // الطلب بالحرف: مين اشتغل على المنتج ده، بمرحلته وأيامه ويومياته
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+            await RecordAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage2Id, 60);
+
+            var table = await BuildAsync(
+                Levels(ReportGrouping.Product, ReportGrouping.Worker, ReportGrouping.Stage));
+
+            Assert.Equal(2, table.Rows.Count);
+            Assert.All(table.Rows, r => Assert.Equal("شنطة", r.Label));
+
+            var worker = table.Columns.FindIndex(c => c.Key == "dim_worker");
+            var stage = table.Columns.FindIndex(c => c.Key == "dim_stage");
+            var days = table.Columns.FindIndex(c => c.Key == "workdays_with_work");
+
+            Assert.Contains(table.Rows, r => r.Texts[worker] == "أحمد");
+            Assert.Contains(table.Rows, r => r.Texts[stage]!.Contains("خياطة"));
+            Assert.All(table.Rows, r => Assert.Equal(1, r.Values[days]));
+        }
+
+        [Fact]
+        public async Task WithAWorkerOrStageLevel_PiecesAreTheStagesOwnPieces_NotCompletedOutput()
+        {
+            // القطعة عدّت على مرحلتين مش آخر مرحلة. لو حسبناها بالتام
+            // السطرين هيطلعوا أصفار والتقرير مالوش لازمة.
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage2Id, 60);
+
+            var table = await BuildAsync(Levels(ReportGrouping.Product, ReportGrouping.Stage));
+            var pieces = table.Columns.FindIndex(c => c.Key == "pieces");
+
+            Assert.Equal(new decimal?[] { 100, 60 }, table.Rows.Select(r => r.Values[pieces]).OrderByDescending(v => v));
+
+            // ومجموعهم أكبر من التام عن قصد — ده شغل مبذول مش إنتاج تام
+            Assert.Equal(160, table.Totals!.Values[pieces]);
+        }
+
+        [Fact]
+        public async Task WithNoExtraLevels_TheReportIsExactlyAsItWasBefore()
+        {
+            // التجميع بمستوى واحد لازم يفضل زي ما هو بالحرف
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id, 100);
+
+            var table = await BuildAsync(Spec(ReportSubject.Production, ReportGrouping.Product));
+
+            Assert.DoesNotContain(table.Columns, c => c.Key.StartsWith("dim_"));
+            Assert.Equal(100, table.Rows[0].Values[0]);
+        }
+
+        [Fact]
+        public async Task RepeatingTheMainLevelInThenBy_IsIgnored_NotDuplicated()
+        {
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+
+            var table = await BuildAsync(Levels(ReportGrouping.Worker, ReportGrouping.Worker));
+
+            Assert.DoesNotContain(table.Columns, c => c.Key == "dim_worker");
+            Assert.Single(table.Rows);
+        }
+
+        [Fact]
+        public async Task TheBuiltInTemplate_WhoWorkedOnThisProduct_ProducesTheAskedForTable()
+        {
+            // الطلب: "تقرير لمنتج، اسم الناس اللي اشتغلت عليه بمرحلتهم
+            // وعدد أيامهم ويومياتهم" — بنتأكد إن القالب الجاهز بيطلّعه
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+            await RecordAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage2Id, 60);
+
+            var template = ReportTemplateStore.BuiltIn()
+                .Single(t => t.Name == "مين اشتغل على المنتج");
+
+            var spec = template.ToSpec();
+            var table = await BuildAsync(new ReportSpec
+            {
+                Subject = spec.Subject,
+                GroupBy = spec.GroupBy,
+                ThenBy = spec.ThenBy,
+                From = Day,
+                To = Day
+            });
+
+            // المنتج، العامل، المرحلة، الأيام، اليوميات — كلهم موجودين
+            Assert.Equal("المنتج", table.LabelHeader);
+            Assert.Contains(table.Columns, c => c.Key == "dim_worker");
+            Assert.Contains(table.Columns, c => c.Key == "dim_stage");
+            Assert.Contains(table.Columns, c => c.Key == "workdays");
+            Assert.Contains(table.Columns, c => c.Key == "workdays_with_work");
+
+            Assert.Equal(2, table.Rows.Count);
+            Assert.All(table.Rows, r => Assert.Equal("شنطة", r.Label));
+        }
+
         // ======================= المقارنة بالمدة السابقة =======================
 
         [Fact]

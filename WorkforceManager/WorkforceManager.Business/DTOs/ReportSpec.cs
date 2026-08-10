@@ -45,6 +45,31 @@ namespace WorkforceManager.Business.DTOs
         public ReportSubject Subject { get; init; } = ReportSubject.Production;
         public ReportGrouping GroupBy { get; init; } = ReportGrouping.Worker;
 
+        /// <summary>
+        /// مستويات تجميع إضافية بعد <see cref="GroupBy"/> — كل مستوى
+        /// بيتحوّل لعمود نصي في الجدول.
+        ///
+        /// "مين اشتغل على المنتج ده وفي أنهي مرحلة" = GroupBy المنتج،
+        /// وThenBy العامل ثم المرحلة. النتيجة سطر لكل تركيبة، فكل رقم
+        /// منسوب لصاحبه بالظبط وينفع تعمل عليه Pivot.
+        ///
+        /// المستويات بتبقى **أعمدة عادية**، يعني محرّر الأعمدة يقدر
+        /// يخفيها أو يرتّبها زي أي عمود تاني من غير أي كود مخصوص.
+        /// </summary>
+        public IReadOnlyList<ReportGrouping>? ThenBy { get; init; }
+
+        /// <summary>كل مستويات التجميع بالترتيب، من غير تكرار</summary>
+        public IReadOnlyList<ReportGrouping> AllLevels()
+        {
+            var levels = new List<ReportGrouping> { GroupBy };
+
+            foreach (var level in ThenBy ?? Array.Empty<ReportGrouping>())
+                if (!levels.Contains(level))
+                    levels.Add(level);
+
+            return levels;
+        }
+
         public DateTime From { get; init; } = DateTime.Today;
         public DateTime To { get; init; } = DateTime.Today;
 
@@ -161,6 +186,20 @@ namespace WorkforceManager.Business.DTOs
             ReportSubject.WageAdjustments => "السلف والحوافز",
             ReportSubject.Skills => "المهارات",
             _ => "تقرير"
+        };
+
+        /// <summary>
+        /// اسم البُعد كعنوان عمود ("العامل") — مش زي
+        /// <see cref="GroupingName"/> اللي بترجّع "بالعامل" لعنوان
+        /// التقرير.
+        /// </summary>
+        public static string GroupingLabel(ReportGrouping grouping) => grouping switch
+        {
+            ReportGrouping.Worker => "العامل",
+            ReportGrouping.Product => "المنتج",
+            ReportGrouping.Stage => "المرحلة",
+            ReportGrouping.Week => "الأسبوع",
+            _ => "اليوم"
         };
 
         public static string GroupingName(ReportGrouping grouping) => grouping switch

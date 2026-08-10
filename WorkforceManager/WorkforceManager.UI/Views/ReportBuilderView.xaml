@@ -75,6 +75,22 @@
                                   DisplayMemberPath="Display" Width="130" FontSize="12.5" />
                     </StackPanel>
 
+                    <!-- مستويات إضافية: "بالمنتج ثم العامل ثم المرحلة".
+                         ده اللي بيجاوب على "مين اشتغل على إيه" — سؤال
+                         محتاج بُعدين أو تلاتة مش واحد. -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,20,0"
+                                Visibility="{Binding SupportsLevels, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="ثم" FontSize="12.5" VerticalAlignment="Center"
+                                   Margin="0,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
+                        <ComboBox ItemsSource="{Binding ThenByOptions}" SelectedItem="{Binding ThenBy1}"
+                                  DisplayMemberPath="Display" Width="110" FontSize="12.5" />
+
+                        <TextBlock Text="ثم" FontSize="12.5" VerticalAlignment="Center"
+                                   Margin="8,0,7,0" Foreground="{DynamicResource TextMutedBrush}" />
+                        <ComboBox ItemsSource="{Binding ThenByOptions}" SelectedItem="{Binding ThenBy2}"
+                                  DisplayMemberPath="Display" Width="110" FontSize="12.5" />
+                    </StackPanel>
+
                     <StackPanel Orientation="Horizontal" Margin="0,0,20,0"
                                 Visibility="{Binding UsesPeriod, Converter={StaticResource BoolToVis}}">
                         <TextBlock Text="المدة" FontSize="12.5" VerticalAlignment="Center"

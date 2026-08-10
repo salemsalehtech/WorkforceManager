@@ -117,8 +117,23 @@ namespace WorkforceManager.UI.ViewModels
 
             for (var i = 0; i < columns.Count; i++)
             {
+                // العمود النصي (زي مستوى تجميع إضافي: المنتج، المرحلة)
+                // قيمته في Texts مش في Values. من غير ده كان بيطلع شرطة
+                // في كل سطر لأن Values عنده null هناك.
+                var text = i < row.Texts.Count ? row.Texts[i] : null;
+                if (!string.IsNullOrEmpty(text))
+                {
+                    cells.Add(text);
+                    continue;
+                }
+
                 var value = i < row.Values.Count ? row.Values[i] : null;
-                cells.Add(Format(value, columns[i].Kind));
+
+                // سطر الإجمالي تحت عمود نصي بيفضل فاضي مش شرطة —
+                // "إجمالي المرحلة" مالوش معنى
+                cells.Add(value is null && columns[i].Kind == ReportValueKind.Text
+                    ? ""
+                    : Format(value, columns[i].Kind));
             }
 
             return new PreviewRow { Label = row.Label, Cells = cells, IsTotals = isTotals };

@@ -58,6 +58,7 @@ namespace WorkforceManager.UI.ViewModels
         partial void OnSelectedSubjectChanged(SubjectOption value)
         {
             RefreshGroupings();
+            RefreshThenByOptions();
             RefreshColumnChoices(); // كل موضوع وأعمدته
             OnPropertyChanged(nameof(UsesPeriod));
             RequestPreview();
@@ -233,6 +234,86 @@ namespace WorkforceManager.UI.ViewModels
             OnFilterToggled();
         }
 
+        // ------- مستويات التجميع الإضافية -------
+
+        /// <summary>
+        /// "ثم" و"ثم" — مستويين إضافيين بعد التفصيل الأساسي.
+        ///
+        /// اتنين كفاية عمليًا: المنتج ← العامل ← المرحلة هو أعمق سؤال
+        /// بيتسأل، وأي مستوى زيادة بيخلي كل سطر مجموعة من سجل واحد —
+        /// يعني بقى شيت التفاصيل الخام مش تقرير.
+        /// </summary>
+        public ObservableCollection<GroupingOption> ThenByOptions { get; } = new();
+
+        [ObservableProperty]
+        private GroupingOption? _thenBy1;
+
+        partial void OnThenBy1Changed(GroupingOption? value)
+        {
+            RefreshColumnChoices();
+            RequestPreview();
+        }
+
+        [ObservableProperty]
+        private GroupingOption? _thenBy2;
+
+        partial void OnThenBy2Changed(GroupingOption? value)
+        {
+            RefreshColumnChoices();
+            RequestPreview();
+        }
+
+        /// <summary>المستويات الإضافية المختارة، من غير الفاضي ولا المكرر</summary>
+        private List<ReportGrouping> SelectedThenBy()
+        {
+            var levels = new List<ReportGrouping>();
+
+            foreach (var option in new[] { ThenBy1, ThenBy2 })
+                if (option is { Grouping: var g } && g != (SelectedGrouping?.Grouping ?? ReportGrouping.Worker)
+                    && !levels.Contains(g))
+                    levels.Add(g);
+
+            return levels;
+        }
+
+        /// <summary>
+        /// التجميع المركّب للإنتاج بس دلوقتي: هو الموضوع الوحيد اللي
+        /// سجلاته بتحمل التلات أبعاد مع بعض (عامل ومنتج ومرحلة في نفس
+        /// السجل). الحضور مثلاً مالوش منتج، فـ"الحضور بالمنتج" سؤال
+        /// مالوش إجابة زي ما هو موضّح في AllowedGroupings.
+        /// </summary>
+        public bool SupportsLevels => SelectedSubject.Subject == ReportSubject.Production;
+
+        private void RefreshThenByOptions()
+        {
+            var previous1 = ThenBy1?.Grouping;
+            var previous2 = ThenBy2?.Grouping;
+
+            ThenByOptions.Clear();
+            ThenByOptions.Add(new GroupingOption((ReportGrouping)0, "— مفيش —"));
+
+            if (SupportsLevels)
+                foreach (var g in new[]
+                         {
+                             ReportGrouping.Worker, ReportGrouping.Product,
+                             ReportGrouping.Stage, ReportGrouping.Day
+                         })
+                    ThenByOptions.Add(new GroupingOption(g, ReportSpec.GroupingLabel(g)));
+
+            _suppressPreview = true;
+            try
+            {
+                ThenBy1 = ThenByOptions.FirstOrDefault(o => o.Grouping == previous1) ?? ThenByOptions[0];
+                ThenBy2 = ThenByOptions.FirstOrDefault(o => o.Grouping == previous2) ?? ThenByOptions[0];
+            }
+            finally
+            {
+                _suppressPreview = false;
+            }
+
+            OnPropertyChanged(nameof(SupportsLevels));
+        }
+
         // ------- شكل الجدول: الأعمدة -------
 
         /// <summary>
@@ -259,9 +340,19 @@ namespace WorkforceManager.UI.ViewModels
             foreach (var choice in ColumnChoices) choice.PropertyChanged -= OnColumnChoiceChanged;
             ColumnChoices.Clear();
 
-            var available = ReportBuilderService.ColumnsFor(
+            // أعمدة المستويات الإضافية بتيجي الأول زي ما المحرك
+            // بيبنيها، عشان المحرّر يعرض نفس ترتيب الجدول
+            var levelColumns = SelectedThenBy()
+                .Select(level => new ReportColumn
+                {
+                    Key = "dim_" + level.ToString().ToLowerInvariant(),
+                    Header = ReportSpec.GroupingLabel(level),
+                    Kind = ReportValueKind.Text
+                });
+
+            var available = levelColumns.Concat(ReportBuilderService.ColumnsFor(
                 SelectedSubject.Subject,
-                SelectedGrouping?.Grouping ?? ReportGrouping.Worker);
+                SelectedGrouping?.Grouping ?? ReportGrouping.Worker)).ToList();
 
             foreach (var column in available)
             {
@@ -441,6 +532,7 @@ namespace WorkforceManager.UI.ViewModels
             {
                 Subject = SelectedSubject.Subject,
                 GroupBy = SelectedGrouping?.Grouping ?? ReportGrouping.Worker,
+                ThenBy = SelectedThenBy(),
                 From = from,
                 To = to,
 
@@ -642,6 +734,13 @@ namespace WorkforceManager.UI.ViewModels
                                    ?? Groupings.FirstOrDefault();
                 SelectedPeriod = Periods.First(p => p.Kind == value.Period);
 
+                RefreshThenByOptions();
+                var levels = value.ThenBy ?? new List<ReportGrouping>();
+                ThenBy1 = ThenByOptions.FirstOrDefault(o => levels.Count > 0 && o.Grouping == levels[0])
+                          ?? ThenByOptions[0];
+                ThenBy2 = ThenByOptions.FirstOrDefault(o => levels.Count > 1 && o.Grouping == levels[1])
+                          ?? ThenByOptions[0];
+
                 ApplyFilters(value);
                 ApplyColumns(value);
 
@@ -735,6 +834,7 @@ namespace WorkforceManager.UI.ViewModels
                 Name = name,
                 Subject = SelectedSubject.Subject,
                 GroupBy = SelectedGrouping?.Grouping ?? ReportGrouping.Worker,
+                ThenBy = SelectedThenBy(),
                 Period = SelectedPeriod.Kind,
 
                 WorkerIds = CheckedIds(Workers)?.ToList(),
@@ -823,6 +923,7 @@ namespace WorkforceManager.UI.ViewModels
                 SelectedWorkerKind = WorkerKinds[0];
                 SelectedTopN = TopNOptions[0];
 
+                RefreshThenByOptions();
                 RefreshColumnChoices();
             }
             finally

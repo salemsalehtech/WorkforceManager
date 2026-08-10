@@ -489,12 +489,30 @@ namespace WorkforceManager.Business.Services
         ///     اليوم والتقرير العام شغالين بيها (<see cref="ProductionLine"/>)
         ///     — فالبرنامج كله بيقول نفس الرقم.
         /// </summary>
-        private static bool CountsCompletedOutput(ReportGrouping grouping) =>
-            grouping is ReportGrouping.Product or ReportGrouping.Day or ReportGrouping.Week;
+        /// <summary>
+        /// المجموعة بتتقاس بالتام ولا بالشغل المبذول؟
+        ///
+        /// **أي مستوى بالعامل أو بالمرحلة بيحوّل المجموعة لوحدة شغل.**
+        /// "المنتج ده مين اشتغل عليه وفي أنهي مرحلة" سؤاله لكل سطر هو
+        /// "العامل ده عمل قد إيه في المرحلة دي" — والإجابة قطع المرحلة
+        /// نفسها. لو حسبناها بالتام (آخر مرحلة بس) كل السطور اللي مش
+        /// على آخر مرحلة هتطلع أصفار، والتقرير يبقى مالوش لازمة.
+        ///
+        /// ومجموع السطور ساعتها بيطلع أكبر من إنتاج المنتج التام، وده
+        /// صح مش غلط: القطعة عدّت على كذا مرحلة واشتغل فيها كذا عامل.
+        /// </summary>
+        private static bool CountsCompletedOutput(IReadOnlyList<ReportGrouping> levels)
+        {
+            if (levels.Any(l => l is ReportGrouping.Worker or ReportGrouping.Stage))
+                return false;
+
+            return levels[0] is ReportGrouping.Product or ReportGrouping.Day or ReportGrouping.Week;
+        }
 
         private async Task<ReportTable> ProductionAsync(ReportSpec spec)
         {
             var rows = Filter(await _production.GetByRangeAsync(spec.From, spec.To), spec);
+            var levels = spec.AllLevels();
 
             // "اليوميات" و"عدد العمال" و"أيام فيها شغل" بيتجمّعوا على كل
             // المراحل دايمًا: دول بيقيسوا **الشغل المبذول**، والقطعة اللي
@@ -502,36 +520,75 @@ namespace WorkforceManager.Business.Services
             //
             // "القطع" مختلفة، وبتتقاس حسب معنى المجموعة نفسها —
             // <see cref="CountsCompletedOutput"/>.
-            var lastStageIds = CountsCompletedOutput(spec.GroupBy)
+            var lastStageIds = CountsCompletedOutput(levels)
                 ? ProductionLine
                     .LastStageIdByProduct(await _products.GetAllWithStagesAsync())
                     .Values.ToHashSet()
                 : null;
 
-            var groups = rows
-                .GroupBy(r => Key(r, spec.GroupBy))
-                .OrderBy(g => g.Key.Order).ThenBy(g => g.Key.Label)
+            // مستويات التجميع الإضافية بتبقى أعمدة نصية قبل الأرقام،
+            // فمحرّر الأعمدة يقدر يخفيها أو يرتّبها زي أي عمود
+            var levelColumns = levels.Skip(1)
+                .Select(level => Text(ReportSpec.GroupingLabel(level), LevelKey(level)))
                 .ToList();
 
-            var table = NewTable(spec, ColumnsFor(spec.Subject, spec.GroupBy));
+            var table = NewTable(spec, levelColumns.Concat(ColumnsFor(spec.Subject, spec.GroupBy)));
+
+            var groups = rows
+                .GroupBy(r => new CompositeKey(levels.Select(level => Key(r, level).Label).ToList()))
+                .OrderBy(g => g.Key.Parts[0])
+                .ThenBy(g => g.Key.Rest)
+                .ToList();
 
             foreach (var g in groups)
-                table.Rows.Add(new ReportRow
+            {
+                var row = new ReportRow { Label = g.Key.Parts[0] };
+
+                // الأعمدة النصية بتتحط في Texts والأرقام في Values —
+                // الاتنين مفهرسين بنفس ترتيب الأعمدة، فلازم كل عمود ياخد
+                // مكانه في القايمتين حتى لو فاضي في واحدة منهم
+                for (var i = 1; i < g.Key.Parts.Count; i++)
                 {
-                    Label = g.Key.Label,
-                    Values =
-                    {
-                        lastStageIds is null
-                            ? g.Sum(r => r.PieceCount)
-                            : g.Where(r => lastStageIds.Contains(r.ProductionStageId)).Sum(r => r.PieceCount),
-                        g.Sum(r => r.WorkdaysCompleted),
-                        g.Select(r => r.WorkerId).Distinct().Count(),
-                        g.Select(r => r.Date.Date).Distinct().Count()
-                    }
-                });
+                    row.Values.Add(null);
+                    row.Texts.Add(g.Key.Parts[i]);
+                }
+
+                foreach (var value in new decimal?[]
+                {
+                    lastStageIds is null
+                        ? g.Sum(r => r.PieceCount)
+                        : g.Where(r => lastStageIds.Contains(r.ProductionStageId)).Sum(r => r.PieceCount),
+                    g.Sum(r => r.WorkdaysCompleted),
+                    g.Select(r => r.WorkerId).Distinct().Count(),
+                    g.Select(r => r.Date.Date).Distinct().Count()
+                })
+                {
+                    row.Values.Add(value);
+                    row.Texts.Add(null);
+                }
+
+                table.Rows.Add(row);
+            }
 
             return table;
         }
+
+        /// <summary>مفتاح مركّب من كل مستويات التجميع</summary>
+        private readonly record struct CompositeKey(List<string> Parts)
+        {
+            public string Rest => string.Join(" | ", Parts.Skip(1));
+
+            public bool Equals(CompositeKey other) => Parts.SequenceEqual(other.Parts);
+
+            public override int GetHashCode()
+            {
+                var hash = new HashCode();
+                foreach (var part in Parts) hash.Add(part);
+                return hash.ToHashCode();
+            }
+        }
+
+        private static string LevelKey(ReportGrouping level) => "dim_" + level.ToString().ToLowerInvariant();
 
         // ======================= الحضور =======================
 
@@ -878,14 +935,7 @@ namespace WorkforceManager.Business.Services
                 PeriodText = ReportSpec.UsesPeriod(spec.Subject)
                     ? $"من {spec.From:yyyy/MM/dd} إلى {spec.To:yyyy/MM/dd}"
                     : "الحالة الحالية",
-                LabelHeader = spec.GroupBy switch
-                {
-                    ReportGrouping.Worker => "العامل",
-                    ReportGrouping.Product => "المنتج",
-                    ReportGrouping.Stage => "المرحلة",
-                    ReportGrouping.Week => "الأسبوع",
-                    _ => "اليوم"
-                },
+                LabelHeader = ReportSpec.GroupingLabel(spec.GroupBy),
                 Columns = columns.ToList()
             };
     }

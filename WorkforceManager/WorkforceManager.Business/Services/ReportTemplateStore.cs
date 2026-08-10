@@ -16,6 +16,9 @@ namespace WorkforceManager.Business.Services
         public required string Name { get; set; }
         public ReportSubject Subject { get; set; }
         public ReportGrouping GroupBy { get; set; }
+
+        /// <summary>مستويات تجميع إضافية (المنتج ← العامل ← المرحلة)</summary>
+        public List<ReportGrouping>? ThenBy { get; set; }
         public ReportPeriodKind Period { get; set; } = ReportPeriodKind.ThisWeek;
         public WorkerKindFilter WorkerKind { get; set; } = WorkerKindFilter.All;
 
@@ -58,6 +61,7 @@ namespace WorkforceManager.Business.Services
             {
                 Subject = Subject,
                 GroupBy = GroupBy,
+                ThenBy = ThenBy,
                 From = from,
                 To = to,
                 WorkerKind = WorkerKind,
@@ -172,6 +176,45 @@ namespace WorkforceManager.Business.Services
                 Subject = ReportSubject.Attendance,
                 GroupBy = ReportGrouping.Worker,
                 Period = ReportPeriodKind.ThisMonth,
+                IsBuiltIn = true
+            },
+            // ------- قوالب مركّبة: تجميع بأكتر من مستوى -------
+            // دي اللي بتجاوب على "مين اشتغل على إيه" — سؤال محتاج
+            // بُعدين أو تلاتة، ومكانش ينفع يتسأل بتجميع بُعد واحد
+            new ReportTemplate
+            {
+                Name = "مين اشتغل على المنتج",
+                Subject = ReportSubject.Production,
+                GroupBy = ReportGrouping.Product,
+                ThenBy = new List<ReportGrouping> { ReportGrouping.Worker, ReportGrouping.Stage },
+                Period = ReportPeriodKind.ThisWeek,
+                IsBuiltIn = true
+            },
+            new ReportTemplate
+            {
+                Name = "العامل اشتغل على إيه",
+                Subject = ReportSubject.Production,
+                GroupBy = ReportGrouping.Worker,
+                ThenBy = new List<ReportGrouping> { ReportGrouping.Product, ReportGrouping.Stage },
+                Period = ReportPeriodKind.ThisWeek,
+                IsBuiltIn = true
+            },
+            new ReportTemplate
+            {
+                Name = "مين بيشتغل على المرحلة",
+                Subject = ReportSubject.Production,
+                GroupBy = ReportGrouping.Stage,
+                ThenBy = new List<ReportGrouping> { ReportGrouping.Worker },
+                Period = ReportPeriodKind.ThisMonth,
+                IsBuiltIn = true
+            },
+            new ReportTemplate
+            {
+                Name = "اليوم: مين اشتغل وفين",
+                Subject = ReportSubject.Production,
+                GroupBy = ReportGrouping.Day,
+                ThenBy = new List<ReportGrouping> { ReportGrouping.Worker, ReportGrouping.Stage },
+                Period = ReportPeriodKind.Today,
                 IsBuiltIn = true
             },
             new ReportTemplate
