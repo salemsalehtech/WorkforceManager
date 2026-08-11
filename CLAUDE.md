@@ -62,9 +62,11 @@ Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output)
 - `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
   UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
 
-`WorkforceManager.Tests` (xUnit, `net8.0`, 291 tests) covers the worker-assignment rule, daily output,
+`WorkforceManager.Tests` (xUnit, `net8.0`, 396 tests) covers the worker-assignment rule, daily output,
 the skill-rating system, worker filtering, product activity, pending work, the worker report,
-activity-log retention, database integrity, deletion scope, the report builder, fresh-install seeding, and the removed-field guards — run with `dotnet test`
+activity-log retention + **which operations write to it**, database integrity, deletion scope, the report
+builder, the production chart (day/week/month + scrap), payslip strips, **backup integrity and calendar
+safety**, fresh-install seeding, and the removed-field guards — run with `dotnet test`
 from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
@@ -106,7 +108,7 @@ Core  <----------------------- UI
   database (all relationships/cascade rules configured in `OnModelCreating`); `Repositories/` implement
   the Core interfaces; nothing outside this project talks to `AppDbContext` directly.
 - **WorkforceManager.Business** — all business rules live here, nowhere else (especially not in UI code):
-  `WorkdayCalculationService`, `PerformanceEvaluationService`, `AttendanceService`, `ProductionFlowService`,
+  `WorkdayCalculationService`, `AttendanceService`, `ProductionFlowService`,
   `WeeklySummaryService`, `PenaltyService`, `WorkerManagementService`, `ProductManagementService`,
   `ProductionReportService`, `WageAdjustmentService`, `AuthService`, `WeeklyReportExcelService`, plus
   their DTOs in `DTOs/`.
@@ -213,18 +215,25 @@ Core  <----------------------- UI
   Mutual exclusion lives in `AttendanceRow.OnChoiceToggled`; picking a shift also marks the worker
   Present. Then penalties (add with reason/deduction, list + delete for the day), and an "السلف والحوافز" tab
   (advances/bonuses in EGP: pick worker + type + amount + note, list with delete; سلفة red, حافز green).
-  **The reports and the evaluation are two separate screens on purpose**, because they do two different
-  jobs. `ReportsView` (nav: "التقييم والمتابعة") is looked at and acted on: a **"محتاج تصرّف" list above
-  everything else** (`NeedsAttentionService`), then the day's evaluation vs team average, the day's output,
-  and the products chart. The attention list is the point of the screen — a table of averages states a fact
-  but doesn't say what to *do*, so the manager reads it and closes it. `NeedsAttentionService` answers the
-  other question: which stage has **zero qualified workers** (severity 0 — the flow screen only offers
-  qualified workers, so that stage is impossible to record and the user finds out while standing at it),
-  who was absent unexcused, **who dropped against their own average** (not the team's — a slow-but-steady
-  worker is fine, a declining one is not, even while still above team average; 25% below their own
-  4-week-per-worked-day mean), who has no skills or no wage rate, and whose ratings are older than
-  `StaleRatingDays`. It computes nothing new: evaluation, week range and ratings all come from their
-  existing services.
+  **The reports and the monitoring screens are separate on purpose**, because they do two different jobs.
+  `ReportsView` (nav: "التقييم والمتابعة") is looked at, not exported: two tabs only.
+  1. **إنتاج اليوم** — three numbers for the day (completed / started / scrapped) then a card per product.
+  2. **إنتاج المنتجات** — the chart, split **by day, week or month** (`ChartGrain`; the week is always
+     `WeeklySummaryService.GetWorkWeekRange`, never a second definition), with the scrap segment, a
+     product filter, an average line, and a comparison against the preceding period of the same length.
+
+  A third tab, **"تقييم اليوم", was deleted at the user's request** along with `NeedsAttentionService`,
+  `PerformanceEvaluationService` and their DTOs — it restated the day tab's numbers in different words and
+  its per-worker table is available (and exportable) in the report builder as "الإنتاج بالعامل". The one
+  thing it uniquely surfaced, "a stage with zero qualified workers", still appears on the products screen
+  next to the stage itself. Don't rebuild it as a screen; if it comes back it belongs where the user is
+  already standing.
+
+  **Scrap is counted two ways on purpose** (`ProductionChartService`): what is *subtracted* from completed
+  output is last-stage scrap only — the same rule the daily summary and day closure use, so every screen
+  says one number — while what is *displayed* as scrap is every stage's scrap, because "how much did we
+  lose?" includes the piece thrown away at stage one. Subtracting the early scrap too would double-count
+  it: it never reached the last stage, so it was never in that number.
   `ReportBuilderView` (nav: "التقارير") is the document factory — see the report engine below.
   `ProductsView` is implemented with the same card language as the workers/attendance screens: summary bar,
   instant search (product or stage name), `FilterChip` filters, and product cards showing stage count
@@ -576,12 +585,14 @@ Core  <----------------------- UI
     **Do not reintroduce piece-level lot tracking** to answer "how many are done"; it falls out of the
     records already being entered. The deliberate trade-off: no per-lot traceability (when a specific
     lot started, how it moved).
-  - **There is deliberately no WIP / "الواقف" / "مستني" number anywhere**, and no cumulative-history
-    query behind one (`GetStageTotalsUpToAsync` was deleted with it). A cross-stage subtraction
-    (`cumulative(i-1) − cumulative(i)`) did exist and was correct arithmetic, but the user removed it:
-    it was shown on the entry screen, the reports screen and the closure dialog, and nobody ever took
-    a decision from it. Reintroducing it means reintroducing per-stage queue badges, over-count
-    warnings, and a third summary number the screens have to carry. Don't.
+  - **`PendingWorkService` is the only unbounded query in the app** — it sums every production row
+    ever recorded, grouped by stage, and the daily-entry screen calls it every time a product is
+    picked. On a 30-year database (432k rows) that took **1047 ms**, and it grows every single day.
+    Two **covering** indexes fixed it (`DailyProduction(ProductionStageId, Date, IsDeleted, PieceCount)`
+    and the matching one on `ProductionScrap`): SQLite computes the sum straight from the index without
+    touching the table — **40 ms** on the same data. If you ever reorder those index columns the query
+    silently falls back to a table scan, so measure with `EXPLAIN QUERY PLAN` (look for
+    `COVERING INDEX`), don't eyeball. Every other query in the app is bounded by a date range.
 - **Ranges no longer carry any lot identity** (`FlowRangeDto`): from-stage, to-stage, piece count.
   Ranges still may not overlap (a stage in two ranges is double-entry) and each covered stage still
   needs worker shares summing exactly to its pieces. A range may start anywhere in the line — starting
@@ -645,11 +656,12 @@ Core  <----------------------- UI
   Validates everything (ranges in line order, no overlaps, share sums == stage pieces, workers must be
   qualified via `WorkerSkill`), writes all records in one SaveChanges (all-or-nothing), and auto-creates
   a Present attendance record for participating workers who have none that day (never overwrites).
-- `PerformanceEvaluationService.EvaluateDayAsync` ranks workers for a given date against the average
-  workdays of only the workers who actually produced that day (absentees aren't averaged in at zero).
-  Unexcused absence (`AbsentWithoutPermission`) always ranks worst regardless of any production; excused
-  absence is neutral (`Average`). Thresholds (`TopPerformerThreshold`, `AboveAverageThreshold`,
-  `BelowAverageThreshold`) are relative percentages vs. team average, defined as constants in that service.
+- **`PerformanceEvaluationService` no longer exists.** It ranked each worker against the day's team
+  average and fed exactly one screen (the deleted "تقييم اليوم" tab) plus `NeedsAttentionService`; when
+  both went, nothing called it and nothing tested it, so it went too rather than sitting as dead code
+  with a DI registration. `StageBreakdownDto` was the one piece worth keeping (the weekly summary uses
+  it) and now lives in its own file. Ranking a worker against the team on a single day is available in
+  the report builder — as a report you can also export.
 - `PayrollService.GetPeriodPayrollAsync(from, to)`: custom-period (e.g. monthly) wage sheet. Aggregates
   ALL days in the range directly (not whole weeks): produced + hourly workdays − absence/penalty
   deductions, × current wage = workdays-wage, then **+ bonuses − advances (EGP)** = net wage. Surfaced in
@@ -691,6 +703,16 @@ Core  <----------------------- UI
   needed to backfill historical rows.
 - Daily evaluation: a sole producer gets `TopPerformer` iff `TotalWorkdays >= 1.0` (objective bar —
   percent-vs-average is meaningless with no peers), else `Average`.
+- **`SensitiveActionDialog.Ask` takes a required `SensitiveActionKind` (Delete / Save)** — no default,
+  on purpose. The dialog shipped hard-wired for deletion: a red header and an "أكّد الحذف" button on
+  *every* gated operation, so saving a production run asked the user to confirm a **delete**. The kind
+  drives the header colour, the button text and style, the reason label, and the error text. A wrong
+  default here is worse than a compile error, which is why there isn't one.
+- **Excel export runs on a background thread** (`ExcelExport.RunAsync` wraps the write in `Task.Run`).
+  Every caller passes a lambda that does its work synchronously and returns `Task.CompletedTask`, so it
+  used to execute on the UI thread — a year's report with 14k detail rows froze the window for 3.3
+  seconds, and that number grows with the factory's history. Safe off-thread because each caller opens
+  its own DI scope inside the lambda and works on already-materialised DTOs.
 - UI hygiene: never use `_ = SomeAsync()` — use `SafeAsync.Run(...)` (ViewModels) so failures surface
   instead of vanishing (Dispatcher handler doesn't see unobserved task exceptions). App enforces a
   single instance via a named Mutex in `App.OnStartup`. Date-leading indexes exist on
@@ -702,12 +724,32 @@ Core  <----------------------- UI
   `AppSettingsStore`/settings.json, external failures never block startup), `BackupNow` (manual, errors
   loudly), `RestoreBackup` (safety-copies current db first, then overwrite + app restart). Cleanup is
   filename-date based; `AppPaths` centralizes all file locations. UI in `SettingsView` (5th nav item).
+  Three rules here were each paid for by a real defect — don't undo them:
+  - **The snapshot is `VACUUM INTO`, never `File.Copy`.** The database runs in **WAL mode**: writes sit
+    in a `-wal` sidecar until a checkpoint. Copying only the `.db` while the app is open was measured
+    on the shipped build producing a backup with **no tables at all** (46 workers in the real file,
+    "no such table" in the "successful" backup). `VACUUM INTO` reads through SQLite so it includes the
+    WAL. It falls back to `File.Copy` on any failure — an imperfect backup beats none.
+  - **Dates in file names use `CultureInfo.InvariantCulture` explicitly.** On a Windows set to a Hijri
+    calendar the name came out `workforce_1448-02-28.db`, the cleanup parsed it as Gregorian year 1448,
+    and deleted the backup seconds after taking it — the user had zero backups and no way to know.
+    `App.PinCulture()` now also fixes the whole app to ar-EG + Gregorian so no Windows setting can
+    shift a date anywhere.
+  - **`SqliteConnection.ClearAllPools()` only appears in `RestoreBackup`.** It is process-global: it
+    closes pooled connections for *every* database in the process. With `VACUUM INTO` the backup paths
+    no longer need it, and it was also the cause of a 1-in-20 flaky test (`TestDatabase.Dispose` called
+    it while other tests were mid-query — use `ClearPool(connection)` for one database).
 - **Activity-log retention** (`ActivityLogService.PurgeExpiredAsync`, run once per startup from
   `App.OnStartup` **after** the backup, so anything it deletes is still in today's backup; its failure is
   swallowed — a cleanup is not a startup prerequisite). **Two windows, not one**, because this log has no
-  routine noise: every one of its 11 event types is either a deletion or a money movement.
-  `ActivityEventRetention` (Core) lists only the **short-lived** types — the five administrative deletions
-  (day / record / worker / product / stage) — and everything else gets the long window **by default**, so
+  routine noise: every one of its event types is either a deletion, a money movement, or a daily save.
+  **Six event types existed with Arabic names and a retention policy but nothing ever wrote them** — the
+  only `LogAsync` call in the whole app was in `SoftDeleteService`, so the log was a deletion log while
+  the screen promised more. Every type now has exactly one place that writes it (`ActivityLogCoverageTests`
+  is what keeps that true).
+  `ActivityEventRetention` (Core) lists only the **short-lived** types — administrative deletions plus the
+  routine daily saves (production / attendance / day closure / creations) — and everything else gets the
+  long window **by default**, so
   a new event type added later can't silently inherit a 90-day life just because someone forgot to list
   it. `ActivityLogRetentionTests` asserts exactly that inversion. Defaults: 90 days for deletions, 365 for
   money + `OperationsPasswordChanged` (it's the gate protecting the money operations, so "who changed it"
