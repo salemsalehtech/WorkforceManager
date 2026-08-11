@@ -102,6 +102,41 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task ABackupTakenWhileTheAppIsRunning_HasTheData()
+        {
+            // **ده العطل الحقيقي اللي الإصلاح اتعمل عشانه.**
+            //
+            // قاعدة البيانات شغالة بوضع WAL: الكتابات الجديدة بتروح
+            // لملف "-wal" جنبها، ومبتترحّلش للملف الأساسي غير عند
+            // checkpoint (بيحصل عادة عند إغلاق آخر اتصال).
+            //
+            // زرار "خد نسخة دلوقتي" بيتضغط **والبرنامج شغال** — يعني
+            // فيه اتصال مفتوح والـ WAL مليان. النسخ بـ File.Copy كان
+            // بياخد الملف الأساسي لوحده، فالنسخة بتطلع من غير الشغل
+            // اللي في الـ WAL. اتجرّبت على النسخة الموزّعة فعلًا:
+            // النسخة طلعت **من غير أي جداول** والقاعدة فيها 46 عامل.
+            //
+            // والمستخدم بياخد رسالة "تم الحفظ بنجاح".
+            var dbPath = await NewDatabaseAsync();
+
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseSqlite($"Data Source={dbPath}").Options;
+
+            // اتصال مفتوح طول العملية — زي البرنامج وهو شغال
+            await using var live = new AppDbContext(options);
+            await live.Database.OpenConnectionAsync();
+
+            live.Workers.Add(new Core.Models.Worker { FullName = "عامل بعد آخر checkpoint" });
+            await live.SaveChangesAsync();
+
+            var expected = await live.Workers.CountAsync();
+
+            var (backupPath, _) = DatabaseBackupService.BackupNow(dbPath, null, 14);
+
+            Assert.Equal(expected, await CountWorkersAsync(backupPath));
+        }
+
+        [Fact]
         public async Task TakingABackupTwiceInTheSameDay_ReplacesItInsteadOfFailing()
         {
             // VACUUM INTO بيرفض يكتب على ملف موجود — لو الخدمة مامسحتش
@@ -132,6 +167,42 @@ namespace WorkforceManager.Tests
 
             Assert.Equal(expected, await CountWorkersAsync(dbPath));
             Assert.True(File.Exists(safety), "نسخة الأمان من البيانات القديمة لازم تفضل موجودة");
+        }
+
+        [Fact]
+        public async Task RestoringClearsTheOldWalFiles()
+        {
+            // القاعدة شغالة بوضع WAL، فبيبقى جنبها ملف "-wal". لو اتساب
+            // بعد الاسترجاع، بيبقى فيه ملف بحجم ميجات تابع لقاعدة اتشالت
+            // خلاص — SQLite بيتجاهله، بس اللي هيفحص المجلد بعد سنتين
+            // هيقعد يخمّن هو إيه.
+            var dbPath = await NewDatabaseAsync();
+
+            var options = new DbContextOptionsBuilder<AppDbContext>()
+                .UseSqlite($"Data Source={dbPath}").Options;
+
+            string backupPath;
+
+            // اتصال شغال بيولّد الـ WAL — زي البرنامج وهو مفتوح
+            await using (var live = new AppDbContext(options))
+            {
+                await live.Database.OpenConnectionAsync();
+                live.Workers.Add(new Core.Models.Worker { FullName = "شغل قبل الاسترجاع" });
+                await live.SaveChangesAsync();
+
+                (backupPath, _) = DatabaseBackupService.BackupNow(dbPath, null, 14);
+
+                Assert.True(File.Exists(dbPath + "-wal"), "التحضير نفسه لازم يعمل ملف WAL");
+            }
+
+            // الاتصال اتقفل — نفس حالة البرنامج وهو بيسترجع (بيقفل كل
+            // الاتصالات الأول وبيعيد التشغيل بعدها)
+            ClearPoolFor(dbPath);
+
+            DatabaseBackupService.RestoreBackup(dbPath, backupPath);
+
+            Assert.False(File.Exists(dbPath + "-wal"), "ملف الـ WAL القديم لازم يتشال مع القاعدة القديمة");
+            Assert.False(File.Exists(dbPath + "-shm"));
         }
     }
 }
