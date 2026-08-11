@@ -108,7 +108,6 @@ namespace WorkforceManager.UI
                     services.AddScoped<SkillRatingService>();
                     services.AddScoped<AuthService>();
                     // خدمة التصدير Singleton لأنها بدون حالة ولا بتلمس قاعدة البيانات
-                    services.AddSingleton<WeeklyReportExcelService>();
                     services.AddSingleton<ReportTableExcelService>();
                     services.AddSingleton<PayslipStripExcelService>();
 
