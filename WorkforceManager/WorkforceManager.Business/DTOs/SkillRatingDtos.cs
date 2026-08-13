@@ -67,6 +67,12 @@ namespace WorkforceManager.Business.DTOs
         public decimal MeasuredRatio { get; init; }
         public int MeasuredDays { get; init; }
 
+        /// <summary>
+        /// كام مهارة جديدة العامل ده اكتسبها في آخر شهر — الإشارة اللي
+        /// بنى عليها الاقتراح (شوف SkillRatingService.BuildReviewAsync).
+        /// </summary>
+        public int NewSkillsCount { get; init; }
+
         /// <summary>آخر مرة المدير عدّل التقييم (null = عمره ما اتعدّل)</summary>
         public DateTime? StarsUpdatedAt { get; init; }
 
@@ -89,16 +95,14 @@ namespace WorkforceManager.Business.DTOs
         public string CurrentStarsText => new string('★', CurrentStars) + new string('☆', 5 - CurrentStars);
         public string SuggestedStarsText => new string('★', SuggestedStars) + new string('☆', 5 - SuggestedStars);
 
-        /// <summary>الأداء المقاس كجملة — مشتركة بين كل الأسباب</summary>
-        private string MeasuredPhrase =>
-            $"إنتاجه {MeasuredRatio * 100:0}% من الكوتة على مدار {MeasuredDays} يوم";
-
-        /// <summary>سبب الاقتراح بالعربي — المدير لازم يفهم الرقم جه منين</summary>
+        /// <summary>
+        /// سبب الاقتراح بالعربي — المدير لازم يفهم الرقم جه منين.
+        /// دايمًا مصحوب بـ IsUnrated في الحالة دي (المراجعة بتسيب أي
+        /// اقتراح تاني بيساوي الحالي ومقيّم قبل كده من غير ما تعرضه أصلاً).
+        /// </summary>
         public string Reason => IsConfirmation
-            ? $"{MeasuredPhrase} — مطابق للتقييم اللي عليه، بس التقييم ده مبدئي. أكّده عشان يبقى رأيك انت."
-            : IsUpgrade
-                ? $"{MeasuredPhrase} — أحسن من تقييمه الحالي"
-                : $"{MeasuredPhrase} — أقل من تقييمه الحالي";
+            ? "التقييم ده لسه ما اتقيّمش بإيدك — أكّده عشان يبقى رأيك انت."
+            : $"اكتسب {NewSkillsCount} {(NewSkillsCount == 1 ? "مهارة جديدة" : "مهارات جديدة")} في آخر شهر — إشارة إنه بيتطوّر.";
 
         /// <summary>"★★★ ← ★★★★" — الملخص اللي بيتعرض في السطر</summary>
         public string ChangeText => IsConfirmation
@@ -121,17 +125,17 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>
         /// ملخص للعرض في التنبيه. بيتبني من الحالات الموجودة فعلًا بس —
-        /// "0 عامل أداؤه بقى أحسن" جملة بتشغّل دماغ المدير من غير داعي.
+        /// "0 عامل اكتسب مهارات" جملة بتشغّل دماغ المدير من غير داعي.
         /// </summary>
         public string SummaryText
         {
             get
             {
                 if (Suggestions.Count == 0)
-                    return "كل التقييمات متطابقة مع الأداء الفعلي — مفيش حاجة محتاجة تعديل";
+                    return "مفيش حد اكتسب مهارات جديدة الفترة دي — مفيش حاجة محتاجة تعديل";
 
                 var parts = new List<string>();
-                if (UpgradeCount > 0) parts.Add($"{UpgradeCount} أداؤه بقى أحسن من تقييمه");
+                if (UpgradeCount > 0) parts.Add($"{UpgradeCount} اكتسب مهارات جديدة ويستاهل رفع تقييمه");
                 if (DowngradeCount > 0) parts.Add($"{DowngradeCount} أقل من تقييمه");
                 if (ConfirmationCount > 0) parts.Add($"{ConfirmationCount} تقييمه مبدئي ومستني تأكيدك");
 

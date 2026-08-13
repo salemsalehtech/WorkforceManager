@@ -26,9 +26,27 @@ namespace WorkforceManager.Tests
         /// <summary>بيحطّ كلمة سر العمليات — أغلب الاختبارات محتاجة البوابة مفعّلة</summary>
         private async Task ConfigurePasswordAsync()
         {
+            await _db.SignInTestUserAsync();
+
             using var scope = _db.CreateScope();
             await _db.GetService<OperationsPasswordService>(scope)
                 .SetPasswordAsync(null, OperationsPassword);
+        }
+
+        /// <summary>
+        /// بيحاكي "العامل اكتسب المهارة دي حديثًا" — العمال في TestDatabase
+        /// متربطين بكل المراحل من البذرة (شوف SeedWorkerSkillsAsync)،
+        /// فـ AssignSkillAsync هيحدّث Level بس مش هيلمس CreatedAt (رابط
+        /// موجود بالفعل). بنعدّل التاريخ مباشرة عشان نتحكم فيه بدقة.
+        /// </summary>
+        private async Task MarkSkillAsRecentlyAddedAsync(int workerId, int stageId, DateTime createdAt)
+        {
+            using var scope = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(scope);
+            var skill = await db.WorkerSkills.FirstAsync(
+                s => s.WorkerId == workerId && s.ProductionStageId == stageId);
+            skill.CreatedAt = createdAt;
+            await db.SaveChangesAsync();
         }
 
         /// <summary>بيسجّل إنتاج ويرجّع معرّف السجل</summary>
@@ -226,6 +244,54 @@ namespace WorkforceManager.Tests
 
             // الفلتر العام بيشيله من كل استعلام من غير ما حد يكتب شرط
             Assert.Empty(await _db.GetProductionAsync());
+        }
+
+        [Fact]
+        public async Task Deleting_the_only_production_record_removes_the_auto_generated_attendance_too()
+        {
+            await ConfigurePasswordAsync();
+            var recordId = await RecordProductionAsync(); // بيسجّل حضور "حاضر" تلقائي لأحمد
+
+            using (var scope = _db.CreateScope())
+            {
+                var db = _db.GetService<AppDbContext>(scope);
+                Assert.NotNull(await db.Attendances.FirstOrDefaultAsync(
+                    a => a.WorkerId == TestDatabase.WorkerAhmedId && a.Date == TestDatabase.Today));
+            }
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope)
+                    .DeleteProductionAsync(recordId, OperationsPassword, "اتسجل بالغلط");
+
+            using var check = _db.CreateScope();
+            var checkDb = _db.GetService<AppDbContext>(check);
+
+            // مفيش إنتاج ولا سبب يبرر "حاضر" فضل — الحضور اتشال معاه
+            Assert.Null(await checkDb.Attendances.FirstOrDefaultAsync(
+                a => a.WorkerId == TestDatabase.WorkerAhmedId && a.Date == TestDatabase.Today));
+        }
+
+        [Fact]
+        public async Task Deleting_one_of_two_records_for_the_same_worker_keeps_the_attendance()
+        {
+            await ConfigurePasswordAsync();
+            var firstId = await RecordProductionAsync(); // مرحلة 1
+
+            // سجل تاني لنفس العامل نفس اليوم على مرحلة مختلفة
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage2Id, 50, TestDatabase.Today, confirmOverride: true);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope)
+                    .DeleteProductionAsync(firstId, OperationsPassword, "اتسجل غلط");
+
+            using var check = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(check);
+
+            // لسه فيه سجل تاني يبرر الحضور — الحضور فضل موجود
+            Assert.NotNull(await db.Attendances.FirstOrDefaultAsync(
+                a => a.WorkerId == TestDatabase.WorkerAhmedId && a.Date == TestDatabase.Today));
         }
 
         [Fact]
@@ -547,31 +613,57 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
-        public async Task Monthly_review_flags_the_gap_between_stars_and_reality()
+        public async Task Monthly_review_suggestsARaise_whenTheWorkerGainsANewSkillThisPeriod()
         {
-            using (var scope = _db.CreateScope())
-                await _db.GetService<SkillRatingService>(scope)
-                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5);
-
-            // بيعمل نص الكوتة بس — يستاهل نجمة واحدة
+            // مهارة قديمة (من الـ seed) بـ 3 نجوم — شغل كفاية عليها عشان
+            // تدخل المراجعة
             for (var day = 0; day < 3; day++)
             {
                 using var scope = _db.CreateScope();
                 await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
-                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5,
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 10,
                     TestDatabase.Today.AddDays(-day));
             }
+
+            // العامل اتعلّم مهارة جديدة النهارده — الإشارة اللي بتحرّك
+            // الاقتراح دلوقتي، مش عدد الضربات على اللي عارفه بالفعل
+            await MarkSkillAsRecentlyAddedAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage2Id, TestDatabase.Today);
 
             using var check = _db.CreateScope();
             var review = await _db.GetService<SkillRatingService>(check)
                 .BuildReviewAsync(TestDatabase.Today);
 
-            var suggestion = Assert.Single(review.Suggestions);
+            var suggestion = Assert.Single(review.Suggestions, s => s.StageId == TestDatabase.BagStage1Id);
             Assert.Equal(TestDatabase.WorkerAhmedId, suggestion.WorkerId);
-            Assert.Equal(5, suggestion.CurrentStars);
-            Assert.Equal(1, suggestion.SuggestedStars);
-            Assert.False(suggestion.IsUpgrade);
-            Assert.Equal(1, review.DowngradeCount);
+            Assert.Equal(3, suggestion.CurrentStars);
+            Assert.Equal(4, suggestion.SuggestedStars); // +1 لاكتساب مهارة جديدة
+            Assert.True(suggestion.IsUpgrade);
+            Assert.Equal(1, suggestion.NewSkillsCount);
+            Assert.Equal(0, review.DowngradeCount); // مفيش نزول أبدًا — النظام مبيقترحش تقييم لأسفل
+        }
+
+        [Fact]
+        public async Task Monthly_review_staysQuiet_whenTheWorkerGainsNoNewSkills()
+        {
+            // نفس السيناريو من غير مهارة جديدة — الإنتاج نفسه (حتى لو
+            // ضعيف) مبيقترحش حاجة، لأنه مش الإشارة بقى
+            for (var day = 0; day < 3; day++)
+            {
+                using var scope = _db.CreateScope();
+                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5, // نص الكوتة
+                    TestDatabase.Today.AddDays(-day));
+            }
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<SkillRatingService>(scope)
+                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 3);
+
+            using var check = _db.CreateScope();
+            var review = await _db.GetService<SkillRatingService>(check)
+                .BuildReviewAsync(TestDatabase.Today);
+
+            Assert.False(review.HasSuggestions);
         }
 
         [Fact]
@@ -636,36 +728,35 @@ namespace WorkforceManager.Tests
         {
             using (var scope = _db.CreateScope())
                 await _db.GetService<SkillRatingService>(scope)
-                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 1);
+                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 4);
 
-            // بيعمل الكوتة وزيادة 50% — يستاهل 5 نجوم
             for (var day = 0; day < 3; day++)
             {
                 using var scope = _db.CreateScope();
                 await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
-                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 15,
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 10,
                     TestDatabase.Today.AddDays(-day));
             }
+
+            await MarkSkillAsRecentlyAddedAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage2Id, TestDatabase.Today);
 
             using var scope2 = _db.CreateScope();
             var rating = _db.GetService<SkillRatingService>(scope2);
             var review = await rating.BuildReviewAsync(TestDatabase.Today);
 
-            var suggestion = Assert.Single(review.Suggestions);
+            var suggestion = Assert.Single(review.Suggestions, s => s.StageId == TestDatabase.BagStage1Id);
             Assert.True(suggestion.IsUpgrade);
 
             await rating.ApplySuggestionAsync(suggestion);
 
             var skill = await _db.GetService<IWorkerSkillRepository>(scope2)
                 .GetAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id);
-            Assert.Equal(5, skill!.Stars);
+            Assert.Equal(5, skill!.Stars); // 4 + 1
         }
 
         [Fact]
-        public async Task Ignoring_a_suggestion_leaves_the_stars_untouched()
+        public async Task ApplyingASuggestion_neverPushesStarsAboveFive()
         {
-            // "سيبه زي ما هو" لازم يبقى قرار حقيقي: التقييم مايتغيرش،
-            // والاقتراح يرجع الشهر الجاي لو الفرق لسه موجود
             using (var scope = _db.CreateScope())
                 await _db.GetService<SkillRatingService>(scope)
                     .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5);
@@ -674,9 +765,37 @@ namespace WorkforceManager.Tests
             {
                 using var scope = _db.CreateScope();
                 await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
-                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 5,
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 10,
                     TestDatabase.Today.AddDays(-day));
             }
+
+            await MarkSkillAsRecentlyAddedAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage2Id, TestDatabase.Today);
+
+            using var check = _db.CreateScope();
+            var review = await _db.GetService<SkillRatingService>(check).BuildReviewAsync(TestDatabase.Today);
+
+            // بالفعل 5 نجوم وأكّدها المدير قبل كده — مفيش أعلى، فمفيش اقتراح
+            Assert.DoesNotContain(review.Suggestions, s => s.StageId == TestDatabase.BagStage1Id);
+        }
+
+        [Fact]
+        public async Task Ignoring_a_suggestion_leaves_the_stars_untouched()
+        {
+            // "سيبه زي ما هو" لازم يبقى قرار حقيقي: التقييم مايتغيرش،
+            // والاقتراح يرجع الشهر الجاي لو المهارة الجديدة لسه موجودة
+            using (var scope = _db.CreateScope())
+                await _db.GetService<SkillRatingService>(scope)
+                    .SetStarsAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 3);
+
+            for (var day = 0; day < 3; day++)
+            {
+                using var scope = _db.CreateScope();
+                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 10,
+                    TestDatabase.Today.AddDays(-day));
+            }
+
+            await MarkSkillAsRecentlyAddedAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage2Id, TestDatabase.Today);
 
             using var check = _db.CreateScope();
             var rating = _db.GetService<SkillRatingService>(check);
@@ -687,7 +806,27 @@ namespace WorkforceManager.Tests
 
             var skill = await _db.GetService<IWorkerSkillRepository>(check)
                 .GetAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id);
-            Assert.Equal(5, skill!.Stars);
+            Assert.Equal(3, skill!.Stars); // زي ما هي — الاقتراح ماتطبّقش
+        }
+
+        [Fact]
+        public async Task AssignSkillAsync_stampsCreatedAt_forAGenuinelyNewLink()
+        {
+            using var scope = _db.CreateScope();
+            var mgmt = _db.GetService<WorkerManagementService>(scope);
+
+            // عامل جديد مالوش أي مهارات لسه — أول ربط ليه بمرحلة لازم
+            // يبقى "إنشاء" فعلي، مش "تحديث" لرابط موجود من البذرة
+            var worker = await mgmt.CreateWorkerAsync("عامل جديد");
+            var before = DateTime.Now;
+
+            await mgmt.AssignSkillAsync(worker.Id, TestDatabase.BagStage1Id);
+
+            var skill = await _db.GetService<IWorkerSkillRepository>(scope)
+                .GetAsync(worker.Id, TestDatabase.BagStage1Id);
+
+            Assert.NotNull(skill);
+            Assert.True(skill!.CreatedAt >= before.AddSeconds(-1));
         }
 
         [Fact]
