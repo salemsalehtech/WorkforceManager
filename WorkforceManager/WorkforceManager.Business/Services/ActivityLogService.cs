@@ -15,11 +15,14 @@ namespace WorkforceManager.Business.Services
     {
         private readonly IActivityEventRepository _events;
         private readonly CurrentUserContext _currentUser;
+        private readonly IGenericRepository<AppUser> _users;
 
-        public ActivityLogService(IActivityEventRepository events, CurrentUserContext currentUser)
+        public ActivityLogService(
+            IActivityEventRepository events, CurrentUserContext currentUser, IGenericRepository<AppUser> users)
         {
             _events = events;
             _currentUser = currentUser;
+            _users = users;
         }
 
         /// <summary>
@@ -64,6 +67,36 @@ namespace WorkforceManager.Business.Services
         /// <summary>أحداث فترة معينة (فلترة بالتاريخ في شاشة السجل)</summary>
         public Task<IReadOnlyList<ActivityEvent>> GetByRangeAsync(DateTime from, DateTime to) =>
             _events.GetByRangeAsync(from, to);
+
+        // ------- شارة "عمليات جديدة" على زرار السجل -------
+
+        /// <summary>
+        /// عدد الأحداث اللي حصلت بعد آخر مرة الحساب ده فتح السجل — الرقم
+        /// اللي بيتعرض كشارة على زرار "سجل العمليات". null (لسه ما فتحش
+        /// السجل) بيتحسب من وقت إنشاء الحساب، مش من أول السجل كله.
+        /// </summary>
+        public async Task<int> GetUnseenCountAsync(int? appUserId)
+        {
+            if (appUserId is null) return 0;
+
+            var user = await _users.GetByIdAsync(appUserId.Value);
+            if (user is null) return 0;
+
+            return await _events.CountSinceAsync(user.LastSeenActivityLogAt ?? user.CreatedAt);
+        }
+
+        /// <summary>بيتنادى لما الحساب يفتح شاشة السجل — بيصفّر الشارة</summary>
+        public async Task MarkSeenAsync(int? appUserId)
+        {
+            if (appUserId is null) return;
+
+            var user = await _users.GetByIdAsync(appUserId.Value);
+            if (user is null) return;
+
+            user.LastSeenActivityLogAt = DateTime.Now;
+            _users.Update(user);
+            await _users.SaveChangesAsync();
+        }
 
         // ------- التنظيف التلقائي -------
 

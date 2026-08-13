@@ -29,6 +29,8 @@ namespace WorkforceManager.Tests
 
         private async Task SetPasswordAsync()
         {
+            await _db.SignInTestUserAsync();
+
             using var scope = _db.CreateScope();
             await _db.GetService<OperationsPasswordService>(scope).SetPasswordAsync(null, Password);
         }
@@ -196,6 +198,50 @@ namespace WorkforceManager.Tests
             // والفلوس بتفضل بالمدة الطويلة
             Assert.False(ActivityEventRetention.IsShortLived(ActivityEventType.WageAdjustmentSaved));
             Assert.False(ActivityEventRetention.IsShortLived(ActivityEventType.ScrapRecorded));
+        }
+
+        // ---------------- شارة "عمليات جديدة" ----------------
+
+        [Fact]
+        public async Task ActivityAfterSignIn_CountsAsUnseen()
+        {
+            var userId = await _db.SignInTestUserAsync();
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkerManagementService>(scope).UpdateWorkerAsync(
+                    TestDatabase.WorkerAhmedId, "احمد", dailyWageEgp: 300);
+
+            using var check = _db.CreateScope();
+            var unseen = await _db.GetService<ActivityLogService>(check).GetUnseenCountAsync(userId);
+
+            Assert.Equal(1, unseen);
+        }
+
+        [Fact]
+        public async Task MarkingSeen_ClearsTheCountBackToZero()
+        {
+            var userId = await _db.SignInTestUserAsync();
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkerManagementService>(scope).UpdateWorkerAsync(
+                    TestDatabase.WorkerAhmedId, "احمد", dailyWageEgp: 300);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<ActivityLogService>(scope).MarkSeenAsync(userId);
+
+            using var check = _db.CreateScope();
+            var unseen = await _db.GetService<ActivityLogService>(check).GetUnseenCountAsync(userId);
+
+            Assert.Equal(0, unseen);
+        }
+
+        [Fact]
+        public async Task NoSignedInAccount_HasNoUnseenCount()
+        {
+            using var scope = _db.CreateScope();
+            var unseen = await _db.GetService<ActivityLogService>(scope).GetUnseenCountAsync(null);
+
+            Assert.Equal(0, unseen);
         }
     }
 }

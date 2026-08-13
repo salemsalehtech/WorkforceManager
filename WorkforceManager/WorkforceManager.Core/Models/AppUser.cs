@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace WorkforceManager.Core.Models
 {
@@ -32,5 +33,24 @@ namespace WorkforceManager.Core.Models
         public string? DisplayName { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        /// <summary>
+        /// آخر مرة فتح فيها الحساب ده شاشة سجل العمليات — أساس شارة
+        /// "عمليات جديدة" على زرار السجل (شوف ActivityLogService.GetUnseenCountAsync).
+        /// null يعني عمره ما فتحها؛ ساعتها الحساب بيتحسب "شافه أول مرة
+        /// النهارده" عند إنشائه (CreatedAt)، مش كل تاريخ السجل من قبل ما الحساب يتعمل.
+        /// </summary>
+        public DateTime? LastSeenActivityLogAt { get; set; }
+
+        /// <summary>
+        /// الحساب الإداري (مدير/رئيس قسم) اللي حساب الدخول ده بتاعه —
+        /// null لحساب دخول عادي (لسه) مش مربوط بحساب إداري. كل حساب
+        /// إداري بقى حساب دخول فعلي بيوزر وباسورد خاصين بيه، فيه علاقة
+        /// واحد لواحد (شوف AppDbContext.OnModelCreating للفهرس الفريد).
+        /// </summary>
+        [ForeignKey(nameof(Worker))]
+        public int? WorkerId { get; set; }
+
+        public virtual Worker? Worker { get; set; }
     }
 }
