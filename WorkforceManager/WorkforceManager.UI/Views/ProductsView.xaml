@@ -560,6 +560,17 @@
                                     </StackPanel>
                                 </Button>
 
+                                <!-- مرة واحدة بس لكل منتج — بتختفي بعد ما تتضاف -->
+                                <Button Command="{Binding AddRackingStageCommand}" Style="{StaticResource GhostButton}"
+                                        Margin="0,0,6,0"
+                                        Visibility="{Binding SelectedProduct.HasRackingStage, Converter={StaticResource InverseBoolToVis}}"
+                                        ToolTip="مرحلة آخر الخط لعامل الرص — من غير كوتة ومن غير قطع في التسجيل">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="PackageVariantClosed" Width="14" Height="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="إضافة مرحلة الرص" Margin="5,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+
                                 <Button Command="{Binding AddStageCommand}" Style="{StaticResource SuccessButton}">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Plus" Width="15" Height="15" VerticalAlignment="Center" />
@@ -669,6 +680,14 @@
                                                                 </Border.Style>
                                                                 <TextBlock Text="موقوفة" FontSize="10.5" FontWeight="Medium"
                                                                            Foreground="{DynamicResource DangerBrush}" />
+                                                            </Border>
+
+                                                            <!-- مرحلة إدارية برّه خط الإنتاج — شوف ProductionStage.IsRackingStage -->
+                                                            <Border Background="{DynamicResource InfoBgBrush}" CornerRadius="6"
+                                                                    Padding="7,2" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                                    Visibility="{Binding IsRackingStage, Converter={StaticResource BoolToVis}}">
+                                                                <TextBlock Text="رص" FontSize="10.5" FontWeight="Medium"
+                                                                           Foreground="{DynamicResource InfoBrush}" />
                                                             </Border>
                                                         </StackPanel>
 
