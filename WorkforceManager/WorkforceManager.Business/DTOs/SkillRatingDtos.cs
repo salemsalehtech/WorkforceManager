@@ -1,3 +1,5 @@
+using WorkforceManager.Core.Helpers;
+
 namespace WorkforceManager.Business.DTOs
 {
     /// <summary>
@@ -28,7 +30,7 @@ namespace WorkforceManager.Business.DTOs
         public DateTime? StarsUpdatedAt { get; init; }
 
         /// <summary>النجوم كنص للعرض ("★★★★☆")</summary>
-        public string StarsText => new string('★', Stars) + new string('☆', 5 - Stars);
+        public string StarsText => RtlSafeText.Stars(Stars);
 
         /// <summary>فيه قياس فعلي ولا لسه؟</summary>
         public bool HasMeasurement => MeasuredAt is not null && MeasuredDays > 0;
@@ -92,8 +94,8 @@ namespace WorkforceManager.Business.DTOs
         /// <summary>الاقتراح بينزّل التقييم</summary>
         public bool IsDowngrade => SuggestedStars < CurrentStars;
 
-        public string CurrentStarsText => new string('★', CurrentStars) + new string('☆', 5 - CurrentStars);
-        public string SuggestedStarsText => new string('★', SuggestedStars) + new string('☆', 5 - SuggestedStars);
+        public string CurrentStarsText => RtlSafeText.Stars(CurrentStars);
+        public string SuggestedStarsText => RtlSafeText.Stars(SuggestedStars);
 
         /// <summary>
         /// سبب الاقتراح بالعربي — المدير لازم يفهم الرقم جه منين.
