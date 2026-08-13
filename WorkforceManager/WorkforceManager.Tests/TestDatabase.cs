@@ -110,10 +110,12 @@ namespace WorkforceManager.Tests
             services.AddScoped<ProductActivityService>();
             services.AddScoped<PendingWorkService>();
             services.AddScoped<ScrapService>();
+            services.AddScoped<ProductionStageOutputService>();
             services.AddScoped<ProductionReportService>();
             services.AddScoped<WageAdjustmentService>();
             services.AddScoped<ReportBuilderService>();
             services.AddScoped<ProductionChartService>();
+            services.AddScoped<DepartmentAttendanceService>();
             services.AddSingleton<ReportTableExcelService>();
             services.AddSingleton<PayslipStripExcelService>();
 
@@ -147,6 +149,34 @@ namespace WorkforceManager.Tests
             return await action(GetService<TService>(scope));
         }
 
+        /// <summary>
+        /// بيسجّل مستخدم اختباري ثابت دخول (بيعمله لو مش موجود) وينادي
+        /// CurrentUserContext.SignIn بمعرّفه الحقيقي — الاختبارات اللي
+        /// بتحتاج OperationsPasswordService (كلمة سر العمليات بقت لكل
+        /// حساب لوحده) لازم تنادي دي الأول، عشان AppUserId يبقى صف
+        /// حقيقي موجود (قيد المفتاح الأجنبي بين OperationsCredential
+        /// وAppUser).
+        /// </summary>
+        public async Task<int> SignInTestUserAsync(string username = "test-user")
+        {
+            using var scope = CreateScope();
+            var db = GetService<AppDbContext>(scope);
+
+            var user = await db.AppUsers.FirstOrDefaultAsync(u => u.Username == username);
+            if (user is null)
+            {
+                user = new AppUser
+                {
+                    Username = username, PasswordHash = "x", PasswordSalt = "x", DisplayName = username
+                };
+                db.AppUsers.Add(user);
+                await db.SaveChangesAsync();
+            }
+
+            GetService<CurrentUserContext>(scope).SignIn(username, user.DisplayName, user.Id);
+            return user.Id;
+        }
+
         /// <summary>كل سجلات الإنتاج في اليوم — للتأكد من اللي اتحفظ فعلاً</summary>
         public async Task<List<DailyProduction>> GetProductionAsync()
         {
@@ -156,6 +186,14 @@ namespace WorkforceManager.Tests
                 .Include(p => p.ProductionStage)
                 .AsNoTracking()
                 .ToListAsync();
+        }
+
+        /// <summary>كل سجلات الإنتاج الفعلي — للتأكد من الرقم المستقل ده اتحفظ فعلاً</summary>
+        public async Task<List<ProductionStageOutput>> GetProductionStageOutputsAsync()
+        {
+            using var scope = CreateScope();
+            var db = GetService<AppDbContext>(scope);
+            return await db.ProductionStageOutputs.AsNoTracking().ToListAsync();
         }
 
         private static void Seed(AppDbContext db)

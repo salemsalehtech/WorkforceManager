@@ -27,6 +27,7 @@ namespace WorkforceManager.Data
         public DbSet<OperationsCredential> OperationsCredentials => Set<OperationsCredential>();
         public DbSet<ProductionScrap> ProductionScraps => Set<ProductionScrap>();
         public DbSet<ScrapReason> ScrapReasons => Set<ScrapReason>();
+        public DbSet<ProductionStageOutput> ProductionStageOutputs => Set<ProductionStageOutput>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -148,6 +149,25 @@ namespace WorkforceManager.Data
                 .HasIndex(r => r.Name)
                 .IsUnique(); // سببين بنفس الاسم بيخلّوا التقرير يتقسم على نفسه
 
+            // ---------- الإنتاج الفعلي للمرحلة ----------
+            // Restrict مش Cascade (عكس الهالك): الرقم ده بقى مرجع تقارير
+            // رسمي زي DailyProduction بالظبط — حذف مرحلة ليها سجل فيه
+            // لازم يفشل بوضوح، مش يمسح الرقم بصمت ويسيب تقرير قديم بلا مصدر
+            modelBuilder.Entity<ProductionStageOutput>()
+                .HasOne(o => o.ProductionStage)
+                .WithMany()
+                .HasForeignKey(o => o.ProductionStageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // ---------- عامل الرص الثابت بتاع المنتج ----------
+            // SetNull مش Cascade — نفس قاعدة ProductionScrap.ScrapReasonId:
+            // حذف عامل الرص يفضّي الحقل، مش يمسح المنتج
+            modelBuilder.Entity<Product>()
+                .HasOne(p => p.RackingWorker)
+                .WithMany()
+                .HasForeignKey(p => p.RackingWorkerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // سعر اليومية بالجنيه بدقة عشرية كافية
             modelBuilder.Entity<Worker>()
                 .Property(w => w.DailyWageEgp)
@@ -185,6 +205,32 @@ namespace WorkforceManager.Data
             modelBuilder.Entity<AppUser>()
                 .HasIndex(u => u.Username)
                 .IsUnique();
+
+            // حساب دخول واحد لكل حساب إداري بالحد الأقصى — SetNull: حذف
+            // العامل (نادرًا) ميشيلش حساب الدخول، بس يفصله عنه بس
+            modelBuilder.Entity<AppUser>()
+                .HasOne(u => u.Worker)
+                .WithMany()
+                .HasForeignKey(u => u.WorkerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<AppUser>()
+                .HasIndex(u => u.WorkerId)
+                .IsUnique()
+                .HasFilter("\"WorkerId\" IS NOT NULL");
+
+            // كلمة سر عمليات واحدة بالحد الأقصى لكل حساب دخول — Cascade:
+            // حذف حساب الدخول يشيل كلمة سره كمان (مالهاش معنى لوحدها)
+            modelBuilder.Entity<OperationsCredential>()
+                .HasOne(c => c.AppUser)
+                .WithMany()
+                .HasForeignKey(c => c.AppUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<OperationsCredential>()
+                .HasIndex(c => c.AppUserId)
+                .IsUnique()
+                .HasFilter("\"AppUserId\" IS NOT NULL");
 
             // ---------- فهارس لتسريع البحث بالاسم ----------
             modelBuilder.Entity<Worker>()
