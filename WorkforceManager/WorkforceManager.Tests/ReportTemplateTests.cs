@@ -137,6 +137,41 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public void RenamingATemplate_KeepsEverythingElseTheSame()
+        {
+            ReportTemplateStore.Save(Full("الاسم القديم"), _path);
+
+            ReportTemplateStore.Rename("الاسم القديم", "الاسم الجديد", _path);
+
+            var loaded = Assert.Single(ReportTemplateStore.LoadSaved(_path));
+            Assert.Equal("الاسم الجديد", loaded.Name);
+            Assert.Equal(ReportGrouping.Product, loaded.GroupBy);
+            Assert.Equal(10, loaded.TopN);
+        }
+
+        [Fact]
+        public void RenamingToAnAlreadyTakenName_IsRefused()
+        {
+            ReportTemplateStore.Save(Full("الأول"), _path);
+            ReportTemplateStore.Save(Full("الثاني"), _path);
+
+            Assert.Throws<InvalidOperationException>(() =>
+                ReportTemplateStore.Rename("الأول", "الثاني", _path));
+
+            // مفيش حاجة اتغيّرت — الاتنين لسه بأسمائهم
+            var names = ReportTemplateStore.LoadSaved(_path).Select(t => t.Name).ToList();
+            Assert.Contains("الأول", names);
+            Assert.Contains("الثاني", names);
+        }
+
+        [Fact]
+        public void RenamingANonExistentTemplate_IsRefused()
+        {
+            Assert.Throws<InvalidOperationException>(() =>
+                ReportTemplateStore.Rename("مش موجود", "اسم تاني", _path));
+        }
+
+        [Fact]
         public void ABrokenTemplatesFile_NeverStopsTheScreenFromOpening()
         {
             File.WriteAllText(_path, "{ ده مش JSON أصلاً ");

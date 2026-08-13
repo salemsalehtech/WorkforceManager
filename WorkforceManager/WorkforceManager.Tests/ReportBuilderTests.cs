@@ -67,8 +67,9 @@ namespace WorkforceManager.Tests
 
             var table = await BuildAsync(Spec(ReportSubject.Production, ReportGrouping.Worker));
 
-            // القطع بتتجمع
-            var pieces = table.Columns.FindIndex(c => c.Header == "القطع");
+            // بالعامل: "عدد الضربات" مش "القطع" — رقم العامل عدد ضرباته
+            // على المكنة، مش الإنتاج الفعلي للمنتج
+            var pieces = table.Columns.FindIndex(c => c.Header == "عدد الضربات");
             Assert.Equal(150, table.Totals!.Values[pieces]);
 
             // "عدد العمال" مبيتجمعش — جمع عدد العمال عبر الصفوف رقم مالوش معنى
@@ -114,7 +115,7 @@ namespace WorkforceManager.Tests
             await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage2Id, 100);
 
             var table = await BuildAsync(Spec(ReportSubject.Production, ReportGrouping.Worker));
-            var pieces = table.Columns.FindIndex(c => c.Header == "القطع");
+            var pieces = table.Columns.FindIndex(c => c.Header == "عدد الضربات");
 
             // 200 مش 100: التقرير ده بيقيس شغل العامل، والقطعة اللي عدّت
             // على مرحلتين اشتغل فيها مرتين
@@ -194,6 +195,26 @@ namespace WorkforceManager.Tests
             Assert.Equal(3, table.Rows.Count);
             Assert.Equal(10, table.Rows[0].Values[0]);
             Assert.Equal(30, table.Rows[2].Values[0]);
+        }
+
+        [Fact]
+        public async Task Grouping_by_month_collapses_days_into_one_row_per_month()
+        {
+            // Day = 29 يوليو 2026 — بعد 5 أيام بيدخل أغسطس، فده يعبر
+            // حد شهر حقيقي من غير تاريخ مكتوب بإيد
+            var august = Day.AddDays(5);
+
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id, 10, Day);
+            await RecordAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage3Id, 20, august);
+
+            var table = await BuildAsync(Spec(
+                ReportSubject.Production, ReportGrouping.Month, Day, august));
+
+            Assert.Equal(2, table.Rows.Count);
+            Assert.Equal(10, table.Rows[0].Values[0]);
+            Assert.Equal(20, table.Rows[1].Values[0]);
+            Assert.Equal("2026/07", table.Rows[0].Label);
+            Assert.Equal("2026/08", table.Rows[1].Label);
         }
 
         [Fact]
@@ -557,6 +578,98 @@ namespace WorkforceManager.Tests
             Assert.Equal(160, table.Totals!.Values[pieces]);
         }
 
+        // ======================= الإنتاج الفعلي منفصل عن قطع العمال =======================
+
+        /// <summary>
+        /// نطاق واحد بمجموع عامل مختلف عمدًا عن رقم النطاق — عشان نفرّق
+        /// بين "بالمنتج" (بيقرا الإنتاج الفعلي) و"بالعامل"/"بالمرحلة"
+        /// (بيقرا قطعة العامل نفسها).
+        /// </summary>
+        private async Task RecordFlowWithMismatchAsync(
+            int stageId, int rangePieces, int workerPieces,
+            int workerId = TestDatabase.WorkerAhmedId, DateTime? date = null)
+        {
+            var range = new FlowRangeDto { FromStageId = stageId, ToStageId = stageId, PieceCount = rangePieces };
+            var shares = new List<FlowShareDto>
+            {
+                new() { ProductionStageId = stageId, WorkerId = workerId, PieceCount = workerPieces }
+            };
+
+            using var scope = _db.CreateScope();
+            await _db.GetService<ProductionFlowService>(scope).RecordFlowAsync(
+                TestDatabase.ProductBagId, date ?? Day, new[] { range }, shares, confirmOverride: true);
+        }
+
+        [Fact]
+        public async Task Grouping_by_product_reads_the_actual_output_number_not_the_workers_sum()
+        {
+            // آخر مرحلة (تشطيب) عشان "بالمنتج" تعدّها تام. العامل عمل 130
+            // ضربة، بس الإنتاج الفعلي المسجَّل للنطاق 100 — رقمين منفصلين.
+            await RecordFlowWithMismatchAsync(TestDatabase.BagStage3Id, rangePieces: 100, workerPieces: 130);
+
+            var table = await BuildAsync(Spec(ReportSubject.Production, ReportGrouping.Product));
+            var pieces = table.Columns.FindIndex(c => c.Key == "pieces");
+
+            var row = Assert.Single(table.Rows);
+            Assert.Equal(100, row.Values[pieces]);
+        }
+
+        [Fact]
+        public async Task Grouping_by_worker_reads_the_workers_own_sum_not_the_actual_output_number()
+        {
+            await RecordFlowWithMismatchAsync(TestDatabase.BagStage3Id, rangePieces: 100, workerPieces: 130);
+
+            var table = await BuildAsync(Spec(ReportSubject.Production, ReportGrouping.Worker));
+            var pieces = table.Columns.FindIndex(c => c.Key == "pieces");
+
+            var row = Assert.Single(table.Rows);
+            Assert.Equal(130, row.Values[pieces]);
+        }
+
+        [Fact]
+        public async Task Grouping_by_product_withAWorkerFilter_readsThatWorkersOwnSum_notTheActualOutputNumber()
+        {
+            // فلتر بعامل معيّن معناه السؤال بقى "هو عمل قد إيه" — نفس
+            // قاعدة التجميع بالعامل بالظبط، حتى لو التجميع الظاهر
+            // نفسه بالمنتج (ProductionOutputRecordDto أصلاً مالوش
+            // WorkerId يتفلتر بيه، فمينفعش رقم "التام" يتقصّ على عامل)
+            await RecordFlowWithMismatchAsync(
+                TestDatabase.BagStage3Id, rangePieces: 100, workerPieces: 130, workerId: TestDatabase.WorkerAhmedId);
+
+            var table = await BuildAsync(new ReportSpec
+            {
+                Subject = ReportSubject.Production,
+                GroupBy = ReportGrouping.Product,
+                From = Day,
+                To = Day,
+                WorkerIds = new[] { TestDatabase.WorkerAhmedId }
+            });
+            var pieces = table.Columns.FindIndex(c => c.Key == "pieces");
+
+            var row = Assert.Single(table.Rows);
+            Assert.Equal(130, row.Values[pieces]); // ضربات أحمد هو، مش الإنتاج الفعلي المسجَّل (100)
+        }
+
+        [Fact]
+        public async Task Grouping_by_product_withAWorkerFilter_onlySumsTheFilteredWorkersRows()
+        {
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage3Id, 300);
+            await RecordAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage3Id, 200);
+
+            var table = await BuildAsync(new ReportSpec
+            {
+                Subject = ReportSubject.Production,
+                GroupBy = ReportGrouping.Product,
+                From = Day,
+                To = Day,
+                WorkerIds = new[] { TestDatabase.WorkerAhmedId }
+            });
+            var pieces = table.Columns.FindIndex(c => c.Key == "pieces");
+
+            var row = Assert.Single(table.Rows);
+            Assert.Equal(300, row.Values[pieces]); // أحمد بس — مش الـ500 (مجموع أحمد وسعيد)
+        }
+
         [Fact]
         public async Task WithNoExtraLevels_TheReportIsExactlyAsItWasBefore()
         {
@@ -691,13 +804,15 @@ namespace WorkforceManager.Tests
             foreach (var grouping in new[]
                      {
                          ReportGrouping.Worker, ReportGrouping.Product,
-                         ReportGrouping.Stage, ReportGrouping.Day, ReportGrouping.Week
+                         ReportGrouping.Stage, ReportGrouping.Day, ReportGrouping.Week,
+                         ReportGrouping.Month
                      })
                 Assert.True(ReportSpec.IsAllowed(ReportSubject.Production, grouping));
 
             // "سبب" بُعد بتاع الهالك لوحده — سجل الإنتاج مالوش سبب
             Assert.False(ReportSpec.IsAllowed(ReportSubject.Production, ReportGrouping.Reason));
             Assert.True(ReportSpec.IsAllowed(ReportSubject.Scrap, ReportGrouping.Reason));
+            Assert.True(ReportSpec.IsAllowed(ReportSubject.Scrap, ReportGrouping.Month));
         }
 
         [Fact]

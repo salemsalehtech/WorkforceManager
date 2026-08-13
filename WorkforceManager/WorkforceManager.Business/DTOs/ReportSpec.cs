@@ -9,7 +9,14 @@ namespace WorkforceManager.Business.DTOs
         Penalties = 4,
         WageAdjustments = 5,
         Skills = 6,
-        Scrap = 7
+        Scrap = 7,
+
+        /// <summary>
+        /// الحسابات الإدارية (مدير/رئيس قسم) — مصدر بيانات منفصل تمامًا
+        /// عن كل تقارير العمال التانية (IWorkerRepository.GetDepartmentAccountsAsync)،
+        /// مفيش خلط أبدًا.
+        /// </summary>
+        DepartmentAccounts = 8
     }
 
     /// <summary>الصفوف بتتجمّع على إيه</summary>
@@ -25,7 +32,13 @@ namespace WorkforceManager.Business.DTOs
         /// سبب الهالك — بُعد خاص بموضوع الهالك بس، عشان "الهالك راح
         /// فين؟" تبقى ليها إجابة مجمّعة مش ملاحظات متفرقة.
         /// </summary>
-        Reason = 6
+        Reason = 6,
+
+        /// <summary>
+        /// تجميع شهري — لتقارير الإنتاج/الهالك طويلة المدى. مش متاح
+        /// لكل المواضيع (شوف <see cref="AllowedGroupings"/>).
+        /// </summary>
+        Month = 7
     }
 
     /// <summary>نوع العامل — فلتر اختياري</summary>
@@ -155,7 +168,8 @@ namespace WorkforceManager.Business.DTOs
                 ReportSubject.Production => new[]
                 {
                     ReportGrouping.Worker, ReportGrouping.Product,
-                    ReportGrouping.Stage, ReportGrouping.Day, ReportGrouping.Week
+                    ReportGrouping.Stage, ReportGrouping.Day, ReportGrouping.Week,
+                    ReportGrouping.Month
                 },
                 ReportSubject.Attendance => new[]
                 {
@@ -185,7 +199,13 @@ namespace WorkforceManager.Business.DTOs
                 ReportSubject.Scrap => new[]
                 {
                     ReportGrouping.Product, ReportGrouping.Stage,
-                    ReportGrouping.Reason, ReportGrouping.Day, ReportGrouping.Week
+                    ReportGrouping.Reason, ReportGrouping.Day, ReportGrouping.Week,
+                    ReportGrouping.Month
+                },
+                ReportSubject.DepartmentAccounts => new[]
+                {
+                    ReportGrouping.Worker, ReportGrouping.Day, ReportGrouping.Week,
+                    ReportGrouping.Month
                 },
                 _ => new[] { ReportGrouping.Worker }
             };
@@ -209,6 +229,7 @@ namespace WorkforceManager.Business.DTOs
             ReportSubject.WageAdjustments => "السلف والحوافز",
             ReportSubject.Skills => "المهارات",
             ReportSubject.Scrap => "الهالك",
+            ReportSubject.DepartmentAccounts => "الحسابات الإدارية",
             _ => "تقرير"
         };
 
@@ -224,6 +245,7 @@ namespace WorkforceManager.Business.DTOs
             ReportGrouping.Stage => "المرحلة",
             ReportGrouping.Week => "الأسبوع",
             ReportGrouping.Reason => "السبب",
+            ReportGrouping.Month => "الشهر",
             _ => "اليوم"
         };
 
@@ -235,6 +257,7 @@ namespace WorkforceManager.Business.DTOs
             ReportGrouping.Day => "باليوم",
             ReportGrouping.Week => "بالأسبوع",
             ReportGrouping.Reason => "بالسبب",
+            ReportGrouping.Month => "بالشهر",
             _ => ""
         };
     }

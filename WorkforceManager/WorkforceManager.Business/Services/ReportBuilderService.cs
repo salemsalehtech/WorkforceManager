@@ -31,6 +31,7 @@ namespace WorkforceManager.Business.Services
         private readonly IProductRepository _products;
         private readonly PayrollService _payroll;
         private readonly ScrapService _scrap;
+        private readonly ProductionStageOutputService _productionOutput;
 
         public ReportBuilderService(
             IDailyProductionRepository production,
@@ -41,7 +42,8 @@ namespace WorkforceManager.Business.Services
             IWorkerRepository workers,
             IProductRepository products,
             PayrollService payroll,
-            ScrapService scrap)
+            ScrapService scrap,
+            ProductionStageOutputService productionOutput)
         {
             _production = production;
             _attendance = attendance;
@@ -52,6 +54,7 @@ namespace WorkforceManager.Business.Services
             _products = products;
             _payroll = payroll;
             _scrap = scrap;
+            _productionOutput = productionOutput;
         }
 
         public async Task<ReportTable> BuildAsync(ReportSpec spec)
@@ -177,9 +180,20 @@ namespace WorkforceManager.Business.Services
         public static IReadOnlyList<ReportColumn> ColumnsFor(ReportSubject subject, ReportGrouping grouping) =>
             subject switch
             {
+                // عمود "القطع" اسمه بيتغيّر حسب معناه — نفس فكرة CountsCompletedOutput:
+                // بالمنتج/اليوم/الأسبوع رقم حقيقي (الإنتاج الفعلي)، وبالعامل/بالمرحلة
+                // عدد ضربات العامل على المكنة مش قطع منتج فعلية. القرار هنا بيشوف
+                // مستوى التجميع الأساسي بس (المستوى الثانوي لسه مش مختار وقت
+                // عرض قايمة الأعمدة المتاحة) — الاسم النهائي في التقرير الفعلي
+                // بيتحدد في ProductionAsync اللي شايف كل المستويات.
                 ReportSubject.Production => new[]
                 {
-                    new ReportColumn { Header = "القطع", Key = "pieces", Kind = ReportValueKind.Whole, Sums = true },
+                    new ReportColumn
+                    {
+                        Header = grouping is ReportGrouping.Worker or ReportGrouping.Stage
+                            ? "عدد الضربات" : "القطع",
+                        Key = "pieces", Kind = ReportValueKind.Whole, Sums = true
+                    },
                     new ReportColumn { Header = "اليوميات", Key = "workdays", Kind = ReportValueKind.Fraction, Sums = true },
                     new ReportColumn { Header = "عدد العمال", Key = "workers", Kind = ReportValueKind.Whole },
                     new ReportColumn { Header = "أيام فيها شغل", Key = "workdays_with_work", Kind = ReportValueKind.Whole },
@@ -229,6 +243,15 @@ namespace WorkforceManager.Business.Services
                     new ReportColumn { Header = "قطع الهالك", Key = "scrap_pieces", Kind = ReportValueKind.Whole, Sums = true },
                     new ReportColumn { Header = "عدد المرات", Key = "scrap_entries", Kind = ReportValueKind.Whole, Sums = true },
                     new ReportColumn { Header = "أيام فيها هالك", Key = "scrap_days", Kind = ReportValueKind.Whole }
+                },
+
+                // حساب إداري: حاضر تلقائيًا كل يوم فمفيش عمود غياب —
+                // السؤال الوحيد اللي يفرق هو اليوميات (فيها سهر ولا لأ) والأجر
+                ReportSubject.DepartmentAccounts => new[]
+                {
+                    new ReportColumn { Header = "أيام الحضور", Key = "present_days", Kind = ReportValueKind.Whole, Sums = true },
+                    new ReportColumn { Header = "اليوميات", Key = "workdays", Kind = ReportValueKind.Fraction, Sums = true },
+                    new ReportColumn { Header = "الأجر", Key = "wage", Kind = ReportValueKind.Money, Sums = true }
                 },
 
                 ReportSubject.Skills => grouping == ReportGrouping.Worker
@@ -297,7 +320,9 @@ namespace WorkforceManager.Business.Services
                     Text("العامل", "worker"),
                     Text("المنتج", "product"),
                     Text("المرحلة", "stage"),
-                    new ReportColumn { Header = "القطع", Key = "pieces", Kind = ReportValueKind.Whole, Sums = true },
+                    // سجل خام = ضربات عامل واحد، مش إنتاج فعلي — الاسم دايمًا
+                    // "الضربات" هنا، بصرف النظر عن أي تجميع
+                    new ReportColumn { Header = "عدد الضربات", Key = "pieces", Kind = ReportValueKind.Whole, Sums = true },
                     new ReportColumn { Header = "اليوميات", Key = "workdays", Kind = ReportValueKind.Fraction, Sums = true },
                     new ReportColumn { Header = "الكوتة وقت التسجيل", Key = "quota", Kind = ReportValueKind.Whole }
                 }
@@ -480,6 +505,7 @@ namespace WorkforceManager.Business.Services
             ReportGrouping.Stage => new GroupKey($"{record.ProductName} — {record.StageName}", 0),
             ReportGrouping.Reason => new GroupKey(record.ReasonDisplay, 0),
             ReportGrouping.Week => WeekKey(record.Date),
+            ReportGrouping.Month => MonthKey(record.Date),
             _ => DayKey(record.Date)
         };
 
@@ -570,6 +596,7 @@ namespace WorkforceManager.Business.Services
             ReportSubject.WageAdjustments => await AdjustmentsAsync(spec),
             ReportSubject.Skills => await SkillsAsync(spec),
             ReportSubject.Scrap => await ScrapAsync(spec),
+            ReportSubject.DepartmentAccounts => await DepartmentAccountsAsync(spec),
             _ => throw new InvalidOperationException("موضوع تقرير غير معروف")
         };
 
@@ -602,12 +629,22 @@ namespace WorkforceManager.Business.Services
         /// ومجموع السطور ساعتها بيطلع أكبر من إنتاج المنتج التام، وده
         /// صح مش غلط: القطعة عدّت على كذا مرحلة واشتغل فيها كذا عامل.
         /// </summary>
-        private static bool CountsCompletedOutput(IReadOnlyList<ReportGrouping> levels)
+        private static bool CountsCompletedOutput(IReadOnlyList<ReportGrouping> levels, ReportSpec spec)
         {
             if (levels.Any(l => l is ReportGrouping.Worker or ReportGrouping.Stage))
                 return false;
 
-            return levels[0] is ReportGrouping.Product or ReportGrouping.Day or ReportGrouping.Week;
+            // فلتر بعامل معيّن معناه السؤال بقى "العامل ده عمل قد إيه"
+            // مش "كام قطعة خلصت الخط" — نفس قاعدة التجميع بالعامل
+            // بالظبط، حتى لو التجميع الظاهر نفسه بالمنتج/اليوم.
+            // ProductionOutputRecordDto (مصدر "التام") أصلاً مالوش
+            // WorkerId يتفلتر بيه — رقم جماعي بطبيعته، فمينفعش يتقصّ
+            // على عامل واحد. لازم يرجع لمجموع سطور العامل ده بدل كده.
+            if (spec.WorkerIds is { Count: > 0 })
+                return false;
+
+            return levels[0] is ReportGrouping.Product or ReportGrouping.Day or ReportGrouping.Week
+                or ReportGrouping.Month;
         }
 
         private async Task<ReportTable> ProductionAsync(ReportSpec spec)
@@ -621,7 +658,7 @@ namespace WorkforceManager.Business.Services
             //
             // "القطع" مختلفة، وبتتقاس حسب معنى المجموعة نفسها —
             // <see cref="CountsCompletedOutput"/>.
-            var lastStageIds = CountsCompletedOutput(levels)
+            var lastStageIds = CountsCompletedOutput(levels, spec)
                 ? ProductionLine
                     .LastStageIdByProduct(await _products.GetAllWithStagesAsync())
                     .Values.ToHashSet()
@@ -633,7 +670,19 @@ namespace WorkforceManager.Business.Services
                 .Select(level => Text(ReportSpec.GroupingLabel(level), LevelKey(level)))
                 .ToList();
 
-            var table = NewTable(spec, levelColumns.Concat(ColumnsFor(spec.Subject, spec.GroupBy)));
+            // ColumnsFor بيقرر اسم "القطع"/"الضربات" من مستوى التجميع
+            // الأساسي بس (هو كل اللي محرّر الأعمدة عارفه قبل التقرير).
+            // هنا عارفين كل المستويات (زي بالمنتج وبعدين بالعامل)، فبنثبّت
+            // الاسم على نفس القاعدة اللي CountsCompletedOutput بتحكم بيها
+            // فعليًا — عشان الاسم يفضل مطابق للرقم في كل الحالات.
+            var piecesHeader = lastStageIds is not null ? "القطع" : "عدد الضربات";
+            var productionColumns = ColumnsFor(spec.Subject, spec.GroupBy)
+                .Select(c => c.Key == "pieces" ? new ReportColumn
+                {
+                    Key = c.Key, Header = piecesHeader, Kind = c.Kind, Sums = c.Sums
+                } : c);
+
+            var table = NewTable(spec, levelColumns.Concat(productionColumns));
 
             // **الهالك مالوش عامل** (شوف ProductionScrap)، فالتقرير
             // المجمّع بالعامل عمود الهالك فيه بيفضل فاضي — شرطة معناها
@@ -647,6 +696,14 @@ namespace WorkforceManager.Business.Services
             var lastStageScrapByGroup = lastStageIds is null
                 ? null
                 : await ScrapByGroupAsync(spec, levels, lastStageIds);
+
+            // "بلوك الإنتاج" (بالمنتج/اليوم/الأسبوع): القطع من الإنتاج
+            // الفعلي (ProductionStageOutputService) مش من مجموع قطع
+            // العمال — رقمين منفصلين تمامًا. "وحدة الشغل" (بالعامل/
+            // بالمرحلة) تفضل من DailyProduction زي ما هي تحت في الحلقة.
+            var productOutputByGroup = lastStageIds is null
+                ? null
+                : await ProductOutputByGroupAsync(spec, levels, lastStageIds);
 
             var groups = rows
                 .GroupBy(r => new CompositeKey(levels.Select(level => Key(r, level).Label).ToList()))
@@ -674,7 +731,7 @@ namespace WorkforceManager.Business.Services
                 var pieces = lastStageIds is null
                     ? g.Sum(r => r.PieceCount)
                     : Math.Max(0,
-                        g.Where(r => lastStageIds.Contains(r.ProductionStageId)).Sum(r => r.PieceCount)
+                        (productOutputByGroup?.GetValueOrDefault(g.Key) ?? 0)
                         - (lastStageScrapByGroup?.GetValueOrDefault(g.Key) ?? 0));
 
                 decimal? scrap = scrapByGroup is null
@@ -745,6 +802,45 @@ namespace WorkforceManager.Business.Services
                     ReportGrouping.Product => record.ProductName,
                     ReportGrouping.Stage => $"{record.ProductName} — {record.StageName}",
                     ReportGrouping.Week => WeekKey(record.Date).Label,
+                    ReportGrouping.Month => MonthKey(record.Date).Label,
+                    _ => DayKey(record.Date).Label
+                }).ToList();
+
+                var key = new CompositeKey(parts);
+                result[key] = result.TryGetValue(key, out var total) ? total + record.PieceCount : record.PieceCount;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// الإنتاج الفعلي موزّع على نفس مجموعات التقرير — نفس بناء
+        /// <see cref="ScrapByGroupAsync"/> بالحرف، مصدره
+        /// <see cref="ProductionStageOutputService"/> مش <see cref="ScrapService"/>.
+        /// شكل <see cref="ProductionOutputRecordDto"/> مطابق لـ
+        /// <c>ScrapRecordDto</c> (ProductName/StageName/Date/ProductId/
+        /// ProductionStageId/PieceCount) فمفتاح التجميع بيتبني بنفس الطريقة.
+        /// </summary>
+        private async Task<Dictionary<CompositeKey, int>> ProductOutputByGroupAsync(
+            ReportSpec spec, IReadOnlyList<ReportGrouping> levels, HashSet<int>? onlyStages = null)
+        {
+            var records = await _productionOutput.GetByRangeAsync(spec.From, spec.To);
+
+            var filtered = records.Where(r =>
+                (onlyStages is null || onlyStages.Contains(r.ProductionStageId)) &&
+                (spec.StageIds is not { Count: > 0 } || spec.StageIds.Contains(r.ProductionStageId)) &&
+                (spec.ProductIds is not { Count: > 0 } || spec.ProductIds.Contains(r.ProductId)));
+
+            var result = new Dictionary<CompositeKey, int>();
+
+            foreach (var record in filtered)
+            {
+                var parts = levels.Select(level => level switch
+                {
+                    ReportGrouping.Product => record.ProductName,
+                    ReportGrouping.Stage => $"{record.ProductName} — {record.StageName}",
+                    ReportGrouping.Week => WeekKey(record.Date).Label,
+                    ReportGrouping.Month => MonthKey(record.Date).Label,
                     _ => DayKey(record.Date).Label
                 }).ToList();
 
@@ -869,6 +965,98 @@ namespace WorkforceManager.Business.Services
                             w.NetWorkdays, w.BonusEgp, w.AdvanceEgp, w.NetWageEgp
                         }
                     });
+            }
+
+            return table;
+        }
+
+        // ======================= الحسابات الإدارية =======================
+
+        /// <summary>
+        /// تقرير الحسابات الإدارية (مدير/رئيس قسم) — مصدر البيانات
+        /// <see cref="IWorkerRepository.GetDepartmentAccountsAsync"/> بس،
+        /// مفيش خلط مع تقارير العمال أبدًا. حاضرين تلقائيًا كل يوم
+        /// (DepartmentAttendanceService)، فمفيش عمود غياب هنا — السؤال
+        /// اللي التقرير ده بيجاوبه هو اليوميات (بتتغيّر لو سهروا) والأجر.
+        /// </summary>
+        private async Task<ReportTable> DepartmentAccountsAsync(ReportSpec spec)
+        {
+            var accounts = (await _workers.GetDepartmentAccountsAsync())
+                .Where(a => spec.WorkerIds is not { Count: > 0 } || spec.WorkerIds.Contains(a.Id))
+                .ToList();
+
+            var table = NewTable(spec, ColumnsFor(spec.Subject, spec.GroupBy));
+            if (accounts.Count == 0) return table;
+
+            var accountIds = accounts.Select(a => a.Id).ToHashSet();
+            var namesById = accounts.ToDictionary(a => a.Id, a => a.FullName);
+            var wageById = accounts.ToDictionary(a => a.Id, a => a.DailyWageEgp);
+            var roleById = accounts.ToDictionary(a => a.Id, a => a.HourlyRole!.Value);
+
+            var attendance = (await _attendance.GetByRangeAsync(spec.From, spec.To))
+                .Where(a => accountIds.Contains(a.WorkerId) && a.Status == AttendanceStatus.Present)
+                .ToList();
+            var hourly = (await _hourly.GetByRangeAsync(spec.From, spec.To))
+                .Where(h => accountIds.Contains(h.WorkerId))
+                .ToList();
+
+            if (spec.GroupBy == ReportGrouping.Worker)
+            {
+                var presentByWorker = attendance.ToLookup(a => a.WorkerId);
+                var hourlyByWorker = hourly.ToLookup(h => h.WorkerId);
+
+                foreach (var accountId in accountIds.OrderBy(id => namesById[id]))
+                {
+                    var workdays = hourlyByWorker[accountId].Sum(h => h.WorkdaysCredited);
+
+                    // مدير القسم مالوش راتب خالص — حقل الأجر بيتساب فاضي
+                    // (null) مش صفر، عشان يبان "مالوش المفهوم ده" مش
+                    // "أجره النهارده صفر". رئيس القسم بس هو اللي بياخد
+                    // يومية عادية.
+                    var role = roleById[accountId];
+                    decimal? wage = role == HourlyRole.DepartmentManager ? null : workdays * wageById[accountId];
+
+                    table.Rows.Add(new ReportRow
+                    {
+                        Label = $"{namesById[accountId]} ({role.ToArabicName()})",
+                        Values = { presentByWorker[accountId].Count(), workdays, wage }
+                    });
+                }
+
+                return table;
+            }
+
+            var groups = hourly
+                .GroupBy(h => spec.GroupBy switch
+                {
+                    ReportGrouping.Week => WeekKey(h.Date),
+                    ReportGrouping.Month => MonthKey(h.Date),
+                    _ => DayKey(h.Date)
+                })
+                .OrderBy(g => g.Key.Order).ThenBy(g => g.Key.Label)
+                .ToList();
+
+            var presentByPeriod = attendance.ToLookup(a => spec.GroupBy switch
+            {
+                ReportGrouping.Week => WeekKey(a.Date),
+                ReportGrouping.Month => MonthKey(a.Date),
+                _ => DayKey(a.Date)
+            });
+
+            foreach (var g in groups)
+            {
+                var workdays = g.Sum(h => h.WorkdaysCredited);
+
+                // مدير القسم مالوش راتب خالص — مبيدخلش في مجموع الأجر
+                // حتى لو اتجمع بفترة بتضم أكتر من حساب
+                var wage = g.Where(h => roleById[h.WorkerId] != HourlyRole.DepartmentManager)
+                    .Sum(h => h.WorkdaysCredited * wageById.GetValueOrDefault(h.WorkerId, 0m));
+
+                table.Rows.Add(new ReportRow
+                {
+                    Label = g.Key.Label,
+                    Values = { presentByPeriod[g.Key].Count(), workdays, wage }
+                });
             }
 
             return table;
@@ -1049,6 +1237,16 @@ namespace WorkforceManager.Business.Services
                 (int)(start.Date - DateTime.MinValue).TotalDays);
         }
 
+        /// <summary>
+        /// ترتيب الصفوف في التقرير بيتم بمقارنة نص <see cref="GroupKey.Label"/>
+        /// نفسه (شوف <c>CompositeKey</c> واستخدامه في ProductionAsync) — الـ
+        /// Order هنا مش بيتقرا. لازم يبدأ بصيغة تترتّب أبجديًا زي تاريخها
+        /// بالظبط (نفس "yyyy/MM/dd" بتاعة DayKey)، عشان كده "yyyy/MM" مش
+        /// اسم الشهر العربي — ده كان بيرتّب "أغسطس" قبل "يوليو" لأنه أبجديًا كذا.
+        /// </summary>
+        private static GroupKey MonthKey(DateTime date) =>
+            new(date.ToString("yyyy/MM"), date.Year * 12 + date.Month);
+
         private static List<(DateTime From, DateTime To, string Label)> WeeksIn(DateTime from, DateTime to)
         {
             var weeks = new List<(DateTime, DateTime, string)>();
@@ -1071,6 +1269,7 @@ namespace WorkforceManager.Business.Services
             ReportGrouping.Stage => new GroupKey(
                 $"{row.ProductionStage?.Product?.Name} — {row.ProductionStage?.StageName}", 0),
             ReportGrouping.Week => WeekKey(row.Date),
+            ReportGrouping.Month => MonthKey(row.Date),
             _ => DayKey(row.Date)
         };
 
@@ -1082,12 +1281,15 @@ namespace WorkforceManager.Business.Services
                      spec.ProductIds.Contains(r.ProductionStage?.ProductId ?? 0)))
                 .ToList();
 
-        /// <summary>null = مفيش فلتر على العمال (كلهم داخلين)</summary>
+        /// <summary>
+        /// دايمًا مجموعة حقيقية (مش null) — الحسابات الإدارية (مدير/رئيس
+        /// قسم) مستبعدة هنا بالتبعية لأن GetAllWithSkillsAsync ذات نفسه
+        /// بيستبعدهم دايمًا، حتى لو المستخدم مفعّل مفيش فلتر عمال خالص.
+        /// تقارير العمال (حضور/أجور/جزاءات/سلف وحوافز) لازم تفضل نظيفة
+        /// منهم تمامًا — تقريرهم منفصل (ReportSubject.DepartmentAccounts).
+        /// </summary>
         private async Task<HashSet<int>?> AllowedWorkerIdsAsync(ReportSpec spec)
         {
-            if (spec.WorkerIds is not { Count: > 0 } && spec.WorkerKind == WorkerKindFilter.All)
-                return null;
-
             var workers = await _workers.GetAllWithSkillsAsync();
 
             return workers.Where(w => Matches(w, spec)).Select(w => w.Id).ToHashSet();

@@ -863,6 +863,9 @@ namespace WorkforceManager.UI.ViewModels
 
         partial void OnSelectedTemplateChanged(ReportTemplate? value)
         {
+            IsRenamingTemplate = false;
+            OnPropertyChanged(nameof(CanRenameSelectedTemplate));
+
             if (value is null) return;
 
             _suppressPreview = true;
@@ -879,6 +882,7 @@ namespace WorkforceManager.UI.ViewModels
                           ?? ThenByOptions[0];
                 ThenBy2 = ThenByOptions.FirstOrDefault(o => levels.Count > 1 && o.Grouping == levels[1])
                           ?? ThenByOptions[0];
+                ShowThenBy = levels.Count > 0; // القالب لو محدد مستويات إضافية، تفضل ظاهرة له
 
                 ApplyFilters(value);
                 ApplyColumns(value);
@@ -962,6 +966,29 @@ namespace WorkforceManager.UI.ViewModels
         partial void OnNewTemplateNameChanged(string value) =>
             OnPropertyChanged(nameof(CanSaveTemplate));
 
+        /// <summary>
+        /// فورم "احفظ باسم" مطويّة افتراضيًا — اختيار قالب جاهز هو
+        /// المسار الأكتر استخدامًا، وحفظ قالب جديد أندر بكتير. ظهورها
+        /// على طول كان زوّد عدد الخيارات الظاهرة من غير داعي.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isAddingNewTemplate;
+
+        [RelayCommand]
+        private void ToggleAddNewTemplate()
+        {
+            IsAddingNewTemplate = !IsAddingNewTemplate;
+            if (!IsAddingNewTemplate) NewTemplateName = "";
+        }
+
+        /// <summary>
+        /// مستويات التجميع الإضافية ("ثم... ثم...") مطويّة افتراضيًا —
+        /// معظم التقارير تجميع بمستوى واحد، والاتنين الإضافيين كانوا
+        /// ظاهرين على طول لأي تقرير إنتاج حتى لو محدش محتاجهم.
+        /// </summary>
+        [ObservableProperty]
+        private bool _showThenBy;
+
         [RelayCommand]
         private void SaveTemplate()
         {
@@ -1009,6 +1036,52 @@ namespace WorkforceManager.UI.ViewModels
             ReportTemplateStore.Delete(template.Name);
             ReloadTemplates();
         }
+
+        // ------- إعادة تسمية قالب -------
+
+        [ObservableProperty]
+        private bool _isRenamingTemplate;
+
+        [ObservableProperty]
+        private string _renameTemplateText = "";
+
+        public bool CanRenameSelectedTemplate =>
+            SelectedTemplate is not null && !SelectedTemplate.IsBuiltIn;
+
+        [RelayCommand]
+        private void StartRenameTemplate()
+        {
+            if (!CanRenameSelectedTemplate) return;
+
+            RenameTemplateText = SelectedTemplate!.Name;
+            IsRenamingTemplate = true;
+        }
+
+        [RelayCommand]
+        private void ConfirmRenameTemplate()
+        {
+            if (SelectedTemplate is null) return;
+
+            try
+            {
+                ReportTemplateStore.Rename(SelectedTemplate.Name, RenameTemplateText);
+                var newName = RenameTemplateText.Trim();
+
+                IsRenamingTemplate = false;
+                ReloadTemplates();
+                SelectedTemplate = Templates.FirstOrDefault(t =>
+                    string.Equals(t.Name, newName, StringComparison.OrdinalIgnoreCase));
+
+                Notify.Info($"القالب بقى اسمه \"{newName}\".", "تم");
+            }
+            catch (InvalidOperationException ex)
+            {
+                Notify.Warn(ex.Message, "مش هينفع");
+            }
+        }
+
+        [RelayCommand]
+        private void CancelRenameTemplate() => IsRenamingTemplate = false;
 
         private void ReloadTemplates()
         {
