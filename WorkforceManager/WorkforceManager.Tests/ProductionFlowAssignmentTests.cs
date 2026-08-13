@@ -32,7 +32,7 @@ namespace WorkforceManager.Tests
                         }
                     },
                     new[] { new FlowShareDto { ProductionStageId = stageId, WorkerId = workerId, PieceCount = pieces } },
-                    confirmOverride));
+                    confirmOverride: confirmOverride));
         }
 
         /// <summary>تسجيل أولي ناجح: أحمد على "دبلة / تشكيل" — نقطة البداية لأغلب الاختبارات</summary>
@@ -282,7 +282,7 @@ namespace WorkforceManager.Tests
                             WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 10
                         }
                     },
-                    confirmOverride));
+                    confirmOverride: confirmOverride));
 
         [Fact]
         public async Task OneWorkerOnEveryStageOfOneProduct_InASingleFlow_RequiresConfirmation()

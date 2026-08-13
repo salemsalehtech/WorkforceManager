@@ -50,7 +50,11 @@
                     </StackPanel>
                 </Border>
 
-                <!-- المرحلة: بتتقفل لما البرنامج هو اللي لقى الفرق -->
+                <!-- المنتج والمرحلة: بيتقفلوا لما البرنامج هو اللي لقى الفرق -->
+                <TextBlock Text="المنتج" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="ProductBox" DisplayMemberPath="Name" Margin="0,0,0,12"
+                          SelectionChanged="Product_Changed" />
+
                 <TextBlock Text="المرحلة اللي القطع خلصتها قبل ما تتشال"
                            Style="{StaticResource FieldLabel}" />
                 <ComboBox x:Name="StageBox" DisplayMemberPath="Display" Margin="0,0,0,12"

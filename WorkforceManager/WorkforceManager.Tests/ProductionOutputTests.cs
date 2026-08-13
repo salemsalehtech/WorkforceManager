@@ -231,10 +231,12 @@ namespace WorkforceManager.Tests
         // ======================= التصحيح المباشر =======================
 
         [Fact]
-        public async Task Correcting_a_record_updates_the_numbers_that_depend_on_it()
+        public async Task Correcting_a_workers_own_record_does_not_change_the_products_reported_output()
         {
-            // الأرقام محسوبة من السجلات، فتصحيح سجل بيصحّح التقرير لوحده —
-            // مفيش دفعة لازم تتصحّح معاه بالإيد
+            // قطعة العامل عدد ضرباته على المكنة — أساس يوميته بس. الإنتاج
+            // الفعلي رقم منفصل تمامًا (رقم النطاق وقت التسجيل)، فتصحيح
+            // سجل العامل بعد كده مايلمسه خالص. ده الفصل اللي الفيتشر ده
+            // موجود عشانه.
             await RecordAsync(Day1, TestDatabase.BagStage1Id, TestDatabase.BagStage1Id, 100);
             var record = Assert.Single(await _db.GetProductionAsync());
 
@@ -242,7 +244,102 @@ namespace WorkforceManager.Tests
                 await _db.GetService<WorkdayCalculationService>(scope)
                     .UpdateProductionAsync(record.Id, 60);
 
-            Assert.Equal(60, Bag(await ReportAsync(Day1)).StartedPieces);
+            Assert.Equal(100, Bag(await ReportAsync(Day1)).StartedPieces);
+        }
+
+        // ======================= فصل قطعة العامل عن الإنتاج الفعلي =======================
+
+        /// <summary>
+        /// نطاق واحد بمجموع عمال **مختلف عمدًا** عن رقم النطاق — لمحاكاة
+        /// "عدد ضربات العامل" اللي مايلزمش يساوي الإنتاج الفعلي.
+        /// </summary>
+        private async Task RecordWithMismatchedWorkerSumAsync(
+            DateTime date, int stageId, int rangePieces, int workerPieces,
+            int workerId = TestDatabase.WorkerAhmedId)
+        {
+            var range = new FlowRangeDto
+            {
+                FromStageId = stageId,
+                ToStageId = stageId,
+                PieceCount = rangePieces
+            };
+            var shares = new List<FlowShareDto>
+            {
+                new() { ProductionStageId = stageId, WorkerId = workerId, PieceCount = workerPieces }
+            };
+
+            using var scope = _db.CreateScope();
+            await _db.GetService<ProductionFlowService>(scope).RecordFlowAsync(
+                TestDatabase.ProductBagId, date, new[] { range }, shares, confirmOverride: true);
+        }
+
+        [Fact]
+        public async Task WorkerSumExceedingTheRangeTotal_SavesWithoutError()
+        {
+            // العامل عمل ضربات أكتر من الإنتاج الفعلي — جزء منها هالك أو مايكملش
+            await RecordWithMismatchedWorkerSumAsync(
+                Day1, TestDatabase.BagStage1Id, rangePieces: 100, workerPieces: 130);
+
+            Assert.Equal(100, Bag(await ReportAsync(Day1)).StartedPieces);
+        }
+
+        [Fact]
+        public async Task WorkerSumBelowTheRangeTotal_SavesWithoutError()
+        {
+            await RecordWithMismatchedWorkerSumAsync(
+                Day1, TestDatabase.BagStage1Id, rangePieces: 100, workerPieces: 70);
+
+            Assert.Equal(100, Bag(await ReportAsync(Day1)).StartedPieces);
+        }
+
+        [Fact]
+        public async Task TheWorkersOwnWageBasis_IsHisOwnPieceCount_NotTheRangeTotal()
+        {
+            // اليومية بتتحسب من قطعة العامل نفسها، بصرف النظر عن رقم النطاق
+            await RecordWithMismatchedWorkerSumAsync(
+                Day1, TestDatabase.BagStage1Id, rangePieces: 100, workerPieces: 30);
+
+            var record = Assert.Single(await _db.GetProductionAsync());
+            Assert.Equal(30, record.PieceCount);
+            Assert.Equal(3m, record.WorkdaysCompleted); // 30 ÷ يومية 10
+        }
+
+        [Fact]
+        public async Task TheActualOutputNumber_IsStoredIndependently_MatchingTheRangeNotTheWorkerSum()
+        {
+            await RecordWithMismatchedWorkerSumAsync(
+                Day1, TestDatabase.BagStage1Id, rangePieces: 100, workerPieces: 30);
+
+            var row = Assert.Single(await _db.GetProductionStageOutputsAsync());
+            Assert.Equal(TestDatabase.BagStage1Id, row.ProductionStageId);
+            Assert.Equal(100, row.PieceCount);
+        }
+
+        [Fact]
+        public async Task AStageWithPiecesButNoWorkers_StillThrows()
+        {
+            // القاعدة الوحيدة الباقية: لازم عامل واحد على الأقل يفضل شرط.
+            // مرحلة 1 عليها عامل (عشان نتخطى شرط "وزّع عمال" العام)، ومرحلة
+            // 2 عليها إنتاج بس من غير عمال — دي اللي المفروض ترمي
+            var range1 = new FlowRangeDto
+            {
+                FromStageId = TestDatabase.BagStage1Id, ToStageId = TestDatabase.BagStage1Id, PieceCount = 100
+            };
+            var range2 = new FlowRangeDto
+            {
+                FromStageId = TestDatabase.BagStage2Id, ToStageId = TestDatabase.BagStage2Id, PieceCount = 50
+            };
+            var shares = new List<FlowShareDto>
+            {
+                new() { ProductionStageId = TestDatabase.BagStage1Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 100 }
+            };
+
+            using var scope = _db.CreateScope();
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.GetService<ProductionFlowService>(scope).RecordFlowAsync(
+                    TestDatabase.ProductBagId, Day1, new[] { range1, range2 }, shares, confirmOverride: true));
+
+            Assert.Contains("مفيش عامل متوزع عليها", ex.Message);
         }
     }
 }

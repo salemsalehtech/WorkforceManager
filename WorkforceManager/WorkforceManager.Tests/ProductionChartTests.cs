@@ -1,3 +1,4 @@
+using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
 using Xunit;
@@ -165,6 +166,28 @@ namespace WorkforceManager.Tests
             Assert.Equal(0, point.CompletedPieces);
             Assert.Equal(400, point.ScrapPieces);
             Assert.NotEqual("—", point.ProductName);
+        }
+
+        [Fact]
+        public async Task CompletedPieces_ReadsTheActualOutputNumber_NotTheWorkersSum()
+        {
+            // العامل عمل 130 ضربة على آخر مرحلة، بس الإنتاج الفعلي
+            // المسجَّل للنطاق 100 — رقمين منفصلين تمامًا.
+            var range = new FlowRangeDto
+            {
+                FromStageId = TestDatabase.BagStage3Id, ToStageId = TestDatabase.BagStage3Id, PieceCount = 100
+            };
+            var shares = new List<FlowShareDto>
+            {
+                new() { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 130 }
+            };
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<ProductionFlowService>(scope).RecordFlowAsync(
+                    TestDatabase.ProductBagId, Today, new[] { range }, shares, confirmOverride: true);
+
+            var point = Assert.Single(await ChartAsync(Today, Today, ChartGrain.Day));
+            Assert.Equal(100, point.CompletedPieces);
         }
 
         // ---------------- محور الزمن ----------------

@@ -165,6 +165,27 @@ namespace WorkforceManager.Business.Services
             await _productRepo.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// يحدّد عامل الرص الافتراضي بتاع المنتج، أو يشيله (<paramref name="rackingWorkerId"/> = null).
+        /// مفيش أي مشكلة لو المنتج فضل من غير عامل رص خالص.
+        ///
+        /// القيمة دي مجرد افتراضي: شاشة الإنتاج اليومي بتتحط تاجه تلقائيًا
+        /// على مرحلة الرص كل يوم لما الرحلة تفتح، والمستخدم يقدر يشيله
+        /// أو يستبدله بعامل تاني لليوم ده بس — الخدمة نفسها
+        /// (ProductionFlowService) ما بتقرا الحقل ده ولا بتسجل حضور بيه
+        /// تلقائيًا من غير تاج فعلي.
+        /// </summary>
+        public async Task<Product> SetRackingWorkerAsync(int productId, int? rackingWorkerId)
+        {
+            var product = await _productRepo.GetByIdAsync(productId)
+                ?? throw new InvalidOperationException("المنتج المحدد غير موجود");
+
+            product.RackingWorkerId = rackingWorkerId;
+            _productRepo.Update(product);
+            await _productRepo.SaveChangesAsync();
+            return product;
+        }
+
         // ======================= المراحل =======================
 
         /// <summary>
@@ -202,6 +223,50 @@ namespace WorkforceManager.Business.Services
                 ActivityEventType.StageCreated, "ProductionStage", stage.Id,
                 entityName: $"{product.Name} — {trimmedName}",
                 details: $"اليومية {piecesPerWorkday:N0} قطعة");
+
+            return stage;
+        }
+
+        /// <summary>
+        /// يضيف مرحلة "رص" إدارية آخر خط إنتاج المنتج — شوف
+        /// <see cref="ProductionStage.IsRackingStage"/>. مرحلة واحدة بس
+        /// لكل منتج (مفيش داعي لأكتر من عامل رص واحد).
+        ///
+        /// PiecesPerWorkday بتاخد رقم صوري (1) عشان قيد قاعدة البيانات
+        /// بس — مش بيُقرا في أي حساب لأن المرحلة برّه خط الإنتاج المحسوب
+        /// (<see cref="ProductionLine.Active"/>).
+        /// </summary>
+        public async Task<ProductionStage> AddRackingStageAsync(int productId, string stageName = "رص")
+        {
+            if (string.IsNullOrWhiteSpace(stageName))
+                throw new ArgumentException("اسم المرحلة مطلوب", nameof(stageName));
+
+            var product = await _productRepo.GetWithStagesAsync(productId)
+                ?? throw new InvalidOperationException("المنتج المحدد غير موجود");
+
+            if (product.Stages.Any(s => s.IsRackingStage))
+                throw new InvalidOperationException("المنتج عنده مرحلة رص خلاص");
+
+            var trimmedName = stageName.Trim();
+            if (product.Stages.Any(s => s.StageName == trimmedName))
+                throw new InvalidOperationException($"المرحلة \"{trimmedName}\" موجودة بالفعل في هذا المنتج");
+
+            var stage = new ProductionStage
+            {
+                ProductId = productId,
+                StageName = trimmedName,
+                IsRackingStage = true,
+                PiecesPerWorkday = 1,
+                SortOrder = product.Stages.Count == 0 ? 1 : product.Stages.Max(s => s.SortOrder) + 1
+            };
+
+            await _stageRepo.AddAsync(stage);
+            await _stageRepo.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.StageCreated, "ProductionStage", stage.Id,
+                entityName: $"{product.Name} — {trimmedName}",
+                details: "مرحلة رص إدارية");
 
             return stage;
         }

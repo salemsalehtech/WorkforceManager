@@ -348,8 +348,17 @@
 
                                                                             <TextBlock Text="{Binding StageName}" FontWeight="Bold" FontSize="14"
                                                                                        VerticalAlignment="Center" Margin="8,0,0,0" />
+
+                                                                            <!-- مرحلة رص إدارية: بلا نطاق/قطع، عاملها بيتحط تاج بيومية مباشرة -->
+                                                                            <Border Background="{DynamicResource InfoBgBrush}" CornerRadius="4"
+                                                                                    Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                                                    Visibility="{Binding IsRackingStage, Converter={StaticResource BoolToVis}}">
+                                                                                <TextBlock Text="رص" FontSize="10.5" ui:ThemeBrush.ForegroundKey="InfoBrush" />
+                                                                            </Border>
+
                                                                             <TextBlock Text="{Binding QuotaText}" Foreground="{DynamicResource TextMutedBrush}" FontSize="11.5"
-                                                                                       VerticalAlignment="Center" Margin="10,0,0,0" />
+                                                                                       VerticalAlignment="Center" Margin="10,0,0,0"
+                                                                                       Visibility="{Binding HasQuota, Converter={StaticResource BoolToVis}}" />
 
                                                                             <TextBlock Text="{Binding AlreadyText}" Foreground="{DynamicResource WarnBrush}" FontSize="11.5"
                                                                                        VerticalAlignment="Center" Margin="10,0,0,0" />
@@ -361,7 +370,9 @@
                                                                                        Visibility="{Binding HasState, Converter={StaticResource BoolToVis}}" />
                                                                         </DockPanel>
 
-                                                                        <!-- العمال المتوزعين على المرحلة (Chips بنصيب كل واحد) -->
+                                                                        <!-- العمال المتوزعين على المرحلة (Chips بنصيب كل واحد،
+                                                                             أو بادج "تحت التدريب"/بلا بادج لعامل الرص بدل خانة
+                                                                             العدد للتاجات — شوف FlowShareEntry.IsTagOnly) -->
                                                                         <ItemsControl ItemsSource="{Binding AssignedWorkers}" Margin="0,6,0,0">
                                                                             <ItemsControl.ItemsPanel>
                                                                                 <ItemsPanelTemplate>
@@ -370,7 +381,17 @@
                                                                             </ItemsControl.ItemsPanel>
                                                                             <ItemsControl.ItemTemplate>
                                                                                 <DataTemplate>
-                                                                                    <Border Background="{DynamicResource ChipBgBrush}" CornerRadius="4" Padding="6,3" Margin="0,2,4,2">
+                                                                                    <Border CornerRadius="4" Padding="6,3" Margin="0,2,4,2">
+                                                                                        <Border.Style>
+                                                                                            <Style TargetType="Border">
+                                                                                                <Setter Property="Background" Value="{DynamicResource ChipBgBrush}" />
+                                                                                                <Style.Triggers>
+                                                                                                    <DataTrigger Binding="{Binding IsTagOnly}" Value="True">
+                                                                                                        <Setter Property="Background" Value="{DynamicResource InfoBgBrush}" />
+                                                                                                    </DataTrigger>
+                                                                                                </Style.Triggers>
+                                                                                            </Style>
+                                                                                        </Border.Style>
                                                                                         <StackPanel Orientation="Horizontal">
                                                                                             <!-- أمر الإزالة على الشريحة نفسها (callback للرحلة) -->
                                                                                             <Button Foreground="{DynamicResource DangerBrush}"
@@ -381,11 +402,20 @@
                                                                                             </Button>
                                                                                             <TextBlock Text="{Binding WorkerName}" FontSize="12.5"
                                                                                                        VerticalAlignment="Center" Margin="4,0,6,0" />
-                                                                                            <!-- نصيب العامل: بيتملى تلقائي بالتساوي وينفع يتعدل يدوي -->
+
+                                                                                            <!-- بادج التاج (تحت التدريب) — بدل خانة العدد -->
+                                                                                            <TextBlock Text="{Binding TagLabel}" FontSize="10.5"
+                                                                                                       Foreground="{DynamicResource TextMutedBrush}"
+                                                                                                       VerticalAlignment="Center" Margin="0,0,4,0"
+                                                                                                       Visibility="{Binding HasTagLabel, Converter={StaticResource BoolToVis}}" />
+
+                                                                                            <!-- نصيب العامل: بيتملى تلقائي بالتساوي وينفع يتعدل يدوي
+                                                                                                 (مش موجودة خالص للتاجات — مفيش قطع ليهم) -->
                                                                                             <TextBox Text="{Binding SharePieces, UpdateSourceTrigger=PropertyChanged}"
                                                                                                      Width="55" FontSize="12.5" Padding="4,1"
                                                                                                      VerticalContentAlignment="Center"
-                                                                                                     ToolTip="عدد القطع لهذا العامل (اتوزع تلقائيًا — عدّله لو التوزيع مش بالتساوي)" />
+                                                                                                     ToolTip="عدد القطع لهذا العامل (اتوزع تلقائيًا — عدّله لو التوزيع مش بالتساوي)"
+                                                                                                     Visibility="{Binding IsTagOnly, Converter={StaticResource InverseBoolToVis}}" />
                                                                                         </StackPanel>
                                                                                     </Border>
                                                                                 </DataTemplate>
@@ -491,7 +521,17 @@
                                                                                                         ToolTip="{Binding RatingTooltip}">
                                                                                                 <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
 
-                                                                                                <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                                                                                                <!-- تاج (متدرّب/عامل رص): بادج بدل النجوم — التقييم
+                                                                                                     مالوش معنى لعامل بيتحاسب بالساعة -->
+                                                                                                <Border Background="{DynamicResource InfoBgBrush}" CornerRadius="4"
+                                                                                                        Padding="5,1" Margin="0,1,0,0" HorizontalAlignment="Left"
+                                                                                                        Visibility="{Binding HasTagLabel, Converter={StaticResource BoolToVis}}">
+                                                                                                    <TextBlock Text="{Binding TagLabel}" FontSize="10"
+                                                                                                               ui:ThemeBrush.ForegroundKey="InfoBrush" />
+                                                                                                </Border>
+
+                                                                                                <StackPanel Orientation="Horizontal" Margin="0,1,0,0"
+                                                                                                            Visibility="{Binding IsTagOnly, Converter={StaticResource InverseBoolToVis}}">
                                                                                                     <!-- النجوم دهبية دايمًا — ده لون النجوم المتعارف عليه -->
                                                                                                     <TextBlock Text="{Binding StarsText}" FontSize="11"
                                                                                                                FontWeight="Bold" Foreground="{DynamicResource GoldBrush}" />
@@ -550,6 +590,7 @@
                                                                                 </Style>
                                                                             </TextBlock.Style>
                                                                         </TextBlock>
+
                                                                     </StackPanel>
                                                                   </DockPanel>
                                                                 </Border>

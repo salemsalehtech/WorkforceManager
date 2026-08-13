@@ -23,10 +23,14 @@ namespace WorkforceManager.UI.ViewModels
         string Name,
         int Stars = SkillRatingService.DefaultStars,
         decimal MeasuredRatio = 1.0m,
-        int MeasuredDays = 0)
+        int MeasuredDays = 0,
+        bool IsTagOnly = false,
+        string TagLabel = "")
     {
         /// <summary>النجوم كنص ("★★★★☆")</summary>
         public string StarsText => new string('★', Stars) + new string('☆', 5 - Stars);
+
+        public bool HasTagLabel => TagLabel.Length > 0;
 
         /// <summary>فيه قياس أداء فعلي ولا لسه؟</summary>
         public bool HasMeasurement => MeasuredDays > 0;
@@ -76,9 +80,6 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>عليها إنتاج بس مفيش عمال متوزعين</summary>
         NeedsWorkers,
 
-        /// <summary>مجموع توزيع العمال مش مساوي إنتاج المرحلة</summary>
-        Mismatch,
-
         /// <summary>عليها عمال بس مش داخلة في أي نطاق (الحفظ هيرفضها)</summary>
         WorkersWithoutPieces
     }
@@ -108,10 +109,29 @@ namespace WorkforceManager.UI.ViewModels
         public int DisplayOrder { get; init; }
         public string StageName { get; init; } = "";
         public int Quota { get; init; }
+
+        /// <summary>
+        /// مرحلة رص إدارية — بلا نطاق/قطع خالص، وعاملها بيتحط تاج بيومية
+        /// مباشرة (شوف <see cref="WorkforceManager.Core.Models.ProductionStage.IsRackingStage"/>).
+        /// </summary>
+        public bool IsRackingStage { get; init; }
+
+        /// <summary>
+        /// عمال المرحلة في قايمة "+ عامل" الموحّدة: المؤهلين
+        /// (WorkerSkill) للمراحل العادية، أو عمال الرص (HourlyRole.Racking)
+        /// لمرحلة الرص نفسها — بالإضافة للمتدرّبين (HourlyRole.Training)
+        /// المتاحين على أي مرحلة عادية، مع بادج "تحت التدريب"
+        /// (<see cref="WorkerPick.IsTagOnly"/>/<see cref="WorkerPick.TagLabel"/>).
+        /// قايمة واحدة موحّدة عن قصد — المتدرّب بيتحط بنفس زرار "+ عامل"
+        /// اللي بيتحط بيه أي عامل تاني، مش بعنصر واجهة منفصل.
+        /// </summary>
         public List<WorkerPick> QualifiedWorkers { get; init; } = new();
 
         /// <summary>مفيش عمال مؤهلين للمرحلة دي — لازم تتربط المهارات الأول (قرار: المؤهلين بس)</summary>
         public bool HasNoQualified => QualifiedWorkers.Count == 0;
+
+        /// <summary>مرحلة الرص مالهاش يومية حقيقية (القيمة صورية لقيد قاعدة البيانات بس)</summary>
+        public bool HasQuota => !IsRackingStage;
 
         public string QuotaText => $"اليومية: {Quota}";
 
@@ -231,24 +251,30 @@ namespace WorkforceManager.UI.ViewModels
 
         // ------- حالة المرحلة (لون وعلامة على البطاقة) -------
 
-        /// <summary>مجموع اللي اتوزع على عمال المرحلة دلوقتي</summary>
-        public int AssignedSum =>
-            AssignedWorkers.Sum(s => int.TryParse(s.SharePieces?.Trim(), out var p) && p > 0 ? p : 0);
-
         /// <summary>
         /// حالة المرحلة دلوقتي — دي اللي بتلوّن البطاقة وبتخلي المستخدم
         /// يعرف بنظرة واحدة مين ناقص من غير ما يقرا كل بطاقة.
+        ///
+        /// **مفيش مقارنة بين توزيع العمال والإنتاج المحسوب هنا عن قصد**:
+        /// قطعة العامل عدد ضرباته على المكنة (أساس يوميته)، والإنتاج
+        /// الفعلي رقم منفصل تمامًا — اختلافهم طبيعي مش عطل، شوف
+        /// ProductionStageOutputService. مرحلة عليها إنتاج وعامل واحد
+        /// على الأقل جاهزة، بصرف النظر عن مجموع أنصبتهم.
         /// </summary>
         public FlowStageState State
         {
             get
             {
+                // مرحلة الرص مالهاش نطاق قطع خالص — عامل واحد بس متحط
+                // تاجه يكفي عشان تبقى "جاهزة"، وده مش "عليها عمال من غير
+                // إنتاج" زي المراحل العادية (ده متوقع منها بالتصميم)
+                if (IsRackingStage)
+                    return AssignedWorkers.Count > 0 ? FlowStageState.Ready : FlowStageState.NotToday;
+
                 if (ComputedPieces == 0)
                     return AssignedWorkers.Count > 0 ? FlowStageState.WorkersWithoutPieces : FlowStageState.NotToday;
 
-                if (AssignedWorkers.Count == 0) return FlowStageState.NeedsWorkers;
-
-                return AssignedSum == ComputedPieces ? FlowStageState.Ready : FlowStageState.Mismatch;
+                return AssignedWorkers.Count == 0 ? FlowStageState.NeedsWorkers : FlowStageState.Ready;
             }
         }
 
@@ -262,7 +288,6 @@ namespace WorkforceManager.UI.ViewModels
         {
             FlowStageState.Ready => "GoodBrush",              // تمام
             FlowStageState.NeedsWorkers => "WarnBrush",       // عليها إنتاج ومحتاجة عمال
-            FlowStageState.Mismatch => "DangerBrush",         // التوزيع مش مساوي الإنتاج
             FlowStageState.WorkersWithoutPieces => "WarnBrush",
             _ => "LineBrush"                                  // باهت: مش داخلة النهارده
         };
@@ -272,7 +297,6 @@ namespace WorkforceManager.UI.ViewModels
         {
             FlowStageState.Ready => "جاهزة",
             FlowStageState.NeedsWorkers => "محتاجة عمال",
-            FlowStageState.Mismatch => $"التوزيع {AssignedSum} ≠ {ComputedPieces}",
             FlowStageState.WorkersWithoutPieces => "عليها عمال من غير إنتاج",
             _ => ""
         };
@@ -287,7 +311,6 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(StateColor));
             OnPropertyChanged(nameof(StateText));
             OnPropertyChanged(nameof(HasState));
-            OnPropertyChanged(nameof(AssignedSum));
         }
 
         /// <summary>تنبيه لو فيه إنتاج متسجل بالفعل على المرحلة في نفس اليوم</summary>
@@ -318,11 +341,14 @@ namespace WorkforceManager.UI.ViewModels
         private readonly Action<FlowShareEntry> _onRemove;
 
         public FlowShareEntry(FlowStageRow parent, int workerId, string workerName,
-            Action onEdited, Action<FlowShareEntry> onRemove)
+            Action onEdited, Action<FlowShareEntry> onRemove,
+            bool isTagOnly = false, string tagLabel = "")
         {
             Parent = parent;
             WorkerId = workerId;
             WorkerName = workerName;
+            IsTagOnly = isTagOnly;
+            TagLabel = tagLabel;
             _onEdited = onEdited;
             _onRemove = onRemove;
         }
@@ -331,6 +357,19 @@ namespace WorkforceManager.UI.ViewModels
         public FlowStageRow Parent { get; }
         public int WorkerId { get; }
         public string WorkerName { get; }
+
+        /// <summary>
+        /// تاج بس (متدرّب على مرحلة عادية، أو عامل الرص على مرحلة الرص) —
+        /// مالوش نصيب قطع خالص، الشريحة بتعرض بادج <see cref="TagLabel"/>
+        /// بدل خانة العدد. بيتحوّل لـ <see cref="WorkforceManager.Business.DTOs.FlowTaggedWorkerDto"/>
+        /// وقت الحفظ، منفصل تمامًا عن shares.
+        /// </summary>
+        public bool IsTagOnly { get; }
+
+        /// <summary>نص البادج على الشريحة ("تحت التدريب") — فاضي لمرحلة الرص نفسها (كل عمالها رص أصلًا)</summary>
+        public string TagLabel { get; }
+
+        public bool HasTagLabel => TagLabel.Length > 0;
 
         [ObservableProperty]
         private string _sharePieces = "";
