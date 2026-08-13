@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -30,6 +31,41 @@ namespace WorkforceManager.UI.ViewModels
         }
 
         // ------- معلومات معروضة -------
+
+        /// <summary>
+        /// إصدار البرنامج — بيتقرا من الأسمبلي، ومصدره الوحيد
+        /// &lt;Version&gt; في Directory.Build.props.
+        ///
+        /// موجود عشان أول سؤال في أي مكالمة دعم هو "إنت شغّال على أنهي
+        /// نسخة؟"، ومن غيره مفيش إجابة. بيتغيّر لوحده مع كل ترقية فمحتاجش
+        /// حد يفتكر يحدّثه.
+        /// </summary>
+        public static string AppVersionText
+        {
+            get
+            {
+                var assembly = Assembly.GetEntryAssembly();
+
+                var informational = assembly
+                    ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                    ?.InformationalVersion;
+
+                // أدوات البناء بتلزق hash بتاع الكوميت بعد علامة + —
+                // مالوش أي معنى للمستخدم
+                var plus = informational?.IndexOf('+') ?? -1;
+                if (plus > 0) informational = informational![..plus];
+
+                return "الإصدار " +
+                       (informational ?? assembly?.GetName().Version?.ToString(3) ?? "؟");
+            }
+        }
+
+        /// <summary>
+        /// مكان قاعدة البيانات على الجهاز. بيتغيّر حسب طريقة التشغيل
+        /// (مثبَّت / محمول) فالأحسن يتقرا مش يتخمّن — وده كمان المجلد اللي
+        /// المستخدم بياخد منه نسخة لو نقل البرنامج لجهاز تاني.
+        /// </summary>
+        public static string DataFolderText => AppPaths.DataFolder;
 
         [ObservableProperty]
         private string _localFolderText = AppPaths.BackupsFolder;
@@ -327,98 +363,6 @@ namespace WorkforceManager.UI.ViewModels
                     "لازم تاخدها بنفسك من زرار \"خد نسخة دلوقتي\".", "تنبيه");
         }
 
-        // ======================= الحساب والأمان =======================
-
-        /// <summary>اسم المستخدم الحالي (بيتعرض في قسم الحساب)</summary>
-        [ObservableProperty]
-        private string _currentUsername = "";
-
-        /// <summary>ملخص حسابات الدخول ("حسابين")</summary>
-        [ObservableProperty]
-        private string _accountsSummary = "";
-
-        /// <summary>
-        /// بينفّذ عملية حساب: بيفتح النافذة، ينادي الخدمة، ويعرض النتيجة.
-        ///
-        /// التلات عمليات بيمشوا في الدالة دي عشان معالجة الخطأ ورسالة
-        /// النجاح وإعادة التحميل يبقوا مكتوبين مرة واحدة.
-        /// </summary>
-        private async Task RunAccountActionAsync(AccountAction action)
-        {
-            var input = AccountActionDialog.Ask(
-                Application.Current.MainWindow, action, CurrentUsername);
-
-            if (input is null) return;
-
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var auth = scope.ServiceProvider.GetRequiredService<AuthService>();
-                var currentUser = scope.ServiceProvider.GetRequiredService<CurrentUserContext>();
-
-                string message;
-                switch (action)
-                {
-                    case AccountAction.ChangeUsername:
-                        var updated = await auth.ChangeUsernameAsync(
-                            CurrentUsername, input.EnteredCurrentPassword, input.EnteredUsername);
-
-                        // الجلسة الحالية لازم تعرف الاسم الجديد — السجلات
-                        // بتتكتب باسم اللي عملها، ومن غير التحديث ده هتفضل
-                        // بتسجّل الاسم القديم لحد ما يقفل ويفتح
-                        currentUser.SignIn(updated.Username, updated.DisplayName);
-                        message = $"اسم المستخدم بقى \"{updated.Username}\".";
-                        break;
-
-                    case AccountAction.ChangeLoginPassword:
-                        await auth.ChangePasswordAsync(
-                            CurrentUsername, input.EnteredCurrentPassword, input.EnteredNewPassword);
-                        message = "كلمة مرور الدخول اتغيّرت.";
-                        break;
-
-                    default:
-                        // التحقق من كلمة مرور صاحب الجلسة قبل إضافة حساب —
-                        // عشان محدش يضيف حساب من جهاز مسيّب مفتوح
-                        _ = await auth.ValidateLoginAsync(CurrentUsername, input.EnteredCurrentPassword)
-                            ?? throw new InvalidOperationException("كلمة مرورك الحالية غير صحيحة");
-
-                        var created = await auth.AddUserAsync(
-                            input.EnteredUsername, input.EnteredNewPassword);
-                        message = $"اتضاف حساب \"{created.Username}\". يقدر يدخل بيه على طول.";
-                        break;
-                }
-
-                await LoadAccountAsync();
-                Notify.Info(message, "تم");
-            }
-            catch (InvalidOperationException ex)
-            {
-                Notify.Warn(ex.Message, "مش هينفع");
-            }
-        }
-
-        [RelayCommand]
-        private Task ChangeUsername() => RunAccountActionAsync(AccountAction.ChangeUsername);
-
-        [RelayCommand]
-        private Task ChangeLoginPassword() => RunAccountActionAsync(AccountAction.ChangeLoginPassword);
-
-        [RelayCommand]
-        private Task AddAccount() => RunAccountActionAsync(AccountAction.AddAccount);
-
-        /// <summary>يقرا اسم المستخدم الحالي وعدد الحسابات</summary>
-        private async Task LoadAccountAsync()
-        {
-            using var scope = _scopeFactory.CreateScope();
-
-            CurrentUsername = scope.ServiceProvider.GetRequiredService<CurrentUserContext>().Username ?? "";
-
-            var users = await scope.ServiceProvider.GetRequiredService<AuthService>().GetUsersAsync();
-            AccountsSummary = users.Count == 1
-                ? "حساب دخول واحد"
-                : $"{users.Count} حسابات دخول: {string.Join("، ", users.Select(u => u.Username))}";
-        }
-
         // ------- كلمة سر العمليات -------
 
         /// <summary>
@@ -472,7 +416,6 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(LogRetentionText));
             OnPropertyChanged(nameof(LogoText));
 
-            SafeAsync.Run(LoadAccountAsync);
             SafeAsync.Run(LoadScrapReasonsAsync);
 
             if (!HasExternal)
