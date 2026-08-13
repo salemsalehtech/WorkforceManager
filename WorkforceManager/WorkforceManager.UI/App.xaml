@@ -471,10 +471,14 @@
                                     <Setter TargetName="Fill" Property="Opacity" Value="0.12" />
                                 </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
+                                    <!-- White ثابتة: ألوان الحالة (Good/Warn/Danger) بتتقلب سطوعها
+                                         مع الثيم عن قصد (زي Gold بالظبط)، فاختيار "حاضر" في الأسود
+                                         بيبقى تعبئة فاتحة + نص أبيض = يختفي. InkOnAccentBrush هو
+                                         نفس زوج النص المضمون فوق أي تعبئة من عيلة الدهبي دي. -->
                                     <Setter TargetName="Fill" Property="Opacity" Value="1" />
-                                    <Setter TargetName="Txt" Property="Foreground" Value="White" />
+                                    <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
                                     <Setter TargetName="Txt" Property="FontWeight" Value="Bold" />
-                                    <Setter TargetName="Ico" Property="Foreground" Value="White" />
+                                    <Setter TargetName="Ico" Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -503,9 +507,11 @@
                                     <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource SuccessBrush}" />
                                 </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
+                                    <!-- نفس باغ StatusChip: SuccessBrush بتتقلب مع الثيم، وWhite
+                                         الثابتة بتفشل معاها في الأسود -->
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SuccessBrush}" />
                                     <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource SuccessBrush}" />
-                                    <Setter TargetName="Txt" Property="Foreground" Value="White" />
+                                    <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
                                     <Setter TargetName="Txt" Property="FontWeight" Value="SemiBold" />
                                 </Trigger>
                             </ControlTemplate.Triggers>

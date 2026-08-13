@@ -838,7 +838,11 @@
                                                 Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
                                             <Border.Style>
                                                 <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="White" />
+                                                    <!-- كانت White ثابتة — كارت المنتج بيبقى أبيض مهما كان
+                                                         الثيم، والنص جواه (InkBrush) اللي بيتفتح مع الثيم
+                                                         بيتكسف عليه في الأسود. CardBgBrush هي نفس سطح أي
+                                                         كارت تاني في البرنامج. -->
+                                                    <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
                                                     <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
                                                     <Style.Triggers>
                                                         <!-- منتج مالوش فيه ولا مهارة (بيبان في وضع الإضافة بس) -->
