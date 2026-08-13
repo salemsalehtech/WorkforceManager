@@ -39,17 +39,40 @@ From the **repo root** (one level above the `.sln`):
 .\publish.ps1 -Mode SingleFile     # one compressed .exe (~70 MB)
 .\publish.ps1 -Mode Light          # framework-dependent (~15 MB, needs .NET 8 Desktop Runtime installed)
 
+# the customer deliverable — one Setup .exe, Next-Next, prerequisites bundled
+.\publish.ps1 -Mode Installer -SeedDatabase "<path to a backup .db>"
+
 # nuke all build artifacts (bin/obj/dist) — everything here is regenerable
 .\clean.ps1
 .\clean.ps1 -KeepDist
 ```
 
 Both scripts must stay **UTF-8 with BOM** — Windows PowerShell 5.1 reads `.ps1` as ANSI without a BOM
-and the Arabic strings break the parser.
+and the Arabic strings break the parser. **`installer/WorkforceManager.iss` needs a BOM for the same
+reason** — Inno Setup reads a `.iss` as ANSI unless one is present, and every Arabic wizard string turns
+to mojibake.
 
 `publish-assets/` holds the files copied into every release (`اقرأني.txt`, `portable.marker`) — they live
 in the repo, not only inside a zip. Releases ship **without** a `Data/` folder; the app creates and seeds
 its own on first run.
+
+**`Installer` mode is the one that omits `portable.marker`, and that omission is the whole point.** With
+the marker present `AppPaths` puts the database inside the program folder — which under an installer is
+`C:\Program Files\…`: read-only for a standard user, and wiped and rewritten by every upgrade. Without it
+the data lives in `%ProgramData%\WorkforceManager` and survives upgrades untouched. Anything that puts the
+marker back into an installer build silently destroys customer data on the first update.
+
+The `.iss` encodes three rules that exist only to protect that data, all called out in its header comment:
+a permanently fixed `AppId` (this is what makes the next Setup an *upgrade* rather than a second parallel
+install), the seed database installed to `{commonappdata}` rather than `{app}`, and
+`onlyifdoesntexist uninsneveruninstall` on that file — the first stops an upgrade overwriting the
+customer's work, the second stops uninstall deleting it, since Inno otherwise removes every file it
+installed. `CloseApplications` + `AppMutex` handle upgrading while the app is open; without them the
+upgrade fails halfway and leaves a half-written program folder.
+
+`-SeedDatabase` must be given a file produced by the app's own **"نسخة احتياطية الآن"** button, not a
+hand-copied `.db`. That button goes through `VACUUM INTO`, so it captures the WAL; copying the `.db` while
+the app is open yields a backup with no tables in it (see the backup rules below — this was a real defect).
 
 Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output):
 - `Directory.Build.props` (next to the `.sln`) holds everything shared by all 4 projects —
@@ -62,11 +85,12 @@ Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output)
 - `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
   UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
 
-`WorkforceManager.Tests` (xUnit, `net8.0`, 396 tests) covers the worker-assignment rule, daily output,
+`WorkforceManager.Tests` (xUnit, `net8.0`, 410 tests) covers the worker-assignment rule, daily output,
 the skill-rating system, worker filtering, product activity, pending work, the worker report,
 activity-log retention + **which operations write to it**, database integrity, deletion scope, the report
 builder, the production chart (day/week/month + scrap), payslip strips, **backup integrity and calendar
-safety**, fresh-install seeding, and the removed-field guards — run with `dotnet test`
+safety**, fresh-install seeding, **the installed-mode data path and the one-time legacy migration**, and
+the removed-field guards — run with `dotnet test`
 from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
@@ -86,16 +110,22 @@ Two failure shapes are deliberately ignored: anything that is **not** a `XamlPar
 loaded; the constructor just wanted a real ViewModel) and "Cannot locate resource" (`Application.ResourceAssembly`
 is pinned to the test host, so window icons by relative URI can't resolve there).
 
-The SQLite DB lives outside the repo at `%LocalAppData%\WorkforceManager\workforce.db` (or in `Data\` next
-to the exe when a `portable.marker` file is present — see `AppPaths`). `App.OnStartup` creates/updates it
-with `Database.MigrateAsync()` + `DatabaseSeeder.SeedIfEmptyAsync`, so migrations DO run at startup and
-schema changes reach an existing customer DB without wiping data.
+The SQLite DB lives outside the repo, outside the program folder, at
+`%ProgramData%\WorkforceManager\workforce.db` (or in `Data\` next to the exe when a `portable.marker`
+file is present — see `AppPaths`). It used to live in `%LocalAppData%` before the installer existed;
+`AppPaths.MigrateLegacyData` copies (not moves — the old copy stays as a fallback) a database found there
+into the new shared folder exactly once, the first time `DataFolder` is resolved on a machine that has
+never had one there. `App.OnStartup` creates/updates the DB with `Database.MigrateAsync()` +
+`DatabaseSeeder.SeedIfEmptyAsync`, so migrations DO run at startup and schema changes reach an existing
+customer DB without wiping data. Before any of that, `App.EnsureDataFolderWritable()` writes and deletes a
+probe file in the resolved folder and shuts down with an Arabic message naming the folder if it can't —
+the alternative is SQLite's "unable to open database file", which explains nothing to the customer.
 
 ## Architecture
 
 Simplified Clean Architecture across 4 projects, each with its own `.csproj`, referenced in one direction only:
 
-```
+```text
 Core  <-  Data  <-  Business  <-  UI
 Core  <-------------Business
 Core  <----------------------- UI
