@@ -13,9 +13,15 @@ namespace WorkforceManager.Business.Services
     /// كلمة سر بنفسها — لأن ساعتها قاعدة القفل بعد المحاولات الغلط
     /// هتبقى مطبّقة في مكان ومنساها في مكان تاني.
     ///
-    /// أول تشغيل: لو مفيش كلمة سر متسجّلة، البوابة بتفتح من غير سؤال
+    /// **كلمة سر لكل حساب دخول لوحده** — لما مدير القسم يحذف عامل
+    /// مثلاً، البرنامج بيطلب كلمة سر العمليات بتاعة حسابه هو نفسه (اللي
+    /// مسجّل دخول بيه دلوقتي، من <see cref="CurrentUserContext"/>)، مش
+    /// كلمة مشتركة للبرنامج كله زي قبل الميزة دي.
+    ///
+    /// أول تشغيل (أو حساب جديد لسه ما حدد كلمة سر عمليات): لو مفيش
+    /// كلمة سر متسجّلة لحساب المستخدم الحالي، البوابة بتفتح من غير سؤال
     /// (<see cref="IsConfiguredAsync"/> = false) عشان البرنامج ميتقفلش
-    /// قدام مصنع شغّال. الشاشة بتنبّه المستخدم إنه يحطّها من الإعدادات.
+    /// قدام مصنع شغّال. الشاشة بتنبّه المستخدم إنه يحطّها.
     /// </summary>
     public class OperationsPasswordService
     {
@@ -30,15 +36,18 @@ namespace WorkforceManager.Business.Services
 
         private readonly IGenericRepository<OperationsCredential> _credentials;
         private readonly ActivityLogService _log;
+        private readonly CurrentUserContext _currentUser;
 
         public OperationsPasswordService(
-            IGenericRepository<OperationsCredential> credentials, ActivityLogService log)
+            IGenericRepository<OperationsCredential> credentials, ActivityLogService log,
+            CurrentUserContext currentUser)
         {
             _credentials = credentials;
             _log = log;
+            _currentUser = currentUser;
         }
 
-        /// <summary>فيه كلمة سر عمليات متسجّلة؟</summary>
+        /// <summary>فيه كلمة سر عمليات متسجّلة لحساب المستخدم الحالي؟</summary>
         public async Task<bool> IsConfiguredAsync() => await LoadAsync() is not null;
 
         /// <summary>
@@ -101,16 +110,15 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
-        /// يحطّ كلمة سر العمليات أول مرة أو يغيّرها.
+        /// يحطّ كلمة سر العمليات بتاعة الحساب الحالي أول مرة أو يغيّرها.
         ///
         /// التغيير بيطلب الكلمة القديمة (لو فيه واحدة) — من غير كده أي
         /// حد يقعد على الجهاز يقدر يغيّرها ويعدّي البوابة كلها.
         /// </summary>
         public async Task SetPasswordAsync(string? currentPassword, string newPassword)
         {
-            if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Trim().Length < MinPasswordLength)
-                throw new InvalidOperationException(
-                    $"كلمة سر العمليات لازم تكون {MinPasswordLength} حروف/أرقام على الأقل");
+            if (_currentUser.AppUserId is not { } appUserId)
+                throw new InvalidOperationException("لازم تكون مسجّل دخول عشان تحدد كلمة سر عمليات");
 
             var credential = await LoadAsync();
 
@@ -121,12 +129,38 @@ namespace WorkforceManager.Business.Services
                     throw new InvalidOperationException("كلمة سر العمليات الحالية غير صحيحة");
             }
 
+            await UpsertAsync(appUserId, credential, newPassword,
+                changedNote: credential is null ? "اتحطت لأول مرة" : "اتغيّرت");
+        }
+
+        /// <summary>
+        /// يحطّ/يغيّر كلمة سر العمليات بتاعة حساب تاني **بدون** التحقق
+        /// من كلمته الحالية — تصحيح إداري (مدير القسم بيحدد كلمة سر
+        /// عمليات لحساب لسه ما حددهاش، أو بيصلّحها لو نسيها)، مش
+        /// المستخدم بيغيّر كلمته هو نفسه (ده <see cref="SetPasswordAsync"/>).
+        /// </summary>
+        public async Task SetPasswordForUserAsync(int appUserId, string newPassword)
+        {
+            var credential = (await _credentials.FindAsync(c => c.AppUserId == appUserId)).FirstOrDefault();
+
+            await UpsertAsync(appUserId, credential, newPassword,
+                changedNote: credential is null ? "اتحطت لأول مرة (تصحيح إداري)" : "اتغيّرت (تصحيح إداري)");
+        }
+
+        private async Task UpsertAsync(
+            int appUserId, OperationsCredential? credential, string newPassword, string changedNote)
+        {
+            if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Trim().Length < MinPasswordLength)
+                throw new InvalidOperationException(
+                    $"كلمة سر العمليات لازم تكون {MinPasswordLength} حروف/أرقام على الأقل");
+
             var (hash, salt) = PasswordHasher.Hash(newPassword.Trim());
 
             if (credential is null)
             {
                 await _credentials.AddAsync(new OperationsCredential
                 {
+                    AppUserId = appUserId,
                     PasswordHash = hash,
                     PasswordSalt = salt,
                     UpdatedAt = DateTime.Now
@@ -149,12 +183,16 @@ namespace WorkforceManager.Business.Services
             await _log.LogAsync(
                 ActivityEventType.OperationsPasswordChanged, "OperationsCredential", 0,
                 entityName: "كلمة سر العمليات",
-                details: credential is null ? "اتحطت لأول مرة" : "اتغيّرت");
+                details: changedNote);
         }
 
-        /// <summary>الصف الوحيد في الجدول (null = لسه ما اتسجلتش)</summary>
-        private async Task<OperationsCredential?> LoadAsync() =>
-            (await _credentials.GetAllAsync()).FirstOrDefault();
+        /// <summary>كلمة سر عمليات حساب المستخدم الحالي (null = لسه ما اتسجلتش، أو مفيش حد داخل)</summary>
+        private async Task<OperationsCredential?> LoadAsync()
+        {
+            if (_currentUser.AppUserId is not { } appUserId) return null;
+
+            return (await _credentials.FindAsync(c => c.AppUserId == appUserId)).FirstOrDefault();
+        }
     }
 
     /// <summary>

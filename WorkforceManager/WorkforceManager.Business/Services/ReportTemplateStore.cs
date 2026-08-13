@@ -274,6 +274,29 @@ namespace WorkforceManager.Business.Services
             Write(saved, path);
         }
 
+        /// <summary>
+        /// يغيّر اسم قالب محفوظ من غير ما يلمس بقية إعداداته. القوالب
+        /// الجاهزة مش موجودة أصلاً في الملف ده (شوف <see cref="LoadSaved"/>)
+        /// فمستحيل توصلها بالاسم عشان تتغيّر.
+        /// </summary>
+        public static void Rename(string oldName, string newName, string? path = null)
+        {
+            var trimmed = (newName ?? "").Trim();
+            if (trimmed.Length == 0)
+                throw new InvalidOperationException("اسم القالب مينفعش يبقى فاضي");
+
+            var saved = LoadSaved(path);
+            var template = saved.FirstOrDefault(t => string.Equals(t.Name, oldName, StringComparison.OrdinalIgnoreCase))
+                ?? throw new InvalidOperationException("القالب غير موجود");
+
+            if (!string.Equals(oldName, trimmed, StringComparison.OrdinalIgnoreCase)
+                && saved.Any(t => string.Equals(t.Name, trimmed, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException($"في قالب اسمه \"{trimmed}\" بالفعل");
+
+            template.Name = trimmed;
+            Write(saved, path);
+        }
+
         private static void Write(List<ReportTemplate> templates, string? path)
         {
             var file = PathFor(path);

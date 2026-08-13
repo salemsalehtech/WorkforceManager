@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace WorkforceManager.Core.Models
 {
@@ -43,9 +44,20 @@ namespace WorkforceManager.Core.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+        /// <summary>
+        /// عامل الرص الثابت بتاع المنتج ده (اختياري). لو محدَّد، بيتسجّل
+        /// حاضر بيومية كاملة تلقائيًا أي يوم المنتج فيه شغل (شوف
+        /// ProductionFlowService في طبقة الأعمال). مفيش أي مشكلة لو
+        /// المنتج من غير عامل رص خالص.
+        /// </summary>
+        [ForeignKey(nameof(RackingWorker))]
+        public int? RackingWorkerId { get; set; }
+
         // ------- العلاقات -------
 
         /// <summary>كل مراحل التصنيع الخاصة بهذا المنتج تحديدًا (بأسعارها المستقلة)</summary>
         public virtual ICollection<ProductionStage> Stages { get; set; } = new List<ProductionStage>();
+
+        public virtual Worker? RackingWorker { get; set; }
     }
 }

@@ -235,7 +235,8 @@ namespace WorkforceManager.Business.Services
             {
                 WorkerId = workerId,
                 ProductionStageId = productionStageId,
-                Level = level
+                Level = level,
+                CreatedAt = DateTime.Now
             };
 
             await _skillRepo.AddAsync(skill);

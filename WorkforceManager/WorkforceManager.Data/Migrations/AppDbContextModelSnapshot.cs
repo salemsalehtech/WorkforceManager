@@ -76,6 +76,9 @@ namespace WorkforceManager.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("LastSeenActivityLogAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -91,10 +94,17 @@ namespace WorkforceManager.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("WorkerId")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Username")
                         .IsUnique();
+
+                    b.HasIndex("WorkerId")
+                        .IsUnique()
+                        .HasFilter("\"WorkerId\" IS NOT NULL");
 
                     b.ToTable("AppUsers");
                 });
@@ -173,9 +183,9 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("Date");
 
-                    b.HasIndex("ProductionStageId");
-
                     b.HasIndex("WorkerId", "ProductionStageId", "Date");
+
+                    b.HasIndex("ProductionStageId", "Date", "IsDeleted", "PieceCount");
 
                     b.ToTable("DailyProductions", t =>
                         {
@@ -220,6 +230,9 @@ namespace WorkforceManager.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("AppUserId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("FailedAttempts")
                         .HasColumnType("INTEGER");
 
@@ -240,6 +253,10 @@ namespace WorkforceManager.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AppUserId")
+                        .IsUnique()
+                        .HasFilter("\"AppUserId\" IS NOT NULL");
 
                     b.ToTable("OperationsCredentials");
                 });
@@ -321,9 +338,14 @@ namespace WorkforceManager.Data.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("RackingWorkerId")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name");
+
+                    b.HasIndex("RackingWorkerId");
 
                     b.ToTable("Products");
                 });
@@ -389,7 +411,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("ScrapReasonId");
 
-                    b.HasIndex("ProductionStageId", "Date");
+                    b.HasIndex("ProductionStageId", "Date", "PieceCount");
 
                     b.ToTable("ProductionScraps");
                 });
@@ -421,6 +443,9 @@ namespace WorkforceManager.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsRackingStage")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("PiecesPerWorkday")
                         .HasColumnType("INTEGER");
 
@@ -443,6 +468,40 @@ namespace WorkforceManager.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_ProductionStage_Quota", "[PiecesPerWorkday] > 0");
                         });
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.ProductionStageOutput", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PieceCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ProductionStageId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RecordedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date");
+
+                    b.HasIndex("ProductionStageId", "Date")
+                        .IsUnique();
+
+                    b.HasIndex("ProductionStageId", "Date", "PieceCount");
+
+                    b.ToTable("ProductionStageOutputs");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.ScrapReason", b =>
@@ -581,6 +640,9 @@ namespace WorkforceManager.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Level")
                         .HasColumnType("INTEGER");
 
@@ -620,6 +682,16 @@ namespace WorkforceManager.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_WorkerSkill_Stars", "[Stars] BETWEEN 1 AND 5");
                         });
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.AppUser", b =>
+                {
+                    b.HasOne("WorkforceManager.Core.Models.Worker", "Worker")
+                        .WithMany()
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Worker");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.Attendance", b =>
@@ -663,6 +735,16 @@ namespace WorkforceManager.Data.Migrations
                     b.Navigation("Worker");
                 });
 
+            modelBuilder.Entity("WorkforceManager.Core.Models.OperationsCredential", b =>
+                {
+                    b.HasOne("WorkforceManager.Core.Models.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("AppUser");
+                });
+
             modelBuilder.Entity("WorkforceManager.Core.Models.Penalty", b =>
                 {
                     b.HasOne("WorkforceManager.Core.Models.Worker", "Worker")
@@ -672,6 +754,16 @@ namespace WorkforceManager.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Worker");
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.Product", b =>
+                {
+                    b.HasOne("WorkforceManager.Core.Models.Worker", "RackingWorker")
+                        .WithMany()
+                        .HasForeignKey("RackingWorkerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("RackingWorker");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.ProductionScrap", b =>
@@ -701,6 +793,17 @@ namespace WorkforceManager.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.ProductionStageOutput", b =>
+                {
+                    b.HasOne("WorkforceManager.Core.Models.ProductionStage", "ProductionStage")
+                        .WithMany()
+                        .HasForeignKey("ProductionStageId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ProductionStage");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.WageAdjustment", b =>

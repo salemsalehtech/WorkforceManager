@@ -25,10 +25,16 @@ namespace WorkforceManager.Business.Services
         /// النشطة بس عن قصد: ده اللي بيتعرض للمستخدم وهو بيسجّل إنتاج
         /// النهارده، والمرحلة الموقوفة مش جزء من الخط الشغّال.
         /// بترجع فاضية لو كل المراحل موقوفة.
+        ///
+        /// **مرحلة الرص (IsRackingStage) مستبعدة هنا دايمًا.** موجودة
+        /// كصف حقيقي في Product.Stages (تظهر في شاشة المنتج)، بس مش جزء
+        /// من الخط المحسوب — مالها وجود في شاشة الإنتاج اليومي، وعامل
+        /// الرص بتاعها بيتسجّل حاضر بشكل منفصل تمامًا (شوف
+        /// ProductionFlowService)، مش عن طريق قطع على مرحلة في الخط.
         /// </summary>
         public static List<ProductionStage> Active(Product product) =>
             product.Stages
-                .Where(s => s.IsActive)
+                .Where(s => s.IsActive && !s.IsRackingStage)
                 .OrderBy(s => s.SortOrder).ThenBy(s => s.Id)
                 .ToList();
 
@@ -45,11 +51,13 @@ namespace WorkforceManager.Business.Services
         /// </summary>
         public static ProductionStage? LastForHistory(Product product)
         {
-            if (product.Stages.Count == 0) return null;
+            // مرحلة الرص مستبعدة هنا كمان — شوف تعليق Active
+            var stages = product.Stages.Where(s => !s.IsRackingStage).ToList();
+            if (stages.Count == 0) return null;
 
-            var pool = product.Stages.Any(s => s.IsActive)
-                ? product.Stages.Where(s => s.IsActive)
-                : product.Stages;
+            var pool = stages.Any(s => s.IsActive)
+                ? stages.Where(s => s.IsActive)
+                : stages;
 
             return pool
                 .OrderByDescending(s => s.SortOrder).ThenByDescending(s => s.Id)

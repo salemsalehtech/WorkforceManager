@@ -38,6 +38,12 @@
                          TextWrapping="Wrap" AcceptsReturn="True" Height="60"
                          VerticalScrollBarVisibility="Auto" />
 
+                <!-- عامل الرص الافتراضي (اختياري): لو محدَّد بيتحط تاجه
+                     تلقائيًا على مرحلة الرص كل يوم في شاشة الإنتاج
+                     اليومي — تقدر تشيله أو تستبدله لليوم بس -->
+                <TextBlock Text="عامل الرص الافتراضي (اختياري)" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="RackingWorkerBox" DisplayMemberPath="Name" Margin="0,0,0,14" />
+
                 <!-- صورة المنتج (اختيارية): معاينة + اختيار + إزالة -->
                 <TextBlock Text="صورة المنتج (اختيارية)" Style="{StaticResource FieldLabel}" />
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,16">

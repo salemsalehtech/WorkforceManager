@@ -23,6 +23,8 @@ namespace WorkforceManager.Business.Services
         private readonly IProductionDayClosureRepository _closureRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ActivityLogService _log;
+        private readonly IAttendanceRepository _attendanceRepo;
+        private readonly IHourlyWorkLogRepository _hourlyRepo;
 
         public WorkdayCalculationService(
             IDailyProductionRepository productionRepo,
@@ -34,7 +36,9 @@ namespace WorkforceManager.Business.Services
             OperationsPasswordService gate,
             IProductionDayClosureRepository closureRepo,
             IUnitOfWork unitOfWork,
-            ActivityLogService log)
+            ActivityLogService log,
+            IAttendanceRepository attendanceRepo,
+            IHourlyWorkLogRepository hourlyRepo)
         {
             _log = log;
             _productionRepo = productionRepo;
@@ -46,6 +50,28 @@ namespace WorkforceManager.Business.Services
             _gate = gate;
             _closureRepo = closureRepo;
             _unitOfWork = unitOfWork;
+            _attendanceRepo = attendanceRepo;
+            _hourlyRepo = hourlyRepo;
+        }
+
+        /// <summary>
+        /// سجل الحضور "حاضر" التلقائي بيتولد بس لما فيه إنتاج (أو شغل
+        /// بالساعة) مسجّل لعامل في يوم — لو الإنتاج اتشال (سجل واحد أو
+        /// اليوم كله) وفضل العامل من غير أي حاجة تانية تبرر حضوره في
+        /// اليوم ده، سجل الحضور نفسه بيتشال معاه بدل ما يفضل "حاضر"
+        /// بلا أي سبب. لو عايز يتسجّل حاضر فعلاً بعد كده، بيتحط بإيده
+        /// من شاشة الحضور زي أي يوم عادي — "مفيش سجل" حالة صحيحة
+        /// ومقصودة، مش خطأ.
+        /// </summary>
+        private async Task CleanupOrphanedAttendanceAsync(int workerId, DateTime date)
+        {
+            var stillHasProduction = (await _productionRepo.GetByDateAsync(date)).Any(r => r.WorkerId == workerId);
+            if (stillHasProduction) return;
+
+            if (await _hourlyRepo.GetByWorkerAndDateAsync(workerId, date) is not null) return;
+
+            var attendance = await _attendanceRepo.GetByWorkerAndDateAsync(workerId, date);
+            if (attendance is not null) _attendanceRepo.Remove(attendance);
         }
 
         /// <summary>
@@ -198,7 +224,12 @@ namespace WorkforceManager.Business.Services
                 ? $"سجل إنتاج #{record.Id}"
                 : $"{stage.StageName} — {record.PieceCount} قطعة";
 
-            return await _softDelete.DeleteAsync(
+            var workerId = record.WorkerId;
+            var date = record.Date;
+
+            await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
+
+            var result = await _softDelete.DeleteAsync(
                 record,
                 new DeletionDescriptor
                 {
@@ -211,7 +242,23 @@ namespace WorkforceManager.Business.Services
                 },
                 operationsPassword,
                 reason,
+                saveChanges: false,
                 removePermanently: () => _productionRepo.Remove(record));
+
+            if (!result.IsDeleted) return result; // المعاملة بتتلغي من غير Commit
+
+            // لازم يتحفظ الحذف الأول عشان فحص "لسه له إنتاج؟" جوه
+            // CleanupOrphanedAttendanceAsync يقرا من قاعدة البيانات
+            // فعليًا — لو اتنادى قبل الحفظ ده، السجل هيفضل شايفه موجود
+            // (لسه ما اتحفظش) وهيسيب الحضور غلط
+            await _productionRepo.SaveChangesAsync();
+
+            await CleanupOrphanedAttendanceAsync(workerId, date);
+            await _productionRepo.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+
+            return result;
         }
 
         /// <summary>
@@ -238,6 +285,7 @@ namespace WorkforceManager.Business.Services
 
             var totalPieces = records.Sum(r => r.PieceCount);
             var wasNotConfigured = false;
+            var affectedWorkerIds = records.Select(r => r.WorkerId).Distinct().ToList();
 
             foreach (var record in records)
             {
@@ -265,6 +313,17 @@ namespace WorkforceManager.Business.Services
 
                 wasNotConfigured = result.PasswordNotConfigured;
             }
+
+            // لازم يتحفظ حذف كل السجلات الأول عشان الفحص جوه
+            // CleanupOrphanedAttendanceAsync يقرا من قاعدة البيانات
+            // فعليًا (نفس سبب الحفظين في DeleteProductionAsync)
+            await _productionRepo.SaveChangesAsync();
+
+            // كل إنتاج اليوم ده اتشال بالكامل — أي عامل من دول بقى
+            // مالوش أي إنتاج فيه خالص، فسجل حضوره التلقائي (لو مالوش
+            // شغل بالساعة يبرره) بيتشال معاه
+            foreach (var workerId in affectedWorkerIds)
+                await CleanupOrphanedAttendanceAsync(workerId, date);
 
             await _productionRepo.SaveChangesAsync();
             await transaction.CommitAsync();

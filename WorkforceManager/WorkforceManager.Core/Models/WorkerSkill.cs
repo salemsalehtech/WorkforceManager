@@ -82,6 +82,15 @@ namespace WorkforceManager.Core.Models
 
         // ------- العلاقات -------
 
+        /// <summary>
+        /// امتى العامل اتربط بالمهارة دي — أساس "اكتسب مهارات جديدة
+        /// الفترة دي؟" في المراجعة الشهرية (SkillRatingService.BuildReviewAsync).
+        /// المهارات القديمة (قبل الميزة دي) بترجع DateTime.MinValue
+        /// (القيمة الافتراضية) بدل ما تتحط بتاريخ وهمي — يعني "قديمة
+        /// جدًا، مش جديدة" صحيح افتراضيًا من غير أي هجرة بيانات خاصة.
+        /// </summary>
+        public DateTime CreatedAt { get; set; }
+
         public virtual Worker Worker { get; set; } = null!;
         public virtual ProductionStage ProductionStage { get; set; } = null!;
     }

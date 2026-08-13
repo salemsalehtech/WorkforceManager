@@ -8,6 +8,9 @@ namespace WorkforceManager.UI.Views
     /// <summary>مرحلة معروضة في قايمة اختيار مرحلة الهالك</summary>
     public record ScrapStageChoice(int StageId, string Display, int AvailablePieces);
 
+    /// <summary>منتج ومراحله — الخطوة الأولى في اختيار الهالك (منتج فقبله مرحلة)</summary>
+    public record ScrapProductChoice(int ProductId, string Name, IReadOnlyList<ScrapStageChoice> Stages);
+
     /// <summary>
     /// تسجيل هالك: قطع اتشالت من الخط ومش هتتكمّل.
     ///
@@ -24,11 +27,11 @@ namespace WorkforceManager.UI.Views
     {
         private int _maxPieces;
 
-        private ScrapDialog(IReadOnlyList<ScrapStageChoice> stages, IReadOnlyList<ScrapReason> reasons)
+        private ScrapDialog(IReadOnlyList<ScrapProductChoice> products, IReadOnlyList<ScrapReason> reasons)
         {
             InitializeComponent();
 
-            StageBox.ItemsSource = stages;
+            ProductBox.ItemsSource = products;
             ReasonBox.ItemsSource = reasons;
             if (reasons.Count > 0) ReasonBox.SelectedIndex = 0;
         }
@@ -55,18 +58,22 @@ namespace WorkforceManager.UI.Views
             int gapPieces,
             IReadOnlyList<ScrapReason> reasons)
         {
-            var stage = new ScrapStageChoice(
-                previousStageId, $"{productName} — {previousStageName}", gapPieces);
+            // اسم المنتج معروض لوحده في ProductBox، فمش محتاج يتكرر في
+            // اسم المرحلة زي ما كان قبل إضافة القايمتين المتتاليتين
+            var stage = new ScrapStageChoice(previousStageId, previousStageName, gapPieces);
+            var product = new ScrapProductChoice(0, productName, new[] { stage });
 
-            var dialog = new ScrapDialog(new[] { stage }, reasons)
+            var dialog = new ScrapDialog(new[] { product }, reasons)
             {
                 Owner = owner,
                 _maxPieces = gapPieces
             };
 
             dialog.SubtitleText.Text = productName;
+            dialog.ProductBox.SelectedIndex = 0;
+            dialog.ProductBox.IsEnabled = false; // المنتج والمرحلة معروفين من الفرق نفسه
             dialog.StageBox.SelectedIndex = 0;
-            dialog.StageBox.IsEnabled = false; // المرحلة معروفة من الفرق نفسه
+            dialog.StageBox.IsEnabled = false;
 
             dialog.GapHeadline.Text =
                 $"فيه {gapPieces:N0} قطعة خلصت \"{previousStageName}\" وماكملتش لـ\"{currentStageName}\"";
@@ -87,18 +94,31 @@ namespace WorkforceManager.UI.Views
         /// </summary>
         public static ScrapDialog ForStage(
             Window owner,
-            IReadOnlyList<ScrapStageChoice> stages,
+            IReadOnlyList<ScrapProductChoice> products,
             IReadOnlyList<ScrapReason> reasons)
         {
-            var dialog = new ScrapDialog(stages, reasons) { Owner = owner };
+            var dialog = new ScrapDialog(products, reasons) { Owner = owner };
 
             dialog.SubtitleText.Text = "قطع اتشالت من الخط";
             dialog.GapCard.Visibility = Visibility.Collapsed;
             dialog.KeepPendingButton.Content = "إلغاء";
 
-            if (stages.Count > 0) dialog.StageBox.SelectedIndex = 0;
+            // بيختار أول منتج، وده بيسلسل Product_Changed فيملّي StageBox
+            // بمراحله تلقائيًا — مفيش لازمة لتحديد المرحلة يدوي هنا
+            if (products.Count > 0) dialog.ProductBox.SelectedIndex = 0;
 
             return dialog;
+        }
+
+        /// <summary>
+        /// اختيار المنتج بيملّي StageBox بمراحله بس — نفس بيانات الاختيار
+        /// الأول (ScrapProductChoice.Stages)، مفيش استعلام تاني.
+        /// </summary>
+        private void Product_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            var stages = (ProductBox.SelectedItem as ScrapProductChoice)?.Stages;
+            StageBox.ItemsSource = stages;
+            StageBox.SelectedIndex = stages is { Count: > 0 } ? 0 : -1;
         }
 
         private void Stage_Changed(object sender, SelectionChangedEventArgs e)
@@ -139,9 +159,15 @@ namespace WorkforceManager.UI.Views
         {
             ErrorText.Visibility = Visibility.Collapsed;
 
+            if (ProductBox.SelectedItem is not ScrapProductChoice)
+            {
+                ShowError("اختار المنتج الأول");
+                return;
+            }
+
             if (StageBox.SelectedItem is not ScrapStageChoice stage)
             {
-                ShowError("اختار المرحلة الأول");
+                ShowError("اختار المرحلة");
                 return;
             }
 

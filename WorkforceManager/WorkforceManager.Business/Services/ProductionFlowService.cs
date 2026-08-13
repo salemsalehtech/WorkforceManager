@@ -13,11 +13,24 @@ namespace WorkforceManager.Business.Services
     ///
     /// 1) بتحسب إنتاج كل مرحلة من النطاقات (كل مرحلة في النطاق بتاخد عدده).
     /// 2) بتتحقق من كل حاجة: النطاقات بترتيب صحيح ومش متداخلة، كل مرحلة
-    ///    مغطاة عليها عمال، مجموع أنصبة عمال المرحلة = إنتاجها بالظبط،
-    ///    وكل عامل مؤهل فعلاً لمرحلته (قرار متفق عليه: المؤهلين بس إجباري).
+    ///    مغطاة عليها عمال، وكل عامل مؤهل فعلاً لمرحلته (قرار متفق عليه:
+    ///    المؤهلين بس إجباري). **مجموع أنصبة العمال مايتحققش من إنتاج
+    ///    المرحلة عن قصد** — قطعة العامل عدد ضرباته على المكنة (أساس
+    ///    يوميته)، ومش لازم تساوي الإنتاج الفعلي، شوف
+    ///    <see cref="ProductionStageOutputService"/>.
     /// 3) بتسجل سجل إنتاج لكل (عامل، مرحلة) بيومية المرحلة وقت التسجيل
-    ///    (Snapshot) — فاليوميات بتتحسب لكل عامل أوتوماتيك.
-    /// 4) بتسجل حضور "حاضر" تلقائيًا لأي عامل شارك ومالوش سجل حضور في
+    ///    (Snapshot) — فاليوميات بتتحسب لكل عامل أوتوماتيك. وبتسجل
+    ///    الإنتاج الفعلي لكل مرحلة مغطاة (رقم النطاق نفسه) منفصلًا تمامًا.
+    /// 4) أي عامل رص/تدريب متحط تاج على مرحلة لليوم بس (<paramref
+    ///    name="taggedWorkers"/> في <see cref="RecordFlowAsync"/>) بياخد
+    ///    حاضر بيومية شيفت عادي (1) تلقائيًا، من غير قطع ومن غير تحقق
+    ///    تأهيل، ومنفصل تمامًا عن أنصبة العمال بالقطعة
+    ///    (<see cref="FlowShareDto"/>). مرحلة الرص نفسها
+    ///    (<see cref="ProductionStage.IsRackingStage"/>) بتوصل هنا بنفس
+    ///    الطريقة — مرحلة عادية في الشاشة تاجها عامل، مش استثناء —
+    ///    والعامل الثابت بتاع المنتج (Product.RackingWorkerId) بس
+    ///    افتراضي بيتحط تاجه في الواجهة كل يوم، مش بيتسجل من هنا تلقائيًا.
+    /// 5) بتسجل حضور "حاضر" تلقائيًا لأي عامل شارك ومالوش سجل حضور في
     ///    اليوم (من غير ما تلمس أي سجل حضور موجود بالفعل).
     ///
     /// كل ده بيتحفظ في حفظة واحدة (Transaction واحدة) — يا كله يا مفيش.
@@ -33,6 +46,8 @@ namespace WorkforceManager.Business.Services
         private readonly OperationsPasswordService _gate;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ActivityLogService _log;
+        private readonly ProductionStageOutputService _productionOutput;
+        private readonly HourlyWorkdayService _hourlyWorkdayService;
 
         public ProductionFlowService(
             IProductRepository productRepo,
@@ -43,7 +58,9 @@ namespace WorkforceManager.Business.Services
             WorkerAssignmentGuard assignmentGuard,
             OperationsPasswordService gate,
             IUnitOfWork unitOfWork,
-            ActivityLogService log)
+            ActivityLogService log,
+            ProductionStageOutputService productionOutput,
+            HourlyWorkdayService hourlyWorkdayService)
         {
             _log = log;
             _productRepo = productRepo;
@@ -54,6 +71,8 @@ namespace WorkforceManager.Business.Services
             _assignmentGuard = assignmentGuard;
             _gate = gate;
             _unitOfWork = unitOfWork;
+            _productionOutput = productionOutput;
+            _hourlyWorkdayService = hourlyWorkdayService;
         }
 
         /// <summary>
@@ -175,6 +194,12 @@ namespace WorkforceManager.Business.Services
         /// برسالة عربية واضحة لو فيه أي خطأ في المدخلات — ومفيش أي حاجة
         /// بتتحفظ إلا لو الرحلة كلها سليمة.
         /// </summary>
+        /// <param name="taggedWorkers">
+        /// عمال رص/تدريب متحطين تاج على مراحل لليوم بس — بلا قطع وبلا
+        /// تحقق تأهيل، ومنفصلين تمامًا عن <paramref name="shares"/>. مفيش
+        /// عليهم أي قاعدة تكليف (WorkerAssignmentGuard) لأنهم مش بيشتغلوا
+        /// بالقطعة أصلًا، شوف <see cref="FlowTaggedWorkerDto"/>.
+        /// </param>
         /// <param name="confirmOverride">
         /// المستخدم شاف تحذير "العامل مكلّف بمنتج/مرحلة تانية النهارده"
         /// ووافق صراحة. بيخص النداء ده بس — ومبيسمحش بالتكرار الحرفي
@@ -187,6 +212,7 @@ namespace WorkforceManager.Business.Services
             int productId, DateTime date,
             IReadOnlyList<FlowRangeDto> ranges,
             IReadOnlyList<FlowShareDto> shares,
+            IReadOnlyList<FlowTaggedWorkerDto>? taggedWorkers = null,
             bool confirmOverride = false,
             string operationsPassword = "")
         {
@@ -210,10 +236,10 @@ namespace WorkforceManager.Business.Services
             var product = await _productRepo.GetWithStagesAsync(productId)
                 ?? throw new InvalidOperationException("المنتج المحدد غير موجود");
 
-            var orderedStages = product.Stages
-                .Where(s => s.IsActive)
-                .OrderBy(s => s.SortOrder).ThenBy(s => s.Id)
-                .ToList();
+            // ProductionLine.Active بيستبعد مرحلة الرص — فمرحلة الرص مستحيل
+            // تدخل نطاق أو تتحقق كأنها مرحلة إنتاج عادية، حتى لو حصل خطأ
+            // في الواجهة وحاولت تبعتها
+            var orderedStages = ProductionLine.Active(product);
             if (orderedStages.Count == 0)
                 throw new InvalidOperationException($"المنتج \"{product.Name}\" ليس له مراحل نشطة");
 
@@ -310,11 +336,24 @@ namespace WorkforceManager.Business.Services
                     throw new InvalidOperationException(
                         $"مرحلة \"{stage.StageName}\" عليها إنتاج ({piecesPerStage[i]} قطعة) لكن مفيش عامل متوزع عليها");
 
-                var sum = stageShares.Sum(s => s.PieceCount);
-                if (sum != piecesPerStage[i])
-                    throw new InvalidOperationException(
-                        $"مرحلة \"{stage.StageName}\": مجموع توزيع العمال ({sum}) لا يساوي إنتاج المرحلة ({piecesPerStage[i]})");
+                // مجموع توزيع العمال عن قصد **مايتحققش** من إنتاج المرحلة:
+                // قطعة العامل عدد ضرباته على المكنة (أساس يوميته وأجره)،
+                // ومش لازم تساوي الإنتاج الفعلي — جزء من الضربات بيتحول
+                // هالك أو مايكملش. الرقمين منفصلين تمامًا، شوف
+                // ProductionStageOutputService.
             }
+
+            // عمال رص/تدريب متحطين تاج على مراحل لليوم بس — بلا قطع وبلا
+            // تحقق تأهيل عن قصد. التحقق هنا على **كل** مراحل المنتج
+            // (مش orderedStages بس) عشان مرحلة الرص نفسها — المستبعدة من
+            // خط الإنتاج المحسوب — تقبل تاج عليها، شوف
+            // <see cref="ProductionStage.IsRackingStage"/>.
+            var taggedList = taggedWorkers ?? Array.Empty<FlowTaggedWorkerDto>();
+            var allStageIds = product.Stages.Select(s => s.Id).ToHashSet();
+            foreach (var tagged in taggedList)
+                if (!allStageIds.Contains(tagged.ProductionStageId))
+                    throw new InvalidOperationException(
+                        "عامل رص/تدريب متحط تاج على مرحلة مش من مراحل المنتج المحدد");
 
             var stageById = orderedStages.ToDictionary(s => s.Id);
             int attendanceMarked;
@@ -354,6 +393,24 @@ namespace WorkforceManager.Business.Services
                         PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday
                     });
                 }
+
+                // ---------- الإنتاج الفعلي لكل مرحلة مغطاة — منفصل تمامًا عن نصيب العمال ----------
+                // نفس رقم النطاق بيروح لكل مرحلة فيه (زي ما كان بيتحقق منه
+                // بس من غير تخزين). تراكمي: رحلة تانية على نفس المرحلة/اليوم
+                // (بعد إعادة فتح يوم مقفول مثلًا) بتتجمّع، ماتستبدلش.
+                for (var i = 0; i < orderedStages.Count; i++)
+                {
+                    if (piecesPerStage[i] == 0) continue;
+                    await _productionOutput.RecordOutputAsync(orderedStages[i].Id, date, piecesPerStage[i]);
+                }
+
+                // ---------- عمال رص/تدريب متحطين تاج على مراحل — بلا قطع ومفيش تحقق تأهيل ----------
+                // مرحلة الرص نفسها بتوصل هنا زي أي مرحلة تاجها عامل —
+                // العامل الثابت بتاع المنتج (Product.RackingWorkerId) بس
+                // افتراضي بيتحط تاجه في الواجهة، مش بيتسجل تلقائيًا من هنا
+                foreach (var tagged in taggedList)
+                    await _hourlyWorkdayService.RecordHourlyWorkAsync(
+                        tagged.WorkerId, date, HourlyWorkdayService.ShiftEndHour);
 
                 // ---------- 5) حضور تلقائي لمن شارك ومالوش سجل حضور في اليوم ----------
                 var existingAttendance = (await _attendanceRepo.GetByDateAsync(date))

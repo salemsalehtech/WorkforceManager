@@ -68,6 +68,7 @@
                 <!-- ===== القوالب: أسرع طريق لتقرير بيتعمل كل شهر ===== -->
                 <Border Padding="14,9" BorderThickness="0,0,0,1"
                         BorderBrush="{DynamicResource CardBorderBrush}">
+                    <StackPanel>
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                             <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="17" Height="17"
@@ -78,19 +79,38 @@
                             <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
                                       DisplayMemberPath="Name" Width="200" FontSize="12.5"
                                       ToolTip="بيملّي الاختيارات تحت — تقدر تعدّل عليها بعدها عادي" />
+                            <Button Command="{Binding StartRenameTemplateCommand}"
+                                    Style="{StaticResource IconButton}" Padding="7,5" Margin="4,0,0,0"
+                                    Visibility="{Binding CanRenameSelectedTemplate, Converter={StaticResource BoolToVis}}"
+                                    ToolTip="إعادة تسمية القالب">
+                                <materialDesign:PackIcon Kind="PencilOutline" Width="15" Height="15" />
+                            </Button>
                             <Button Command="{Binding DeleteTemplateCommand}"
                                     CommandParameter="{Binding SelectedTemplate}"
-                                    Style="{StaticResource IconButton}" Padding="7,5" Margin="4,0,0,0"
+                                    Style="{StaticResource IconButton}" Padding="7,5" Margin="2,0,0,0"
                                     Foreground="{DynamicResource DangerBrush}"
+                                    Visibility="{Binding CanRenameSelectedTemplate, Converter={StaticResource BoolToVis}}"
                                     ToolTip="حذف القالب (القوالب الجاهزة مبتتحذفش)">
                                 <materialDesign:PackIcon Kind="DeleteOutline" Width="15" Height="15" />
                             </Button>
                         </StackPanel>
 
-                        <!-- حفظ الإعداد الحالي كقالب جديد -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <!-- حفظ الإعداد الحالي كقالب جديد: مطويّة افتراضيًا
+                             وراء زرار "+" — اختيار قالب جاهز هو المسار
+                             الأكتر استخدامًا، وحفظ قالب جديد أندر بكتير -->
+                        <Button DockPanel.Dock="Left" Command="{Binding ToggleAddNewTemplateCommand}"
+                                Style="{StaticResource GhostButton}" Padding="11,6" Margin="20,0,0,0"
+                                Visibility="{Binding IsAddingNewTemplate, Converter={StaticResource InverseBoolToVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Plus" Width="14" Height="14" VerticalAlignment="Center" />
+                                <TextBlock Text="احفظ الإعداد الحالي كقالب" Margin="5,0,0,0" FontSize="12" />
+                            </StackPanel>
+                        </Button>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    Visibility="{Binding IsAddingNewTemplate, Converter={StaticResource BoolToVis}}">
                             <TextBlock Text="احفظ الحالي باسم:" FontSize="12.5" VerticalAlignment="Center"
-                                       Margin="24,0,8,0" Foreground="{DynamicResource TextMutedBrush}" />
+                                       Margin="20,0,8,0" Foreground="{DynamicResource TextMutedBrush}" />
                             <TextBox Text="{Binding NewTemplateName, UpdateSourceTrigger=PropertyChanged}"
                                      Width="160" Padding="7,5" FontSize="12.5" VerticalContentAlignment="Center" />
                             <Button Command="{Binding SaveTemplateCommand}" IsEnabled="{Binding CanSaveTemplate}"
@@ -101,8 +121,32 @@
                                     <TextBlock Text="حفظ" Margin="5,0,0,0" FontSize="12" />
                                 </StackPanel>
                             </Button>
+                            <Button Command="{Binding ToggleAddNewTemplateCommand}"
+                                    Style="{StaticResource IconButton}" Padding="6,4" Margin="4,0,0,0"
+                                    ToolTip="إلغاء">
+                                <materialDesign:PackIcon Kind="Close" Width="13" Height="13" />
+                            </Button>
                         </StackPanel>
                     </DockPanel>
+
+                    <!-- فورم إعادة التسمية: مطويّة، بتظهر بس لما تدوس قلم التسمية -->
+                    <DockPanel Margin="0,8,0,0"
+                               Visibility="{Binding IsRenamingTemplate, Converter={StaticResource BoolToVis}}">
+                        <TextBlock DockPanel.Dock="Left" Text="الاسم الجديد:" FontSize="12.5" VerticalAlignment="Center"
+                                   Margin="0,0,8,0" Foreground="{DynamicResource TextMutedBrush}" />
+                        <Button DockPanel.Dock="Right" Command="{Binding CancelRenameTemplateCommand}"
+                                Style="{StaticResource IconButton}" Padding="6,4" Margin="4,0,0,0" ToolTip="إلغاء">
+                            <materialDesign:PackIcon Kind="Close" Width="13" Height="13" />
+                        </Button>
+                        <Button DockPanel.Dock="Right" Command="{Binding ConfirmRenameTemplateCommand}"
+                                Style="{StaticResource GhostButton}" Padding="11,6" Margin="6,0,0,0">
+                            <TextBlock Text="حفظ الاسم" FontSize="12" />
+                        </Button>
+                        <TextBox Text="{Binding RenameTemplateText, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="200" Padding="7,5" FontSize="12.5" VerticalContentAlignment="Center"
+                                 HorizontalAlignment="Left" />
+                    </DockPanel>
+                    </StackPanel>
                 </Border>
 
                 <!-- ===== الخطوات التلاتة ===== -->
@@ -132,10 +176,29 @@
                             </StackPanel>
 
                             <!-- مستويات إضافية: "بالمنتج ثم العامل ثم المرحلة".
-                                 ده اللي بيجاوب على "مين اشتغل على إيه" — سؤال
-                                 محتاج بُعدين أو تلاتة مش واحد. -->
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4"
-                                        Visibility="{Binding SupportsLevels, Converter={StaticResource BoolToVis}}">
+                                 مطويّة افتراضيًا وراء "تجميع متقدم" — معظم
+                                 التقارير تجميع بمستوى واحد، والاتنين دول
+                                 سؤال خاص ("مين اشتغل على إيه") مش الحالة
+                                 العادية. -->
+                            <CheckBox Content="تجميع متقدم (أكتر من مستوى)" FontSize="12" Margin="0,0,0,4"
+                                      VerticalAlignment="Center" IsChecked="{Binding ShowThenBy}"
+                                      Visibility="{Binding SupportsLevels, Converter={StaticResource BoolToVis}}" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding SupportsLevels}" Value="True" />
+                                                    <Condition Binding="{Binding ShowThenBy}" Value="True" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
                                 <TextBlock Text="ثم" Style="{StaticResource FieldLabel}" />
                                 <ComboBox ItemsSource="{Binding ThenByOptions}" SelectedItem="{Binding ThenBy1}"
                                           DisplayMemberPath="Display" Width="110" FontSize="12.5" />

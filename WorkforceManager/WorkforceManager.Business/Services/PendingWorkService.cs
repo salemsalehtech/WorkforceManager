@@ -18,21 +18,24 @@ namespace WorkforceManager.Business.Services
     /// **مالوش أي علاقة بالأجور.** العامل بياخد يوميته يوم ما اشتغل،
     /// وتكميل المنتج بعدين بيسجّل يوميات للناس اللي كمّلوا بس. السجل
     /// هو الأجر — الواقف مجرد قراية على نفس السجلات.
+    ///
+    /// المجاميع بقت من الإنتاج الفعلي (<see cref="ProductionStageOutputService"/>)
+    /// مش من مجموع قطع العمال — رقمين منفصلين تمامًا.
     /// </summary>
     public class PendingWorkService
     {
-        private readonly IDailyProductionRepository _production;
         private readonly IProductRepository _products;
         private readonly ScrapService _scrap;
+        private readonly ProductionStageOutputService _productionOutput;
 
         public PendingWorkService(
-            IDailyProductionRepository production,
             IProductRepository products,
-            ScrapService scrap)
+            ScrapService scrap,
+            ProductionStageOutputService productionOutput)
         {
-            _production = production;
             _products = products;
             _scrap = scrap;
+            _productionOutput = productionOutput;
         }
 
         /// <summary>الشغل الواقف على منتج واحد لحد اليوم ده (شامله)</summary>
@@ -41,7 +44,7 @@ namespace WorkforceManager.Business.Services
             var product = await _products.GetWithStagesAsync(productId);
             if (product is null) return null;
 
-            var totals = await _production.GetStageTotalsUpToAsync(asOf);
+            var totals = await _productionOutput.GetStageTotalsUpToAsync(asOf);
             var scrap = await _scrap.GetStageTotalsUpToAsync(asOf);
             return Describe(product, totals, scrap);
         }
@@ -50,7 +53,7 @@ namespace WorkforceManager.Business.Services
         public async Task<IReadOnlyList<ProductPendingDto>> GetAllAsync(DateTime asOf)
         {
             var products = await _products.GetAllWithStagesAsync();
-            var totals = await _production.GetStageTotalsUpToAsync(asOf);
+            var totals = await _productionOutput.GetStageTotalsUpToAsync(asOf);
             var scrap = await _scrap.GetStageTotalsUpToAsync(asOf);
 
             return products

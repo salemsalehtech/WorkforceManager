@@ -34,6 +34,8 @@ namespace WorkforceManager.Tests
 
         private async Task SetPasswordAsync()
         {
+            await _db.SignInTestUserAsync();
+
             using var scope = _db.CreateScope();
             // أول تسجيل لكلمة السر: مفيش قديمة، فالقديمة null
             await _db.GetService<OperationsPasswordService>(scope).SetPasswordAsync(null, Password);
@@ -214,6 +216,61 @@ namespace WorkforceManager.Tests
             var db = _db.GetService<AppDbContext>(scope);
             var survivor = Assert.Single(await db.DailyProductions.ToListAsync());
             Assert.Equal(Day2.Date, survivor.Date.Date);
+        }
+
+        [Fact]
+        public async Task Deleting_a_whole_day_removes_the_attendance_of_every_worker_left_with_no_production()
+        {
+            await SetPasswordAsync();
+            await RecordAsync(TestDatabase.BagStage1Id, 100, Day1, TestDatabase.WorkerAhmedId);
+            await RecordAsync(TestDatabase.BagStage2Id, 60, Day1, TestDatabase.WorkerSaidId);
+
+            // حضور "حاضر" مسجّل للاتنين — سواء اتسجل تلقائي أو بإيد
+            // المدير من شاشة الحضور، النتيجة المتوقعة واحدة
+            using (var scope = _db.CreateScope())
+                await _db.GetService<AttendanceService>(scope).RecordAttendanceBatchAsync(
+                    Day1,
+                    new[]
+                    {
+                        (TestDatabase.WorkerAhmedId, AttendanceStatus.Present),
+                        (TestDatabase.WorkerSaidId, AttendanceStatus.Present)
+                    },
+                    Password);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope)
+                    .DeleteProductionDayAsync(Day1, Password, "اليوم اتسجل على تاريخ غلط");
+
+            using var check = _db.CreateScope();
+            var checkDb = _db.GetService<AppDbContext>(check);
+
+            // مفيش إنتاج فضل لأي عامل منهم في اليوم ده — الحضور اتشال معاه
+            Assert.Empty(await checkDb.Attendances
+                .Where(a => a.Date == Day1)
+                .ToListAsync());
+        }
+
+        [Fact]
+        public async Task Deleting_a_whole_day_keepsAWorkersAttendance_ifTheyStillHaveProductionOnAnotherDay()
+        {
+            await SetPasswordAsync();
+            await RecordAsync(TestDatabase.BagStage1Id, 100, Day1, TestDatabase.WorkerAhmedId);
+            await RecordAsync(TestDatabase.BagStage1Id, 80, Day2, TestDatabase.WorkerAhmedId);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<AttendanceService>(scope).RecordAttendanceBatchAsync(
+                    Day2, new[] { (TestDatabase.WorkerAhmedId, AttendanceStatus.Present) }, Password);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope)
+                    .DeleteProductionDayAsync(Day1, Password, "غلط");
+
+            using var check = _db.CreateScope();
+            var checkDb = _db.GetService<AppDbContext>(check);
+
+            // حضور Day2 مالهوش علاقة بحذف Day1 — لسه له إنتاج فيه
+            Assert.NotNull(await checkDb.Attendances.FirstOrDefaultAsync(
+                a => a.WorkerId == TestDatabase.WorkerAhmedId && a.Date == Day2));
         }
 
         // ======================= منع تكرار المرحلة بين النطاقات =======================

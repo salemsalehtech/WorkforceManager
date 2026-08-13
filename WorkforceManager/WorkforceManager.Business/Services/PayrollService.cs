@@ -80,6 +80,12 @@ namespace WorkforceManager.Business.Services
                     ?? wpen.FirstOrDefault()?.Worker
                     ?? wadj.First().Worker;
 
+                // الحسابات الإدارية (مدير/رئيس قسم) بتتحسب حاضر ويومية
+                // تلقائيًا كل يوم (DepartmentAttendanceService)، بس كشف
+                // الأجور ده تقرير عمال — مفيش خلط أبدًا، شوف تقريرهم
+                // المنفصل (ReportSubject.DepartmentAccounts)
+                if (workerRef.HourlyRole is HourlyRole.DepartmentManager or HourlyRole.DepartmentHead) continue;
+
                 var producedWorkdays = wp.Sum(p => p.WorkdaysCompleted) + wh.Sum(h => h.WorkdaysCredited);
 
                 // عدد أيام العمل الفعلية = أيام فيها إنتاج أو شغل ساعة (بدون تكرار)

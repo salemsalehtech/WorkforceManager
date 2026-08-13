@@ -31,6 +31,9 @@ namespace WorkforceManager.Data.Repositories
                 .ToListAsync();
         }
 
+        public Task<int> CountSinceAsync(DateTime since) =>
+            DbSet.CountAsync(e => e.OccurredAt > since);
+
         /// <summary>
         /// حذف مجمّع بـ ExecuteDelete: بيتنفّذ كأمر DELETE واحد على
         /// الداتابيز من غير ما يحمّل الصفوف في الذاكرة — سجل سنة كامل

@@ -1,0 +1,67 @@
+<Window x:Class="WorkforceManager.UI.Views.DepartmentOvertimeDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="تصحيح يوم"
+        Width="380" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False"
+        FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
+
+    <!-- تصحيح يوم حضور/سهر لحساب إداري. الافتراضي كل يوم "حاضر" بيومية
+         كاملة تلقائيًا (DepartmentAttendanceService) — هنا المدير يقدر:
+         (1) يسجّل سهر (شيفت أطول = يومية ونص/يومّين، نفس سلّم
+         HourlyWorkdayService بالحرف)، أو (2) يعلّم اليوم غياب فعلاً
+         (بإذن أو بدونه) لو العامل ماكانش موجود حقيقي رغم التسجيل
+         التلقائي. الحسابات الإدارية مالهاش صف في شبكة الحضور المشتركة
+         (قايمة منفصلة تمامًا)، فده مكان التصحيح الوحيد. -->
+    <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
+        </Border.Effect>
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="{DynamicResource SidebarBrush}"
+                    CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Foreground="{DynamicResource SidebarInkBrush}"
+                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
+                            ToolTip="إغلاق">
+                        <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
+                    </Button>
+                    <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}"
+                               Foreground="{DynamicResource SidebarInkBrush}" FontSize="15.5" FontWeight="Bold" />
+                </DockPanel>
+            </Border>
+
+            <StackPanel Margin="24,20,24,22">
+                <TextBlock x:Name="AccountNameText" FontSize="13" Margin="0,0,0,14"
+                           Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="اليوم" Style="{StaticResource FieldLabel}" />
+                <DatePicker x:Name="DayPicker" Margin="0,0,0,12" />
+
+                <TextBlock Text="الحالة" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="StatusBox" Margin="0,0,0,4"
+                          DisplayMemberPath="Label" SelectedValuePath="Status"
+                          SelectionChanged="StatusBox_SelectionChanged" />
+                <TextBlock Text="الافتراضي حاضر بيومية كاملة تلقائيًا — هنا للسهر أو لو الغياب حصل فعلًا."
+                           Style="{StaticResource HintText}" Margin="0,0,0,14" />
+
+                <StackPanel x:Name="ShiftPanel">
+                    <TextBlock Text="خلص الشغل" Style="{StaticResource FieldLabel}" />
+                    <ComboBox x:Name="ShiftBox" Margin="0,0,0,4"
+                              DisplayMemberPath="Label" SelectedValuePath="EndHour24" />
+                    <TextBlock Text="شيفت عادي = يومية كاملة (1). لحد 8م = يومية ونص. لحد 12 = يومّتين."
+                               Style="{StaticResource HintText}" Margin="0,0,0,14" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Content="حفظ" Click="Save_Click" IsDefault="True"
+                            Style="{StaticResource PrimaryButton}" Padding="26,9" Margin="0,0,8,0" />
+                    <Button Content="إلغاء" IsCancel="True" Style="{StaticResource GhostButton}" Padding="26,9" />
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+    </Border>
+</Window>

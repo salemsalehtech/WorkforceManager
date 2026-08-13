@@ -5,22 +5,31 @@ using WorkforceManager.UI.ViewModels;
 
 namespace WorkforceManager.UI.Views
 {
+    /// <summary>عامل رص معروض في قايمة اختيار عامل الرص الثابت بتاع المنتج (null = بدون)</summary>
+    public record RackingWorkerChoice(int? WorkerId, string Name);
+
     /// <summary>
     /// نافذة إضافة/تعديل منتج. بتتحقق من الاسم بس (الإجباري الوحيد) —
     /// أي قواعد أعمق مسؤولية ProductManagementService.
     /// </summary>
     public partial class ProductEditDialog : Window
     {
-        public ProductEditDialog()
+        public ProductEditDialog(IReadOnlyList<RackingWorkerChoice> rackingWorkers)
         {
             InitializeComponent();
             Loaded += (_, _) => NameBox.Focus();
+
+            RackingWorkerBox.ItemsSource = rackingWorkers;
+            RackingWorkerBox.SelectedIndex = 0; // "بدون" أول عنصر دايمًا
         }
 
         // ------- القيم اللي الشاشة الأم بتقرأها بعد الحفظ -------
 
         public string ProductName => NameBox.Text.Trim();
         public string? ProductDescription => string.IsNullOrWhiteSpace(DescriptionBox.Text) ? null : DescriptionBox.Text.Trim();
+
+        /// <summary>عامل الرص المختار — null لو "بدون" أو مفيش اختيار</summary>
+        public int? RackingWorkerId => (RackingWorkerBox.SelectedItem as RackingWorkerChoice)?.WorkerId;
 
         /// <summary>
         /// صورة المنتج بعد الحفظ (null = مفيش صورة أو المستخدم شالها).
@@ -36,7 +45,8 @@ namespace WorkforceManager.UI.Views
         public bool ImageChanged { get; private set; }
 
         /// <summary>تعبئة الفورم ببيانات منتج موجود (وضع التعديل)</summary>
-        public void LoadProduct(string name, string? description, byte[]? imageData = null)
+        public void LoadProduct(
+            string name, string? description, byte[]? imageData = null, int? rackingWorkerId = null)
         {
             NameBox.Text = name;
             DescriptionBox.Text = description ?? "";
@@ -44,6 +54,10 @@ namespace WorkforceManager.UI.Views
             ImageData = imageData;
             ImageChanged = false; // التحميل مش تغيير
             ShowImagePreview();
+
+            var choices = (IReadOnlyList<RackingWorkerChoice>)RackingWorkerBox.ItemsSource;
+            RackingWorkerBox.SelectedItem = choices.FirstOrDefault(c => c.WorkerId == rackingWorkerId)
+                ?? choices[0];
         }
 
         /// <summary>يعرض الصورة الحالية أو أيقونة "مفيش صورة"</summary>

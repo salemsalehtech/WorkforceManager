@@ -67,7 +67,9 @@ namespace WorkforceManager.UI.ViewModels
                 _products.Clear();
                 foreach (var p in products)
                 {
-                    // المراحل بترتيب خط الإنتاج + رقم الترتيب المعروض (1، 2، 3...)
+                    // المراحل بترتيب خط الإنتاج + رقم الترتيب المعروض (1، 2، 3...).
+                    // مرحلة الرص **موجودة هنا** كبطاقة عادية آخر الترتيب —
+                    // بس مستبعدة من نطاقات القطع (شوف FlowSessionViewModel)
                     var stages = p.Stages
                         .OrderBy(s => s.SortOrder).ThenBy(s => s.Id)
                         .Select((s, i) => new StageEntryOption
@@ -75,10 +77,15 @@ namespace WorkforceManager.UI.ViewModels
                             StageId = s.Id,
                             StageName = s.StageName,
                             PiecesPerWorkday = s.PiecesPerWorkday,
-                            DisplayOrder = i + 1
+                            DisplayOrder = i + 1,
+                            IsRackingStage = s.IsRackingStage
                         }).ToList();
 
-                    _products.Add(new ProductOption { ProductId = p.Id, Name = p.Name, Stages = stages });
+                    _products.Add(new ProductOption
+                    {
+                        ProductId = p.Id, Name = p.Name, Stages = stages,
+                        RackingWorkerId = p.RackingWorkerId
+                    });
                 }
             }
 
@@ -1054,30 +1061,31 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand]
         private async Task AddScrapAsync()
         {
-            List<ScrapStageChoice> stages;
+            List<ScrapProductChoice> products;
             List<ScrapReason> reasons;
 
             using (var scope = _scopeFactory.CreateScope())
             {
-                var products = await scope.ServiceProvider
+                var allProducts = await scope.ServiceProvider
                     .GetRequiredService<IProductRepository>()
                     .GetAllWithStagesAsync();
 
-                // كل مراحل كل المنتجات: الهالك ممكن يتسجّل على أي مرحلة،
-                // وآخر مرحلة معلّمة عشان المستخدم يعرف إن دي اللي بتخصم
-                // من الإنتاج التام
-                stages = products
+                // منتج الأول، وبعدين مراحله بس — الهالك ممكن يتسجّل على أي
+                // مرحلة، وآخر مرحلة معلّمة عشان المستخدم يعرف إن دي اللي
+                // بتخصم من الإنتاج التام
+                products = allProducts
                     .OrderBy(p => p.Name)
-                    .SelectMany(p =>
+                    .Select(p =>
                     {
                         var line = ProductionLine.Active(p);
-                        return line.Select((stage, index) => new ScrapStageChoice(
+                        var stages = line.Select((stage, index) => new ScrapStageChoice(
                             stage.Id,
-                            index == line.Count - 1
-                                ? $"{p.Name} — {stage.StageName} (آخر مرحلة)"
-                                : $"{p.Name} — {stage.StageName}",
-                            0));
+                            index == line.Count - 1 ? $"{stage.StageName} (آخر مرحلة)" : stage.StageName,
+                            0)).ToList();
+
+                        return new ScrapProductChoice(p.Id, p.Name, stages);
                     })
+                    .Where(p => p.Stages.Count > 0)
                     .ToList();
 
                 reasons = await scope.ServiceProvider
@@ -1085,13 +1093,13 @@ namespace WorkforceManager.UI.ViewModels
                     .GetActiveReasonsAsync();
             }
 
-            if (stages.Count == 0)
+            if (products.Count == 0)
             {
                 Notify.Info("مفيش مراحل إنتاج متسجلة — ضيف منتج ومراحله الأول", "تنبيه");
                 return;
             }
 
-            var dialog = ScrapDialog.ForStage(Application.Current.MainWindow, stages, reasons);
+            var dialog = ScrapDialog.ForStage(Application.Current.MainWindow, products, reasons);
             if (dialog.ShowDialog() != true) return;
 
             try

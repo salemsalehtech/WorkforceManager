@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MaterialDesignThemes.Wpf;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
@@ -21,13 +22,15 @@ namespace WorkforceManager.UI.ViewModels
     public partial class ActivityLogViewModel : ObservableObject
     {
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly CurrentUserContext _currentUser;
 
         /// <summary>كل أحداث الفترة المحمّلة — الفلترة بتشتغل على النسخة دي</summary>
         private List<ActivityEvent> _loaded = new();
 
-        public ActivityLogViewModel(IServiceScopeFactory scopeFactory)
+        public ActivityLogViewModel(IServiceScopeFactory scopeFactory, CurrentUserContext currentUser)
         {
             _scopeFactory = scopeFactory;
+            _currentUser = currentUser;
             _selectedEventGroup = EventGroups[0];
         }
 
@@ -108,6 +111,10 @@ namespace WorkforceManager.UI.ViewModels
             _loaded = (await log.GetByRangeAsync(FromDate, ToDate)).ToList();
             ApplyFilter();
             OnPropertyChanged(nameof(RetentionNote)); // الإعداد ممكن يكون اتغيّر من شاشة تانية
+
+            // فتح الشاشة نفسه هو الفعل اللي بيصفّر شارة "عمليات جديدة"
+            // على زرار السجل — مش لازم المستخدم يعمل حاجة تانية
+            await log.MarkSeenAsync(_currentUser.AppUserId);
         }
 
         /// <summary>آخر 30 يوم (الافتراضي)</summary>
@@ -210,9 +217,19 @@ namespace WorkforceManager.UI.ViewModels
         public string When => _event.OccurredAt.ToString("yyyy/MM/dd — HH:mm");
         public string Actor => _event.Actor;
         public string EntityName => _event.EntityName ?? "—";
-        public string Reason => _event.Reason ?? "—";
+        public string Reason => _event.Reason ?? "";
         public string Details => _event.Details ?? "";
+
+        /// <summary>
+        /// معظم العمليات (تسجيل إنتاج، حضور...) مالهاش سبب أصلاً — بس
+        /// الحذف والتعديلات الحساسة. عرض "السبب: —" على كل كارت كان
+        /// بيغرق الكارت اللي فعلاً محتاج السبب وسط عشرات بلا معنى.
+        /// </summary>
+        public bool HasReason => !string.IsNullOrWhiteSpace(_event.Reason);
         public bool HasDetails => !string.IsNullOrWhiteSpace(_event.Details);
+
+        /// <summary>مفيش سبب ولا تفاصيل — الكارت بيتلخّص في السطر الأول بس</summary>
+        public bool HasBody => HasReason || HasDetails;
 
         /// <summary>وصف الحدث بالعربي — مصدر واحد للنص بدل ما كل شاشة تترجمه</summary>
         public string EventText => _event.EventType switch
@@ -238,6 +255,32 @@ namespace WorkforceManager.UI.ViewModels
             ActivityEventType.ProductCreated => "إضافة منتج",
             ActivityEventType.StageCreated => "إضافة مرحلة",
             _ => _event.EventType.ToString()
+        };
+
+        /// <summary>أيقونة الحدث — بتديه هوية بصرية فورية بدل ما القارئ يعتمد على النص بس</summary>
+        public PackIconKind EventIcon => _event.EventType switch
+        {
+            ActivityEventType.ProductionDayDeleted => PackIconKind.CalendarRemoveOutline,
+            ActivityEventType.ProductionRecordDeleted => PackIconKind.DeleteOutline,
+            ActivityEventType.WorkerDeleted => PackIconKind.AccountRemoveOutline,
+            ActivityEventType.ProductDeleted => PackIconKind.PackageVariantRemove,
+            ActivityEventType.StageDeleted => PackIconKind.LayersRemove,
+            ActivityEventType.WorkerWageChanged => PackIconKind.CurrencyUsd,
+            ActivityEventType.ProductionPiecesEdited => PackIconKind.PencilOutline,
+            ActivityEventType.PenaltySaved => PackIconKind.AlertOctagonOutline,
+            ActivityEventType.PenaltyDeleted => PackIconKind.CloseCircleOutline,
+            ActivityEventType.WageAdjustmentSaved => PackIconKind.CashPlus,
+            ActivityEventType.OperationsPasswordChanged => PackIconKind.LockReset,
+            ActivityEventType.WageAdjustmentDeleted => PackIconKind.CashRemove,
+            ActivityEventType.ProductionRecorded => PackIconKind.ClipboardCheckOutline,
+            ActivityEventType.AttendanceSaved => PackIconKind.CalendarCheckOutline,
+            ActivityEventType.ProductionDayClosed => PackIconKind.LockOutline,
+            ActivityEventType.ProductionDayReopened => PackIconKind.LockOpenOutline,
+            ActivityEventType.ScrapRecorded => PackIconKind.DeleteSweepOutline,
+            ActivityEventType.WorkerCreated => PackIconKind.AccountPlusOutline,
+            ActivityEventType.ProductCreated => PackIconKind.PackageVariantPlus,
+            ActivityEventType.StageCreated => PackIconKind.PlusBoxOutline,
+            _ => PackIconKind.InformationOutline
         };
 
         /// <summary>الحذف بيتلوّن أحمر — أخطر نوع عملية وأول اللي المراجع بيدوّر عليه</summary>

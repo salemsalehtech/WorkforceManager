@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.Services;
+using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 using WorkforceManager.UI.Views;
@@ -33,9 +34,13 @@ namespace WorkforceManager.UI.ViewModels
 
         partial void OnSearchTextChanged(string value) => ApplyFilter();
 
-        /// <summary>الفلتر السريع المختار</summary>
+        /// <summary>
+        /// الفلتر السريع المختار — "الكل" افتراضيًا عشان أول ما الشاشة
+        /// تفتح تعرض كل المنتجات، والمستخدم يختار "شغّالين" بنفسه لو
+        /// عايز يضيّق على فترة معيّنة.
+        /// </summary>
         [ObservableProperty]
-        private ProductFilter _activeFilter = ProductFilter.WorkedThisPeriod;
+        private ProductFilter _activeFilter = ProductFilter.All;
 
         partial void OnActiveFilterChanged(ProductFilter value)
         {
@@ -383,6 +388,7 @@ namespace WorkforceManager.UI.ViewModels
                 Description = p.Description ?? "",
                 IsActive = p.IsActive,
                 ImageData = p.ImageData,
+                RackingWorkerId = p.RackingWorkerId,
                 PiecesInPeriod = activity.GetValueOrDefault(p.Id)?.CompletedPieces ?? 0,
                 DaysWorkedInPeriod = activity.GetValueOrDefault(p.Id)?.DaysWorked ?? 0,
                 WorkerIds = activity.GetValueOrDefault(p.Id)?.WorkerIds ?? new HashSet<int>(),
@@ -395,6 +401,7 @@ namespace WorkforceManager.UI.ViewModels
                         PiecesPerWorkday = s.PiecesPerWorkday,
                         SortOrder = s.SortOrder,
                         IsActive = s.IsActive,
+                        IsRackingStage = s.IsRackingStage,
                         // الرقم المعروض = موقعها في الخط، مش قيمة SortOrder
                         // (اللي ممكن يكون فيها فجوات من تعديلات قديمة)
                         DisplayOrder = index + 1,
@@ -472,10 +479,31 @@ namespace WorkforceManager.UI.ViewModels
 
         // ------- إدارة المنتجات -------
 
+        /// <summary>
+        /// عمال الرص المتاحين لاختيارهم كعامل رص ثابت للمنتج — "بدون"
+        /// أول عنصر دايمًا عشان يبقى الافتراضي وتقدر تشيل الاختيار.
+        /// </summary>
+        private async Task<List<RackingWorkerChoice>> LoadRackingWorkerChoicesAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var workers = await scope.ServiceProvider
+                .GetRequiredService<IWorkerRepository>()
+                .GetAllWithSkillsAsync();
+
+            var choices = new List<RackingWorkerChoice> { new(null, "بدون") };
+            choices.AddRange(workers
+                .Where(w => w.HourlyRole == HourlyRole.Racking)
+                .OrderBy(w => w.FullName)
+                .Select(w => new RackingWorkerChoice(w.Id, w.FullName)));
+
+            return choices;
+        }
+
         [RelayCommand]
         private async Task AddProductAsync()
         {
-            var dialog = new ProductEditDialog { Owner = Application.Current.MainWindow };
+            var dialog = new ProductEditDialog(await LoadRackingWorkerChoicesAsync())
+                { Owner = Application.Current.MainWindow };
             if (dialog.ShowDialog() != true) return;
 
             try
@@ -486,6 +514,9 @@ namespace WorkforceManager.UI.ViewModels
 
                 if (dialog.ImageData is not null)
                     await mgmt.SetProductImageAsync(created.Id, dialog.ImageData);
+
+                if (dialog.RackingWorkerId is not null)
+                    await mgmt.SetRackingWorkerAsync(created.Id, dialog.RackingWorkerId);
 
                 await LoadAsync();
                 // اختيار المنتج الجديد فورًا عشان المستخدم يبدأ يضيف مراحله
@@ -502,10 +533,12 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (SelectedProduct is null) return;
 
-            var dialog = new ProductEditDialog { Owner = Application.Current.MainWindow, Title = "تعديل منتج" };
+            var dialog = new ProductEditDialog(await LoadRackingWorkerChoicesAsync())
+                { Owner = Application.Current.MainWindow, Title = "تعديل منتج" };
             dialog.LoadProduct(SelectedProduct.Name,
                 SelectedProduct.Description,
-                SelectedProduct.ImageData);
+                SelectedProduct.ImageData,
+                SelectedProduct.RackingWorkerId);
             if (dialog.ShowDialog() != true) return;
 
             try
@@ -518,6 +551,9 @@ namespace WorkforceManager.UI.ViewModels
                 // الصورة بتتحفظ بس لو المستخدم غيّرها فعلاً
                 if (dialog.ImageChanged)
                     await mgmt.SetProductImageAsync(SelectedProduct.ProductId, dialog.ImageData);
+
+                if (dialog.RackingWorkerId != SelectedProduct.RackingWorkerId)
+                    await mgmt.SetRackingWorkerAsync(SelectedProduct.ProductId, dialog.RackingWorkerId);
 
                 await ReloadKeepingSelectionAsync();
             }
@@ -613,6 +649,28 @@ namespace WorkforceManager.UI.ViewModels
             catch (Exception ex)
             {
                 Notify.Warn(ex.Message, "خطأ في إضافة المرحلة");
+            }
+        }
+
+        /// <summary>
+        /// يضيف مرحلة "رص" آخر خط الإنتاج — مرة واحدة بس لكل منتج
+        /// (<see cref="ProductRow.HasRackingStage"/> بيقفل الزرار بعد كده).
+        /// </summary>
+        [RelayCommand]
+        private async Task AddRackingStageAsync()
+        {
+            if (SelectedProduct is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<ProductManagementService>()
+                    .AddRackingStageAsync(SelectedProduct.ProductId);
+                await LoadAsync();
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "خطأ في إضافة مرحلة الرص");
             }
         }
 

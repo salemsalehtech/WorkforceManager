@@ -33,6 +33,18 @@ namespace WorkforceManager.Business.DTOs
         public int PieceCount { get; init; }
     }
 
+    /// <summary>
+    /// عامل رص/تدريب متحط على مرحلة لليوم بس — مجرد تسجيل "كان هنا
+    /// النهارده"، مالوش قطع ومالوش شرط تأهيل (WorkerSkill). بيتسجّل
+    /// حاضر بيومية شيفت عادي (1) تلقائيًا، منفصل تمامًا عن
+    /// <see cref="FlowShareDto"/>.
+    /// </summary>
+    public class FlowTaggedWorkerDto
+    {
+        public int ProductionStageId { get; init; }
+        public int WorkerId { get; init; }
+    }
+
     /// <summary>نتيجة حفظ رحلة إنتاج — للملخص المعروض للمستخدم بعد الحفظ</summary>
     public class FlowSaveResultDto
     {

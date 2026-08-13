@@ -21,6 +21,9 @@ namespace WorkforceManager.UI.ViewModels
         public int ProductId { get; init; }
         public string Name { get; init; } = "";
         public List<StageEntryOption> Stages { get; init; } = new();
+
+        /// <summary>عامل الرص الثابت الافتراضي بتاع المنتج (اختياري) — بيتحط تاجه تلقائيًا على مرحلة الرص كل يوم</summary>
+        public int? RackingWorkerId { get; init; }
     }
 
     /// <summary>مرحلة في قوائم الاختيار (النطاقات) — برقم ترتيبها في خط الإنتاج</summary>
@@ -30,6 +33,13 @@ namespace WorkforceManager.UI.ViewModels
         public string StageName { get; init; } = "";
         public int PiecesPerWorkday { get; init; }
         public int DisplayOrder { get; init; }
+
+        /// <summary>
+        /// مرحلة رص إدارية — بطاقتها في شاشة الإنتاج اليومي بلا نطاق/قطع
+        /// خالص، وتاجها بيسجل يومية مباشرة. شوف
+        /// <see cref="WorkforceManager.Core.Models.ProductionStage.IsRackingStage"/>.
+        /// </summary>
+        public bool IsRackingStage { get; init; }
 
         /// <summary>الاسم المعروض في قوائم "من/إلى": الترتيب + الاسم</summary>
         public string Display => $"{DisplayOrder}. {StageName}";

@@ -118,6 +118,10 @@ namespace WorkforceManager.UI.ViewModels
             FlowStages.Any(s => s.AssignedWorkers.Count > 0) ||
             FlowRanges.Any(r => !string.IsNullOrWhiteSpace(r.PiecesText));
 
+        /// <summary>مراحل النطاقات: كل مراحل المنتج ما عدا مرحلة الرص (مالهاش قطع خالص)</summary>
+        private static List<StageEntryOption> RangeableStages(ProductOption product) =>
+            product.Stages.Where(s => !s.IsRackingStage).ToList();
+
         /// <summary>يبني بطاقات المراحل وعمالها المؤهلين للمنتج المختار (وبيتنادى برضه عند تغيير اليوم)</summary>
         public async Task ReloadAsync()
         {
@@ -140,6 +144,25 @@ namespace WorkforceManager.UI.ViewModels
                 // المؤهلين لكل مراحل المنتج باستعلام واحد
                 var skillsByStage = (await workerRepo.GetSkillsForProductAsync(product.ProductId))
                     .ToLookup(ws => ws.ProductionStageId);
+
+                // متدرّبين (HourlyRole.Training): بيتحطوا تاج على أي مرحلة
+                // عادية زي أي عامل عادي — بادج "تحت التدريب" جنب اسمهم في
+                // نفس قايمة "+ عامل" الموحّدة، مش عنصر واجهة منفصل.
+                var allHourly = await workerRepo.GetActiveWithSkillsAsync();
+                var trainees = allHourly
+                    .Where(w => w.HourlyRole == HourlyRole.Training)
+                    .OrderBy(w => w.FullName)
+                    .Select(w => new WorkerPick(w.Id, w.FullName, IsTagOnly: true, TagLabel: "تحت التدريب"))
+                    .ToList();
+
+                // عمال الرص (HourlyRole.Racking): قايمة "+ عامل" بتاعة
+                // مرحلة الرص نفسها بس — مرحلة زي أي مرحلة عادي، بس عمالها
+                // من الدور ده مش من WorkerSkill
+                var rackingWorkers = allHourly
+                    .Where(w => w.HourlyRole == HourlyRole.Racking)
+                    .OrderBy(w => w.FullName)
+                    .Select(w => new WorkerPick(w.Id, w.FullName, IsTagOnly: true))
+                    .ToList();
 
                 // الإنتاج المسجل بالفعل في اليوم ده على مراحل المنتج (تحذير من الإدخال المزدوج)
                 // تكليفات اليوم المحفوظة — قايمة الاقتراحات بترتّب بيها،
@@ -164,32 +187,47 @@ namespace WorkforceManager.UI.ViewModels
                         DisplayOrder = stage.DisplayOrder,
                         StageName = stage.StageName,
                         Quota = stage.PiecesPerWorkday,
-                        // مرتبين بالتقييم — الأحسن على المرحلة دي الأول.
-                        // الترتيب بيتنادى من SkillRatingService.Rank مش
-                        // متكتب هنا: نفس القاعدة اللي شاشة المنتجات شغالة
-                        // بيها، فالمدير بيشوف نفس الترتيب في الشاشتين
-                        QualifiedWorkers = SkillRatingService.Rank(skillsByStage[stage.StageId])
-                            .Select(ws => new WorkerPick(
-                                ws.WorkerId,
-                                ws.Worker.FullName,
-                                ws.Stars,
-                                ws.MeasuredRatio,
-                                ws.MeasuredDays))
-                            .ToList(),
+                        IsRackingStage = stage.IsRackingStage,
+                        // مرحلة الرص: عمالها من HourlyRole.Racking بس، مش
+                        // من WorkerSkill (مالهاش أصلًا). أي مرحلة عادية:
+                        // المؤهلين + المتدرّبين (مرتبين بالتقييم للمؤهلين
+                        // أولًا — نفس قاعدة SkillRatingService.Rank اللي
+                        // شاشة المنتجات شغالة بيها).
+                        QualifiedWorkers = stage.IsRackingStage
+                            ? rackingWorkers
+                            : SkillRatingService.Rank(skillsByStage[stage.StageId])
+                                .Select(ws => new WorkerPick(
+                                    ws.WorkerId,
+                                    ws.Worker.FullName,
+                                    ws.Stars,
+                                    ws.MeasuredRatio,
+                                    ws.MeasuredDays))
+                                .Concat(trainees)
+                                .ToList(),
                         AlreadyText = already > 0 ? $"مسجل اليوم: {already}" : ""
                     };
 
-                    row.ApplyWorkerFilter(); // القايمة تبدأ كاملة قبل أي بحث
                     FlowStages.Add(row);
                 }
 
+                // عامل الرص الثابت بتاع المنتج بيتحط تاجه تلقائيًا كل يوم
+                // على مرحلة الرص — تصحيح بديل (سهر أو غياب) بيتم بمسح
+                // التاج ده أو تغييره بإيد المستخدم لليوم ده بس.
+                PrefillRackingDefault(product);
+
+                foreach (var row in FlowStages)
+                    row.ApplyWorkerFilter(); // القايمة تبدأ كاملة قبل أي بحث (وبعد تعبية تاج الرص)
+
                 // نطاق افتراضي جاهز: من أول مرحلة لآخر مرحلة — لو اليوم كله
-                // بنفس العدد يبقى المستخدم يكتب رقم واحد بس ويحفظ
-                FlowRanges.Add(new FlowRangeRow(product.Stages, OnStructureEdited, RemoveRange)
-                {
-                    FromStage = product.Stages.First(),
-                    ToStage = product.Stages.Last()
-                });
+                // بنفس العدد يبقى المستخدم يكتب رقم واحد بس ويحفظ.
+                // مرحلة الرص مستبعدة: مالهاش نطاق قطع خالص.
+                var rangeableStages = RangeableStages(product);
+                if (rangeableStages.Count > 0)
+                    FlowRanges.Add(new FlowRangeRow(rangeableStages, OnStructureEdited, RemoveRange)
+                    {
+                        FromStage = rangeableStages.First(),
+                        ToStage = rangeableStages.Last()
+                    });
             }
             finally
             {
@@ -197,6 +235,29 @@ namespace WorkforceManager.UI.ViewModels
             }
 
             await LoadPendingWorkAsync();
+        }
+
+        /// <summary>
+        /// عامل الرص الثابت بتاع المنتج (Product.RackingWorkerId) بيتحط
+        /// تاجه تلقائيًا على مرحلة الرص كل مرة الرحلة بتفتح — كأنه
+        /// الافتراضي اليومي. المستخدم يقدر يشيله أو يستبدله بعامل رص
+        /// تاني لليوم ده بس (زي أي تاج تاني)، من غير ما ده يغيّر
+        /// الافتراضي الثابت بتاع المنتج نفسه.
+        /// </summary>
+        private void PrefillRackingDefault(ProductOption product)
+        {
+            if (product.RackingWorkerId is not { } rackingWorkerId) return;
+
+            var rackingRow = FlowStages.FirstOrDefault(s => s.IsRackingStage);
+            if (rackingRow is null) return;
+            if (rackingRow.AssignedWorkers.Any(s => s.WorkerId == rackingWorkerId)) return;
+
+            var pick = rackingRow.QualifiedWorkers.FirstOrDefault(w => w.WorkerId == rackingWorkerId);
+            if (pick is null) return; // العامل مبقاش عامل رص نشط (اتوقف أو اتغيّر دوره)
+
+            rackingRow.AssignedWorkers.Add(new FlowShareEntry(
+                rackingRow, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare,
+                isTagOnly: true, tagLabel: pick.TagLabel));
         }
 
         // ======================= الشغل الواقف =======================
@@ -280,7 +341,7 @@ namespace WorkforceManager.UI.ViewModels
                 foreach (var empty in FlowRanges.Where(r => r.PiecesText.Trim().Length == 0).ToList())
                     FlowRanges.Remove(empty);
 
-                FlowRanges.Add(new FlowRangeRow(product.Stages, OnStructureEdited, RemoveRange)
+                FlowRanges.Add(new FlowRangeRow(RangeableStages(product), OnStructureEdited, RemoveRange)
                 {
                     FromStage = from,
                     ToStage = to,
@@ -376,7 +437,9 @@ namespace WorkforceManager.UI.ViewModels
                 // 2) توزيع متساوٍ تلقائي على عمال كل مرحلة (قابل للتعديل اليدوي بعدها)
                 foreach (var row in FlowStages)
                 {
-                    var workers = row.AssignedWorkers;
+                    // التاجات (متدرّب/عامل رص) مالهاش نصيب قطع خالص —
+                    // مستبعدة من التوزيع المتساوي
+                    var workers = row.AssignedWorkers.Where(w => !w.IsTagOnly).ToList();
                     if (workers.Count == 0) continue;
 
                     if (row.ComputedPieces == 0)
@@ -420,10 +483,9 @@ namespace WorkforceManager.UI.ViewModels
         /// يبني معاينة إجمالي كل عامل (قطع + يوميات).
         ///
         /// مبقاش بيجمّع تحذيرات: تحذير "التوزيع ≠ إنتاج المرحلة" اتشال
-        /// لأن كارت المرحلة نفسه بيتلوّن أحمر في نفس الحالة بالظبط
-        /// (<see cref="FlowStageState.Mismatch"/>) — يعني نفس المعلومة
-        /// كانت بتتقال مرتين، مرة على الكارت ومرة في بلوك نص فوق.
-        /// وأخطاء النطاقات بقت على كل نطاق في مكانه.
+        /// خالص — قطعة العامل (عدد ضرباته) والإنتاج الفعلي رقمين منفصلين
+        /// عن قصد، فاختلافهم طبيعي مش حاجة تستحق تحذير. أخطاء النطاقات
+        /// بقت على كل نطاق في مكانه.
         /// </summary>
         private void RecomputeTotals()
         {
@@ -435,6 +497,7 @@ namespace WorkforceManager.UI.ViewModels
 
                 foreach (var share in row.AssignedWorkers)
                 {
+                    if (share.IsTagOnly) continue; // مالوش نصيب قطع خالص
                     if (!int.TryParse(share.SharePieces?.Trim(), out var pieces) || pieces <= 0) continue;
 
                     var workdays = Math.Round((decimal)pieces / row.Quota, 2);
@@ -567,6 +630,11 @@ namespace WorkforceManager.UI.ViewModels
                     stage.AssignedWorkers.Add(new FlowShareEntry(
                         stage, assignment.WorkerId, assignment.WorkerName, OnSharesEdited, RemoveWorkerShare));
                 }
+
+                // مرحلة الرص مفيش لها DailyProduction خالص، فمكانتش داخلة
+                // في last.Assignments — والمسح فوق شالها هي كمان. رجّع
+                // تاج عامل الرص الافتراضي بتاع المنتج تاني.
+                PrefillRackingDefault(product);
             }
             finally
             {
@@ -582,8 +650,8 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand]
         private void AddRange()
         {
-            if (SelectedProduct is null) return;
-            FlowRanges.Add(new FlowRangeRow(SelectedProduct.Stages, OnStructureEdited, RemoveRange));
+            if (SelectedProduct is not { } product) return;
+            FlowRanges.Add(new FlowRangeRow(RangeableStages(product), OnStructureEdited, RemoveRange));
         }
 
         /// <summary>بيتنادى من زرار الحذف اللي على سطر النطاق نفسه</summary>
@@ -611,6 +679,22 @@ namespace WorkforceManager.UI.ViewModels
 
             // منع إضافة نفس العامل مرتين لنفس المرحلة في نفس الرحلة
             if (stage.AssignedWorkers.Any(s => s.WorkerId == pick.WorkerId)) return;
+
+            // تاج بسيط (متدرّب على مرحلة عادية، أو عامل رص على مرحلة
+            // الرص): مفيش تحقق تأهيل ومفيش قطع ومفيش تعارض تكليف —
+            // العامل مش بيشتغل بالقطعة أصلًا، فمفهوم "مكلّف على مرحلة
+            // تانية" ملوش معنى هنا زي عمال الإنتاج بالقطعة.
+            if (pick.IsTagOnly)
+            {
+                stage.AssignedWorkers.Add(new FlowShareEntry(
+                    stage, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare,
+                    isTagOnly: true, tagLabel: pick.TagLabel));
+                stage.ResetWorkerPicker();
+                RefreshAllWorkerPickers();
+                RecomputeFlow();
+                WorkerAdded?.Invoke(stage);
+                return;
+            }
 
             var attempted = new WorkerAssignmentDto
             {
@@ -784,15 +868,27 @@ namespace WorkforceManager.UI.ViewModels
                 })
                 .ToList();
 
-            // أنصبة العمال من كل بطاقات المراحل
+            // أنصبة العمال من كل بطاقات المراحل — التاجات (متدرّب/عامل رص) مستبعدة هنا عمدًا
             var shares = FlowStages
                 .SelectMany(row => row.AssignedWorkers
-                    .Where(s => int.TryParse(s.SharePieces?.Trim(), out var p) && p > 0)
+                    .Where(s => !s.IsTagOnly && int.TryParse(s.SharePieces?.Trim(), out var p) && p > 0)
                     .Select(s => new FlowShareDto
                     {
                         ProductionStageId = row.StageId,
                         WorkerId = s.WorkerId,
                         PieceCount = int.Parse(s.SharePieces!.Trim())
+                    }))
+                .ToList();
+
+            // متدرّبين على مراحل عادية + عامل الرص على مرحلة الرص — بلا
+            // قطع وبلا شرط تأهيل، ومنفصلين عن shares تمامًا (شوف FlowTaggedWorkerDto)
+            var taggedWorkers = FlowStages
+                .SelectMany(row => row.AssignedWorkers
+                    .Where(s => s.IsTagOnly)
+                    .Select(t => new FlowTaggedWorkerDto
+                    {
+                        ProductionStageId = row.StageId,
+                        WorkerId = t.WorkerId
                     }))
                 .ToList();
 
@@ -949,7 +1045,9 @@ namespace WorkforceManager.UI.ViewModels
                 var flowService = scope.ServiceProvider.GetRequiredService<ProductionFlowService>();
                 // الخدمة بتتحقق من كل حاجة تاني (مصدر الحقيقة الوحيد للقواعد) — يا كله يا مفيش
                 return await flowService.RecordFlowAsync(
-                    SelectedProduct!.ProductId, entryDate, ranges, shares, confirmOverride, gate.Password);
+                    SelectedProduct!.ProductId, entryDate, ranges, shares,
+                    taggedWorkers: taggedWorkers,
+                    confirmOverride: confirmOverride, operationsPassword: gate.Password);
             }
         }
     }

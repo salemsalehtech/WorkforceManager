@@ -40,6 +40,21 @@ namespace WorkforceManager.Core.Models
 
         public bool IsActive { get; set; } = true;
 
+        /// <summary>
+        /// مرحلة رص إدارية — موجودة كصف حقيقي (ليها ترتيب، تظهر في شاشة
+        /// المنتج وفي شاشة الإنتاج اليومي زي أي مرحلة، آخر الترتيب) بس
+        /// **برّه خط الإنتاج المحسوب تمامًا** (<c>ProductionLine.Active</c>):
+        /// مستبعدة من نطاقات القطع (مفيش "من مرحلة X لمرحلة Y" يشملها)
+        /// ومن حساب "أول/آخر مرحلة" في كل التقارير والرسوم البيانية.
+        /// بطاقتها في شاشة الإنتاج اليومي بتاخد عامل (تاج، من غير قطع)
+        /// بدل نطاق — شوف <see cref="WorkforceManager.Business.Services.ProductionFlowService"/>.
+        ///
+        /// PiecesPerWorkday لسه لازم يكون رقم موجب (قيد قاعدة البيانات)
+        /// بس قيمته مالها معنى هنا — مش بتتقرا في أي حساب لأن المرحلة
+        /// برّه الخط.
+        /// </summary>
+        public bool IsRackingStage { get; set; }
+
         // ------- العلاقات -------
 
         public virtual Product Product { get; set; } = null!;

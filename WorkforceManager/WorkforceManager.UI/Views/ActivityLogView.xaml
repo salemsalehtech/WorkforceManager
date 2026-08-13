@@ -74,60 +74,86 @@
                     <ItemsControl ItemsSource="{Binding Events}" Margin="12">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8"
-                                        Padding="12,9" Margin="0,0,0,6">
-                                    <DockPanel>
-                                        <!-- شارة نوع العملية — الحذف أحمر -->
-                                        <Border DockPanel.Dock="Left" CornerRadius="6" Padding="9,4"
-                                                VerticalAlignment="Top" MinWidth="110">
-                                            <Border.Style>
-                                                <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="{DynamicResource ChipBgBrush}" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsDeletion}" Value="True">
-                                                            <Setter Property="Background" Value="{DynamicResource DangerBgBrush}" />
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding IsMoney}" Value="True">
-                                                            <Setter Property="Background" Value="{DynamicResource GoldTintBrush}" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <!-- اللون جاي كمفتاح فرشاة من الـ ViewModel،
-                                                 فبيتغيّر مع الثيم زي أي حاجة تانية -->
-                                            <TextBlock Text="{Binding EventText}" FontSize="11.5" FontWeight="Bold"
-                                                       HorizontalAlignment="Center"
-                                                       ui:ThemeBrush.ForegroundKey="{Binding AccentColor}" />
-                                        </Border>
+                                <!-- الكارت اتقسّم لطبقات واضحة: أيقونة تدّي هوية الحدث
+                                     فورًا، عنوان + وقت، جسم بس لو فيه سبب أو تفاصيل
+                                     فعلًا (مش "السبب: —" في كل كارت)، والفاعل في
+                                     سطر منفصل تحت خط رفيع — آخر حاجة العين توصلها. -->
+                                <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="10"
+                                        Padding="12,10" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Left" Text="{Binding When}" FontSize="11"
+                                                       VerticalAlignment="Top" Margin="6,2,0,0"
+                                                       Foreground="{DynamicResource TextMutedBrush}" />
 
-                                        <StackPanel Margin="10,0,0,0">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding EntityName}" FontSize="13.5" FontWeight="Bold"
+                                            <!-- شارة دائرية بأيقونة الحدث — اللون جاي كمفتاح
+                                                 فرشاة من الـ ViewModel فبيتغيّر مع الثيم -->
+                                            <Border Width="30" Height="30" CornerRadius="15"
+                                                    VerticalAlignment="Top">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{DynamicResource ChipBgBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDeletion}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource DangerBgBrush}" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding IsMoney}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource GoldTintBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <materialDesign:PackIcon Kind="{Binding EventIcon}" Width="16" Height="16"
+                                                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                          ui:ThemeBrush.ForegroundKey="{Binding AccentColor}" />
+                                            </Border>
+
+                                            <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding EventText}" FontSize="11.5" FontWeight="Bold"
+                                                           ui:ThemeBrush.ForegroundKey="{Binding AccentColor}" />
+                                                <TextBlock Text="{Binding EntityName}" FontSize="14" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource TextPrimaryBrush}"
-                                                           TextWrapping="Wrap" />
-                                                <TextBlock Text="{Binding When}" FontSize="11.5" Margin="10,0,0,0"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource TextMutedBrush}" />
+                                                           TextWrapping="Wrap" Margin="0,1,0,0" />
                                             </StackPanel>
+                                        </DockPanel>
 
-                                            <TextBlock FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap"
-                                                       Foreground="{DynamicResource TextPrimaryBrush}">
-                                                <Run Text="السبب:" FontWeight="SemiBold" />
+                                        <!-- الجسم: بس لو فيه سبب أو تفاصيل فعلًا -->
+                                        <StackPanel Margin="40,6,0,0"
+                                                    Visibility="{Binding HasBody, Converter={StaticResource BoolToVis}}">
+                                            <TextBlock FontSize="12" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       Visibility="{Binding HasReason, Converter={StaticResource BoolToVis}}">
+                                                <Run Text="السبب: " FontWeight="SemiBold" />
                                                 <Run Text="{Binding Reason, Mode=OneWay}" />
                                             </TextBlock>
 
-                                            <TextBlock Text="{Binding Details}" FontSize="11.5" Margin="0,2,0,0"
-                                                       TextWrapping="Wrap"
+                                            <TextBlock Text="{Binding Details}" FontSize="11.5" TextWrapping="Wrap"
                                                        Foreground="{DynamicResource TextMutedBrush}"
-                                                       Visibility="{Binding HasDetails, Converter={StaticResource BoolToVis}}" />
-
-                                            <TextBlock FontSize="11.5" Margin="0,3,0,0"
-                                                       Foreground="{DynamicResource TextMutedBrush}">
-                                                <Run Text="اللي عملها:" />
-                                                <Run Text="{Binding Actor, Mode=OneWay}" FontWeight="SemiBold" />
+                                                       Visibility="{Binding HasDetails, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasReason}" Value="True">
+                                                                <Setter Property="Margin" Value="0,2,0,0" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
                                             </TextBlock>
                                         </StackPanel>
-                                    </DockPanel>
+
+                                        <!-- خط رفيع فاصل قبل الفاعل — بيفصل "اللي حصل" عن "مين عمله" -->
+                                        <Border Height="1" Background="{DynamicResource LineBrush}"
+                                                Margin="40,8,0,6" />
+                                        <StackPanel Orientation="Horizontal" Margin="40,0,0,0">
+                                            <materialDesign:PackIcon Kind="AccountOutline" Width="12" Height="12"
+                                                                      VerticalAlignment="Center"
+                                                                      Foreground="{DynamicResource TextMutedBrush}" />
+                                            <TextBlock Text="{Binding Actor}" FontSize="11" FontWeight="SemiBold"
+                                                       Margin="4,0,0,0"
+                                                       Foreground="{DynamicResource TextMutedBrush}" />
+                                        </StackPanel>
+                                    </StackPanel>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

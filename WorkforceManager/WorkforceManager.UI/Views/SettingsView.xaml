@@ -342,64 +342,6 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ===== الحساب: اسم الدخول وكلمة مروره وحسابات إضافية ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="AccountCircleOutline" Width="18" Height="18"
-                                                     Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="الحساب" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
-                        </StackPanel>
-                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
-                                   Text="كلمة الدخول بتفتح البرنامج. كلمة سر العمليات (فوق) هي اللي بتحمي الحذف والأجور — الاتنين منفصلين عن قصد." />
-
-                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,9"
-                                Margin="0,0,0,10">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="داخل باسم:" FontSize="12.5"
-                                               Foreground="{DynamicResource TextMutedBrush}" />
-                                    <TextBlock Text="{Binding CurrentUsername}" FontSize="13" FontWeight="Bold"
-                                               Margin="6,0,0,0"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                </StackPanel>
-                                <TextBlock Text="{Binding AccountsSummary}" FontSize="11.5" Margin="0,3,0,0"
-                                           TextWrapping="Wrap"
-                                           Foreground="{DynamicResource TextMutedBrush}" />
-                            </StackPanel>
-                        </Border>
-
-                        <StackPanel Orientation="Horizontal">
-                            <Button Command="{Binding ChangeUsernameCommand}"
-                                    Style="{StaticResource GhostButton}" Padding="14,8" Margin="0,0,8,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="AccountEditOutline" Width="15" Height="15"
-                                                             VerticalAlignment="Center" />
-                                    <TextBlock Text="غيّر اسم المستخدم" Margin="6,0,0,0" FontSize="12.5" />
-                                </StackPanel>
-                            </Button>
-
-                            <Button Command="{Binding ChangeLoginPasswordCommand}"
-                                    Style="{StaticResource GhostButton}" Padding="14,8" Margin="0,0,8,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="FormTextboxPassword" Width="15" Height="15"
-                                                             VerticalAlignment="Center" />
-                                    <TextBlock Text="غيّر كلمة الدخول" Margin="6,0,0,0" FontSize="12.5" />
-                                </StackPanel>
-                            </Button>
-
-                            <Button Command="{Binding AddAccountCommand}"
-                                    Style="{StaticResource PrimaryButton}" Padding="14,8">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="AccountPlusOutline" Width="15" Height="15"
-                                                             VerticalAlignment="Center" />
-                                    <TextBlock Text="ضيف حساب دخول" Margin="6,0,0,0" FontSize="12.5" />
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
                 <!-- ══════════ (٣) نادر وخطر ══════════ -->
                 <TextBlock Text="حاجات بتتظبط مرة وتتنسي"
                            Style="{StaticResource GroupCaption}" />
@@ -491,6 +433,18 @@
                         </Button>
                     </StackPanel>
                 </Border>
+
+                <!-- سطر معلومات في آخر الصفحة: أول سؤالين في أي مكالمة دعم
+                     هما "شغّال على أنهي إصدار؟" و"بياناتك فين؟" — الاتنين
+                     هنا بدل ما حد يدوّر عليهم أو يخمّن.
+                     المسار بـ LeftToRight عن قصد: مسار ويندوز مكتوب
+                     بالإنجليزي، وعرضه في اتجاه عربي بيبعتر الشرطات. -->
+                <StackPanel Margin="6,2,6,0">
+                    <TextBlock Style="{StaticResource HintText}" Text="{Binding AppVersionText}" />
+                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,0" Text="مكان البيانات:" />
+                    <TextBlock Style="{StaticResource HintText}" FlowDirection="LeftToRight"
+                               TextWrapping="Wrap" Text="{Binding DataFolderText}" />
+                </StackPanel>
 
             </StackPanel>
         </Grid>

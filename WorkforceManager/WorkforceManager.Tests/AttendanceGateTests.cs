@@ -27,6 +27,8 @@ namespace WorkforceManager.Tests
 
         private async Task SetPasswordAsync()
         {
+            await _db.SignInTestUserAsync();
+
             using var scope = _db.CreateScope();
             await _db.GetService<OperationsPasswordService>(scope).SetPasswordAsync(null, Password);
         }

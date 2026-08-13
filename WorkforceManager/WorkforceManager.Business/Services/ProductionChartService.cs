@@ -15,10 +15,11 @@ namespace WorkforceManager.Business.Services
     /// بيانات الرسم البياني للمنتجات: كام قطعة مكتملة اتنتجت من كل منتج
     /// في كل فترة (يوم / أسبوع / شهر)، وكام هالك اتسجّل عليه.
     ///
-    /// "المكتملة" = القطع المسجلة على آخر مرحلة في خط إنتاج المنتج
-    /// (أعلى ترتيب بين مراحله النشطة) — دي القطع اللي خرجت من الخط
-    /// فعلاً. القطع المسجلة على المراحل الأبكر شغل جارٍ مش إنتاج مكتمل،
-    /// وجمعها كان هيعد نفس القطعة أكتر من مرة.
+    /// "المكتملة" = الإنتاج الفعلي المسجّل على آخر مرحلة في خط إنتاج
+    /// المنتج (أعلى ترتيب بين مراحله النشطة) — دي القطع اللي خرجت من
+    /// الخط فعلاً، من <see cref="ProductionStageOutputService"/> مش من
+    /// مجموع قطع العمال. القطع المسجلة على المراحل الأبكر شغل جارٍ مش
+    /// إنتاج مكتمل، وجمعها كان هيعد نفس القطعة أكتر من مرة.
     ///
     /// **الهالك بيتحسب مرتين بمعنيين مختلفين، وده مقصود:**
     /// - اللي **بيتخصم** من التام هو هالك آخر مرحلة بس — قطعة اترمت
@@ -32,18 +33,18 @@ namespace WorkforceManager.Business.Services
     /// </summary>
     public class ProductionChartService
     {
-        private readonly IDailyProductionRepository _productionRepo;
         private readonly IProductRepository _productRepo;
         private readonly ScrapService _scrap;
+        private readonly ProductionStageOutputService _productionOutput;
 
         public ProductionChartService(
-            IDailyProductionRepository productionRepo,
             IProductRepository productRepo,
-            ScrapService scrap)
+            ScrapService scrap,
+            ProductionStageOutputService productionOutput)
         {
-            _productionRepo = productionRepo;
             _productRepo = productRepo;
             _scrap = scrap;
+            _productionOutput = productionOutput;
         }
 
         /// <summary>
@@ -105,7 +106,7 @@ namespace WorkforceManager.Business.Services
             var products = await _productRepo.GetAllWithStagesAsync();
             var lastStageByProduct = ProductionLine.LastStageIdByProduct(products);
 
-            var records = await _productionRepo.GetByRangeAsync(rangeStart, rangeEnd);
+            var records = await _productionOutput.GetByRangeAsync(rangeStart, rangeEnd);
             var scrapRecords = await _scrap.GetByRangeAsync(rangeStart, rangeEnd);
 
             // الهالك اللي بيتخصم من التام: آخر مرحلة بس
@@ -122,13 +123,12 @@ namespace WorkforceManager.Business.Services
 
             // القطع المكتملة بس: السجلات اللي على آخر مرحلة لمنتجها
             var completed = records
-                .Where(r => lastStageByProduct.TryGetValue(r.ProductionStage.ProductId, out var lastStageId)
+                .Where(r => lastStageByProduct.TryGetValue(r.ProductId, out var lastStageId)
                             && r.ProductionStageId == lastStageId)
-                .GroupBy(r => (Bucket: BucketOf(r.Date, grain).Start,
-                               r.ProductionStage.ProductId))
+                .GroupBy(r => (Bucket: BucketOf(r.Date, grain).Start, r.ProductId))
                 .ToDictionary(
                     g => g.Key,
-                    g => (Name: g.First().ProductionStage.Product.Name, Pieces: g.Sum(r => r.PieceCount)));
+                    g => (Name: g.First().ProductName, Pieces: g.Sum(r => r.PieceCount)));
 
             // اسم المنتج للمفاتيح اللي فيها هالك من غير إنتاج مكتمل —
             // منتج كل شغل الفترة عليه اتهلك لازم يظهر برضه، مش يختفي

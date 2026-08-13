@@ -36,6 +36,12 @@ namespace WorkforceManager.UI.ViewModels
         public bool IsActive { get; init; }
         public List<StageRow> Stages { get; init; } = new();
 
+        /// <summary>عامل الرص الثابت بتاع المنتج (null = مفيش)</summary>
+        public int? RackingWorkerId { get; init; }
+
+        /// <summary>عنده مرحلة رص خلاص؟ — بيحدد ظهور زرار "إضافة مرحلة الرص"</summary>
+        public bool HasRackingStage => Stages.Any(s => s.IsRackingStage);
+
         // ------- نشاط المنتج في الفترة المعروضة -------
 
         /// <summary>القطع المسجّلة على كل مراحله في الفترة</summary>
@@ -69,7 +75,9 @@ namespace WorkforceManager.UI.ViewModels
         public bool HasImage => ImageData is { Length: > 0 };
 
         public string StatusText => IsActive ? "نشط" : "موقوف";
-        public int ActiveStagesCount => Stages.Count(s => s.IsActive);
+
+        /// <summary>عدد مراحل خط الإنتاج الحقيقية — مرحلة الرص مستبعدة (شوف ProductionLine.Active)</summary>
+        public int ActiveStagesCount => Stages.Count(s => s.IsActive && !s.IsRackingStage);
         public string StagesCountText => $"{ActiveStagesCount} مرحلة";
 
         /// <summary>أول حرفين من اسم المنتج — للدايرة على البطاقة</summary>
@@ -100,6 +108,9 @@ namespace WorkforceManager.UI.ViewModels
         public int SortOrder { get; init; }
         public bool IsActive { get; init; }
 
+        /// <summary>مرحلة رص إدارية — برّه خط الإنتاج، مالهاش عمال مؤهلين بالتصميم</summary>
+        public bool IsRackingStage { get; init; }
+
         /// <summary>ترتيبها المعروض في الخط (1، 2، 3...) — محسوب من موقعها مش من SortOrder</summary>
         public int DisplayOrder { get; init; }
 
@@ -114,7 +125,7 @@ namespace WorkforceManager.UI.ViewModels
         /// الخط: شاشة رحلة الإنتاج بتعرض المؤهلين بس، فالمرحلة دي مش
         /// هيتوزع عليها حد ومش هينفع تتسجل.
         /// </summary>
-        public bool HasNoQualifiedWorkers => IsActive && QualifiedWorkersCount == 0;
+        public bool HasNoQualifiedWorkers => IsActive && !IsRackingStage && QualifiedWorkersCount == 0;
 
         public string WorkersText => QualifiedWorkersCount == 0
             ? "مفيش عمال مؤهلين"

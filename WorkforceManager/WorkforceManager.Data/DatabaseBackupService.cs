@@ -50,7 +50,7 @@ namespace WorkforceManager.Data
             var todayBackupPath = Path.Combine(backupsFolder, TodayBackupName());
             if (!File.Exists(todayBackupPath))
             {
-                File.Copy(dbPath, todayBackupPath);
+                Snapshot(dbPath, todayBackupPath);
             }
 
             CleanupOldBackups(backupsFolder, retentionDays);
@@ -68,14 +68,11 @@ namespace WorkforceManager.Data
             if (!File.Exists(dbPath))
                 throw new InvalidOperationException("ملف قاعدة البيانات غير موجود");
 
-            // قفل كل اتصالات SQLite المفتوحة عشان النسخة تطلع سليمة ومكتملة
-            SqliteConnection.ClearAllPools();
-
             var backupsFolder = LocalBackupsFolder(dbPath);
             Directory.CreateDirectory(backupsFolder);
 
             var localPath = Path.Combine(backupsFolder, TodayBackupName());
-            File.Copy(dbPath, localPath, overwrite: true);
+            Snapshot(dbPath, localPath);
             CleanupOldBackups(backupsFolder, retentionDays);
 
             string? externalPath = null;
@@ -103,29 +100,123 @@ namespace WorkforceManager.Data
             if (!File.Exists(backupFilePath))
                 throw new InvalidOperationException("ملف النسخة الاحتياطية المختار غير موجود");
 
-            // قفل كل الاتصالات قبل لمس ملف قاعدة البيانات
-            SqliteConnection.ClearAllPools();
-
             var backupsFolder = LocalBackupsFolder(dbPath);
             Directory.CreateDirectory(backupsFolder);
 
             // نسخة أمان بختم وقت كامل — اسمها مش بصيغة التاريخ اليومية عمدًا
-            // عشان التنظيف التلقائي ميمسحهاش (TryParseExact بيتخطاها)
-            var safetyPath = Path.Combine(backupsFolder,
-                $"{BackupPrefix}before_restore_{DateTime.Now:yyyy-MM-dd_HHmmss}.db");
+            // عشان التنظيف التلقائي ميمسحهاش (TryParseExact بيتخطاها).
+            // بتتاخد **قبل** قفل الاتصالات: اللقطة محتاجة تقرا من القاعدة
             if (File.Exists(dbPath))
-                File.Copy(dbPath, safetyPath);
+                Snapshot(dbPath, Path.Combine(backupsFolder,
+                    BackupPrefix + "before_restore_"
+                    + DateTime.Now.ToString("yyyy-MM-dd_HHmmss", CultureInfo.InvariantCulture) + ".db"));
+
+            var safetyPath = Directory
+                .GetFiles(backupsFolder, $"{BackupPrefix}before_restore_*.db")
+                .OrderByDescending(File.GetCreationTimeUtc)
+                .First();
+
+            // **هنا بس** القفل العام له لزوم: إحنا هنستبدل ملف قاعدة
+            // البيانات نفسه، فأي اتصال مفتوح عليه لازم يقفل الأول.
+            // والبرنامج بيعيد تشغيل نفسه بعد الاسترجاع على أي حال.
+            SqliteConnection.ClearAllPools();
 
             File.Copy(backupFilePath, dbPath, overwrite: true);
+
+            // **ملفات الـ WAL بتتشال مع القاعدة القديمة.**
+            // القاعدة شغالة بوضع WAL: الكتابات بتقعد في ملف "-wal" جنب
+            // القاعدة لحد ما تترحّل. لو سبناه بعد ما بدّلنا الملف
+            // الأساسي، بيبقى فيه "-wal" بتاع قاعدة والقاعدة بتاعة نسخة
+            // تانية خالص — والاتنين مش ليهم أي علاقة ببعض.
+            //
+            // SQLite بيتعرّف على ده من التوقيع اللي جوه الملف وبيتجاهله،
+            // فمفيش تلف. بس سيبان ملف بحجم ميجات مالوش معنى جنب قاعدة
+            // البيانات هو بالظبط الحاجة اللي بتخلي اللي بيفحص المجلد
+            // بعد سنتين يقعد يخمّن. وشيله آمن: اللي كان فيه اتحفظ في
+            // نسخة الأمان فوق (اللقطة بتقرا من خلال SQLite فبتشمل الـ WAL).
+            //
+            // **الفشل هنا بيتتجاهل**: ده تنظيف مش شرط صحة. لو فيه اتصال
+            // لسه ماسك الملف، الاسترجاع نفسه خلص خلاص والبرنامج هيعيد
+            // التشغيل — ومينفعش تنظيف يكسر آخر خط دفاع في البرنامج.
+            foreach (var sidecar in new[] { dbPath + "-wal", dbPath + "-shm" })
+            {
+                try
+                {
+                    if (File.Exists(sidecar)) File.Delete(sidecar);
+                }
+                catch (IOException)
+                {
+                }
+            }
+
             return safetyPath;
         }
 
         // ------- تفاصيل داخلية -------
 
+        /// <summary>
+        /// لقطة من قاعدة البيانات — **بطريقة SQLite نفسها، مش نسخ ملف**.
+        ///
+        /// VACUUM INTO بيطلب من SQLite يكتب نسخة متسقة من المحتوى، فهو
+        /// اللي بيقرر إمتى الملف في حالة سليمة. نسخ الملف بإيدنا بيفترض
+        /// إن مفيش كتابة شغالة ومفيش journal ناقص من إغلاق مفاجئ — وده
+        /// افتراض بيفضل صح لحد أول انقطاع كهربا، واليوم ده بالذات هو
+        /// اللي المستخدم بيحتاج فيه النسخة.
+        ///
+        /// النسخة كمان بتطلع أصغر (مفيش صفحات فاضية): 110 ميجا بدل 118
+        /// على قاعدة 30 سنة — يعني مجلد النسخ كله بيخف.
+        ///
+        /// **الفشل بيرجع لنسخ الملف مش بيرمي**: نسخة مأخوذة بطريقة أقل
+        /// ضمانًا أحسن بكتير من مفيش نسخة. لو القاعدة نفسها تالفة،
+        /// VACUUM بيرفض — وساعتها نسخ الملف بيحفظ اللي فيها للفحص بدل
+        /// ما البرنامج يقف.
+        /// </summary>
+        private static void Snapshot(string dbPath, string destinationPath)
+        {
+            if (File.Exists(destinationPath)) File.Delete(destinationPath);
+
+            try
+            {
+                // **مفيش ClearAllPools هنا عن قصد.** VACUUM INTO بيقرا
+                // من خلال SQLite نفسه، فمش محتاج الملف يكون ساكن —
+                // والاستدعاء ده **عام على العملية كلها**: بيقفل الاتصالات
+                // المتجمّعة لكل قاعدة بيانات مفتوحة في البرنامج، مش
+                // بتاعتنا بس. يعني ضغطة "خد نسخة دلوقتي" كانت بتقطع
+                // اتصالات الشاشات المفتوحة كلها.
+                using var connection = new SqliteConnection($"Data Source={dbPath}");
+                connection.Open();
+
+                using var command = connection.CreateCommand();
+                // الاقتباس المزدوج للعلامة: مسار فيه apostrophe بيكسر الأمر
+                command.CommandText = $"VACUUM INTO '{destinationPath.Replace("'", "''")}'";
+                command.ExecuteNonQuery();
+            }
+            catch
+            {
+                if (File.Exists(destinationPath)) File.Delete(destinationPath);
+                File.Copy(dbPath, destinationPath, overwrite: true);
+            }
+
+        }
+
         private static string LocalBackupsFolder(string dbPath) =>
             Path.Combine(Path.GetDirectoryName(dbPath)!, "Backups");
 
-        private static string TodayBackupName() => $"{BackupPrefix}{DateTime.Today:yyyy-MM-dd}.db";
+        /// <summary>
+        /// اسم ملف نسخة النهارده.
+        ///
+        /// **التاريخ بيتكتب بالتقويم الميلادي صراحةً، مش بتقويم ويندوز.**
+        /// الاسم ده معرّف للماكينة مش نص للعرض: التنظيف بيقراه تاني بـ
+        /// InvariantCulture عشان يعرف عمر النسخة.
+        ///
+        /// من غير التثبيت ده، ويندوز متظبط على تقويم هجري كان بيكتب
+        /// "workforce_1448-02-28.db"، والتنظيف بيقراها **سنة ميلادية
+        /// 1448** — أقدم من أي مدة احتفاظ — فبيمسح النسخة بعد ثواني من
+        /// أخدها. النتيجة: المستخدم فاكر إن عنده نسخ يومية وهو مش عنده
+        /// ولا واحدة، ومش هيكتشف ده غير يوم ما يحتاجها.
+        /// </summary>
+        private static string TodayBackupName() =>
+            BackupPrefix + DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + ".db";
 
         /// <summary>
         /// النسخ الخارجي التلقائي (عند بدء التشغيل): أي فشل بيتتجاهل بصمت —
