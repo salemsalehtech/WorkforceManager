@@ -29,19 +29,22 @@ namespace WorkforceManager.Business.Services
         private readonly IPenaltyRepository _penalties;
         private readonly IWageAdjustmentRepository _adjustments;
         private readonly IProductRepository _products;
+        private readonly ProductionStageOutputService _productionOutput;
 
         public DeletionScopeService(
             IDailyProductionRepository production,
             IHourlyWorkLogRepository hourly,
             IPenaltyRepository penalties,
             IWageAdjustmentRepository adjustments,
-            IProductRepository products)
+            IProductRepository products,
+            ProductionStageOutputService productionOutput)
         {
             _production = production;
             _hourly = hourly;
             _penalties = penalties;
             _adjustments = adjustments;
             _products = products;
+            _productionOutput = productionOutput;
         }
 
         /// <summary>
@@ -54,13 +57,21 @@ namespace WorkforceManager.Business.Services
             !await _penalties.HasAnyForWorkerAsync(workerId) &&
             !await _adjustments.HasAnyForWorkerAsync(workerId);
 
-        /// <summary>المرحلة تتمسح نهائي طول ما مفيش إنتاج اتسجّل عليها</summary>
+        /// <summary>
+        /// المرحلة تتمسح نهائي طول ما مفيش إنتاج عمال أو إنتاج فعلي
+        /// اتسجّل عليها — الاتنين منفصلين تمامًا (شوف
+        /// <see cref="ProductionStageOutputService"/>) فمرحلة ممكن يتشال
+        /// إنتاج عمالها بالتصحيح وتفضل ليها رقم إنتاج فعلي محفوظ، أو
+        /// العكس.
+        /// </summary>
         public async Task<bool> CanRemoveStageAsync(int stageId) =>
-            !await _production.HasAnyForStageAsync(stageId);
+            !await _production.HasAnyForStageAsync(stageId) &&
+            !await _productionOutput.HasAnyForStageAsync(stageId);
 
         /// <summary>
-        /// المنتج يتمسح نهائي طول ما مفيش إنتاج على أي مرحلة من مراحله.
-        /// مراحله بتتشال معاه (Cascade) — مرحلة من غير منتج مالهاش معنى.
+        /// المنتج يتمسح نهائي طول ما مفيش إنتاج عمال أو إنتاج فعلي على
+        /// أي مرحلة من مراحله. مراحله بتتشال معاه (Cascade) — مرحلة من
+        /// غير منتج مالهاش معنى.
         /// </summary>
         public async Task<bool> CanRemoveProductAsync(int productId)
         {
@@ -68,7 +79,8 @@ namespace WorkforceManager.Business.Services
             if (product is null) return false;
 
             foreach (var stage in product.Stages)
-                if (await _production.HasAnyForStageAsync(stage.Id))
+                if (await _production.HasAnyForStageAsync(stage.Id) ||
+                    await _productionOutput.HasAnyForStageAsync(stage.Id))
                     return false;
 
             return true;

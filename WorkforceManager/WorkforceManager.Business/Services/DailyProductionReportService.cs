@@ -10,8 +10,11 @@ namespace WorkforceManager.Business.Services
     /// **الرقمين محسوبين، مش مخزّنين.** مفيش جدول بيتتبّع القطع وهي ماشية
     /// في الخط — كله بيتحسب من سجلات الإنتاج نفسها:
     ///
-    ///   • التام النهارده = إنتاج آخر مرحلة نشطة في اليوم ده
-    ///   • الداخل الخط    = إنتاج أول مرحلة في اليوم ده
+    ///   • التام النهارده = الإنتاج الفعلي لآخر مرحلة نشطة في اليوم ده
+    ///   • الداخل الخط    = الإنتاج الفعلي لأول مرحلة في اليوم ده
+    ///
+    /// "الإنتاج الفعلي" (<see cref="ProductionStageOutputService"/>) مش
+    /// مجموع قطع العمال — رقم منفصل تمامًا، شوف توثيقه.
     ///
     /// كان فيه كمان حساب لـ"الواقف بين المراحل" (الفرق التراكمي بين كل
     /// مرحلتين). اتشال بناءً على طلب المستخدم: الرقم كان بيتعرض في شاشة
@@ -21,28 +24,28 @@ namespace WorkforceManager.Business.Services
     /// </summary>
     public class DailyProductionReportService
     {
-        private readonly IDailyProductionRepository _productionRepo;
         private readonly IProductionDayClosureRepository _closureRepo;
         private readonly IProductRepository _productRepo;
         private readonly ScrapService _scrap;
+        private readonly ProductionStageOutputService _productionOutput;
 
         public DailyProductionReportService(
-            IDailyProductionRepository productionRepo,
             IProductionDayClosureRepository closureRepo,
             IProductRepository productRepo,
-            ScrapService scrap)
+            ScrapService scrap,
+            ProductionStageOutputService productionOutput)
         {
-            _productionRepo = productionRepo;
             _closureRepo = closureRepo;
             _productRepo = productRepo;
             _scrap = scrap;
+            _productionOutput = productionOutput;
         }
 
         public async Task<DailyProductionReportDto> GetAsync(DateTime date)
         {
             var day = date.Date;
 
-            var today = await _productionRepo.GetStageTotalsOnAsync(day);
+            var today = await _productionOutput.GetStageTotalsOnAsync(day);
             var scrapToday = await _scrap.GetStageTotalsOnAsync(day);
             var closure = await _closureRepo.GetByDateAsync(day);
             var products = await _productRepo.GetAllWithStagesAsync();

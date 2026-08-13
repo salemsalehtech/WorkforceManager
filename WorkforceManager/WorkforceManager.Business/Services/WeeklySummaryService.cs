@@ -169,6 +169,11 @@ namespace WorkforceManager.Business.Services
                     ?? workerHourly.FirstOrDefault()?.Worker
                     ?? workerPenalties.First().Worker;
 
+                // الحسابات الإدارية (مدير/رئيس قسم) بتتحسب حاضر ويومية
+                // تلقائيًا كل يوم (DepartmentAttendanceService)، بس الملخص
+                // الأسبوعي وأحسن عامل الأسبوع تقارير عمال — مفيش خلط
+                if (workerRef.HourlyRole is HourlyRole.DepartmentManager or HourlyRole.DepartmentHead) continue;
+
                 summaries.Add(BuildWorkerSummary(
                     workerId, workerRef, weekStart, weekEnd,
                     workerProduction, workerAttendance, workerPenalties, workerHourly));

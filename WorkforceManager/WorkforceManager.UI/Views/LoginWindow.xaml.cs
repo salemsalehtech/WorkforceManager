@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.Services;
+using WorkforceManager.Core.Interfaces;
 
 namespace WorkforceManager.UI.Views
 {
@@ -60,10 +61,21 @@ namespace WorkforceManager.UI.Views
 
             LoggedInDisplayName = user.DisplayName ?? user.Username;
 
+            // لو الحساب ده مربوط بحساب إداري (مدير/رئيس قسم)، لازم نعرف
+            // دوره من هنا — عليه فرز الوصول في شاشة الحسابات الإدارية
+            // وكلمة سر العمليات بتاعته لوحده
+            Core.Enums.HourlyRole? departmentRole = null;
+            if (user.WorkerId is { } workerId)
+            {
+                var worker = await scope.ServiceProvider.GetRequiredService<IWorkerRepository>()
+                    .GetByIdAsync(workerId);
+                departmentRole = worker?.HourlyRole;
+            }
+
             // الهوية المشتركة: من هنا ورايح كل حذف وكل حدث في السجل
             // بياخد اسم الشخص ده. Singleton فبيتقري من أي Scope بعدين.
             App.AppHost.Services.GetRequiredService<CurrentUserContext>()
-                .SignIn(user.Username, user.DisplayName);
+                .SignIn(user.Username, user.DisplayName, user.Id, user.WorkerId, departmentRole);
 
             DialogResult = true;
         }

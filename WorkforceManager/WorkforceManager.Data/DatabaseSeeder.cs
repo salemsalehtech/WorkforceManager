@@ -174,5 +174,74 @@ namespace WorkforceManager.Data
                 await db.SaveChangesAsync();
             }
         }
+
+        /// <summary>
+        /// أول مرة الميزة دي تشتغل على قاعدة بيانات (جديدة أو قديمة):
+        /// أول حساب دخول موجود (المفروض admin الافتراضي على تركيب
+        /// جديد، أو أقدم حساب على قاعدة عميل قديمة) بيتحوّل لأول "مدير
+        /// قسم" — بيتزرع له صف Worker بدور DepartmentManager ويترابط
+        /// بحساب الدخول بتاعه (AppUser.WorkerId). كلمة سر العمليات
+        /// القديمة (كانت صف واحد مشترك قبل الميزة دي) بتتنقل لنفس
+        /// الحساب ده — بعد كده كل حساب دخول بقى ليه كلمة سر عمليات
+        /// خاصة بيه.
+        ///
+        /// لازم تتنادى **بعد** AuthService.EnsureDefaultUserAsync —
+        /// على تركيب جديد مفيش أي AppUser لحد ما الدالة دي تتنادى.
+        ///
+        /// الشرط اللي بيوقف التنفيذ هو وجود مدير قسم **شغّال بحساب دخول
+        /// فعلي** — مش مجرد وجود صف Worker بدور DepartmentManager. لو
+        /// حساب إداري اتعمل من الشاشة قبل ما ميزة اللوجين دي توصل (أو
+        /// حصل خلل وربط الحساب فشل)، بيفضل صف Worker يتيم من غير
+        /// AppUser يشاور عليه — وساعتها محدش يقدر يفتح شاشة الحسابات
+        /// كمدير عشان يربطه بنفسه (قفلة: زرار "تعديل" فيها محتاج مدير
+        /// شغّال أصلاً). الحل: نربط أول حساب دخول فاضي بالمدير اليتيم
+        /// ده لو موجود، بدل ما نتجاهله ونعمل مدير جديد أو نسيب القفلة
+        /// كما هي للأبد.
+        /// </summary>
+        public static async Task SeedDefaultDepartmentManagerAsync(AppDbContext db)
+        {
+            var linkedWorkerIds = await db.AppUsers
+                .Where(u => u.WorkerId != null)
+                .Select(u => u.WorkerId!.Value)
+                .ToListAsync();
+
+            var hasWorkingManager = linkedWorkerIds.Count > 0 && await db.Workers
+                .AnyAsync(w => linkedWorkerIds.Contains(w.Id) && w.HourlyRole == HourlyRole.DepartmentManager);
+            if (hasWorkingManager) return;
+
+            var defaultUser = await db.AppUsers.OrderBy(u => u.Id).FirstOrDefaultAsync();
+            if (defaultUser is null) return; // مفيش أي حساب دخول لسه
+
+            // مدير قسم يتيم (Worker موجود بالدور ده بس مالوش AppUser
+            // بيشاور عليه) بناخده بدل ما نعمل واحد جديد — غالبًا هو
+            // نفس الشخص اللي المفروض يبقى المدير أصلاً
+            var manager = await db.Workers
+                .Where(w => w.HourlyRole == HourlyRole.DepartmentManager && !linkedWorkerIds.Contains(w.Id))
+                .OrderBy(w => w.Id)
+                .FirstOrDefaultAsync();
+
+            if (manager is null)
+            {
+                manager = new Worker
+                {
+                    FullName = string.IsNullOrWhiteSpace(defaultUser.DisplayName) ? "مدير القسم" : defaultUser.DisplayName!,
+                    HourlyRole = HourlyRole.DepartmentManager,
+                    IsActive = true
+                };
+                await db.Workers.AddAsync(manager);
+                await db.SaveChangesAsync(); // عشان manager.Id يتحدد قبل ما نربطه
+            }
+
+            defaultUser.WorkerId = manager.Id;
+
+            // كلمة سر العمليات المشتركة القديمة (الصف الوحيد اللي مالوش
+            // AppUserId لسه) بتتنسب لأول مدير قسم — من دلوقتي بقى ليه
+            // كلمة سر عمليات خاصة بيه
+            var legacyCredential = await db.OperationsCredentials.FirstOrDefaultAsync(c => c.AppUserId == null);
+            if (legacyCredential is not null)
+                legacyCredential.AppUserId = defaultUser.Id;
+
+            await db.SaveChangesAsync();
+        }
     }
 }

@@ -18,7 +18,16 @@ namespace WorkforceManager.Core.Enums
         Quality = 3,
 
         /// <summary>دور آخر بالساعة (يُوضّح في ملاحظة العامل)</summary>
-        Other = 4
+        Other = 4,
+
+        /// <summary>
+        /// مدير قسم — حساب إداري منفصل تمامًا عن "العمال والمهارات"
+        /// (شاشة وقايمة وتقرير لوحدهم). حاضر تلقائيًا كل يوم من غير أي فعل.
+        /// </summary>
+        DepartmentManager = 5,
+
+        /// <summary>رئيس قسم — نفس معاملة <see cref="DepartmentManager"/> بالضبط</summary>
+        DepartmentHead = 6
     }
 
     /// <summary>الاسم العربي المعروض لكل دور بالساعة</summary>
@@ -30,7 +39,13 @@ namespace WorkforceManager.Core.Enums
             HourlyRole.Racking => "عامل رص",
             HourlyRole.Quality => "عامل جودة",
             HourlyRole.Other => "دور آخر (بالساعة)",
+            HourlyRole.DepartmentManager => "مدير قسم",
+            HourlyRole.DepartmentHead => "رئيس قسم",
             _ => "بالساعة"
         };
+
+        /// <summary>حساب إداري (مدير/رئيس قسم) — منفصل تمامًا عن تصنيفات العمال بالساعة التشغيلية</summary>
+        public static bool IsDepartmentAccount(this HourlyRole role) =>
+            role is HourlyRole.DepartmentManager or HourlyRole.DepartmentHead;
     }
 }

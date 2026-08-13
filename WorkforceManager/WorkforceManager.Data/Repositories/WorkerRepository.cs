@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 
@@ -17,6 +18,12 @@ namespace WorkforceManager.Data.Repositories
     ///
     /// الاستعلامات التاريخية (تقارير، أجور) **مبتستثنيش** عن قصد، عشان
     /// السجل القديم يفضل يعرض اسم صاحبه.
+    ///
+    /// **الحسابات الإدارية (مدير/رئيس قسم) مستثناة هنا في مكان واحد**
+    /// (<see cref="GetActiveWithSkillsAsync"/> و<see cref="GetAllWithSkillsAsync"/>)
+    /// عشان يستفيد من الاستثناء كل مكان بينادي الميثودين دول — شاشة
+    /// العمال، التقارير، رحلة الإنتاج، شاشة الحضور. شاشتهم وتقريرهم
+    /// الوحيدين مصدرهم <see cref="GetDepartmentAccountsAsync"/>.
     /// </summary>
     public class WorkerRepository : GenericRepository<Worker>, IWorkerRepository
     {
@@ -38,7 +45,8 @@ namespace WorkforceManager.Data.Repositories
                 .Include(w => w.Skills)
                     .ThenInclude(s => s.ProductionStage)
                         .ThenInclude(ps => ps.Product)
-                .Where(w => w.IsActive)
+                .Where(w => w.IsActive &&
+                    w.HourlyRole != HourlyRole.DepartmentManager && w.HourlyRole != HourlyRole.DepartmentHead)
                 .OrderBy(w => w.FullName)
                 .ToListAsync();
         }
@@ -52,6 +60,16 @@ namespace WorkforceManager.Data.Repositories
                 .Include(w => w.Skills)
                     .ThenInclude(s => s.ProductionStage)
                         .ThenInclude(ps => ps.Product)
+                .Where(w => w.HourlyRole != HourlyRole.DepartmentManager && w.HourlyRole != HourlyRole.DepartmentHead)
+                .OrderBy(w => w.FullName)
+                .ToListAsync();
+        }
+
+        public async Task<IReadOnlyList<Worker>> GetDepartmentAccountsAsync()
+        {
+            return await DbSet
+                .ExcludeDeleted()
+                .Where(w => w.HourlyRole == HourlyRole.DepartmentManager || w.HourlyRole == HourlyRole.DepartmentHead)
                 .OrderBy(w => w.FullName)
                 .ToListAsync();
         }

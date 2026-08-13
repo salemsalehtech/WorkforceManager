@@ -23,10 +23,12 @@ namespace WorkforceManager.Business.Services
         public const int MinPasswordLength = 4;
 
         private readonly IGenericRepository<AppUser> _users;
+        private readonly IWorkerRepository _workers;
 
-        public AuthService(IGenericRepository<AppUser> users)
+        public AuthService(IGenericRepository<AppUser> users, IWorkerRepository workers)
         {
             _users = users;
+            _workers = workers;
         }
 
         /// <summary>
@@ -53,6 +55,11 @@ namespace WorkforceManager.Business.Services
         /// يتحقق من بيانات الدخول: بيرجع المستخدم لو صحيحة، أو null لو
         /// غلط — من غير ما يفرّق في الرسالة بين "الاسم غلط" و"الباسورد
         /// غلط" (معلومة زيادة للمتطفلين).
+        ///
+        /// لو الحساب ده مربوط بحساب إداري موقوف (Worker.IsActive = false،
+        /// عن طريق DeactivateWorkerAsync أو "إيقاف" من شاشة الحسابات
+        /// الإدارية)، الدخول بيترفض برسالة الخطأ العادية — إيقاف الحساب
+        /// معناه هو نفسه ميقدرش يستخدم البرنامج، مش بس ميظهرش في القوايم.
         /// </summary>
         public async Task<AppUser?> ValidateLoginAsync(string username, string password)
         {
@@ -63,7 +70,15 @@ namespace WorkforceManager.Business.Services
             var user = (await _users.FindAsync(u => u.Username == trimmed)).FirstOrDefault();
             if (user is null) return null;
 
-            return VerifyPassword(password, user.PasswordHash, user.PasswordSalt) ? user : null;
+            if (!VerifyPassword(password, user.PasswordHash, user.PasswordSalt)) return null;
+
+            if (user.WorkerId is { } workerId)
+            {
+                var worker = await _workers.GetByIdAsync(workerId);
+                if (worker is null || !worker.IsActive) return null;
+            }
+
+            return user;
         }
 
         /// <summary>
@@ -151,9 +166,92 @@ namespace WorkforceManager.Business.Services
             return user;
         }
 
-        /// <summary>كل حسابات الدخول (لعرضها في الإعدادات)</summary>
+        /// <summary>كل حسابات الدخول (لعرضها في شاشة الحسابات الإدارية)</summary>
         public async Task<IReadOnlyList<AppUser>> GetUsersAsync() =>
             (await _users.GetAllAsync()).OrderBy(u => u.Username).ToList();
+
+        /// <summary>حساب الدخول المرتبط بحساب إداري معيّن (null لو لسه ماعندوش)</summary>
+        public async Task<AppUser?> GetUserByWorkerIdAsync(int workerId) =>
+            (await _users.FindAsync(u => u.WorkerId == workerId)).FirstOrDefault();
+
+        /// <summary>
+        /// يشيل حساب دخول نهائيًا — بينادى لما حساب إداري (Worker) بتاعه
+        /// يتحذف حذف فعلي نهائي (WasPermanent)، عشان مايفضلش حساب دخول
+        /// معلّق من غير حساب إداري يقدر حد يستخدمه بالغلط. لو الحذف كان
+        /// إيقاف بس (Worker.IsActive = false)، الحساب ده بيترفض دخوله
+        /// من ValidateLoginAsync لوحدها من غير ما يتحذف — رجوعه بعد
+        /// إعادة التفعيل محتاج يفضل ممكن.
+        /// </summary>
+        public async Task DeleteUserForWorkerAsync(int workerId)
+        {
+            var user = await GetUserByWorkerIdAsync(workerId);
+            if (user is null) return;
+
+            _users.Remove(user);
+            await _users.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// يضيف حساب دخول لحساب إداري (مدير/رئيس قسم) — بيوزر وباسورد
+        /// خاصين بيه، ومربوط بـ WorkerId من لحظة إنشائه.
+        /// </summary>
+        public async Task<AppUser> AddUserForWorkerAsync(
+            int workerId, string username, string password, string? displayName = null)
+        {
+            var user = await AddUserAsync(username, password, displayName);
+            user.WorkerId = workerId;
+            _users.Update(user);
+            await _users.SaveChangesAsync();
+            return user;
+        }
+
+        /// <summary>
+        /// يغيّر كلمة مرور حساب دخول **بدون** التحقق من كلمته الحالية —
+        /// تصحيح إداري (مدير القسم بيصلّح حساب رئيس قسم نسي كلمة سره
+        /// مثلاً)، مش تغيير المستخدم لكلمته هو نفسه (ده
+        /// <see cref="ChangePasswordAsync"/>).
+        /// </summary>
+        public async Task SetPasswordForUserAsync(int appUserId, string newPassword)
+        {
+            if (string.IsNullOrEmpty(newPassword) || newPassword.Length < MinPasswordLength)
+                throw new InvalidOperationException(
+                    $"كلمة المرور لازم تكون {MinPasswordLength} حروف/أرقام على الأقل");
+
+            var user = await _users.GetByIdAsync(appUserId)
+                ?? throw new InvalidOperationException("حساب الدخول غير موجود");
+
+            var (hash, salt) = HashPassword(newPassword);
+            user.PasswordHash = hash;
+            user.PasswordSalt = salt;
+
+            _users.Update(user);
+            await _users.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// يغيّر اسم دخول حساب **بدون** التحقق من كلمة مروره — تصحيح
+        /// إداري زي <see cref="SetPasswordForUserAsync"/> بالظبط.
+        /// </summary>
+        public async Task<AppUser> SetUsernameForUserAsync(int appUserId, string newUsername)
+        {
+            var trimmed = (newUsername ?? "").Trim();
+            if (trimmed.Length < MinUsernameLength)
+                throw new InvalidOperationException(
+                    $"اسم المستخدم لازم يكون {MinUsernameLength} حروف على الأقل");
+
+            var user = await _users.GetByIdAsync(appUserId)
+                ?? throw new InvalidOperationException("حساب الدخول غير موجود");
+
+            if (string.Equals(user.Username, trimmed, StringComparison.OrdinalIgnoreCase))
+                return user;
+
+            await EnsureUsernameIsFreeAsync(trimmed);
+
+            user.Username = trimmed;
+            _users.Update(user);
+            await _users.SaveChangesAsync();
+            return user;
+        }
 
         /// <summary>
         /// الاسم متاح؟ المقارنة بتتجاهل حالة الحروف عشان "Admin" و"admin"

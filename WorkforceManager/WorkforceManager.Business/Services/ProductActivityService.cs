@@ -21,15 +21,18 @@ namespace WorkforceManager.Business.Services
         private readonly IDailyProductionRepository _production;
         private readonly IProductRepository _products;
         private readonly ScrapService _scrap;
+        private readonly ProductionStageOutputService _productionOutput;
 
         public ProductActivityService(
             IDailyProductionRepository production,
             IProductRepository products,
-            ScrapService scrap)
+            ScrapService scrap,
+            ProductionStageOutputService productionOutput)
         {
             _production = production;
             _products = products;
             _scrap = scrap;
+            _productionOutput = productionOutput;
         }
 
         /// <summary>
@@ -57,8 +60,15 @@ namespace WorkforceManager.Business.Services
                 .GroupBy(s => s.ProductionStageId)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.PieceCount));
 
-            // تجميع مرة واحدة بالمنتج: القطع، المراحل اللي اشتغلت،
-            // والعمال اللي اشتغلوا
+            // التام/الداخل بيتحسبوا من الإنتاج الفعلي (منتج) مش من قطع
+            // العمال — رقمين منفصلين تمامًا، شوف ProductionStageOutputService
+            var outputByStage = (await _productionOutput.GetByRangeAsync(from, to))
+                .GroupBy(r => r.ProductionStageId)
+                .ToDictionary(g => g.Key, g => g.Sum(r => r.PieceCount));
+
+            // تجميع مرة واحدة بالمنتج: مجهود العمال (StageWork، تعادل عند
+            // التساوي) + المراحل اللي اشتغلت + العمال اللي اشتغلوا. ده
+            // كله مجهود عامل عن قصد — مالوش علاقة بالإنتاج الفعلي أعلاه
             var byProduct = records
                 .Where(r => r.ProductionStage?.Product is not null)
                 .GroupBy(r => r.ProductionStage.ProductId)
@@ -67,8 +77,6 @@ namespace WorkforceManager.Business.Services
                     g => new
                     {
                         StageWork = g.Sum(r => r.PieceCount),
-                        ByStage = g.GroupBy(r => r.ProductionStageId)
-                                   .ToDictionary(s => s.Key, s => s.Sum(r => r.PieceCount)),
                         Workers = g.Select(r => r.WorkerId).ToHashSet(),
                         Days = g.Select(r => r.Date.Date).ToHashSet()
                     });
@@ -82,8 +90,7 @@ namespace WorkforceManager.Business.Services
                     var line = ProductionLine.Active(product);
 
                     int OnStage(ProductionStage? stage) =>
-                        stage is not null && stats is not null &&
-                        stats.ByStage.TryGetValue(stage.Id, out var pieces) ? pieces : 0;
+                        stage is not null && outputByStage.TryGetValue(stage.Id, out var pieces) ? pieces : 0;
 
                     int ScrapOn(ProductionStage? stage) =>
                         stage is not null && scrapByStage.TryGetValue(stage.Id, out var scrap) ? scrap : 0;

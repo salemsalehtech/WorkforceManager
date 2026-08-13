@@ -274,5 +274,46 @@ namespace WorkforceManager.Tests
             using var scope = _db.CreateScope();
             Assert.Equal(0, await DeletedRowsCleaner.PurgeAsync(_db.GetService<AppDbContext>(scope)));
         }
+
+        // ======================= الإنتاج الفعلي مستقل عن قطع العمال =======================
+
+        private async Task RecordActualOutputAsync(int stageId)
+        {
+            using var scope = _db.CreateScope();
+            await _db.GetService<ProductionStageOutputService>(scope).RecordOutputAsync(stageId, TestDatabase.Today, 50);
+            await _db.GetService<AppDbContext>(scope).SaveChangesAsync();
+        }
+
+        [Fact]
+        public async Task A_stage_with_no_history_at_all_can_be_removed()
+        {
+            using var scope = _db.CreateScope();
+            Assert.True(await _db.GetService<DeletionScopeService>(scope)
+                .CanRemoveStageAsync(TestDatabase.RingStage1Id));
+        }
+
+        [Fact]
+        public async Task A_stage_with_only_an_actual_output_record_cannot_be_removed()
+        {
+            // قطعة العامل والإنتاج الفعلي منفصلين تمامًا — مرحلة ممكن يكون
+            // معهاش أي سجل إنتاج عمال بس ليها رقم إنتاج فعلي محفوظ (بعد
+            // تصحيح مسح سجلات العمال مثلًا)، والـ FK Restrict كان هيرمي
+            // خطأ قاعدة بيانات خام من غير الفحص ده
+            await RecordActualOutputAsync(TestDatabase.RingStage1Id);
+
+            using var scope = _db.CreateScope();
+            Assert.False(await _db.GetService<DeletionScopeService>(scope)
+                .CanRemoveStageAsync(TestDatabase.RingStage1Id));
+        }
+
+        [Fact]
+        public async Task A_product_with_only_an_actual_output_record_on_one_stage_cannot_be_removed()
+        {
+            await RecordActualOutputAsync(TestDatabase.RingStage1Id);
+
+            using var scope = _db.CreateScope();
+            Assert.False(await _db.GetService<DeletionScopeService>(scope)
+                .CanRemoveProductAsync(TestDatabase.ProductRingId));
+        }
     }
 }

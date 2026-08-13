@@ -21,34 +21,9 @@ namespace WorkforceManager.UI
         /// </summary>
         public static IHost AppHost { get; private set; } = null!;
 
-        /// <summary>
-        /// ثقافة البرنامج — **ثابتة، مش بتتاخد من إعدادات ويندوز**.
-        ///
-        /// كل تواريخ قاعدة البيانات ميلادية، وكل التقارير والقسايم
-        /// والنسخ الاحتياطية بتتكتب على أساس كده. لو المستخدم (أو صورة
-        /// ويندوز مثبتة على جهاز تاني) ظابط التقويم على هجري، نفس الكود
-        /// بيبدأ يكتب سنة 1448 مكان 2026 — التواريخ على الشاشة تخالف
-        /// اللي في الداتا، والأخطر إن اسم ملف النسخة الاحتياطية بيتقرا
-        /// غلط فالنسخ بتتمسح وهي لسه جديدة.
-        ///
-        /// التثبيت هنا بيقفل الباب ده كله: عربي مصري بالتقويم الميلادي —
-        /// أسماء الشهور والأيام بتفضل عربي، والأرقام بتفضل هي هي على أي
-        /// جهاز وفي أي سنة.
-        /// </summary>
-        private static void PinCulture()
-        {
-            var culture = new System.Globalization.CultureInfo("ar-EG");
-            culture.DateTimeFormat.Calendar = new System.Globalization.GregorianCalendar();
-
-            System.Globalization.CultureInfo.DefaultThreadCurrentCulture = culture;
-            System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = culture;
-            System.Globalization.CultureInfo.CurrentCulture = culture;
-            System.Globalization.CultureInfo.CurrentUICulture = culture;
-        }
-
         public App()
         {
-            PinCulture();
+            AppCulture.Pin();
 
             AppHost = Host.CreateDefaultBuilder()
                 .ConfigureServices((context, services) =>
@@ -93,11 +68,13 @@ namespace WorkforceManager.UI
                     services.AddScoped<ProductActivityService>();
                     services.AddScoped<PendingWorkService>();
                     services.AddScoped<ScrapService>();
+                    services.AddScoped<ProductionStageOutputService>();
                     services.AddScoped<HourlyWorkdayService>();
                     services.AddScoped<PayrollService>();
                     services.AddScoped<ProductionReportService>();
                     services.AddScoped<WageAdjustmentService>();
                     services.AddScoped<ReportBuilderService>();
+                    services.AddScoped<DepartmentAttendanceService>();
                     // الهوية المشتركة: مصدر واحد لـ"مين عمل كده" — الحذف الناعم
                     // وسجل العمليات الاتنين بيقروا منه
                     services.AddSingleton<CurrentUserContext>();
@@ -128,6 +105,8 @@ namespace WorkforceManager.UI
                     services.AddTransient<ViewModels.ActivityLogViewModel>();
                     services.AddTransient<Views.SettingsView>();
                     services.AddTransient<ViewModels.SettingsViewModel>();
+                    services.AddTransient<Views.DepartmentAccountsView>();
+                    services.AddTransient<ViewModels.DepartmentAccountsViewModel>();
                 })
                 .Build();
         }
@@ -138,6 +117,42 @@ namespace WorkforceManager.UI
         /// والنسخ الاحتياطي للخبطة. بيفضل ممسوك طول عمر البرنامج.
         /// </summary>
         private static Mutex? _singleInstanceMutex;
+
+        /// <summary>
+        /// بيتأكد إن مجلد البيانات موجود وينفع الكتابة فيه **قبل** ما SQLite
+        /// يلمسه.
+        ///
+        /// البيانات بقت في %ProgramData%، وصلاحية الكتابة عليه بتتحدد من ملف
+        /// التثبيت. لو البرنامج اتنسخ يدوي من غير تثبيت، أو حد غيّر صلاحيات
+        /// المجلد، SQLite بيقع بـ "unable to open database file" — رسالة
+        /// مالهاش أي معنى للمستخدم ولا بتقوله يعمل إيه. الفحص ده بيقول
+        /// المشكلة والمكان والعلاج.
+        ///
+        /// الكتابة الفعلية هي الاختبار الوحيد المعتبر: وجود المجلد أو قراءة
+        /// صلاحياته مش بيقولوا إن الكتابة هتنفع.
+        /// </summary>
+        private static bool EnsureDataFolderWritable()
+        {
+            try
+            {
+                Directory.CreateDirectory(AppPaths.DataFolder);
+
+                var probe = Path.Combine(AppPaths.DataFolder, ".write-probe");
+                File.WriteAllText(probe, string.Empty);
+                File.Delete(probe);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Notify.Error(
+                    "البرنامج مش قادر يكتب في مجلد البيانات:\n\n" +
+                    $"{AppPaths.DataFolder}\n\n" +
+                    $"({ex.Message})\n\n" +
+                    "شغّل ملف التثبيت تاني، أو ادّي المجلد ده صلاحية تعديل للمستخدمين.",
+                    "مشكلة في صلاحيات مجلد البيانات");
+                return false;
+            }
+        }
 
         protected override async void OnStartup(StartupEventArgs e)
         {
@@ -157,6 +172,14 @@ namespace WorkforceManager.UI
                 Notify.Warn($"حصل خطأ غير متوقع:\n\n{args.Exception.Message}", "خطأ");
                 args.Handled = true; // منع إغلاق البرنامج بسبب الخطأ
             };
+
+            // قبل أي حاجة تلمس القرص — لو المجلد مش قابل للكتابة نقول السبب
+            // والمكان بدل ما SQLite يقع بعطل مالهوش معنى للمستخدم
+            if (!EnsureDataFolderWritable())
+            {
+                Shutdown();
+                return;
+            }
 
             // المظهر بيتحدد قبل ما أي شاشة تتبني: الشاشات بتقرا الألوان
             // بـ StaticResource اللي بتتحل مرة واحدة وقت التحميل، فالتبديل
@@ -191,6 +214,11 @@ namespace WorkforceManager.UI
 
                     // أول تشغيل: إنشاء حساب الدخول الافتراضي لو مفيش مستخدمين
                     await scope.ServiceProvider.GetRequiredService<AuthService>().EnsureDefaultUserAsync();
+
+                    // لازم بعد EnsureDefaultUserAsync مباشرة: أول حساب دخول
+                    // (admin الافتراضي على تركيب جديد، أو أقدم حساب على قاعدة
+                    // عميل قديمة) بيتحوّل لأول "مدير قسم" في الحسابات الإدارية
+                    await DatabaseSeeder.SeedDefaultDepartmentManagerAsync(db);
                 }
 
                 // شاشة الدخول الأول — من غير دخول ناجح البرنامج مش بيفتح.
@@ -223,6 +251,20 @@ namespace WorkforceManager.UI
                     // بتتنضّف بنفس قاعدة الحذف الحالية
                     await DeletedRowsCleaner.PurgeAsync(
                         purgeScope.ServiceProvider.GetRequiredService<AppDbContext>());
+                }
+                catch
+                {
+                    // متجاهَل عن قصد — شوف الكومنت فوق
+                }
+
+                // تعبية حضور "حاضر" التلقائي للحسابات الإدارية (مدير/رئيس
+                // قسم) — البرنامج مالوش نظام مهام مجدولة، فده مكانها
+                // الوحيد. فشلها عمره ما يمنع البرنامج من الفتح، زي التنظيف فوق.
+                try
+                {
+                    using var deptScope = AppHost.Services.CreateScope();
+                    await deptScope.ServiceProvider.GetRequiredService<DepartmentAttendanceService>()
+                        .EnsureDailyPresenceAsync();
                 }
                 catch
                 {

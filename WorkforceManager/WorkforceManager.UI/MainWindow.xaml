@@ -49,6 +49,27 @@
                             Background="{DynamicResource GoldGradientBrush}" />
                 </StackPanel>
 
+                <!-- الحساب الداخل بيه + زرار الخروج: آخر حاجة في القايمة
+                     الجانبية (تحت بطاقة اليوم) — ظاهرة في كل الشاشات،
+                     عشان أي حد يقدر يبدّل حساب من غير ما يقفل البرنامج
+                     كله (مهم دلوقتي إن الحسابات الإدارية بقى لكل واحدة
+                     يوزر وباسورد لوحدها). -->
+                <Border DockPanel.Dock="Bottom" Margin="16,0,16,10" Padding="12,9"
+                        CornerRadius="{DynamicResource RadiusSmall}"
+                        Background="{DynamicResource SidebarAltBrush}">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Left" Click="Logout_Click"
+                                Style="{StaticResource IconButton}" Padding="6,4"
+                                Foreground="{DynamicResource SidebarInkBrush}" ToolTip="تسجيل الخروج"
+                                AutomationProperties.Name="تسجيل الخروج">
+                            <materialDesign:PackIcon Kind="LogoutVariant" Width="16" Height="16" />
+                        </Button>
+                        <TextBlock x:Name="SignedInAsText" FontSize="11.5" Margin="8,0,0,0"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource SidebarInkSoftBrush}" />
+                    </DockPanel>
+                </Border>
+
                 <!-- بطاقة اليوم في آخر القائمة -->
                 <Border DockPanel.Dock="Bottom" Margin="16,0,16,18" Padding="13,11"
                         CornerRadius="{DynamicResource RadiusSmall}"
@@ -68,7 +89,7 @@
                     <!-- التنقل بـ Checked + Click مع بعض عن قصد:
                          Checked للتنقل الفعلي والكيبورد، وClick لإعادة تحميل الشاشة
                          المفتوحة أصلًا (Checked مبيتنفذش لو الزرار متعلم بالفعل) -->
-                    <RadioButton Style="{StaticResource NavItem}" IsChecked="True"
+                    <RadioButton x:Name="NavWorkersItem" Style="{StaticResource NavItem}" IsChecked="True"
                                  Checked="NavWorkers_Checked" Click="NavWorkers_Checked"
                                  AutomationProperties.Name="العمال والمهارات">
                         <StackPanel Orientation="Horizontal">
@@ -123,6 +144,17 @@
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="18" Height="18" VerticalAlignment="Center" />
                             <TextBlock Text="سجل العمليات" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <!-- عدد العمليات اللي اتسجّلت من آخر مرة الحساب ده فتح
+                                 السجل — بتتصفّر أول ما الشاشة تتفتح (ActivityLogViewModel.LoadAsync) -->
+                            <!-- DangerBgBrush/DangerBrush زوج ألوان متباين بالتصميم في الثيمين
+                                 (نفس زوج شارة الحذف في سجل العمليات) — لون Danger الصريح بيعكس
+                                 نفسه بين الثيمين فمش آمن لوحده كخلفية مصمتة -->
+                            <Border x:Name="ActivityBadge" Background="{DynamicResource DangerBgBrush}"
+                                    CornerRadius="8" Padding="6,1" Margin="6,0,0,0"
+                                    VerticalAlignment="Center" Visibility="Collapsed">
+                                <TextBlock x:Name="ActivityBadgeText" FontSize="10.5" FontWeight="Bold"
+                                           Foreground="{DynamicResource DangerBrush}" />
+                            </Border>
                         </StackPanel>
                     </RadioButton>
 
@@ -132,6 +164,17 @@
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" VerticalAlignment="Center" />
                             <TextBlock Text="الإعدادات والنسخ" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <!-- قايمة منفصلة تمامًا عن "العمال والمهارات" —
+                         الحسابات دي مش عمال إنتاج -->
+                    <RadioButton Style="{StaticResource NavItem}"
+                                 Checked="NavDepartmentAccounts_Checked" Click="NavDepartmentAccounts_Checked"
+                                 AutomationProperties.Name="الحسابات الإدارية">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="AccountTie" Width="18" Height="18" VerticalAlignment="Center" />
+                            <TextBlock Text="الحسابات الإدارية" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
                 </StackPanel>

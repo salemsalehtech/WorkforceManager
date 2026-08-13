@@ -18,6 +18,14 @@ namespace WorkforceManager.Core.Interfaces
         Task<IReadOnlyList<Worker>> GetAllWithSkillsAsync();
 
         /// <summary>
+        /// الحسابات الإدارية (مدير/رئيس قسم) بس — قايمة وشاشة منفصلة
+        /// تمامًا عن "العمال والمهارات". <see cref="GetActiveWithSkillsAsync"/>
+        /// و<see cref="GetAllWithSkillsAsync"/> يستثنوهم دايمًا، فهما مش
+        /// بيظهروا في شاشة العمال ولا التقارير ولا رحلة الإنتاج.
+        /// </summary>
+        Task<IReadOnlyList<Worker>> GetDepartmentAccountsAsync();
+
+        /// <summary>
         /// كل روابط المهارات (عامل ↔ مرحلة) لمراحل منتج معين، مع بيانات العامل،
         /// للعمال النشطين فقط — استعلام واحد بيجيب المؤهلين لكل مراحل المنتج
         /// دفعة واحدة (أساس شاشة رحلة الإنتاج: قائمة اختيار مستقلة لكل مرحلة).
