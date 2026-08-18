@@ -437,6 +437,11 @@ namespace WorkforceManager.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal>("DifficultyMultiplier")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(4,2)")
+                        .HasDefaultValue(1.0m);
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("INTEGER");
 
@@ -466,6 +471,8 @@ namespace WorkforceManager.Data.Migrations
 
                     b.ToTable("ProductionStages", t =>
                         {
+                            t.HasCheckConstraint("CK_ProductionStage_Difficulty", "[DifficultyMultiplier] > 0");
+
                             t.HasCheckConstraint("CK_ProductionStage_Quota", "[PiecesPerWorkday] > 0");
                         });
                 });
@@ -632,6 +639,36 @@ namespace WorkforceManager.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_Worker_DailyWage", "[DailyWageEgp] >= 0");
                         });
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.WorkerPerformanceTitle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("AwardedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("PeriodEnd")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("PeriodStart")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TitleType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("WorkerId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WorkerId");
+
+                    b.HasIndex("TitleType", "PeriodStart");
+
+                    b.ToTable("WorkerPerformanceTitles");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.WorkerSkill", b =>
@@ -810,6 +847,17 @@ namespace WorkforceManager.Data.Migrations
                 {
                     b.HasOne("WorkforceManager.Core.Models.Worker", "Worker")
                         .WithMany("WageAdjustments")
+                        .HasForeignKey("WorkerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Worker");
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.WorkerPerformanceTitle", b =>
+                {
+                    b.HasOne("WorkforceManager.Core.Models.Worker", "Worker")
+                        .WithMany()
                         .HasForeignKey("WorkerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

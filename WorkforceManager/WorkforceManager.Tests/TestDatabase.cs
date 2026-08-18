@@ -82,6 +82,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<IGenericRepository<OperationsCredential>, GenericRepository<OperationsCredential>>();
             services.AddScoped<IGenericRepository<WorkerSkill>, GenericRepository<WorkerSkill>>();
             services.AddScoped<IGenericRepository<AppUser>, GenericRepository<AppUser>>();
+            services.AddScoped<IGenericRepository<WorkerPerformanceTitle>, GenericRepository<WorkerPerformanceTitle>>();
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
             services.AddScoped<WorkerAssignmentGuard>();
@@ -116,6 +117,8 @@ namespace WorkforceManager.Tests
             services.AddScoped<ReportBuilderService>();
             services.AddScoped<ProductionChartService>();
             services.AddScoped<DepartmentAttendanceService>();
+            services.AddScoped<WorkerRecognitionService>();
+            services.AddScoped<ProductionTrendService>();
             services.AddSingleton<ReportTableExcelService>();
             services.AddSingleton<PayslipStripExcelService>();
 
