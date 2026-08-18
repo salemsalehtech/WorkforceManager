@@ -8,6 +8,13 @@ namespace WorkforceManager.Business.DTOs
     /// </summary>
     public class StageBreakdownDto
     {
+        /// <summary>
+        /// المرحلة الحقيقية (شوف WorkerRecognitionService.RankForRecognition
+        /// اللي بيقرا معامل صعوبتها الحيّ). اسم المرحلة لوحده مش كفاية —
+        /// بيتكرر عبر منتجات مختلفة بمعامل صعوبة مختلف لكل واحد.
+        /// </summary>
+        public int ProductionStageId { get; set; }
+
         public string ProductName { get; set; } = string.Empty;
         public string StageName { get; set; } = string.Empty;
         public int PieceCount { get; set; }

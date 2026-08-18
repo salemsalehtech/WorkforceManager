@@ -485,6 +485,16 @@
                                                            VerticalAlignment="Center"
                                                            Foreground="{DynamicResource InkSoftBrush}" />
 
+                                                <!-- متوسط الأداء الفعلي (إنتاج ÷ يومية) على مهاراته المقاسة -->
+                                                <Border Background="{DynamicResource GoldTintBrush}"
+                                                        CornerRadius="{DynamicResource RadiusPill}"
+                                                        Padding="8,2" Margin="8,0,0,0"
+                                                        Visibility="{Binding HasMeasuredSkills, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="{Binding MeasuredText}"
+                                                               FontSize="{DynamicResource FontMicro}" FontWeight="Bold"
+                                                               ui:ThemeBrush.ForegroundKey="GoldDeepBrush" />
+                                                </Border>
+
                                                 <Border Background="{DynamicResource WarnTintBrush}"
                                                         CornerRadius="{DynamicResource RadiusPill}"
                                                         Padding="8,2" Margin="8,0,0,0"
@@ -501,6 +511,51 @@
                                                                    Foreground="{DynamicResource WarnBrush}" />
                                                     </StackPanel>
                                                 </Border>
+
+                                                <!-- إنتاج النهارده أقل بشكل ملحوظ من متوسط أيام شغله (ProductionTrendService) -->
+                                                <Border Background="{DynamicResource WarnTintBrush}"
+                                                        CornerRadius="{DynamicResource RadiusPill}"
+                                                        Padding="8,2" Margin="8,0,0,0"
+                                                        Visibility="{Binding NeedsProductionReview, Converter={StaticResource BoolToVis}}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="TrendingDown"
+                                                                                 Width="11" Height="11"
+                                                                                 VerticalAlignment="Center"
+                                                                                 Foreground="{DynamicResource WarnBrush}" />
+                                                        <TextBlock Text="{Binding ProductionReviewText}"
+                                                                   FontSize="{DynamicResource FontMicro}"
+                                                                   Margin="4,0,0,0" FontWeight="Medium"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource WarnBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+
+                                            <!-- الألقاب الرسمية الثابتة (أسبوعي/شهري) — بتفضل معلّقة على
+                                                 اسمه لحد ما حد تاني ياخدها منه، مختلفة عن تاج IsBestOfWeek
+                                                 اللحظي فوق -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasCurrentWeeklyTitle}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding HasCurrentMonthlyTitle}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+
+                                                <TextBlock Text="{Binding CurrentWeeklyTitleText}" FontSize="{DynamicResource FontMicro}"
+                                                           FontWeight="Medium" Foreground="{DynamicResource GoldDeepBrush}"
+                                                           Visibility="{Binding HasCurrentWeeklyTitle, Converter={StaticResource BoolToVis}}" />
+                                                <TextBlock Text="{Binding CurrentMonthlyTitleText}" FontSize="{DynamicResource FontMicro}"
+                                                           FontWeight="Medium" Foreground="{DynamicResource GoldDeepBrush}"
+                                                           Margin="10,0,0,0"
+                                                           Visibility="{Binding HasCurrentMonthlyTitle, Converter={StaticResource BoolToVis}}" />
                                             </StackPanel>
                                         </StackPanel>
 
