@@ -73,6 +73,12 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private bool _outputIsEmpty = true;
 
+        /// <summary>عمال إنتاجهم اليوم ده قلّ بشكل ملحوظ عن متوسط آخر أيام شغلهم (ProductionTrendService)</summary>
+        public ObservableCollection<ProductionDeclineDto> DecliningWorkers { get; } = new();
+
+        [ObservableProperty]
+        private bool _hasDecliningWorkers;
+
         /// <summary>
         /// تقرير إنتاج اليوم: كام قطعة خلصت آخر مرحلة (= منتج تام)، وكام
         /// قطعة دخلت أول مرحلة، وكام هالك اتسجّل. الأرقام محسوبة من
@@ -83,9 +89,15 @@ namespace WorkforceManager.UI.ViewModels
             using var scope = _scopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<DailyProductionReportService>();
             var scrapService = scope.ServiceProvider.GetRequiredService<ScrapService>();
+            var trendService = scope.ServiceProvider.GetRequiredService<ProductionTrendService>();
 
             var report = await service.GetAsync(OutputDate);
             var scrap = await scrapService.GetByDateAsync(OutputDate);
+
+            var declining = await trendService.GetDecliningWorkersAsync(OutputDate);
+            DecliningWorkers.Clear();
+            foreach (var worker in declining) DecliningWorkers.Add(worker);
+            HasDecliningWorkers = DecliningWorkers.Count > 0;
 
             OutputProducts.Clear();
             foreach (var product in report.Products) OutputProducts.Add(product);

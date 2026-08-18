@@ -97,6 +97,45 @@
                                    Foreground="{DynamicResource TextMutedBrush}"
                                    Visibility="{Binding OutputIsEmpty, Converter={StaticResource BoolToVis}}" />
 
+                        <!-- عمال إنتاجهم اليوم ده قلّ بشكل ملحوظ عن متوسط
+                             آخر أيام شغلهم (ProductionTrendService) — نفس
+                             علامة "يحتاج مراجعة" في شاشة العمال، هنا مجمّعة -->
+                        <Border Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8"
+                                Visibility="{Binding HasDecliningWorkers, Converter={StaticResource BoolToVis}}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="TrendingDown" Width="16" Height="16"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource WarnBrush}" />
+                                    <TextBlock Text="عمال إنتاجهم قلّ عن المعتاد" FontWeight="Bold" FontSize="13.5"
+                                               Margin="6,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <ItemsControl ItemsSource="{Binding DecliningWorkers}" Margin="0,8,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{DynamicResource WarnTintBrush}" CornerRadius="8"
+                                                    Padding="10,7" Margin="0,0,0,5">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Left" Text="{Binding PercentText}"
+                                                               FontWeight="Bold" FontSize="13"
+                                                               Foreground="{DynamicResource WarnBrush}" />
+                                                    <StackPanel Margin="10,0,0,0">
+                                                        <TextBlock Text="{Binding WorkerName}" FontWeight="SemiBold" FontSize="12.5" />
+                                                        <TextBlock FontSize="11" Foreground="{DynamicResource TextMutedBrush}">
+                                                            <Run Text="{Binding TodayPieces, Mode=OneWay}" />
+                                                            <Run Text="قطعة النهارده — المتوسط" />
+                                                            <Run Text="{Binding TrailingAverageText, Mode=OneWay}" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
                         <!-- كارت لكل منتج: خلص منه كام ودخل منه كام النهارده -->
                         <ItemsControl ItemsSource="{Binding OutputProducts}">
                             <ItemsControl.ItemTemplate>
