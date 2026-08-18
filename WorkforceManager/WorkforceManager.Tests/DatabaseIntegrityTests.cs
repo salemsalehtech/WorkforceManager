@@ -222,5 +222,17 @@ namespace WorkforceManager.Tests
 
             Assert.Equal("decimal(5,2)", column.GetColumnType());
         }
+
+        [Fact]
+        public void The_stage_difficulty_multiplier_is_a_numeric_column_not_text()
+        {
+            using var scope = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(scope);
+
+            var column = db.Model.FindEntityType(typeof(ProductionStage))!
+                .GetProperty(nameof(ProductionStage.DifficultyMultiplier));
+
+            Assert.Equal("decimal(4,2)", column.GetColumnType());
+        }
     }
 }

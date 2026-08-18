@@ -117,8 +117,18 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>عدد العمال المربوط لهم المهارة دي</summary>
         public int QualifiedWorkersCount { get; init; }
 
+        /// <summary>
+        /// معامل صعوبة المرحلة (1.0 = عادي) — بيُستخدم بس في ترتيب "أحسن
+        /// عامل" (شوف WorkerRecognitionService)، مش في أي حساب أجر
+        /// </summary>
+        public decimal DifficultyMultiplier { get; init; } = 1.0m;
+
         public string StatusText => IsActive ? "نشطة" : "موقوفة";
         public string QuotaText => $"{PiecesPerWorkday} قطعة / يومية";
+
+        /// <summary>بيبان بس لو المرحلة معلّمة بصعوبة مختلفة عن العادي</summary>
+        public bool HasCustomDifficulty => DifficultyMultiplier != 1.0m;
+        public string DifficultyText => $"معامل الصعوبة ×{DifficultyMultiplier:0.0#}";
 
         /// <summary>
         /// مرحلة نشطة مفيش ولا عامل مؤهل ليها. دي مشكلة حقيقية بتوقف

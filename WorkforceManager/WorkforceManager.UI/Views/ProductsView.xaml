@@ -741,6 +741,16 @@
                                                                     </Style>
                                                                 </TextBlock.Style>
                                                             </TextBlock>
+
+                                                            <!-- بيبان بس لو معامل الصعوبة مختلف عن العادي — للترتيب الأسبوعي/الشهري بس -->
+                                                            <materialDesign:PackIcon Kind="WeightLifter" Width="13" Height="13"
+                                                                                    Margin="14,0,0,0" VerticalAlignment="Center"
+                                                                                    Foreground="{DynamicResource TextMutedBrush}"
+                                                                                    Visibility="{Binding HasCustomDifficulty, Converter={StaticResource BoolToVis}}" />
+                                                            <TextBlock Text="{Binding DifficultyText}" FontSize="11.5" Margin="4,0,0,0"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource TextMutedBrush}"
+                                                                       Visibility="{Binding HasCustomDifficulty, Converter={StaticResource BoolToVis}}" />
                                                         </StackPanel>
                                                     </StackPanel>
 
