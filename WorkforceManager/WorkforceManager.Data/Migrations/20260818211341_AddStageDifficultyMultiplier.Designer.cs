@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WorkforceManager.Data;
 
@@ -10,9 +11,11 @@ using WorkforceManager.Data;
 namespace WorkforceManager.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260818211341_AddStageDifficultyMultiplier")]
+    partial class AddStageDifficultyMultiplier
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.29");
@@ -641,36 +644,6 @@ namespace WorkforceManager.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("WorkforceManager.Core.Models.WorkerPerformanceTitle", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("AwardedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("PeriodEnd")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("PeriodStart")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("TitleType")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("WorkerId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("WorkerId");
-
-                    b.HasIndex("TitleType", "PeriodStart");
-
-                    b.ToTable("WorkerPerformanceTitles");
-                });
-
             modelBuilder.Entity("WorkforceManager.Core.Models.WorkerSkill", b =>
                 {
                     b.Property<int>("Id")
@@ -847,17 +820,6 @@ namespace WorkforceManager.Data.Migrations
                 {
                     b.HasOne("WorkforceManager.Core.Models.Worker", "Worker")
                         .WithMany("WageAdjustments")
-                        .HasForeignKey("WorkerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Worker");
-                });
-
-            modelBuilder.Entity("WorkforceManager.Core.Models.WorkerPerformanceTitle", b =>
-                {
-                    b.HasOne("WorkforceManager.Core.Models.Worker", "Worker")
-                        .WithMany()
                         .HasForeignKey("WorkerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

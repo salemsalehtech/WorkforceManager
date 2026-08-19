@@ -55,6 +55,15 @@ namespace WorkforceManager.Core.Models
         /// </summary>
         public bool IsRackingStage { get; set; }
 
+        /// <summary>
+        /// معامل صعوبة يدوي (1.0 = عادي) — يُستخدم **فقط** في حساب ترتيب
+        /// "أحسن عامل" الأسبوعي/الشهري (<see cref="WorkforceManager.Business.Services.WorkerRecognitionService"/>)،
+        /// عشان مرحلة يومياتها منخفضة بطبيعتها (دقيقة/صعبة) ما تظلمش
+        /// العامل عليها في الترتيب. مايتلمسش خالص في أي حساب أجر أو تقرير
+        /// إنتاج — القيمة الحقيقية والأجر بيفضلوا كما هما تمامًا.
+        /// </summary>
+        public decimal DifficultyMultiplier { get; set; } = 1.0m;
+
         // ------- العلاقات -------
 
         public virtual Product Product { get; set; } = null!;

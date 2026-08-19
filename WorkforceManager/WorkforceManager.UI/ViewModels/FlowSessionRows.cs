@@ -28,7 +28,7 @@ namespace WorkforceManager.UI.ViewModels
         string TagLabel = "")
     {
         /// <summary>النجوم كنص ("★★★★☆")</summary>
-        public string StarsText => new string('★', Stars) + new string('☆', 5 - Stars);
+        public string StarsText => RtlSafeText.Stars(Stars);
 
         public bool HasTagLabel => TagLabel.Length > 0;
 

@@ -49,6 +49,7 @@ namespace WorkforceManager.UI
                     services.AddScoped<IGenericRepository<ProductionStage>, GenericRepository<ProductionStage>>();
                     services.AddScoped<IGenericRepository<WorkerSkill>, GenericRepository<WorkerSkill>>();
                     services.AddScoped<IGenericRepository<AppUser>, GenericRepository<AppUser>>();
+                    services.AddScoped<IGenericRepository<WorkerPerformanceTitle>, GenericRepository<WorkerPerformanceTitle>>();
                     // معاملات الكتابة (نفس الـ DbContext بتاع الـ Scope) — للتحقق الذري قبل الحفظ
                     services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
@@ -75,6 +76,8 @@ namespace WorkforceManager.UI
                     services.AddScoped<WageAdjustmentService>();
                     services.AddScoped<ReportBuilderService>();
                     services.AddScoped<DepartmentAttendanceService>();
+                    services.AddScoped<WorkerRecognitionService>();
+                    services.AddScoped<ProductionTrendService>();
                     // الهوية المشتركة: مصدر واحد لـ"مين عمل كده" — الحذف الناعم
                     // وسجل العمليات الاتنين بيقروا منه
                     services.AddSingleton<CurrentUserContext>();
@@ -265,6 +268,20 @@ namespace WorkforceManager.UI
                     using var deptScope = AppHost.Services.CreateScope();
                     await deptScope.ServiceProvider.GetRequiredService<DepartmentAttendanceService>()
                         .EnsureDailyPresenceAsync();
+                }
+                catch
+                {
+                    // متجاهَل عن قصد — شوف الكومنت فوق
+                }
+
+                // تسجيل ألقاب "أحسن عامل" الأسبوعية/الشهرية اللي فترتها
+                // قفلت من آخر تشغيل — نفس مبدأ التعبية فوق (مفيش نظام مهام
+                // مجدولة، فبدء التشغيل هو نقطة اللحاق الوحيدة)
+                try
+                {
+                    using var recognitionScope = AppHost.Services.CreateScope();
+                    await recognitionScope.ServiceProvider.GetRequiredService<WorkerRecognitionService>()
+                        .AwardTitlesForClosedPeriodsAsync();
                 }
                 catch
                 {

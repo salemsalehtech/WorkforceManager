@@ -28,20 +28,33 @@ namespace WorkforceManager.Business.Services
         private readonly IPenaltyRepository _penaltyRepo;
         private readonly IWorkerRepository _workerRepo;
         private readonly IHourlyWorkLogRepository _hourlyRepo;
+        private readonly IGenericRepository<ProductionStage> _stageRepo;
 
         public WeeklySummaryService(
             IDailyProductionRepository productionRepo,
             IAttendanceRepository attendanceRepo,
             IPenaltyRepository penaltyRepo,
             IWorkerRepository workerRepo,
-            IHourlyWorkLogRepository hourlyRepo)
+            IHourlyWorkLogRepository hourlyRepo,
+            IGenericRepository<ProductionStage> stageRepo)
         {
             _productionRepo = productionRepo;
             _attendanceRepo = attendanceRepo;
             _penaltyRepo = penaltyRepo;
             _workerRepo = workerRepo;
             _hourlyRepo = hourlyRepo;
+            _stageRepo = stageRepo;
         }
+
+        /// <summary>
+        /// معامل صعوبة كل مرحلة حاليًا — أساس ترتيب "أحسن عامل"
+        /// (WorkerRecognitionRules.Rank). بيُقرا حي في كل مرة، مش Snapshot،
+        /// عشان تغيير المعامل يسري فورًا على الترتيب المعروض. عام (مش
+        /// private) عشان WorkerRecognitionService بيعيد استخدامها بدل ما
+        /// يكرر نفس الاستعلام.
+        /// </summary>
+        public async Task<Dictionary<int, decimal>> LoadDifficultyByStageIdAsync() =>
+            (await _stageRepo.GetAllAsync()).ToDictionary(s => s.Id, s => s.DifficultyMultiplier);
 
         /// <summary>
         /// يحسب بداية ونهاية أسبوع الشغل (الخميس → الأربع) اللي بيقع
@@ -65,14 +78,25 @@ namespace WorkforceManager.Business.Services
         public async Task<List<WorkerWeeklySummaryDto>> GetTeamWeeklySummaryAsync(DateTime anyDateInWeek)
         {
             var (weekStart, weekEnd) = GetWorkWeekRange(anyDateInWeek);
+            return await GetTeamSummaryForRangeAsync(weekStart, weekEnd);
+        }
 
-            // تحميل كل بيانات الأسبوع مرة واحدة (4 استعلامات بس مهما كان عدد العمال)
-            var production = await _productionRepo.GetByRangeAsync(weekStart, weekEnd);
-            var attendance = await _attendanceRepo.GetByRangeAsync(weekStart, weekEnd);
-            var penalties = await _penaltyRepo.GetByRangeAsync(weekStart, weekEnd);
-            var hourly = await _hourlyRepo.GetByRangeAsync(weekStart, weekEnd);
+        /// <summary>
+        /// نفس بناء الملخص الأسبوعي، بس لأي مدى تاريخ (مش لازم يبقى أسبوع
+        /// عمل بالظبط) — أساس تقييم "أحسن عامل الشهر"
+        /// (WorkerRecognitionService.ComputeMonthlyTopAsync). المنطق جوّه
+        /// BuildTeamSummaryForRange مالوش أي افتراض عن طول الفترة.
+        /// </summary>
+        public async Task<List<WorkerWeeklySummaryDto>> GetTeamSummaryForRangeAsync(DateTime from, DateTime to)
+        {
+            // تحميل كل بيانات الفترة مرة واحدة (4 استعلامات بس مهما كان عدد العمال)
+            var production = await _productionRepo.GetByRangeAsync(from, to);
+            var attendance = await _attendanceRepo.GetByRangeAsync(from, to);
+            var penalties = await _penaltyRepo.GetByRangeAsync(from, to);
+            var hourly = await _hourlyRepo.GetByRangeAsync(from, to);
+            var difficultyByStageId = await LoadDifficultyByStageIdAsync();
 
-            return BuildTeamSummaryForWeek(weekStart, weekEnd, production, attendance, penalties, hourly);
+            return BuildTeamSummaryForRange(from, to, production, attendance, penalties, hourly, difficultyByStageId);
         }
 
         /// <summary>
@@ -105,6 +129,7 @@ namespace WorkforceManager.Business.Services
             var attendance = await _attendanceRepo.GetByRangeAsync(firstWeekStart, lastWeekEnd);
             var penalties = await _penaltyRepo.GetByRangeAsync(firstWeekStart, lastWeekEnd);
             var hourly = await _hourlyRepo.GetByRangeAsync(firstWeekStart, lastWeekEnd);
+            var difficultyByStageId = await LoadDifficultyByStageIdAsync();
 
             // تقسيم كل نوع بيانات على أسابيعه (بمفتاح = تاريخ بداية الأسبوع = الخميس)
             var productionByWeek = production.ToLookup(p => GetWorkWeekRange(p.Date).WeekStart);
@@ -115,9 +140,10 @@ namespace WorkforceManager.Business.Services
             var history = new List<WorkerWeeklySummaryDto>();
             for (var cursor = firstWeekStart; cursor <= lastWeekStart; cursor = cursor.AddDays(7))
             {
-                var team = BuildTeamSummaryForWeek(
+                var team = BuildTeamSummaryForRange(
                     cursor, cursor.AddDays(6),
-                    productionByWeek[cursor], attendanceByWeek[cursor], penaltiesByWeek[cursor], hourlyByWeek[cursor]);
+                    productionByWeek[cursor], attendanceByWeek[cursor], penaltiesByWeek[cursor], hourlyByWeek[cursor],
+                    difficultyByStageId);
 
                 // بناخد سطر العامل المطلوب بس من ملخص الأسبوع (لو ليه نشاط فيه)
                 var mine = team.FirstOrDefault(s => s.WorkerId == workerId);
@@ -131,17 +157,20 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
-        /// يبني ملخص أسبوع كامل لكل العمال من قوائم مُفلترة مسبقًا لنفس الأسبوع،
-        /// مرتّبين بصافي اليوميات، مع تحديد أحسن عامل. كل الحسابات في الذاكرة
-        /// (من غير أي استعلام) — نقطة الاستخدام المشتركة بين الملخص الأسبوعي
-        /// والهستوري عشان القاعدة الحسابية تفضل مكان واحد.
+        /// يبني ملخص فترة كاملة (أسبوع أو شهر) لكل العمال من قوائم مُفلترة
+        /// مسبقًا لنفس الفترة، مرتّبين بصافي اليوميات، مع تحديد أحسن 3 عمال
+        /// (IsBestWorkerOfWeek — اسمها من زمن اللقب الأسبوعي، شاشة الشهر
+        /// بتقرا نتيجتها لوحدها من WorkerRecognitionRules.Rank بدل ما تعتمد
+        /// على العلم ده). كل الحسابات في الذاكرة — نقطة الاستخدام المشتركة
+        /// بين الملخص الأسبوعي والهستوري عشان القاعدة الحسابية تفضل مكان واحد.
         /// </summary>
-        private static List<WorkerWeeklySummaryDto> BuildTeamSummaryForWeek(
+        private static List<WorkerWeeklySummaryDto> BuildTeamSummaryForRange(
             DateTime weekStart, DateTime weekEnd,
             IEnumerable<DailyProduction> production,
             IEnumerable<Attendance> attendance,
             IEnumerable<Penalty> penalties,
-            IEnumerable<HourlyWorkLog> hourly)
+            IEnumerable<HourlyWorkLog> hourly,
+            IReadOnlyDictionary<int, decimal> difficultyByStageId)
         {
             var productionByWorker = production.ToLookup(p => p.WorkerId);
             var attendanceByWorker = attendance.ToLookup(a => a.WorkerId);
@@ -179,14 +208,15 @@ namespace WorkforceManager.Business.Services
                     workerProduction, workerAttendance, workerPenalties, workerHourly));
             }
 
-            // الترتيب بصافي اليوميات (بعد كل الخصومات) — ده أساس تقييم الأسبوع
+            // الترتيب بصافي اليوميات (بعد كل الخصومات) — ده لسه ترتيب العرض
+            // الافتراضي في الشاشة. اللي بيتغيّر هو مين بياخد شارة "أحسن عامل"
             var ordered = summaries.OrderByDescending(s => s.NetWorkdays).ToList();
 
-            // أحسن عامل في الأسبوع = أعلى صافي، بشرط إن صافيه موجب وأنتج فعلاً
-            // (عشان أسبوع كله غياب وجزاءات ميطلعش فيه "أحسن عامل" بصافي صفر أو سالب)
-            var best = ordered.FirstOrDefault(s => s.ProducedWorkdays > 0 && s.NetWorkdays > 0);
-            if (best is not null)
-                best.IsBestWorkerOfWeek = true;
+            // أحسن 3: مش بصافي اليوميات الخام، بترتيب WorkerRecognitionRules
+            // (تنوّع المراحل + معامل صعوبتها الحي) — نفس شرط الأهلية القديم
+            // (أنتج فعلًا وصافيه موجب) لسه موجود جوّه Rank نفسها
+            foreach (var winner in WorkerRecognitionRules.Rank(summaries, difficultyByStageId).Take(3))
+                winner.IsBestWorkerOfWeek = true;
 
             return ordered;
         }
@@ -224,6 +254,7 @@ namespace WorkforceManager.Business.Services
                     .GroupBy(p => p.ProductionStageId)
                     .Select(g => new StageBreakdownDto
                     {
+                        ProductionStageId = g.Key,
                         ProductName = g.First().ProductionStage.Product.Name,
                         StageName = g.First().ProductionStage.StageName,
                         PieceCount = g.Sum(p => p.PieceCount),

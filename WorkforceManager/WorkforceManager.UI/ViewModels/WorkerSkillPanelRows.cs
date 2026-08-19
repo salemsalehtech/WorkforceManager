@@ -190,7 +190,7 @@ namespace WorkforceManager.UI.ViewModels
         public int KnownCount => Stages.Count(s => s.IsKnown && !s.IsStageInactive);
         public int ActiveCount => Stages.Count(s => !s.IsStageInactive);
 
-        public string CoverageText => $"{KnownCount} / {ActiveCount} مرحلة";
+        public string CoverageText => $"{RtlSafeText.Ratio(KnownCount, ActiveCount)} مرحلة";
 
         /// <summary>
         /// شرح شارة التغطية. بتحمل رسالة نجمة "بيغطي الخط كله" اللي اتشالت
@@ -230,7 +230,7 @@ namespace WorkforceManager.UI.ViewModels
             : Math.Clamp((int)Math.Round(AverageStars.Value, MidpointRounding.AwayFromZero), 1, 5);
 
         public string StarsText => HasRating
-            ? new string('★', RoundedStars) + new string('☆', 5 - RoundedStars)
+            ? RtlSafeText.Stars(RoundedStars)
             : "";
 
         /// <summary>"ممتاز" / "كويس جدًا" / … — النص من SkillRatingService</summary>

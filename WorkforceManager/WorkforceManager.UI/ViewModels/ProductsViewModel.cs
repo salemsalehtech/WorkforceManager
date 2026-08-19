@@ -405,7 +405,8 @@ namespace WorkforceManager.UI.ViewModels
                         // الرقم المعروض = موقعها في الخط، مش قيمة SortOrder
                         // (اللي ممكن يكون فيها فجوات من تعديلات قديمة)
                         DisplayOrder = index + 1,
-                        QualifiedWorkersCount = qualifiedCountByStage.GetValueOrDefault(s.Id)
+                        QualifiedWorkersCount = qualifiedCountByStage.GetValueOrDefault(s.Id),
+                        DifficultyMultiplier = s.DifficultyMultiplier
                     }).ToList()
             }).ToList();
 
@@ -643,7 +644,7 @@ namespace WorkforceManager.UI.ViewModels
                 using var scope = _scopeFactory.CreateScope();
                 var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
                 await mgmt.AddStageAsync(SelectedProduct.ProductId,
-                    dialog.StageName, dialog.PiecesPerWorkday, dialog.SortOrder);
+                    dialog.StageName, dialog.PiecesPerWorkday, dialog.SortOrder, dialog.DifficultyMultiplier);
                 await LoadAsync();
             }
             catch (Exception ex)
@@ -697,7 +698,7 @@ namespace WorkforceManager.UI.ViewModels
             if (stage is null) return;
 
             var dialog = new StageEditDialog { Owner = Application.Current.MainWindow, Title = "تعديل مرحلة" };
-            dialog.LoadStage(stage.StageName, stage.PiecesPerWorkday, stage.SortOrder);
+            dialog.LoadStage(stage.StageName, stage.PiecesPerWorkday, stage.SortOrder, stage.DifficultyMultiplier);
             if (dialog.ShowDialog() != true) return;
 
             try
@@ -705,7 +706,8 @@ namespace WorkforceManager.UI.ViewModels
                 using var scope = _scopeFactory.CreateScope();
                 var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
                 await mgmt.UpdateStageAsync(stage.StageId,
-                    dialog.StageName, dialog.PiecesPerWorkday, dialog.SortOrder ?? stage.SortOrder);
+                    dialog.StageName, dialog.PiecesPerWorkday, dialog.SortOrder ?? stage.SortOrder,
+                    dialog.DifficultyMultiplier);
                 await LoadAsync();
             }
             catch (Exception ex)

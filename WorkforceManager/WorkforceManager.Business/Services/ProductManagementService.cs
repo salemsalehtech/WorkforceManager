@@ -194,12 +194,15 @@ namespace WorkforceManager.Business.Services
         /// دي قاعدة أساسية في النظام). لو الترتيب مش متحدد بياخد آخر ترتيب + 1.
         /// </summary>
         public async Task<ProductionStage> AddStageAsync(
-            int productId, string stageName, int piecesPerWorkday, int? sortOrder = null)
+            int productId, string stageName, int piecesPerWorkday, int? sortOrder = null,
+            decimal difficultyMultiplier = 1.0m)
         {
             if (string.IsNullOrWhiteSpace(stageName))
                 throw new ArgumentException("اسم المرحلة مطلوب", nameof(stageName));
             if (piecesPerWorkday <= 0)
                 throw new ArgumentException("اليومية يجب أن تكون رقمًا موجبًا أكبر من صفر", nameof(piecesPerWorkday));
+            if (difficultyMultiplier <= 0)
+                throw new ArgumentException("معامل الصعوبة يجب أن يكون رقمًا موجبًا أكبر من صفر", nameof(difficultyMultiplier));
 
             var product = await _productRepo.GetWithStagesAsync(productId)
                 ?? throw new InvalidOperationException("المنتج المحدد غير موجود");
@@ -213,6 +216,7 @@ namespace WorkforceManager.Business.Services
                 ProductId = productId,
                 StageName = trimmedName,
                 PiecesPerWorkday = piecesPerWorkday,
+                DifficultyMultiplier = difficultyMultiplier,
                 SortOrder = sortOrder ?? (product.Stages.Count == 0 ? 1 : product.Stages.Max(s => s.SortOrder) + 1)
             };
 
@@ -276,12 +280,15 @@ namespace WorkforceManager.Business.Services
         /// التسجيلات الجديدة فقط — القديم محمي بالـ Snapshot.
         /// </summary>
         public async Task<ProductionStage> UpdateStageAsync(
-            int stageId, string stageName, int piecesPerWorkday, int sortOrder)
+            int stageId, string stageName, int piecesPerWorkday, int sortOrder,
+            decimal difficultyMultiplier = 1.0m)
         {
             if (string.IsNullOrWhiteSpace(stageName))
                 throw new ArgumentException("اسم المرحلة مطلوب", nameof(stageName));
             if (piecesPerWorkday <= 0)
                 throw new ArgumentException("اليومية يجب أن تكون رقمًا موجبًا أكبر من صفر", nameof(piecesPerWorkday));
+            if (difficultyMultiplier <= 0)
+                throw new ArgumentException("معامل الصعوبة يجب أن يكون رقمًا موجبًا أكبر من صفر", nameof(difficultyMultiplier));
 
             var stage = await _stageRepo.GetByIdAsync(stageId)
                 ?? throw new InvalidOperationException("المرحلة المحددة غير موجودة");
@@ -297,6 +304,7 @@ namespace WorkforceManager.Business.Services
             stage.StageName = trimmedName;
             stage.PiecesPerWorkday = piecesPerWorkday;
             stage.SortOrder = sortOrder;
+            stage.DifficultyMultiplier = difficultyMultiplier;
 
             _stageRepo.Update(stage);
             await _stageRepo.SaveChangesAsync();

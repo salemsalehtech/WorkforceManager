@@ -21,6 +21,18 @@ namespace WorkforceManager.Data
         /// </summary>
         public DateTime? LastSkillReviewAt { get; set; }
 
+        // ------- ألقاب "أحسن عامل" -------
+
+        /// <summary>
+        /// أول يوم في آخر أسبوع اتحسبله لقب "أحسن 3 عمال" (WorkerRecognitionService).
+        /// null = عمره ما اتحسب — أول تشغيل بعد التحديث بيبدأ من الأسبوع
+        /// الحالي (مفيش رجوع لتاريخ قديم يغرق العميل بألقاب فات وقتها).
+        /// </summary>
+        public DateTime? LastBestWorkerWeekComputedFor { get; set; }
+
+        /// <summary>نفس فكرة الحقل اللي فوق، بس لأول يوم في آخر شهر اتحسبله "أحسن عامل الشهر"</summary>
+        public DateTime? LastBestWorkerMonthComputedFor { get; set; }
+
         // ------- إعدادات النسخ الاحتياطي -------
 
         /// <summary>

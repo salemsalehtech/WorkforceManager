@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 
@@ -26,12 +27,17 @@ namespace WorkforceManager.UI.Views
         public int? SortOrder =>
             int.TryParse(SortOrderBox.Text.Trim(), out var order) ? order : null;
 
+        /// <summary>معامل الصعوبة بتتحقق في Save_Click فمضمون إنه رقم موجب هنا</summary>
+        public decimal DifficultyMultiplier =>
+            decimal.Parse(DifficultyBox.Text.Trim(), CultureInfo.InvariantCulture);
+
         /// <summary>تعبئة الفورم ببيانات مرحلة موجودة (وضع التعديل)</summary>
-        public void LoadStage(string name, int piecesPerWorkday, int sortOrder)
+        public void LoadStage(string name, int piecesPerWorkday, int sortOrder, decimal difficultyMultiplier)
         {
             NameBox.Text = name;
             QuotaBox.Text = piecesPerWorkday.ToString();
             SortOrderBox.Text = sortOrder.ToString();
+            DifficultyBox.Text = difficultyMultiplier.ToString("0.0#", CultureInfo.InvariantCulture);
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
@@ -56,6 +62,14 @@ namespace WorkforceManager.UI.Views
             {
                 ErrorText.ShowError("الترتيب لازم يكون رقم صحيح (أو سيبه فاضي للترتيب التلقائي)");
                 SortOrderBox.Focus();
+                return;
+            }
+
+            if (!decimal.TryParse(DifficultyBox.Text.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var difficulty)
+                || difficulty <= 0)
+            {
+                ErrorText.ShowError("معامل الصعوبة لازم يكون رقم موجب (مثال: 1.0 أو 1.5)");
+                DifficultyBox.Focus();
                 return;
             }
 

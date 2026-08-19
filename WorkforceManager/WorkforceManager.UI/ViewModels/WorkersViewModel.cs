@@ -409,6 +409,8 @@ namespace WorkforceManager.UI.ViewModels
                 using var scope = _scopeFactory.CreateScope();
                 var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
                 var weeklyService = scope.ServiceProvider.GetRequiredService<WeeklySummaryService>();
+                var recognitionService = scope.ServiceProvider.GetRequiredService<WorkerRecognitionService>();
+                var trendService = scope.ServiceProvider.GetRequiredService<ProductionTrendService>();
                 var attendanceRepo = scope.ServiceProvider.GetRequiredService<IAttendanceRepository>();
                 var productRepo = scope.ServiceProvider.GetRequiredService<IProductRepository>();
 
@@ -418,6 +420,20 @@ namespace WorkforceManager.UI.ViewModels
                 // إحصائيات الأسبوع الحالي لكل العمال (استعلام واحد مجمّع)
                 var weekly = await weeklyService.GetTeamWeeklySummaryAsync(DateTime.Today);
                 var weeklyByWorker = weekly.ToDictionary(w => w.WorkerId);
+
+                // الألقاب الرسمية الحالية (أسبوعي حد 3 عمال + شهري عامل واحد) —
+                // شارات ثابتة على البروفايل، منفصلة عن IsBestOfWeek اللحظي فوق
+                var currentTitles = await recognitionService.GetCurrentTitleHoldersAsync();
+                var weeklyTitleByWorker = currentTitles
+                    .Where(t => t.TitleType == PerformanceTitleType.WeeklyTop3)
+                    .ToDictionary(t => t.WorkerId, t => $"🏆 أحسن عامل الأسبوع (من {t.PeriodStart:d MMMM})");
+                var monthlyTitleByWorker = currentTitles
+                    .Where(t => t.TitleType == PerformanceTitleType.MonthlyBest)
+                    .ToDictionary(t => t.WorkerId, t => $"🏆 أحسن عامل الشهر ({t.PeriodStart:MMMM})");
+
+                // عمال إنتاجهم النهارده قلّ بشكل ملحوظ عن متوسطهم — علامة "يحتاج مراجعة"
+                var decliningByWorker = (await trendService.GetDecliningWorkersAsync(DateTime.Today))
+                    .ToDictionary(d => d.WorkerId);
 
                 // حضور النهارده لفلتر الحضور — استعلام واحد لليوم كله
                 var todayAttendance = (await attendanceRepo.GetByDateAsync(DateTime.Today))
@@ -470,6 +486,17 @@ namespace WorkforceManager.UI.ViewModels
                             .ThenBy(g => g.Key)
                             .Select(g => g.Key)
                             .FirstOrDefault() ?? "",
+                        // متوسط الأداء الفعلي (إنتاج ÷ يومية) على مهاراته المقاسة
+                        // بس — مهارة عمرها ما اتقاست (MeasuredAt == null) مالهاش رقم
+                        AverageMeasuredRatio = w.Skills.Any(s => s.MeasuredAt != null)
+                            ? Math.Round(w.Skills.Where(s => s.MeasuredAt != null).Average(s => s.MeasuredRatio), 2)
+                            : null,
+                        CurrentWeeklyTitleText = weeklyTitleByWorker.GetValueOrDefault(w.Id, ""),
+                        CurrentMonthlyTitleText = monthlyTitleByWorker.GetValueOrDefault(w.Id, ""),
+                        NeedsProductionReview = decliningByWorker.ContainsKey(w.Id),
+                        ProductionReviewText = decliningByWorker.TryGetValue(w.Id, out var decline)
+                            ? $"إنتاجه النهارده {decline.PercentText} من متوسطه"
+                            : "",
                         // نص واحد مجمّع للبحث في المهارات والملاحظات بضربة واحدة
                         SkillsSearchText = string.Join(" ", skillNames) + " " + (w.SkillsNotes ?? "")
                     });

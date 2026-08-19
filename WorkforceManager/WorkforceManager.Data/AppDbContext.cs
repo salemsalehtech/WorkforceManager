@@ -28,6 +28,7 @@ namespace WorkforceManager.Data
         public DbSet<ProductionScrap> ProductionScraps => Set<ProductionScrap>();
         public DbSet<ScrapReason> ScrapReasons => Set<ScrapReason>();
         public DbSet<ProductionStageOutput> ProductionStageOutputs => Set<ProductionStageOutput>();
+        public DbSet<WorkerPerformanceTitle> WorkerPerformanceTitles => Set<WorkerPerformanceTitle>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -104,6 +105,12 @@ namespace WorkforceManager.Data
                 .WithMany(w => w.Penalties)
                 .HasForeignKey(p => p.WorkerId)
                 .OnDelete(DeleteBehavior.Cascade); // نفس قاعدة الحضور: حذف عامل (نادر) يحذف جزاءاته
+
+            modelBuilder.Entity<WorkerPerformanceTitle>()
+                .HasOne(t => t.Worker)
+                .WithMany()
+                .HasForeignKey(t => t.WorkerId)
+                .OnDelete(DeleteBehavior.Cascade); // نفس قاعدة الجزاءات: حذف عامل يحذف ألقابه
 
             // ---------- فهارس التاريخ ----------
             // كل استعلامات اليوم والأسبوع (شاشة التسجيل، التقارير، الملخص الأسبوعي)
@@ -248,6 +255,16 @@ namespace WorkforceManager.Data
                 .Property(ws => ws.MeasuredRatio)
                 .HasColumnType("decimal(5,2)");
 
+            // معامل صعوبة المرحلة — نفس سبب MeasuredRatio فوق. HasDefaultValue
+            // صريحة (مش بس القيمة الافتراضية على الخاصية في C#) عشان الهجرة
+            // تطبّق 1.0 على كل صف قديم — EF ما بيقراش قيمة الخاصية الافتراضية
+            // بتاعة C# لتوليد defaultValue الهجرة، وكانت هتتولّد صفر (بيخالف
+            // القيد الجديد CK_ProductionStage_Difficulty على بيانات موجودة).
+            modelBuilder.Entity<ProductionStage>()
+                .Property(s => s.DifficultyMultiplier)
+                .HasColumnType("decimal(4,2)")
+                .HasDefaultValue(1.0m);
+
             // ---------- قيود على مستوى قاعدة البيانات ----------
             // الشروط دي مضمونة في الخدمات أصلاً. وجودها هنا كمان مش تكرار:
             // الخدمة بتحمي المسار اللي بيعدّي عليها، والقيد بيحمي الجدول
@@ -260,6 +277,9 @@ namespace WorkforceManager.Data
             // WorkdayMath بدل ما يرمي، بس صفر أصلاً مايوصلش للجدول
             modelBuilder.Entity<ProductionStage>().ToTable(t => t.HasCheckConstraint(
                 "CK_ProductionStage_Quota", "[PiecesPerWorkday] > 0"));
+
+            modelBuilder.Entity<ProductionStage>().ToTable(t => t.HasCheckConstraint(
+                "CK_ProductionStage_Difficulty", "[DifficultyMultiplier] > 0"));
 
             modelBuilder.Entity<DailyProduction>().ToTable(t => t.HasCheckConstraint(
                 "CK_DailyProduction_Amounts",

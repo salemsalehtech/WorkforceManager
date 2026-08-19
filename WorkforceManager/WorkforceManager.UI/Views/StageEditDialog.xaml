@@ -42,6 +42,13 @@
                 <TextBlock Text="الترتيب داخل خط الإنتاج (اختياري — بياخد آخر ترتيب تلقائيًا)" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="SortOrderBox" Margin="0,0,0,16" />
 
+                <TextBlock Text="معامل صعوبة المرحلة (١ = عادي — اكتب رقم أعلى للمراحل الصعبة/الدقيقة)"
+                           Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="DifficultyBox" Text="1.0" Margin="0,0,0,4" />
+                <!-- بيوضّح إن ده مالوش علاقة بالأجر أو الإنتاج الحقيقي -->
+                <TextBlock Text="بيُستخدم بس في حساب ترتيب &quot;أحسن عامل&quot; — العدد الحقيقي والأجر مايتأثروش خالص."
+                           FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,16" />
+
                 <TextBlock x:Name="ErrorText" Foreground="{DynamicResource DangerBrush}" FontSize="12"
                            Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
 

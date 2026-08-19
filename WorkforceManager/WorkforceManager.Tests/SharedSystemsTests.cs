@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 using WorkforceManager.Data;
@@ -868,7 +869,7 @@ namespace WorkforceManager.Tests
             var ranked = await rating.GetRankedForStageAsync(TestDatabase.BagStage1Id);
 
             Assert.Equal(TestDatabase.WorkerSaidId, ranked[0].WorkerId);
-            Assert.Equal("★★★★★", ranked[0].StarsText);
+            Assert.Equal(RtlSafeText.Stars(5), ranked[0].StarsText);
             Assert.Equal(TestDatabase.WorkerAhmedId, ranked[1].WorkerId);
         }
 

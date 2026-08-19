@@ -79,6 +79,30 @@ namespace WorkforceManager.UI.ViewModels
 
         public bool HasTopSkill => TopSkillProduct.Length > 0;
 
+        /// <summary>
+        /// متوسط MeasuredRatio (إنتاج فعلي ÷ يومية المرحلة) على مهاراته
+        /// **المقاسة فعلًا** بس (null = مفيش مهارة اتقاست لسه) — نسبة %
+        /// واحدة تلخّص أداءه، مختلفة عن AverageStars (رأي المدير).
+        /// </summary>
+        public decimal? AverageMeasuredRatio { get; init; }
+
+        public bool HasMeasuredSkills => AverageMeasuredRatio is not null;
+        public string MeasuredText => AverageMeasuredRatio is null ? "" : $"{AverageMeasuredRatio * 100:0}%";
+
+        // ------- ألقاب "أحسن عامل" الرسمية (تفضل ثابتة لحد ما حد ياخدها) -------
+
+        /// <summary>"🏆 أحسن عامل الأسبوع (من 10 أغسطس)" — فاضي لو مالوش لقب أسبوعي حاليًا</summary>
+        public string CurrentWeeklyTitleText { get; init; } = "";
+        public bool HasCurrentWeeklyTitle => CurrentWeeklyTitleText.Length > 0;
+
+        /// <summary>"🏆 أحسن عامل الشهر (أغسطس)" — فاضي لو مالوش لقب شهري حاليًا</summary>
+        public string CurrentMonthlyTitleText { get; init; } = "";
+        public bool HasCurrentMonthlyTitle => CurrentMonthlyTitleText.Length > 0;
+
+        /// <summary>إنتاج النهارده قلّ بشكل ملحوظ عن متوسط آخر أيام شغله (ProductionTrendService)</summary>
+        public bool NeedsProductionReview { get; init; }
+        public string ProductionReviewText { get; init; } = "";
+
         /// <summary>نفس الصف بالشكل اللي قاعدة الفلترة بتفهمه</summary>
         public WorkerFilterSubject FilterSubject => new()
         {

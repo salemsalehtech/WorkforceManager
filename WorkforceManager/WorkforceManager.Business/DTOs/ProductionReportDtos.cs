@@ -1,3 +1,5 @@
+using WorkforceManager.Core.Helpers;
+
 namespace WorkforceManager.Business.DTOs
 {
     /// <summary>سطر إنتاج مرحلة داخل التقارير: منتج/مرحلة بعدد القطع واليوميات</summary>
@@ -151,7 +153,7 @@ namespace WorkforceManager.Business.DTOs
         public int RoundedStars =>
             Math.Clamp((int)Math.Round(AverageStars, MidpointRounding.AwayFromZero), 1, 5);
 
-        public string StarsText => new string('★', RoundedStars) + new string('☆', 5 - RoundedStars);
+        public string StarsText => RtlSafeText.Stars(RoundedStars);
 
         public string StagesText => $"{KnownStages} مرحلة";
     }

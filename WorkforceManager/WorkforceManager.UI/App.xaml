@@ -471,10 +471,14 @@
                                     <Setter TargetName="Fill" Property="Opacity" Value="0.12" />
                                 </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
+                                    <!-- White ثابتة: ألوان الحالة (Good/Warn/Danger) بتتقلب سطوعها
+                                         مع الثيم عن قصد (زي Gold بالظبط)، فاختيار "حاضر" في الأسود
+                                         بيبقى تعبئة فاتحة + نص أبيض = يختفي. InkOnAccentBrush هو
+                                         نفس زوج النص المضمون فوق أي تعبئة من عيلة الدهبي دي. -->
                                     <Setter TargetName="Fill" Property="Opacity" Value="1" />
-                                    <Setter TargetName="Txt" Property="Foreground" Value="White" />
+                                    <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
                                     <Setter TargetName="Txt" Property="FontWeight" Value="Bold" />
-                                    <Setter TargetName="Ico" Property="Foreground" Value="White" />
+                                    <Setter TargetName="Ico" Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -503,9 +507,11 @@
                                     <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource SuccessBrush}" />
                                 </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
+                                    <!-- نفس باغ StatusChip: SuccessBrush بتتقلب مع الثيم، وWhite
+                                         الثابتة بتفشل معاها في الأسود -->
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SuccessBrush}" />
                                     <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource SuccessBrush}" />
-                                    <Setter TargetName="Txt" Property="Foreground" Value="White" />
+                                    <Setter TargetName="Txt" Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
                                     <Setter TargetName="Txt" Property="FontWeight" Value="SemiBold" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
@@ -1146,9 +1152,15 @@
             <!-- حقل نصي حديث: حواف دائرية + حدود هادية، وتتحول للون البراند عند التركيز
                  بدل لون MaterialDesign الافتراضي — نمط افتراضي بيغطي كل TextBox في التطبيق -->
             <Style TargetType="TextBox">
+                <!-- كانت من غير Foreground خالص: TextBox بيرجع لأسود
+                     WPF الافتراضي مهما كان الثيم. في الفاتح ده كان بيماشي
+                     صدفة (خلفية فاتحة + أسود = مقروء)، وفي الأسود بيبقى
+                     نص أسود فوق كارت غامق تقريبًا — يختفي. نفس القاعدة
+                     اللي DatePickerTextBox ماشيها من الأول. -->
                 <Setter Property="Padding" Value="9,7" />
                 <Setter Property="FontSize" Value="14" />
                 <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
                 <Setter Property="BorderThickness" Value="1.4" />
                 <Setter Property="CaretBrush" Value="{DynamicResource BrandBrush}" />
@@ -1225,9 +1237,11 @@
 
             <!-- نفس شكل الحقل النصي لخانة كلمة المرور -->
             <Style TargetType="PasswordBox">
+                <!-- نفس نقصان TextBox بالظبط: من غير Foreground بترجع لأسود ثابت -->
                 <Setter Property="Padding" Value="9,7" />
                 <Setter Property="FontSize" Value="14" />
                 <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
                 <Setter Property="BorderThickness" Value="1.4" />
                 <Setter Property="CaretBrush" Value="{DynamicResource BrandBrush}" />

@@ -485,6 +485,16 @@
                                                            VerticalAlignment="Center"
                                                            Foreground="{DynamicResource InkSoftBrush}" />
 
+                                                <!-- متوسط الأداء الفعلي (إنتاج ÷ يومية) على مهاراته المقاسة -->
+                                                <Border Background="{DynamicResource GoldTintBrush}"
+                                                        CornerRadius="{DynamicResource RadiusPill}"
+                                                        Padding="8,2" Margin="8,0,0,0"
+                                                        Visibility="{Binding HasMeasuredSkills, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="{Binding MeasuredText}"
+                                                               FontSize="{DynamicResource FontMicro}" FontWeight="Bold"
+                                                               ui:ThemeBrush.ForegroundKey="GoldDeepBrush" />
+                                                </Border>
+
                                                 <Border Background="{DynamicResource WarnTintBrush}"
                                                         CornerRadius="{DynamicResource RadiusPill}"
                                                         Padding="8,2" Margin="8,0,0,0"
@@ -501,6 +511,51 @@
                                                                    Foreground="{DynamicResource WarnBrush}" />
                                                     </StackPanel>
                                                 </Border>
+
+                                                <!-- إنتاج النهارده أقل بشكل ملحوظ من متوسط أيام شغله (ProductionTrendService) -->
+                                                <Border Background="{DynamicResource WarnTintBrush}"
+                                                        CornerRadius="{DynamicResource RadiusPill}"
+                                                        Padding="8,2" Margin="8,0,0,0"
+                                                        Visibility="{Binding NeedsProductionReview, Converter={StaticResource BoolToVis}}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="TrendingDown"
+                                                                                 Width="11" Height="11"
+                                                                                 VerticalAlignment="Center"
+                                                                                 Foreground="{DynamicResource WarnBrush}" />
+                                                        <TextBlock Text="{Binding ProductionReviewText}"
+                                                                   FontSize="{DynamicResource FontMicro}"
+                                                                   Margin="4,0,0,0" FontWeight="Medium"
+                                                                   VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource WarnBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+
+                                            <!-- الألقاب الرسمية الثابتة (أسبوعي/شهري) — بتفضل معلّقة على
+                                                 اسمه لحد ما حد تاني ياخدها منه، مختلفة عن تاج IsBestOfWeek
+                                                 اللحظي فوق -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                <StackPanel.Style>
+                                                    <Style TargetType="StackPanel">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasCurrentWeeklyTitle}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding HasCurrentMonthlyTitle}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </StackPanel.Style>
+
+                                                <TextBlock Text="{Binding CurrentWeeklyTitleText}" FontSize="{DynamicResource FontMicro}"
+                                                           FontWeight="Medium" Foreground="{DynamicResource GoldDeepBrush}"
+                                                           Visibility="{Binding HasCurrentWeeklyTitle, Converter={StaticResource BoolToVis}}" />
+                                                <TextBlock Text="{Binding CurrentMonthlyTitleText}" FontSize="{DynamicResource FontMicro}"
+                                                           FontWeight="Medium" Foreground="{DynamicResource GoldDeepBrush}"
+                                                           Margin="10,0,0,0"
+                                                           Visibility="{Binding HasCurrentMonthlyTitle, Converter={StaticResource BoolToVis}}" />
                                             </StackPanel>
                                         </StackPanel>
 
@@ -838,7 +893,11 @@
                                                 Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
                                             <Border.Style>
                                                 <Style TargetType="Border">
-                                                    <Setter Property="Background" Value="White" />
+                                                    <!-- كانت White ثابتة — كارت المنتج بيبقى أبيض مهما كان
+                                                         الثيم، والنص جواه (InkBrush) اللي بيتفتح مع الثيم
+                                                         بيتكسف عليه في الأسود. CardBgBrush هي نفس سطح أي
+                                                         كارت تاني في البرنامج. -->
+                                                    <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
                                                     <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
                                                     <Style.Triggers>
                                                         <!-- منتج مالوش فيه ولا مهارة (بيبان في وضع الإضافة بس) -->
@@ -997,7 +1056,11 @@
                                                                             <Setter Property="Background" Value="Transparent" />
                                                                             <Style.Triggers>
                                                                                 <DataTrigger Binding="{Binding IsKnown}" Value="True">
-                                                                                    <Setter Property="Background" Value="White" />
+                                                                                    <!-- كانت White ثابتة: في الثيم الأسود كده اللون
+                                                                                         الفاتح فوق أبيض ثابت بيختفي تمامًا. GoldTintBrush
+                                                                                         سطح فاتح في الفاتح وغامق دافي في الأسود، فبيفضل
+                                                                                         يعمل كنترست صح مع InkBrush في الحالتين -->
+                                                                                    <Setter Property="Background" Value="{DynamicResource GoldTintBrush}" />
                                                                                 </DataTrigger>
                                                                             </Style.Triggers>
                                                                         </Style>
@@ -1034,7 +1097,11 @@
                                                                             </materialDesign:PackIcon>
                                                                         </Button>
 
-                                                                        <!-- رقم المرحلة في الخط -->
+                                                                        <!-- رقم المرحلة في الخط.
+                                                                             كانت InkBrush (بتتقلب مع الثيم) كخلفية مع
+                                                                             SidebarInkBrush (فاتحة في الثيمين) كنص — نفس
+                                                                             باغ دائرة ترتيب المرحلة في شاشة المنتجات:
+                                                                             في الأسود الاتنين بيبقوا فاتحين فالرقم بيختفي. -->
                                                                         <Border DockPanel.Dock="Right" Width="21" Height="21" CornerRadius="10.5"
                                                                                 VerticalAlignment="Center" Margin="0,0,7,0">
                                                                             <Border.Style>
@@ -1042,14 +1109,24 @@
                                                                                     <Setter Property="Background" Value="{DynamicResource LineBrush}" />
                                                                                     <Style.Triggers>
                                                                                         <DataTrigger Binding="{Binding IsKnown}" Value="True">
-                                                                                            <Setter Property="Background" Value="{DynamicResource InkBrush}" />
+                                                                                            <Setter Property="Background" Value="{DynamicResource GoldBrush}" />
                                                                                         </DataTrigger>
                                                                                     </Style.Triggers>
                                                                                 </Style>
                                                                             </Border.Style>
                                                                             <TextBlock Text="{Binding Position}" FontSize="10.5" FontWeight="Bold"
-                                                                                       Foreground="{DynamicResource SidebarInkBrush}" HorizontalAlignment="Center"
-                                                                                       VerticalAlignment="Center" />
+                                                                                       HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Foreground" Value="{DynamicResource SidebarInkBrush}" />
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsKnown}" Value="True">
+                                                                                                <Setter Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
                                                                         </Border>
 
                                                                         <!-- ===== تقييم المدير بالنجوم ===== -->
