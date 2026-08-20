@@ -86,5 +86,61 @@ namespace WorkforceManager.Tests
             Assert.NotNull(result);
             Assert.Equal(5000m, result!.TrailingAverage);
         }
+
+        // ======================= EvaluateAverage (لجدول متوسط إنتاج العمال) =======================
+
+        [Fact]
+        public void EvaluateAverage_WithEnoughHistoryAndNormalToday_HasNoAlert()
+        {
+            var records = DaysBefore(5000, 5000, 5000, 5000, 5000, 5000, 5000);
+            records.Add(new DailyProduction { Date = Today, PieceCount = 4900 }); // 98%
+
+            var result = ProductionTrendService.EvaluateAverage(1, "أحمد", records, Today);
+
+            Assert.True(result.HasEnoughHistory);
+            Assert.Equal(5000m, result.TrailingAverage);
+            Assert.False(result.IsBelowToday);
+        }
+
+        [Fact]
+        public void EvaluateAverage_WithEnoughHistoryAndLowToday_IsBelowToday()
+        {
+            var records = DaysBefore(5000, 5000, 5000, 5000, 5000, 5000, 5000);
+            records.Add(new DailyProduction { Date = Today, PieceCount = 3500 }); // 70%
+
+            var result = ProductionTrendService.EvaluateAverage(1, "أحمد", records, Today);
+
+            Assert.True(result.HasEnoughHistory);
+            Assert.True(result.IsBelowToday);
+        }
+
+        [Fact]
+        public void EvaluateAverage_WithEnoughHistoryButNoProductionToday_StillReportsTheAverage()
+        {
+            // غياب النهارده — لسه يظهر بمتوسطه، بس بلا حالة/تنبيه (بعكس
+            // Evaluate اللي بترجع null تمامًا في الحالة دي)
+            var records = DaysBefore(5000, 5000, 5000, 5000, 5000, 5000, 5000);
+
+            var result = ProductionTrendService.EvaluateAverage(1, "أحمد", records, Today);
+
+            Assert.True(result.HasEnoughHistory);
+            Assert.Equal(5000m, result.TrailingAverage);
+            Assert.Null(result.TodayPieces);
+            Assert.Null(result.PercentOfAverage);
+            Assert.False(result.IsBelowToday); // مفيش نسبة أصلًا يتحسب عليها تنبيه
+            Assert.Equal("", result.StatusText);
+        }
+
+        [Fact]
+        public void EvaluateAverage_WithFewerThanSevenPriorDays_HasNoEnoughHistory()
+        {
+            var records = DaysBefore(5000, 5000, 5000);
+            records.Add(new DailyProduction { Date = Today, PieceCount = 100 });
+
+            var result = ProductionTrendService.EvaluateAverage(1, "أحمد", records, Today);
+
+            Assert.False(result.HasEnoughHistory);
+            Assert.Null(result.TrailingAverage);
+        }
     }
 }

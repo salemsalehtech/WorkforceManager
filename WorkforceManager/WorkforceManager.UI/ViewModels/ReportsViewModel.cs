@@ -38,6 +38,7 @@ namespace WorkforceManager.UI.ViewModels
         {
             await LoadOutputAsync();
             await LoadChartAsync();
+            await LoadWorkerAveragesAsync();
         }
 
         // ======================= تبويب إنتاج اليوم =======================
@@ -47,7 +48,35 @@ namespace WorkforceManager.UI.ViewModels
 
         partial void OnOutputDateChanged(DateTime value) => SafeAsync.Run(LoadOutputAsync);
 
-        /// <summary>منتجات فيها حركة في اليوم ده (خلص منها أو دخل الخط)</summary>
+        /// <summary>يوم/أسبوع/شهر — أي فترة يعرضها التبويب حاليًا. الأسبوع والشهر بيتحددوا من OutputDate (أي يوم جواهم)</summary>
+        [ObservableProperty]
+        private ChartGrain _outputGrain = ChartGrain.Day;
+
+        partial void OnOutputGrainChanged(ChartGrain value)
+        {
+            OnPropertyChanged(nameof(IsOutputGrainDay));
+            OnPropertyChanged(nameof(IsOutputGrainWeek));
+            OnPropertyChanged(nameof(IsOutputGrainMonth));
+            SafeAsync.Run(LoadOutputAsync);
+        }
+
+        public bool IsOutputGrainDay => OutputGrain == ChartGrain.Day;
+        public bool IsOutputGrainWeek => OutputGrain == ChartGrain.Week;
+        public bool IsOutputGrainMonth => OutputGrain == ChartGrain.Month;
+
+        [RelayCommand]
+        private void SetOutputGrain(string? key) => OutputGrain = key switch
+        {
+            "week" => ChartGrain.Week,
+            "month" => ChartGrain.Month,
+            _ => ChartGrain.Day
+        };
+
+        /// <summary>وصف الفترة المعروضة ("الأسبوع من 17/08 إلى 23/08" أو "شهر 08/2026") — فاضي في وضع اليوم</summary>
+        [ObservableProperty]
+        private string _outputPeriodLabel = "";
+
+        /// <summary>منتجات فيها حركة في الفترة المعروضة (خلص منها أو دخل الخط)</summary>
         public ObservableCollection<DailyProductReportDto> OutputProducts { get; } = new();
 
         [ObservableProperty]
@@ -80,9 +109,9 @@ namespace WorkforceManager.UI.ViewModels
         private bool _hasDecliningWorkers;
 
         /// <summary>
-        /// تقرير إنتاج اليوم: كام قطعة خلصت آخر مرحلة (= منتج تام)، وكام
-        /// قطعة دخلت أول مرحلة، وكام هالك اتسجّل. الأرقام محسوبة من
-        /// السجلات نفسها.
+        /// تقرير الإنتاج للفترة المعروضة (يوم/أسبوع/شهر حسب OutputGrain):
+        /// كام قطعة خلصت آخر مرحلة (= منتج تام)، وكام قطعة دخلت أول
+        /// مرحلة، وكام هالك اتسجّل. الأرقام محسوبة من السجلات نفسها.
         /// </summary>
         private async Task LoadOutputAsync()
         {
@@ -91,10 +120,37 @@ namespace WorkforceManager.UI.ViewModels
             var scrapService = scope.ServiceProvider.GetRequiredService<ScrapService>();
             var trendService = scope.ServiceProvider.GetRequiredService<ProductionTrendService>();
 
-            var report = await service.GetAsync(OutputDate);
-            var scrap = await scrapService.GetByDateAsync(OutputDate);
+            DailyProductionReportDto report;
+            IReadOnlyList<ScrapRecordDto> scrap;
 
-            var declining = await trendService.GetDecliningWorkersAsync(OutputDate);
+            switch (OutputGrain)
+            {
+                case ChartGrain.Week:
+                    var (weekStart, weekEnd) = WeeklySummaryService.GetWorkWeekRange(OutputDate);
+                    report = await service.GetForRangeAsync(weekStart, weekEnd);
+                    scrap = await scrapService.GetByRangeAsync(weekStart, weekEnd);
+                    OutputPeriodLabel = $"الأسبوع من {weekStart:dd/MM} إلى {weekEnd:dd/MM}";
+                    break;
+
+                case ChartGrain.Month:
+                    var monthStart = new DateTime(OutputDate.Year, OutputDate.Month, 1);
+                    var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+                    report = await service.GetForRangeAsync(monthStart, monthEnd);
+                    scrap = await scrapService.GetByRangeAsync(monthStart, monthEnd);
+                    OutputPeriodLabel = $"شهر {monthStart:MM/yyyy}";
+                    break;
+
+                default:
+                    report = await service.GetAsync(OutputDate);
+                    scrap = await scrapService.GetByDateAsync(OutputDate);
+                    OutputPeriodLabel = "";
+                    break;
+            }
+
+            // قايمة "قلّ عن المعتاد" مفهومها "النهارده" دايمًا — مش
+            // بتتبع الفترة المعروضة هنا (تصفح أسبوع فات معناهاش نتنبه
+            // على تراجع في وقت غير النهارده)
+            var declining = await trendService.GetDecliningWorkersAsync(DateTime.Today);
             DecliningWorkers.Clear();
             foreach (var worker in declining) DecliningWorkers.Add(worker);
             HasDecliningWorkers = DecliningWorkers.Count > 0;
@@ -648,6 +704,52 @@ namespace WorkforceManager.UI.ViewModels
             ChartGrain.Week => $"أسبوع {start:dd/MM} → {end:dd/MM}",
             _ => $"شهر {start:MM/yyyy}"
         };
+
+        // ======================= تبويب متوسط إنتاج العمال =======================
+
+        /// <summary>كل عامل عنده تاريخ إنتاج كافي (7 أيام شغل فعلية) ومتوسطه اليومي — مرتبين حسب SortDescending</summary>
+        public ObservableCollection<WorkerProductionAverageDto> WorkerAverages { get; } = new();
+
+        [ObservableProperty]
+        private bool _hasWorkerAverages;
+
+        /// <summary>الأعلى إنتاجًا فوق (true، الافتراضي) أو الأقل فوق (false)</summary>
+        [ObservableProperty]
+        private bool _sortDescending = true;
+
+        private List<WorkerProductionAverageDto> _allWorkerAverages = new();
+
+        [RelayCommand]
+        private void ToggleSort()
+        {
+            SortDescending = !SortDescending;
+            ApplyWorkerAveragesSort();
+        }
+
+        private void ApplyWorkerAveragesSort()
+        {
+            var sorted = SortDescending
+                ? _allWorkerAverages.OrderByDescending(w => w.TrailingAverage).ToList()
+                : _allWorkerAverages.OrderBy(w => w.TrailingAverage).ToList();
+
+            WorkerAverages.Clear();
+            foreach (var worker in sorted) WorkerAverages.Add(worker);
+        }
+
+        /// <summary>
+        /// متوسط إنتاج كل عامل عنده تاريخ كافي — نفس خدمة تنبيه "إنتاج
+        /// اليوم" (ProductionTrendService) بس بترجّع كل العمال مش
+        /// المتراجعين بس، عشان جدول "متوسط إنتاج العمال" هنا.
+        /// </summary>
+        private async Task LoadWorkerAveragesAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var trendService = scope.ServiceProvider.GetRequiredService<ProductionTrendService>();
+
+            _allWorkerAverages = await trendService.GetAllWorkerAveragesAsync(DateTime.Today);
+            HasWorkerAverages = _allWorkerAverages.Count > 0;
+            ApplyWorkerAveragesSort();
+        }
     }
 
     public record GrainOption(ChartGrain Grain, string Display);

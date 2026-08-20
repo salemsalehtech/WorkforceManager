@@ -48,17 +48,39 @@ namespace WorkforceManager.Business.Services
             return result.OrderBy(d => d.PercentOfAverage).ToList();
         }
 
-        /// <summary>محسوبة لوحدها (بدون DB) عشان تتختبر مباشرة من غير سيناريو أسبوعين كاملين</summary>
-        public static ProductionDeclineDto? Evaluate(
+        /// <summary>
+        /// متوسط إنتاج كل عامل عنده تاريخ كافي (7 أيام شغل فعلية على
+        /// الأقل)، مرتبين تنازليًا بالمتوسط — لجدول "متوسط إنتاج العمال"
+        /// الكامل، بعكس GetDecliningWorkersAsync اللي بترجّع المتراجعين بس.
+        /// </summary>
+        public async Task<List<WorkerProductionAverageDto>> GetAllWorkerAveragesAsync(DateTime asOf)
+        {
+            var today = asOf.Date;
+            var from = today.AddDays(-LookbackDays);
+            var records = await _productionRepo.GetByRangeAsync(from, today);
+
+            var result = records
+                .ToLookup(r => r.WorkerId)
+                .Select(group => EvaluateAverage(group.Key, group.First().Worker.FullName, group.ToList(), today))
+                .Where(dto => dto.HasEnoughHistory)
+                .OrderByDescending(dto => dto.TrailingAverage)
+                .ToList();
+
+            return result;
+        }
+
+        /// <summary>
+        /// متوسط عامل واحد من سجلاته — دالة نقية (بدون DB) بتحسب المتوسط
+        /// والنسبة لليوم المُعطى، من غير أي شرط "لازم يبقى فيه إنتاج
+        /// النهارده" (بعكس Evaluate اللي بتشترط ده). المصدر الوحيد لحساب
+        /// المتوسط — Evaluate بتستخدمها بدل ما تكرر نفس المنطق.
+        /// </summary>
+        public static WorkerProductionAverageDto EvaluateAverage(
             int workerId, string workerName, IReadOnlyList<DailyProduction> records, DateTime today)
         {
             var pieceCountByDay = records
                 .GroupBy(r => r.Date.Date)
                 .ToDictionary(g => g.Key, g => g.Sum(r => r.PieceCount));
-
-            // مفيش إنتاج النهارده خالص = غياب، مش "تراجع" — شاشة الحضور بتمسك دي
-            var todayPieces = pieceCountByDay.GetValueOrDefault(today, 0);
-            if (todayPieces == 0) return null;
 
             var priorDays = pieceCountByDay
                 .Where(kv => kv.Key < today)
@@ -67,22 +89,47 @@ namespace WorkforceManager.Business.Services
                 .Select(kv => (decimal)kv.Value)
                 .ToList();
 
+            decimal? average = priorDays.Count >= RequiredPriorDays && priorDays.Average() > 0
+                ? Math.Round(priorDays.Average(), 0)
+                : null;
+
+            int? todayPieces = pieceCountByDay.TryGetValue(today, out var pieces) ? pieces : null;
+
+            decimal? percentOfAverage = average is not null && todayPieces is not null
+                ? Math.Round(todayPieces.Value / average.Value, 2)
+                : null;
+
+            return new WorkerProductionAverageDto
+            {
+                WorkerId = workerId,
+                WorkerName = workerName,
+                TrailingAverage = average,
+                TodayPieces = todayPieces,
+                PercentOfAverage = percentOfAverage
+            };
+        }
+
+        /// <summary>محسوبة لوحدها (بدون DB) عشان تتختبر مباشرة من غير سيناريو أسبوعين كاملين</summary>
+        public static ProductionDeclineDto? Evaluate(
+            int workerId, string workerName, IReadOnlyList<DailyProduction> records, DateTime today)
+        {
+            var avg = EvaluateAverage(workerId, workerName, records, today);
+
+            // مفيش إنتاج النهارده خالص = غياب، مش "تراجع" — شاشة الحضور بتمسك دي
+            if (avg.TodayPieces is null or 0) return null;
+
             // لسه مفيش تاريخ كفاية يتقاس عليه — بلاغ خطأ أسوأ من مفيش بلاغ
-            if (priorDays.Count < RequiredPriorDays) return null;
+            if (avg.TrailingAverage is null || avg.PercentOfAverage is null) return null;
 
-            var average = priorDays.Average();
-            if (average <= 0) return null;
-
-            var percentOfAverage = Math.Round(todayPieces / average, 2);
-            if (percentOfAverage >= DeclineThreshold) return null;
+            if (avg.PercentOfAverage >= DeclineThreshold) return null;
 
             return new ProductionDeclineDto
             {
                 WorkerId = workerId,
                 WorkerName = workerName,
-                TodayPieces = todayPieces,
-                TrailingAverage = Math.Round(average, 0),
-                PercentOfAverage = percentOfAverage
+                TodayPieces = avg.TodayPieces.Value,
+                TrailingAverage = avg.TrailingAverage.Value,
+                PercentOfAverage = avg.PercentOfAverage.Value
             };
         }
     }
