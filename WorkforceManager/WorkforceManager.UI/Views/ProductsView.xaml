@@ -713,9 +713,13 @@
                                                                        VerticalAlignment="Center"
                                                                        Foreground="{DynamicResource TextMutedBrush}" />
 
-                                                            <!-- عدد المؤهلين: بيتلون تحذير لو صفر -->
+                                                            <!-- عدد المؤهلين: بيتلون تحذير لو صفر. مش موجود خالص
+                                                                 لمرحلة الرص — التأهيل هناك بدور العامل (HourlyRole)
+                                                                 مش بربط مهارة، فـ"مفيش عمال مؤهلين" هنا معناها غلط:
+                                                                 عمال الرص فعلاً بيشتغلوا عليها بس بطريقة مختلفة -->
                                                             <materialDesign:PackIcon Kind="AccountGroupOutline" Width="13" Height="13"
-                                                                                    VerticalAlignment="Center">
+                                                                                    VerticalAlignment="Center"
+                                                                                    Visibility="{Binding IsRackingStage, Converter={StaticResource InverseBoolToVis}}">
                                                                 <materialDesign:PackIcon.Style>
                                                                     <Style TargetType="materialDesign:PackIcon">
                                                                         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
@@ -728,7 +732,8 @@
                                                                 </materialDesign:PackIcon.Style>
                                                             </materialDesign:PackIcon>
                                                             <TextBlock Text="{Binding WorkersText}" FontSize="11.5" Margin="4,0,0,0"
-                                                                       VerticalAlignment="Center">
+                                                                       VerticalAlignment="Center"
+                                                                       Visibility="{Binding IsRackingStage, Converter={StaticResource InverseBoolToVis}}">
                                                                 <TextBlock.Style>
                                                                     <Style TargetType="TextBlock">
                                                                         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
@@ -756,10 +761,14 @@
 
                                                     <!-- مين مؤهل / تعديل / إيقاف -->
                                                     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <!-- بيفتح قايمة المؤهلين بتقييماتهم — نفس ترتيب شاشة التسجيل -->
+                                                        <!-- بيفتح قايمة المؤهلين بتقييماتهم — نفس ترتيب شاشة التسجيل.
+                                                             مش موجود لمرحلة الرص: التأهيل هناك بدور العامل مش بربط
+                                                             مهارة، فالقايمة هتفضل فاضية دايمًا برغم إن عمال الرص
+                                                             فعلاً بيشتغلوا عليها -->
                                                         <Button Margin="0,0,4,0"
                                                                 Style="{StaticResource IconButton}"
                                                                 ToolTip="مين يعرف يعمل المرحلة دي؟"
+                                                                Visibility="{Binding IsRackingStage, Converter={StaticResource InverseBoolToVis}}"
                                                                 Command="{Binding DataContext.ShowQualifiedWorkersCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}">
                                                             <materialDesign:PackIcon Kind="AccountSearchOutline" Width="15" Height="15" />
