@@ -32,6 +32,9 @@ namespace WorkforceManager.Business.DTOs
         /// <summary>النجوم كنص للعرض ("★★★★☆")</summary>
         public string StarsText => RtlSafeText.Stars(Stars);
 
+        /// <summary>نسبة تقييم النجوم = (النجوم ÷ 5) × 100 — موجودة دايمًا، من رأي المدير مباشرة</summary>
+        public string StarsPercentText => $"{Math.Round(Stars / 5m * 100m):0}%";
+
         /// <summary>فيه قياس فعلي ولا لسه؟</summary>
         public bool HasMeasurement => MeasuredAt is not null && MeasuredDays > 0;
 

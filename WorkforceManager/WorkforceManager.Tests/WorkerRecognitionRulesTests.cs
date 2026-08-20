@@ -88,5 +88,48 @@ namespace WorkforceManager.Tests
 
             Assert.Empty(ranked);
         }
+
+        /// <summary>
+        /// الباج الحقيقي اللي حصل مع عامل رص بيتحاسب بالساعة: يومياته
+        /// (HourlyWorkdays) بتدخل في ProducedWorkdays فبيعدّي شرط "أنتج
+        /// وصافيه موجب" من غير ما يكون منتج قطعة واحدة، وفي أسبوع لسه
+        /// أوله (زي الاسكرين شوت) بيبقى الوحيد اللي "أنتج" على الورق —
+        /// المفروض يستبعد خالص، مش يفوز افتراضيًا.
+        /// </summary>
+        [Fact]
+        public void HourlyWorkers_AreExcludedFromRanking_EvenIfTheyLookLikeTheOnlyEligibleOne()
+        {
+            var hourlyWorker = new WorkerWeeklySummaryDto
+            {
+                WorkerId = 1, WorkerName = "عامل رص", IsHourly = true, ProducedWorkdays = 1.0m
+            };
+            var pieceRateWorkerNotYetProducing = new WorkerWeeklySummaryDto
+            {
+                WorkerId = 2, WorkerName = "عامل قطعة", ProducedWorkdays = 0
+            };
+
+            var ranked = WorkerRecognitionRules.Rank(
+                new[] { hourlyWorker, pieceRateWorkerNotYetProducing }, NormalDifficulty);
+
+            Assert.Empty(ranked); // مفيش أي عامل مؤهل فعليًا للمقارنة الأسبوع ده لسه
+        }
+
+        [Fact]
+        public void Explain_FinalScoreMatchesRecognitionScore_AndReturnsTheCorrectBreakdown()
+        {
+            // مرحلتين مختلفتين = معامل تنوّع ×0.95
+            var summary = Summary(1, "أحمد", Stage(10, 4m), Stage(11, 2m));
+            var difficulty = new Dictionary<int, decimal> { [10] = 1.5m, [11] = 1.0m };
+
+            var breakdown = WorkerRecognitionRules.Explain(summary, difficulty);
+            var score = WorkerRecognitionRules.RecognitionScore(summary, difficulty);
+
+            // AdjustedWorkdays = (4 × 1.5) + (2 × 1.0) = 8.0
+            Assert.Equal(8.0m, breakdown.AdjustedWorkdays);
+            Assert.Equal(2, breakdown.DistinctStageCount);
+            Assert.Equal(0.95m, breakdown.DiversityFactor);
+            Assert.Equal(8.0m * 0.95m, breakdown.FinalScore);
+            Assert.Equal(breakdown.FinalScore, score); // مفيش انحراف بين الدالتين
+        }
     }
 }

@@ -89,7 +89,7 @@ namespace WorkforceManager.UI.Views
         public string WorkerName => _worker.WorkerName;
         public string StarsText => _worker.StarsText;
         public string StarsLabel => SkillRatingService.StarsLabel(_worker.Stars);
-        public string MeasuredText => _worker.MeasuredTooltip;
+        public string StarsPercentText => _worker.StarsPercentText;
 
         public string Initials => NameInitials.From(WorkerName);
     }

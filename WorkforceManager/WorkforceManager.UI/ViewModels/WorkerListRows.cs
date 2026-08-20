@@ -80,14 +80,12 @@ namespace WorkforceManager.UI.ViewModels
         public bool HasTopSkill => TopSkillProduct.Length > 0;
 
         /// <summary>
-        /// متوسط MeasuredRatio (إنتاج فعلي ÷ يومية المرحلة) على مهاراته
-        /// **المقاسة فعلًا** بس (null = مفيش مهارة اتقاست لسه) — نسبة %
-        /// واحدة تلخّص أداءه، مختلفة عن AverageStars (رأي المدير).
+        /// نسبة % تلخّص تقييم العامل بالنجوم = (متوسط النجوم ÷ 5) × 100.
+        /// من رأي المدير (AverageStars) مباشرة — مش من إنتاج فعلي، فبتظهر
+        /// لأي عامل عنده مهارة، مش بس اللي "اتقاسوا" من الإنتاج.
         /// </summary>
-        public decimal? AverageMeasuredRatio { get; init; }
-
-        public bool HasMeasuredSkills => AverageMeasuredRatio is not null;
-        public string MeasuredText => AverageMeasuredRatio is null ? "" : $"{AverageMeasuredRatio * 100:0}%";
+        public bool HasStarsPercent => AverageStars > 0;
+        public string StarsPercentText => HasStarsPercent ? $"{Math.Round(AverageStars / 5m * 100m):0}%" : "";
 
         // ------- ألقاب "أحسن عامل" الرسمية (تفضل ثابتة لحد ما حد ياخدها) -------
 
@@ -168,6 +166,22 @@ namespace WorkforceManager.UI.ViewModels
             (false, true) => "مفيش مهارات — مش هيظهر في رحلات الإنتاج",
             _ => ""
         };
+    }
+
+    /// <summary>
+    /// بطاقة فايز واحد في كارت "أحسن 3 عمال الأسبوع" — بيانات عرض بس
+    /// (صورة/اسم/ترتيبه)، مبنية من WorkerWeeklySummaryDto لأسبوع معيّن +
+    /// صورة العامل من WorkerRow المحمّلة أصلًا (الصورة ثابتة مش بتتغيّر
+    /// بالأسبوع، فمحتاجناش نجيبها تاني عند تصفح أسبوع فات).
+    /// </summary>
+    public class BestWorkerCardRow
+    {
+        public int WorkerId { get; init; }
+        public string FullName { get; init; } = "";
+        public byte[]? PhotoData { get; init; }
+        public int Rank { get; init; }
+
+        public string Initials => NameInitials.From(FullName);
     }
 
     /// <summary>تفاصيل العامل المعروضة في اللوحة الجانبية (البروفايل)</summary>

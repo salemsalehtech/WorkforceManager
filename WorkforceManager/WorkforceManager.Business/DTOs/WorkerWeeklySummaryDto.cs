@@ -79,8 +79,15 @@ namespace WorkforceManager.Business.DTOs
         /// <summary>أجر الأسبوع بالجنيه = صافي اليوميات × سعر اليومية</summary>
         public decimal NetWageEgp => NetWorkdays * DailyWageEgp;
 
-        /// <summary>هل هذا العامل هو أحسن عامل في الأسبوع؟ (أعلى صافي يوميات)</summary>
+        /// <summary>هل هذا العامل من ضمن أحسن 3 عمال في الأسبوع؟ (WorkerRecognitionRules.Rank)</summary>
         public bool IsBestWorkerOfWeek { get; set; }
+
+        /// <summary>
+        /// ترتيبه الفعلي بين الفايزين (1/2/3) — null لغير الفايزين. غير
+        /// مخزّن في قاعدة البيانات، بيتحط وقت العرض بس عشان الكارت يعرف
+        /// مين الأول فعليًا حسب درجة الترتيب مش حسب ترتيبه في القايمة.
+        /// </summary>
+        public int? RecognitionRank { get; set; }
     }
 
     /// <summary>سطر جزاء واحد داخل الملخص الأسبوعي (للعرض في التقرير)</summary>

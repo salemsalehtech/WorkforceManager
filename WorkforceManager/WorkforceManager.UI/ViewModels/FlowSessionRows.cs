@@ -22,8 +22,6 @@ namespace WorkforceManager.UI.ViewModels
         int WorkerId,
         string Name,
         int Stars = SkillRatingService.DefaultStars,
-        decimal MeasuredRatio = 1.0m,
-        int MeasuredDays = 0,
         bool IsTagOnly = false,
         string TagLabel = "")
     {
@@ -32,20 +30,11 @@ namespace WorkforceManager.UI.ViewModels
 
         public bool HasTagLabel => TagLabel.Length > 0;
 
-        /// <summary>فيه قياس أداء فعلي ولا لسه؟</summary>
-        public bool HasMeasurement => MeasuredDays > 0;
+        /// <summary>نسبة تقييم النجوم = (النجوم ÷ 5) × 100 — موجودة دايمًا، من رأي المدير مباشرة</summary>
+        public string StarsPercentText => $"{Math.Round(Stars / 5m * 100m):0}%";
 
-        /// <summary>الأداء المقاس كنسبة ("115%")</summary>
-        public string MeasuredText => HasMeasurement ? $"{MeasuredRatio * 100:0}%" : "";
-
-        /// <summary>
-        /// شرح التقييم: تقييم المدير + الأداء المقاس لو موجود.
-        /// المستخدم لازم يعرف الرقم ده رأي مين قبل ما يبني عليه قرار.
-        /// </summary>
-        public string RatingTooltip => MeasuredDays > 0
-            ? $"تقييمك: {SkillRatingService.StarsLabel(Stars)} ({Stars}/5) — " +
-              $"إنتاجه الفعلي {MeasuredRatio * 100:0}% من الكوتة على مدار {MeasuredDays} يوم"
-            : $"تقييمك: {SkillRatingService.StarsLabel(Stars)} ({Stars}/5) — لسه مافيش إنتاج كفاية للقياس";
+        /// <summary>شرح التقييم للمستخدم قبل ما يبني عليه قرار اختيار</summary>
+        public string RatingTooltip => $"تقييمك: {SkillRatingService.StarsLabel(Stars)} ({Stars}/5) — {StarsPercentText}";
 
         /// <summary>4 نجوم أو أكتر (بيتلوّن أخضر في القايمة)</summary>
         public bool IsTopRated => Stars >= 4;

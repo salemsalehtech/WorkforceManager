@@ -388,6 +388,7 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(StarsLabel));
             OnPropertyChanged(nameof(RatingTooltip));
             OnPropertyChanged(nameof(HasGapWithReality));
+            OnPropertyChanged(nameof(StarsPercentText));
             RefreshStarFlags();
         }
 
@@ -399,6 +400,9 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>الأداء المقاس كنسبة ("115%")</summary>
         public string MeasuredText => HasMeasurement ? $"{MeasuredRatio * 100:0}%" : "";
+
+        /// <summary>نسبة تقييم النجوم = (النجوم ÷ 5) × 100 — موجودة دايمًا، من رأي المدير مباشرة</summary>
+        public string StarsPercentText => $"{Math.Round(Stars / 5m * 100m):0}%";
 
         /// <summary>
         /// تقييم المدير بعيد عن الأداء الفعلي — بيتعلّم عشان يراجعه.

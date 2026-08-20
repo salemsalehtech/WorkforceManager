@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Models;
@@ -129,6 +130,41 @@ namespace WorkforceManager.Tests
 
             var winner = Assert.Single(holders);
             Assert.Equal(TestDatabase.WorkerSaidId, winner.WorkerId); // الأسبوع الأحدث بس
+        }
+
+        [Fact]
+        public async Task GetWeeklyExplanationAsync_ReturnsTheCorrectRankAndBreakdown()
+        {
+            var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);
+
+            // 500 قطعة ÷ يومية 10 = 50 يومية، 300 ÷ 10 = 30 يومية — مرحلتين
+            // مختلفتين فمعامل التنوّع ×0.95، ومعامل الصعوبة الافتراضي 1.0
+            await RecordAsync(TestDatabase.RingStage1Id, 500, TestDatabase.WorkerAhmedId, weekStart);
+            await RecordAsync(TestDatabase.RingStage2Id, 300, TestDatabase.WorkerAhmedId, weekStart);
+
+            var explanation = await _db.InScopeAsync<WorkerRecognitionService, WorkerRecognitionExplanationDto?>(
+                service => service.GetWeeklyExplanationAsync(TestDatabase.WorkerAhmedId, weekStart));
+
+            Assert.NotNull(explanation);
+            Assert.Equal(1, explanation!.Rank);
+            Assert.Equal(1, explanation.EligibleWorkerCount); // هو الوحيد اللي أنتج الأسبوع ده
+            Assert.Equal(2, explanation.Breakdown.Count);
+            Assert.Equal(2, explanation.DistinctStageCount);
+            Assert.Equal(0.95m, explanation.DiversityFactor);
+            Assert.Equal(80m, explanation.AdjustedWorkdays); // (50 × 1.0) + (30 × 1.0)
+            Assert.Equal(80m * 0.95m, explanation.FinalScore);
+        }
+
+        [Fact]
+        public async Task GetWeeklyExplanationAsync_ReturnsNull_ForAWorkerNotEligibleThatWeek()
+        {
+            var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);
+
+            // سعيد مالوش أي إنتاج مسجّل الأسبوع ده خالص
+            var explanation = await _db.InScopeAsync<WorkerRecognitionService, WorkerRecognitionExplanationDto?>(
+                service => service.GetWeeklyExplanationAsync(TestDatabase.WorkerSaidId, weekStart));
+
+            Assert.Null(explanation);
         }
     }
 }

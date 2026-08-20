@@ -196,12 +196,7 @@ namespace WorkforceManager.UI.ViewModels
                         QualifiedWorkers = stage.IsRackingStage
                             ? rackingWorkers
                             : SkillRatingService.Rank(skillsByStage[stage.StageId])
-                                .Select(ws => new WorkerPick(
-                                    ws.WorkerId,
-                                    ws.Worker.FullName,
-                                    ws.Stars,
-                                    ws.MeasuredRatio,
-                                    ws.MeasuredDays))
+                                .Select(ws => new WorkerPick(ws.WorkerId, ws.Worker.FullName, ws.Stars))
                                 .Concat(trainees)
                                 .ToList(),
                         AlreadyText = already > 0 ? $"مسجل اليوم: {already}" : ""

@@ -34,11 +34,53 @@ namespace WorkforceManager.Business.Services
             _titles = titles;
         }
 
-        /// <summary>أحسن 3 عمال في الأسبوع اللي بيقع فيه التاريخ المُعطى (نفس ترتيب الشاشة الحيّة)</summary>
+        /// <summary>أحسن 3 عمال في الأسبوع اللي بيقع فيه التاريخ المُعطى، بترتيبهم الحقيقي 1/2/3</summary>
         public async Task<List<WorkerWeeklySummaryDto>> ComputeWeeklyTopAsync(DateTime weekStart)
         {
             var team = await _weekly.GetTeamWeeklySummaryAsync(weekStart);
-            return team.Where(s => s.IsBestWorkerOfWeek).ToList();
+            return team.Where(s => s.IsBestWorkerOfWeek).OrderBy(s => s.RecognitionRank).ToList();
+        }
+
+        /// <summary>
+        /// شرح كامل لسبب ترتيب عامل معيّن في أسبوع معيّن — أساس نافذة "ليه
+        /// فاز؟". بيرجّع null لو العامل مش من ضمن المؤهلين للمقارنة أصلًا
+        /// هذا الأسبوع (عامل ساعة، أو مفيش إنتاج/صافي غير موجب) — مش بس
+        /// لغير الفايزين بالتلاتة، عشان لو الشاشة احتاجت تشرح ترتيب عامل
+        /// مش من ضمن التلاتة الأولى تقدر كمان.
+        /// </summary>
+        public async Task<WorkerRecognitionExplanationDto?> GetWeeklyExplanationAsync(int workerId, DateTime anyDateInWeek)
+        {
+            var team = await _weekly.GetTeamWeeklySummaryAsync(anyDateInWeek);
+            var difficultyByStageId = await _weekly.LoadDifficultyByStageIdAsync();
+            var eligible = WorkerRecognitionRules.Rank(team, difficultyByStageId);
+
+            var rankIndex = eligible.FindIndex(s => s.WorkerId == workerId);
+            if (rankIndex < 0) return null;
+
+            var summary = eligible[rankIndex];
+            var breakdown = WorkerRecognitionRules.Explain(summary, difficultyByStageId);
+
+            return new WorkerRecognitionExplanationDto
+            {
+                WorkerId = summary.WorkerId,
+                WorkerName = summary.WorkerName,
+                WeekStart = summary.WeekStart,
+                WeekEnd = summary.WeekEnd,
+                Rank = rankIndex + 1,
+                EligibleWorkerCount = eligible.Count,
+                TotalPieces = summary.TotalPieces,
+                Breakdown = summary.Breakdown,
+                DistinctStageCount = breakdown.DistinctStageCount,
+                DiversityFactor = breakdown.DiversityFactor,
+                AdjustedWorkdays = breakdown.AdjustedWorkdays,
+                PresentDays = summary.PresentDays,
+                AbsentWithPermissionDays = summary.AbsentWithPermissionDays,
+                AbsentWithoutPermissionDays = summary.AbsentWithoutPermissionDays,
+                AbsenceDeduction = summary.AbsenceDeduction,
+                Penalties = summary.Penalties,
+                PenaltyDeduction = summary.PenaltyDeduction,
+                FinalScore = breakdown.FinalScore
+            };
         }
 
         /// <summary>أحسن عامل واحد في الشهر اللي بيقع فيه التاريخ المُعطى</summary>

@@ -213,10 +213,16 @@ namespace WorkforceManager.Business.Services
             var ordered = summaries.OrderByDescending(s => s.NetWorkdays).ToList();
 
             // أحسن 3: مش بصافي اليوميات الخام، بترتيب WorkerRecognitionRules
-            // (تنوّع المراحل + معامل صعوبتها الحي) — نفس شرط الأهلية القديم
-            // (أنتج فعلًا وصافيه موجب) لسه موجود جوّه Rank نفسها
-            foreach (var winner in WorkerRecognitionRules.Rank(summaries, difficultyByStageId).Take(3))
-                winner.IsBestWorkerOfWeek = true;
+            // (تنوّع المراحل + معامل صعوبتها الحي) — شرط الأهلية (عامل
+            // الساعة برة المقارنة، أنتج فعلًا وصافيه موجب) موجود جوّه Rank
+            // نفسها. RecognitionRank بيحفظ ترتيبهم الحقيقي 1/2/3 عشان
+            // الكارت يعرف مين الأول فعليًا، مش أول واحد يظهر في القايمة
+            var ranked = WorkerRecognitionRules.Rank(summaries, difficultyByStageId).Take(3).ToList();
+            for (var i = 0; i < ranked.Count; i++)
+            {
+                ranked[i].IsBestWorkerOfWeek = true;
+                ranked[i].RecognitionRank = i + 1;
+            }
 
             return ordered;
         }

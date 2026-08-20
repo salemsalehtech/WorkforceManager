@@ -301,47 +301,153 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- ═══ كارت أحسن عامل ═══
+                <!-- ═══ كارت أحسن 3 عمال الأسبوع ═══
                      الكارت الوحيد اللي بياخد الدهبي كخلفية في الشاشة —
-                     عشان كده بيبان من غير ما يبقى أكبر من غيره. -->
-                <Button Grid.Row="0" Command="{Binding OpenBestWorkerCommand}"
-                        Style="{StaticResource CardButton}" Margin="0,0,0,12"
-                        Visibility="{Binding HasBestWorker, Converter={StaticResource BoolToVis}}"
-                        ToolTip="اعرض بروفايله">
+                     عشان كده بيبان من غير ما يبقى أكبر من غيره. سهمين
+                     للتصفح بين الأسابيع، وكارت #1 أكبر من #2/#3. الدوسة
+                     على أي فايز بتفتح "ليه فاز؟" مش البروفايل مباشرة. -->
+                <Border Grid.Row="0" CornerRadius="{DynamicResource RadiusCard}" Padding="16,13"
+                        Margin="0,0,0,12" Background="{DynamicResource SidebarBrush}">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="20" ShadowDepth="3" Direction="270"
+                                          Opacity="0.16" Color="{DynamicResource ShadowColor}" />
+                    </Border.Effect>
 
-                    <Border CornerRadius="{DynamicResource RadiusCard}" Padding="16,13"
-                            Background="{DynamicResource SidebarBrush}">
-                        <Border.Effect>
-                            <DropShadowEffect BlurRadius="20" ShadowDepth="3" Direction="270"
-                                              Opacity="0.16" Color="{DynamicResource ShadowColor}" />
-                        </Border.Effect>
+                    <StackPanel>
+                        <!-- صف العنوان: أيقونة + عنوان + تسمية الأسبوع + سهمين -->
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                        <DockPanel>
-                            <views:WorkerAvatar DockPanel.Dock="Right" Diameter="46"
-                                                PhotoData="{Binding BestWorker.PhotoData}"
-                                                Initials="{Binding BestWorker.Initials}"
-                                                VerticalAlignment="Center" Margin="0,0,0,0" />
-
-                            <materialDesign:PackIcon DockPanel.Dock="Left" Kind="TrophyVariantOutline"
-                                                     Width="26" Height="26" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-
-                            <StackPanel VerticalAlignment="Center" Margin="14,0,14,0">
-                                <TextBlock Text="أحسن عامل الأسبوع"
-                                           FontSize="{DynamicResource FontTiny}" FontWeight="Bold"
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="TrophyVariantOutline"
+                                                         Width="22" Height="22" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource GoldBrush}" />
+                                <TextBlock Text="أحسن 3 عمال الأسبوع" VerticalAlignment="Center"
+                                           FontSize="{DynamicResource FontSmall}" FontWeight="Bold"
+                                           Margin="8,0,0,0"
                                            Foreground="{DynamicResource GoldBrush}" />
-                                <TextBlock Text="{Binding BestWorkerName}"
-                                           FontSize="{DynamicResource FontLarge}" FontWeight="Bold"
-                                           Margin="0,2,0,0"
-                                           Foreground="{DynamicResource SidebarInkBrush}" />
-                                <TextBlock Text="{Binding BestWorker.TopSkillProduct}"
-                                           FontSize="{DynamicResource FontTiny}" Margin="0,1,0,0"
-                                           Visibility="{Binding BestWorker.HasTopSkill, Converter={StaticResource BoolToVis}}"
-                                           Foreground="{DynamicResource SidebarInkSoftBrush}" />
                             </StackPanel>
-                        </DockPanel>
-                    </Border>
-                </Button>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button Command="{Binding PrevBestWorkerWeekCommand}"
+                                        Style="{StaticResource IconButton}" Padding="5,3"
+                                        Foreground="{DynamicResource SidebarInkBrush}"
+                                        ToolTip="الأسبوع اللي فات">
+                                    <materialDesign:PackIcon Kind="ChevronRight" Width="15" Height="15" />
+                                </Button>
+                                <TextBlock Text="{Binding BestWorkerWeekLabel}" VerticalAlignment="Center"
+                                           FontSize="{DynamicResource FontTiny}" Margin="4,0,4,0"
+                                           Foreground="{DynamicResource SidebarInkSoftBrush}" />
+                                <Button Command="{Binding NextBestWorkerWeekCommand}"
+                                        Style="{StaticResource IconButton}" Padding="5,3"
+                                        Foreground="{DynamicResource SidebarInkBrush}"
+                                        ToolTip="الأسبوع اللي بعده">
+                                    <materialDesign:PackIcon Kind="ChevronLeft" Width="15" Height="15" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- حالة مفيش فايزين (أسبوع قبل الميزة، أو مفيش إنتاج قطع أصلًا) -->
+                        <TextBlock Text="لا يوجد عمال مؤهلين للتقييم في هذا الأسبوع"
+                                   FontSize="{DynamicResource FontSmall}" HorizontalAlignment="Center"
+                                   Margin="0,6,0,4"
+                                   Visibility="{Binding HasBestWorkerCards, Converter={StaticResource InverseBoolToVis}}"
+                                   Foreground="{DynamicResource SidebarInkSoftBrush}" />
+
+                        <!-- صف الفايزين: #1 أكبر + #2/#3 أصغر جنبه -->
+                        <Grid Visibility="{Binding HasBestWorkerCards, Converter={StaticResource BoolToVis}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.3*" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- #1 -->
+                            <Button Grid.Column="0" Style="{StaticResource CardButton}"
+                                    Command="{Binding OpenRecognitionDetailCommand}"
+                                    CommandParameter="{Binding BestWorkerCard1}"
+                                    ToolTip="ليه فاز؟">
+                                <Border CornerRadius="{DynamicResource RadiusCard}" Padding="10,8">
+                                    <DockPanel>
+                                        <Border DockPanel.Dock="Left" Width="20" Height="20" CornerRadius="10"
+                                                Margin="0,0,8,0" Background="{DynamicResource GoldBrush}">
+                                            <TextBlock Text="{Binding BestWorkerCard1.Rank}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       FontSize="10.5" FontWeight="Bold"
+                                                       Foreground="{DynamicResource InkOnAccentBrush}" />
+                                        </Border>
+                                        <views:WorkerAvatar DockPanel.Dock="Left" Diameter="42"
+                                                            PhotoData="{Binding BestWorkerCard1.PhotoData}"
+                                                            Initials="{Binding BestWorkerCard1.Initials}"
+                                                            VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <TextBlock Text="{Binding BestWorkerCard1.FullName}" VerticalAlignment="Center"
+                                                   FontSize="{DynamicResource FontLarge}" FontWeight="Bold"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource SidebarInkBrush}" />
+                                    </DockPanel>
+                                </Border>
+                            </Button>
+
+                            <!-- #2 / #3 -->
+                            <StackPanel Grid.Column="2">
+                                <Button Style="{StaticResource CardButton}" Margin="0,0,0,7"
+                                        Command="{Binding OpenRecognitionDetailCommand}"
+                                        CommandParameter="{Binding BestWorkerCard2}"
+                                        Visibility="{Binding HasBestWorkerCard2, Converter={StaticResource BoolToVis}}"
+                                        ToolTip="ليه فاز؟">
+                                    <Border CornerRadius="{DynamicResource RadiusCard}" Padding="8,6">
+                                        <DockPanel>
+                                            <Border DockPanel.Dock="Left" Width="17" Height="17" CornerRadius="9"
+                                                    Margin="0,0,6,0" Background="{DynamicResource GoldBrush}">
+                                                <TextBlock Text="{Binding BestWorkerCard2.Rank}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontSize="9.5" FontWeight="Bold"
+                                                           Foreground="{DynamicResource InkOnAccentBrush}" />
+                                            </Border>
+                                            <views:WorkerAvatar DockPanel.Dock="Left" Diameter="28"
+                                                                PhotoData="{Binding BestWorkerCard2.PhotoData}"
+                                                                Initials="{Binding BestWorkerCard2.Initials}"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding BestWorkerCard2.FullName}" VerticalAlignment="Center"
+                                                       FontSize="{DynamicResource FontSmall}" FontWeight="Bold"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource SidebarInkBrush}" />
+                                        </DockPanel>
+                                    </Border>
+                                </Button>
+
+                                <Button Style="{StaticResource CardButton}"
+                                        Command="{Binding OpenRecognitionDetailCommand}"
+                                        CommandParameter="{Binding BestWorkerCard3}"
+                                        Visibility="{Binding HasBestWorkerCard3, Converter={StaticResource BoolToVis}}"
+                                        ToolTip="ليه فاز؟">
+                                    <Border CornerRadius="{DynamicResource RadiusCard}" Padding="8,6">
+                                        <DockPanel>
+                                            <Border DockPanel.Dock="Left" Width="17" Height="17" CornerRadius="9"
+                                                    Margin="0,0,6,0" Background="{DynamicResource GoldBrush}">
+                                                <TextBlock Text="{Binding BestWorkerCard3.Rank}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontSize="9.5" FontWeight="Bold"
+                                                           Foreground="{DynamicResource InkOnAccentBrush}" />
+                                            </Border>
+                                            <views:WorkerAvatar DockPanel.Dock="Left" Diameter="28"
+                                                                PhotoData="{Binding BestWorkerCard3.PhotoData}"
+                                                                Initials="{Binding BestWorkerCard3.Initials}"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding BestWorkerCard3.FullName}" VerticalAlignment="Center"
+                                                       FontSize="{DynamicResource FontSmall}" FontWeight="Bold"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource SidebarInkBrush}" />
+                                        </DockPanel>
+                                    </Border>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
                 <!-- ═══ قائمة العمال ═══ -->
                 <Border Grid.Row="1" Style="{DynamicResource Card}" Padding="8">
@@ -485,12 +591,12 @@
                                                            VerticalAlignment="Center"
                                                            Foreground="{DynamicResource InkSoftBrush}" />
 
-                                                <!-- متوسط الأداء الفعلي (إنتاج ÷ يومية) على مهاراته المقاسة -->
+                                                <!-- نسبة % تلخّص تقييمه بالنجوم = (متوسط النجوم ÷ 5) × 100 -->
                                                 <Border Background="{DynamicResource GoldTintBrush}"
                                                         CornerRadius="{DynamicResource RadiusPill}"
                                                         Padding="8,2" Margin="8,0,0,0"
-                                                        Visibility="{Binding HasMeasuredSkills, Converter={StaticResource BoolToVis}}">
-                                                    <TextBlock Text="{Binding MeasuredText}"
+                                                        Visibility="{Binding HasStarsPercent, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="{Binding StarsPercentText}"
                                                                FontSize="{DynamicResource FontMicro}" FontWeight="Bold"
                                                                ui:ThemeBrush.ForegroundKey="GoldDeepBrush" />
                                                 </Border>
@@ -1241,11 +1347,10 @@
                                                                                 </materialDesign:PackIcon>
                                                                             </Button>
 
-                                                                            <!-- الأداء المقاس جنب النجوم — الدليل جنب الرأي -->
+                                                                            <!-- نسبة تقييمه بالنجوم جنب النجوم نفسها -->
                                                                             <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="4"
-                                                                                    Padding="5,1" Margin="5,0,0,0" VerticalAlignment="Center"
-                                                                                    Visibility="{Binding HasMeasurement, Converter={StaticResource BoolToVis}}">
-                                                                                <TextBlock Text="{Binding MeasuredText}" FontSize="10"
+                                                                                    Padding="5,1" Margin="5,0,0,0" VerticalAlignment="Center">
+                                                                                <TextBlock Text="{Binding StarsPercentText}" FontSize="10"
                                                                                            Foreground="{DynamicResource InkSoftBrush}" />
                                                                             </Border>
 
