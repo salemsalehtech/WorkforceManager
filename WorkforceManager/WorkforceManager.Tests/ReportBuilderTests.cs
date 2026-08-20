@@ -291,6 +291,29 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task Filtering_the_wages_report_by_product_only_shows_who_worked_on_it()
+        {
+            // نفس فلتر المنتج/المرحلة لازم يشتغل في أي موضوع تقرير عنده
+            // عمال، مش الإنتاج بس — قبل الإصلاح كان بيوصل لـAllowedWorkerIdsAsync
+            // ومبيعملش حاجة خالص، فكشف الأجور كان بيرجّع كل العمال بصرف
+            // النظر عن المنتج المُعلّم في الفلتر
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+            await RecordAsync(TestDatabase.WorkerSaidId, TestDatabase.RingStage2Id, 70);
+
+            var table = await BuildAsync(new ReportSpec
+            {
+                Subject = ReportSubject.Wages,
+                GroupBy = ReportGrouping.Worker,
+                From = Day,
+                To = Day,
+                ProductIds = new[] { TestDatabase.ProductBagId }
+            });
+
+            var row = Assert.Single(table.Rows);
+            Assert.Equal("أحمد", row.Label);
+        }
+
+        [Fact]
         public async Task An_empty_filter_list_means_the_filter_is_off_not_match_nothing()
         {
             // نفس قاعدة WorkerFilterRules في شاشة العمال
