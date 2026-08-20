@@ -36,24 +36,32 @@
                 </Border.Background>
             </Border>
 
-            <!-- الحروف -->
-            <TextBlock Text="WMS"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       FontFamily="Segoe UI, Tahoma"
-                       FontSize="30" FontWeight="Bold"
-                       Foreground="{DynamicResource GoldGradientBrush}">
-                <!-- تباعد الحروف بيدي الاختصار وقار — من غيره بيبقى
-                     مزنوق زي كلمة مقطوعة -->
-                <TextBlock.RenderTransform>
-                    <TranslateTransform Y="1" />
-                </TextBlock.RenderTransform>
-            </TextBlock>
+            <!-- الحروف: الشعار الافتراضي. بيتشال لو المستخدم رفع شعاره
+                 هو من الإعدادات — نفس الإطار الأسود بالحدّ الدهبي فاضل
+                 زي ما هو، بس اللي جواه بيتبدّل (شوف Refresh في الكود) -->
+            <Grid x:Name="DefaultMark">
+                <TextBlock Text="WMS"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           FontFamily="Segoe UI, Tahoma"
+                           FontSize="30" FontWeight="Bold"
+                           Foreground="{DynamicResource GoldGradientBrush}">
+                    <!-- تباعد الحروف بيدي الاختصار وقار — من غيره بيبقى
+                         مزنوق زي كلمة مقطوعة -->
+                    <TextBlock.RenderTransform>
+                        <TranslateTransform Y="1" />
+                    </TextBlock.RenderTransform>
+                </TextBlock>
 
-            <!-- خط دهبي تحت الحروف: بيربط الاختصار بفكرة الخط الإنتاجي -->
-            <Rectangle Width="42" Height="2.5" RadiusX="1.5" RadiusY="1.5"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Margin="0,46,0,0"
-                       Fill="{DynamicResource GoldGradientBrush}" Opacity="0.9" />
+                <!-- خط دهبي تحت الحروف: بيربط الاختصار بفكرة الخط الإنتاجي -->
+                <Rectangle Width="42" Height="2.5" RadiusX="1.5" RadiusY="1.5"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Margin="0,46,0,0"
+                           Fill="{DynamicResource GoldGradientBrush}" Opacity="0.9" />
+            </Grid>
+
+            <!-- شعار المصنع المرفوع من الإعدادات — جوّه نفس المربع
+                 والحدّ الدهبي، بديل "WMS" مش زيادة عليه -->
+            <Image x:Name="CustomMark" Visibility="Collapsed" Stretch="Uniform" Margin="16" />
         </Grid>
     </Viewbox>
 </UserControl>

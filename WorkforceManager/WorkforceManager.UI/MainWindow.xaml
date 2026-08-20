@@ -27,7 +27,7 @@
                 <!-- الهوية -->
                 <StackPanel DockPanel.Dock="Top" Margin="20,24,20,20">
                     <StackPanel Orientation="Horizontal">
-                        <views:WmsLogo Width="46" Height="46" />
+                        <views:WmsLogo x:Name="SidebarLogo" Width="46" Height="46" />
                         <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
                             <!-- كان مكتوب "إدارة الإنتاج والأجور" — جملة
                                  بتوصف البرنامج، والبرنامج مفتوح قدام
@@ -91,10 +91,10 @@
                          المفتوحة أصلًا (Checked مبيتنفذش لو الزرار متعلم بالفعل) -->
                     <RadioButton x:Name="NavWorkersItem" Style="{StaticResource NavItem}" IsChecked="True"
                                  Checked="NavWorkers_Checked" Click="NavWorkers_Checked"
-                                 AutomationProperties.Name="العمال والمهارات">
+                                 AutomationProperties.Name="العمال">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="AccountGroup" Width="18" Height="18" VerticalAlignment="Center" />
-                            <TextBlock Text="العمال والمهارات" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <TextBlock Text="العمال" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
 

@@ -16,6 +16,7 @@ namespace WorkforceManager.UI.Views
         public LoginWindow()
         {
             InitializeComponent();
+            AppIcon.ApplyTo(this);
             Loaded += (_, _) => UsernameBox.Focus();
 
             // Enter في اسم المستخدم بينقّل للباسورد بدل ما يحاول يدخّل
