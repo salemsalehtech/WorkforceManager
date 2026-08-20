@@ -228,34 +228,122 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>عدد العمال اللي محتاجين انتباه (مفيش سعر يومية أو مفيش مهارات)</summary>
         public int NeedsAttentionCount => _allWorkers.Count(w => w.IsActive && w.NeedsAttention);
 
-        /// <summary>
-        /// أحسن عامل في الأسبوع. **مين هو** بيتحدد في WeeklySummaryService
-        /// (أعلى صافي يوميات، بشرط إنه أنتج وصافيه موجب) — الشاشة بتعرض
-        /// النتيجة بس ومش بتحسبها.
-        /// </summary>
-        public WorkerRow? BestWorker => _allWorkers.FirstOrDefault(w => w.IsBestOfWeek);
+        // ------- كارت "أحسن 3 عمال الأسبوع" -------
+        // منفصلة تمامًا عن _allWorkers عشان تصفح أسبوع فات ما يعملش Reload
+        // للقايمة كلها ولا يبوّظ البحث/الفلاتر الحالية. مين الفايزين
+        // بيتحدد في WeeklySummaryService/WorkerRecognitionRules — هنا بس
+        // بتتحوّل لصفوف عرض بترتيبهم الحقيقي 1/2/3.
 
-        public bool HasBestWorker => BestWorker is not null;
+        /// <summary>الأسبوع المعروض حاليًا في الكارت — تاريخ أي يوم فيه</summary>
+        [ObservableProperty]
+        private DateTime _bestWorkerWeekAnchor = DateTime.Today;
 
-        public string BestWorkerName => BestWorker?.FullName ?? "—";
+        [ObservableProperty]
+        private List<BestWorkerCardRow> _bestWorkerCards = new();
 
-        /// <summary>يفتح بروفايل أحسن عامل — الكارت كله زرار</summary>
-        [RelayCommand]
-        private void OpenBestWorker()
+        partial void OnBestWorkerCardsChanged(List<BestWorkerCardRow> value)
         {
-            var best = BestWorker;
-            if (best is null) return;
+            OnPropertyChanged(nameof(HasBestWorkerCards));
+            OnPropertyChanged(nameof(BestWorkerCard1));
+            OnPropertyChanged(nameof(BestWorkerCard2));
+            OnPropertyChanged(nameof(BestWorkerCard3));
+            OnPropertyChanged(nameof(HasBestWorkerCard2));
+            OnPropertyChanged(nameof(HasBestWorkerCard3));
+        }
 
-            // ممكن يكون مخفي تحت فلتر شغال دلوقتي، فبنرجّع القايمة
-            // لوضعها الطبيعي الأول عشان الاختيار يبان فعلاً
-            if (!Workers.Contains(best))
-            {
-                SearchText = string.Empty;
-                ActiveFilter = WorkerFilter.All;
-                ClearExtraFilters();
-            }
+        public bool HasBestWorkerCards => BestWorkerCards.Count > 0;
+        public BestWorkerCardRow? BestWorkerCard1 => BestWorkerCards.ElementAtOrDefault(0);
+        public BestWorkerCardRow? BestWorkerCard2 => BestWorkerCards.ElementAtOrDefault(1);
+        public BestWorkerCardRow? BestWorkerCard3 => BestWorkerCards.ElementAtOrDefault(2);
 
-            SelectedWorker = best;
+        // كارتين #2/#3 ممكن ميكونوش موجودين (أقل من 3 مؤهلين هذا الأسبوع)
+        // — خصائص Bool صريحة عشان BoolToVis محتاج bool مش كائن Nullable
+        public bool HasBestWorkerCard2 => BestWorkerCard2 is not null;
+        public bool HasBestWorkerCard3 => BestWorkerCard3 is not null;
+
+        [ObservableProperty]
+        private string _bestWorkerWeekLabel = "الأسبوع الحالي";
+
+        [ObservableProperty]
+        private bool _isBestWorkerWeekCurrent = true;
+
+        partial void OnIsBestWorkerWeekCurrentChanged(bool value) =>
+            NextBestWorkerWeekCommand.NotifyCanExecuteChanged();
+
+        /// <summary>مينفعش تتصفح لأسبوع مستقبلي</summary>
+        public bool CanGoToNextBestWorkerWeek => !IsBestWorkerWeekCurrent;
+
+        /// <summary>يبني صفوف كارت الفايزين لأسبوع معيّن من ملخصه الأسبوعي، والصور من _allWorkers (ثابتة، مش محتاجة استعلام جديد)</summary>
+        private void ApplyBestWorkerWeek(List<WorkerWeeklySummaryDto> team, DateTime anchor)
+        {
+            var (weekStart, weekEnd) = WeeklySummaryService.GetWorkWeekRange(anchor);
+            var (currentWeekStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);
+
+            IsBestWorkerWeekCurrent = weekStart == currentWeekStart;
+            BestWorkerWeekLabel = IsBestWorkerWeekCurrent
+                ? "الأسبوع الحالي"
+                : $"{weekStart:d MMMM} — {weekEnd:d MMMM}";
+
+            BestWorkerCards = team
+                .Where(s => s.IsBestWorkerOfWeek)
+                .OrderBy(s => s.RecognitionRank)
+                .Select(s => new BestWorkerCardRow
+                {
+                    WorkerId = s.WorkerId,
+                    FullName = s.WorkerName,
+                    Rank = s.RecognitionRank ?? 0,
+                    PhotoData = _allWorkers.FirstOrDefault(w => w.WorkerId == s.WorkerId)?.PhotoData
+                })
+                .ToList();
+        }
+
+        /// <summary>استعلام واحد خفيف لأسبوع الكارت بس — من غير إعادة تحميل قائمة العمال كلها</summary>
+        private async Task LoadBestWorkerCardAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var weeklyService = scope.ServiceProvider.GetRequiredService<WeeklySummaryService>();
+            var team = await weeklyService.GetTeamWeeklySummaryAsync(BestWorkerWeekAnchor);
+            ApplyBestWorkerWeek(team, BestWorkerWeekAnchor);
+        }
+
+        [RelayCommand]
+        private async Task PrevBestWorkerWeekAsync()
+        {
+            BestWorkerWeekAnchor = BestWorkerWeekAnchor.AddDays(-7);
+            await LoadBestWorkerCardAsync();
+        }
+
+        [RelayCommand(CanExecute = nameof(CanGoToNextBestWorkerWeek))]
+        private async Task NextBestWorkerWeekAsync()
+        {
+            BestWorkerWeekAnchor = BestWorkerWeekAnchor.AddDays(7);
+            await LoadBestWorkerCardAsync();
+        }
+
+        /// <summary>يفتح نافذة "ليه فاز؟" لهذا الفايز في أسبوع الكارت المعروض حاليًا</summary>
+        [RelayCommand]
+        private async Task OpenRecognitionDetailAsync(BestWorkerCardRow? card)
+        {
+            if (card is null) return;
+
+            await WorkerRecognitionDetailDialog.ShowAsync(
+                Application.Current.MainWindow, _scopeFactory, card.WorkerId, BestWorkerWeekAnchor,
+                onOpenProfile: workerId =>
+                {
+                    var worker = _allWorkers.FirstOrDefault(w => w.WorkerId == workerId);
+                    if (worker is null) return;
+
+                    // ممكن يكون مخفي تحت فلتر شغال دلوقتي، فبنرجّع القايمة
+                    // لوضعها الطبيعي الأول عشان الاختيار يبان فعلاً
+                    if (!Workers.Contains(worker))
+                    {
+                        SearchText = string.Empty;
+                        ActiveFilter = WorkerFilter.All;
+                        ClearExtraFilters();
+                    }
+
+                    SelectedWorker = worker;
+                });
         }
 
         /// <summary>عدد النتايج المعروضة دلوقتي (بيظهر جنب البحث)</summary>
@@ -272,9 +360,6 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(InactiveCount));
             OnPropertyChanged(nameof(HourlyCount));
             OnPropertyChanged(nameof(NeedsAttentionCount));
-            OnPropertyChanged(nameof(BestWorker));
-            OnPropertyChanged(nameof(HasBestWorker));
-            OnPropertyChanged(nameof(BestWorkerName));
             OnPropertyChanged(nameof(ResultsText));
             OnPropertyChanged(nameof(NoResults));
         }
@@ -486,11 +571,6 @@ namespace WorkforceManager.UI.ViewModels
                             .ThenBy(g => g.Key)
                             .Select(g => g.Key)
                             .FirstOrDefault() ?? "",
-                        // متوسط الأداء الفعلي (إنتاج ÷ يومية) على مهاراته المقاسة
-                        // بس — مهارة عمرها ما اتقاست (MeasuredAt == null) مالهاش رقم
-                        AverageMeasuredRatio = w.Skills.Any(s => s.MeasuredAt != null)
-                            ? Math.Round(w.Skills.Where(s => s.MeasuredAt != null).Average(s => s.MeasuredRatio), 2)
-                            : null,
                         CurrentWeeklyTitleText = weeklyTitleByWorker.GetValueOrDefault(w.Id, ""),
                         CurrentMonthlyTitleText = monthlyTitleByWorker.GetValueOrDefault(w.Id, ""),
                         NeedsProductionReview = decliningByWorker.ContainsKey(w.Id),
@@ -501,6 +581,12 @@ namespace WorkforceManager.UI.ViewModels
                         SkillsSearchText = string.Join(" ", skillNames) + " " + (w.SkillsNotes ?? "")
                     });
                 }
+
+                // كارت "أحسن 3 عمال الأسبوع" بيرجع لأسبوعه الحالي مع كل
+                // إعادة تحميل، ومبني من نفس weekly المجاب فوق — مفيش
+                // استعلام إضافي أول ما الشاشة تفتح
+                BestWorkerWeekAnchor = DateTime.Today;
+                ApplyBestWorkerWeek(weekly, BestWorkerWeekAnchor);
 
                 ApplyFilters();
                 RefreshSummary();

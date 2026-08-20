@@ -163,8 +163,15 @@ namespace WorkforceManager.Business.Services
         ///
         /// **مبيغيّرش أي نجوم** — بيحدّث رقم القياس بس، وده اللي
         /// المراجعة الشهرية بتقارن بيه.
+        ///
+        /// **بيمسح القياس القديم كمان** لو مهارة كان ليها قياس فعلي قبل
+        /// كده وبقى مفيش وراه عينة كفاية دلوقتي (إنتاجه اتشال كله أو
+        /// جزء كبير منه) — من غيره القياس بيفضل شبح: مرحلة كان ليها
+        /// قياس من شهر فات وإنتاجها اتشال بالكامل بعدين كانت هتفضل
+        /// عارضة نفس الرقم القديم للأبد، لأن الحلقة الأساسية بتمر على
+        /// المراحل اللي ليها إنتاج **حاليًا** بس.
         /// </summary>
-        /// <returns>عدد المهارات اللي اتقاس أداؤها</returns>
+        /// <returns>عدد المهارات اللي اتقاس أداؤها من جديد</returns>
         public async Task<int> MeasureAllAsync(DateTime asOf)
         {
             var from = asOf.Date.AddDays(-LookbackDays);
@@ -174,24 +181,47 @@ namespace WorkforceManager.Business.Services
                 .GroupBy(r => (r.WorkerId, r.ProductionStageId))
                 .ToDictionary(g => g.Key, g => g.ToList());
 
+            // كل المهارات اللي ليها قياس قديم — عشان لو عينتها الحالية
+            // بقت غير كافية (أو اختفت خالص) نمسح القياس القديم بدل ما
+            // نسيبه شبح. مضمومة مع مفاتيح الإنتاج الحالي عشان أي مهارة
+            // من الاتنين تتراجع بنفس المنطق في حلقة واحدة
+            var previouslyMeasuredKeys = (await _skills.FindAsync(s => s.MeasuredAt != null))
+                .Select(s => (s.WorkerId, s.ProductionStageId));
+
+            var keysToProcess = previouslyMeasuredKeys
+                .Union(byWorkerStage.Keys)
+                .Distinct();
+
             var measured = 0;
-            foreach (var ((workerId, stageId), stageRecords) in byWorkerStage)
+            var cleared = 0;
+            foreach (var (workerId, stageId) in keysToProcess)
             {
                 var skill = await _skills.GetAsync(workerId, stageId);
                 if (skill is null) continue;
 
-                var sample = MeasureFromRecords(stageRecords);
-                if (sample is null) continue;
+                var sample = byWorkerStage.TryGetValue((workerId, stageId), out var stageRecords)
+                    ? MeasureFromRecords(stageRecords)
+                    : null;
 
-                skill.MeasuredRatio = sample.Value.Ratio;
-                skill.MeasuredDays = sample.Value.Days;
-                skill.MeasuredAt = DateTime.Now;
-
-                _skills.Update(skill);
-                measured++;
+                if (sample is not null)
+                {
+                    skill.MeasuredRatio = sample.Value.Ratio;
+                    skill.MeasuredDays = sample.Value.Days;
+                    skill.MeasuredAt = DateTime.Now;
+                    _skills.Update(skill);
+                    measured++;
+                }
+                else if (skill.MeasuredAt is not null)
+                {
+                    skill.MeasuredRatio = 1.0m;
+                    skill.MeasuredDays = 0;
+                    skill.MeasuredAt = null;
+                    _skills.Update(skill);
+                    cleared++;
+                }
             }
 
-            if (measured > 0) await _skills.SaveChangesAsync();
+            if (measured > 0 || cleared > 0) await _skills.SaveChangesAsync();
             return measured;
         }
 

@@ -536,11 +536,10 @@
                                                                                                     <TextBlock Text="{Binding StarsText}" FontSize="11"
                                                                                                                FontWeight="Bold" Foreground="{DynamicResource GoldBrush}" />
 
-                                                                                                    <!-- الأداء المقاس جنبها، رمادي عشان ميزاحمش النجوم -->
-                                                                                                    <TextBlock Text="{Binding MeasuredText}" FontSize="10"
+                                                                                                    <!-- نسبة تقييمه بالنجوم جنبها، رمادي عشان ميزاحمش النجوم -->
+                                                                                                    <TextBlock Text="{Binding StarsPercentText}" FontSize="10"
                                                                                                                Margin="6,0,0,0" VerticalAlignment="Center"
-                                                                                                               Foreground="{DynamicResource TextMutedBrush}"
-                                                                                                               Visibility="{Binding HasMeasurement, Converter={StaticResource BoolToVis}}" />
+                                                                                                               Foreground="{DynamicResource TextMutedBrush}" />
                                                                                                 </StackPanel>
 
                                                                                                 <!-- مكلّف في مكان تاني النهارده: العناصر دي نازلة

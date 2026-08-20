@@ -614,6 +614,50 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task Remeasuring_clearsAStaleMeasurement_whenItsUnderlyingProductionIsFullyDeleted()
+        {
+            // مهارة اتقاست فعلًا من 3 أيام إنتاج
+            for (var day = 0; day < 3; day++)
+            {
+                using var scope = _db.CreateScope();
+                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
+                    TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 10,
+                    TestDatabase.Today.AddDays(-day));
+            }
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<SkillRatingService>(scope).MeasureAllAsync(TestDatabase.Today);
+
+            using (var check1 = _db.CreateScope())
+            {
+                var measured = await _db.GetService<IWorkerSkillRepository>(check1)
+                    .GetAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id);
+                Assert.NotNull(measured!.MeasuredAt); // اتقاست فعلًا
+            }
+
+            // كل الإنتاج ده اتشال بالكامل (زي ما يحصل لما المستخدم يمسح
+            // يوم بالغلط) — مفيش عينة كفاية تتقاس عليها تاني
+            using (var scope = _db.CreateScope())
+            {
+                var db = _db.GetService<AppDbContext>(scope);
+                db.DailyProductions.RemoveRange(db.DailyProductions);
+                await db.SaveChangesAsync();
+            }
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<SkillRatingService>(scope).MeasureAllAsync(TestDatabase.Today);
+
+            using var check2 = _db.CreateScope();
+            var skill = await _db.GetService<IWorkerSkillRepository>(check2)
+                .GetAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id);
+
+            // القياس القديم اتمسح — مش شبح فاضل معلّق للأبد
+            Assert.Null(skill!.MeasuredAt);
+            Assert.Equal(0, skill.MeasuredDays);
+            Assert.Equal(1.0m, skill.MeasuredRatio);
+        }
+
+        [Fact]
         public async Task Monthly_review_suggestsARaise_whenTheWorkerGainsANewSkillThisPeriod()
         {
             // مهارة قديمة (من الـ seed) بـ 3 نجوم — شغل كفاية عليها عشان

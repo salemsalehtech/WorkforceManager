@@ -25,6 +25,7 @@ namespace WorkforceManager.Business.Services
         private readonly ActivityLogService _log;
         private readonly IAttendanceRepository _attendanceRepo;
         private readonly IHourlyWorkLogRepository _hourlyRepo;
+        private readonly ProductionStageOutputService _productionOutput;
 
         public WorkdayCalculationService(
             IDailyProductionRepository productionRepo,
@@ -38,7 +39,8 @@ namespace WorkforceManager.Business.Services
             IUnitOfWork unitOfWork,
             ActivityLogService log,
             IAttendanceRepository attendanceRepo,
-            IHourlyWorkLogRepository hourlyRepo)
+            IHourlyWorkLogRepository hourlyRepo,
+            ProductionStageOutputService productionOutput)
         {
             _log = log;
             _productionRepo = productionRepo;
@@ -52,6 +54,7 @@ namespace WorkforceManager.Business.Services
             _unitOfWork = unitOfWork;
             _attendanceRepo = attendanceRepo;
             _hourlyRepo = hourlyRepo;
+            _productionOutput = productionOutput;
         }
 
         /// <summary>
@@ -188,6 +191,10 @@ namespace WorkforceManager.Business.Services
 
             var oldPieceCount = record.PieceCount;
 
+            // ملحوظة: تصحيح قطعة عامل هنا **ما بيلمسش** الإنتاج الفعلي
+            // (ProductionStageOutput) عن قصد — رقم مستقل تمامًا (رقم النطاق
+            // وقت التسجيل)، مش مشتق من قطعة عامل بعينه. شوف تعليق
+            // ProductionStageOutputService.RemoveIfNowOrphanedAsync.
             record.PieceCount = newPieceCount;
             _productionRepo.Update(record);
             await _productionRepo.SaveChangesAsync();
@@ -226,6 +233,7 @@ namespace WorkforceManager.Business.Services
 
             var workerId = record.WorkerId;
             var date = record.Date;
+            var stageId = record.ProductionStageId;
 
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
 
@@ -247,11 +255,14 @@ namespace WorkforceManager.Business.Services
 
             if (!result.IsDeleted) return result; // المعاملة بتتلغي من غير Commit
 
-            // لازم يتحفظ الحذف الأول عشان فحص "لسه له إنتاج؟" جوه
-            // CleanupOrphanedAttendanceAsync يقرا من قاعدة البيانات
-            // فعليًا — لو اتنادى قبل الحفظ ده، السجل هيفضل شايفه موجود
-            // (لسه ما اتحفظش) وهيسيب الحضور غلط
+            // لازم يتحفظ الحذف الأول عشان الفحوصات اللي بعده (هنا وفي
+            // CleanupOrphanedAttendanceAsync) تقرا من قاعدة البيانات
+            // فعليًا — لو اتنادت قبل الحفظ ده، السجل هيفضل شايفينه موجود
             await _productionRepo.SaveChangesAsync();
+
+            // لو ده كان آخر سجل باقي لنفس المرحلة/اليوم، الإنتاج الفعلي
+            // المرتبط بيهم (لو موجود) بقى شبح — يتشال معاه
+            await _productionOutput.RemoveIfNowOrphanedAsync(stageId, date);
 
             await CleanupOrphanedAttendanceAsync(workerId, date);
             await _productionRepo.SaveChangesAsync();
@@ -286,6 +297,7 @@ namespace WorkforceManager.Business.Services
             var totalPieces = records.Sum(r => r.PieceCount);
             var wasNotConfigured = false;
             var affectedWorkerIds = records.Select(r => r.WorkerId).Distinct().ToList();
+            var affectedStageIds = records.Select(r => r.ProductionStageId).Distinct().ToList();
 
             foreach (var record in records)
             {
@@ -314,10 +326,16 @@ namespace WorkforceManager.Business.Services
                 wasNotConfigured = result.PasswordNotConfigured;
             }
 
-            // لازم يتحفظ حذف كل السجلات الأول عشان الفحص جوه
-            // CleanupOrphanedAttendanceAsync يقرا من قاعدة البيانات
-            // فعليًا (نفس سبب الحفظين في DeleteProductionAsync)
+            // لازم يتحفظ حذف كل السجلات الأول عشان الفحوصات اللي بعده
+            // (هنا وفي CleanupOrphanedAttendanceAsync) تقرا من قاعدة
+            // البيانات فعليًا (نفس سبب الحفظين في DeleteProductionAsync)
             await _productionRepo.SaveChangesAsync();
+
+            // كل إنتاج اليوم ده اتشال بالكامل — أي مرحلة من دول بقى
+            // مالهاش أي سجل فيه خالص، فالإنتاج الفعلي المرتبط بيها (لو
+            // موجود) بقى شبح ويتشال معاه
+            foreach (var stageId in affectedStageIds)
+                await _productionOutput.RemoveIfNowOrphanedAsync(stageId, date);
 
             // كل إنتاج اليوم ده اتشال بالكامل — أي عامل من دول بقى
             // مالوش أي إنتاج فيه خالص، فسجل حضوره التلقائي (لو مالوش

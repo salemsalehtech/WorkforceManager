@@ -76,7 +76,7 @@
                                                            VerticalAlignment="Center"
                                                            Foreground="{DynamicResource TextMutedBrush}" />
                                             </StackPanel>
-                                            <TextBlock Text="{Binding MeasuredText}" FontSize="11" Margin="0,2,0,0"
+                                            <TextBlock Text="{Binding StarsPercentText}" FontSize="11" Margin="0,2,0,0"
                                                        TextWrapping="Wrap"
                                                        Foreground="{DynamicResource TextMutedBrush}" />
                                         </StackPanel>

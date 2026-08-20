@@ -70,6 +70,12 @@ namespace WorkforceManager.Tests
             return await _db.GetService<DailyProductionReportService>(scope).GetAsync(date);
         }
 
+        private async Task<DailyProductionReportDto> ReportForRangeAsync(DateTime from, DateTime to)
+        {
+            using var scope = _db.CreateScope();
+            return await _db.GetService<DailyProductionReportService>(scope).GetForRangeAsync(from, to);
+        }
+
         private static DailyProductReportDto Bag(DailyProductionReportDto report) =>
             Assert.Single(report.Products);
 
@@ -128,6 +134,42 @@ namespace WorkforceManager.Tests
             var day2 = Bag(await ReportAsync(Day2));
             Assert.Equal(100, day2.CompletedPieces);
             Assert.Equal(0, day2.StartedPieces);
+        }
+
+        // ======================= التقرير لمدى (أسبوع/شهر) =======================
+
+        [Fact]
+        public async Task RangeReport_SumsEachDaysNumbers_AcrossTheWholeRange()
+        {
+            await RecordAsync(Day1, TestDatabase.BagStage1Id, TestDatabase.BagStage3Id, 100);
+            await RecordAsync(Day2, TestDatabase.BagStage1Id, TestDatabase.BagStage3Id, 60,
+                TestDatabase.WorkerSaidId);
+
+            var range = Bag(await ReportForRangeAsync(Day1, Day2));
+
+            Assert.Equal(160, range.CompletedPieces); // 100 + 60
+            Assert.Equal(160, range.StartedPieces);
+        }
+
+        [Fact]
+        public async Task RangeReport_ExcludesDaysOutsideTheRange()
+        {
+            await RecordAsync(Day1, TestDatabase.BagStage1Id, TestDatabase.BagStage3Id, 100);
+            await RecordAsync(Day2, TestDatabase.BagStage1Id, TestDatabase.BagStage3Id, 60,
+                TestDatabase.WorkerSaidId);
+
+            // مدى يوم 1 بس — يوم 2 برة النطاق
+            var range = Bag(await ReportForRangeAsync(Day1, Day1));
+
+            Assert.Equal(100, range.CompletedPieces);
+        }
+
+        [Fact]
+        public async Task RangeReport_WithNoActivityAtAll_ReturnsNoProducts()
+        {
+            var range = await ReportForRangeAsync(Day1, Day2);
+
+            Assert.Empty(range.Products);
         }
 
         [Fact]
@@ -340,6 +382,59 @@ namespace WorkforceManager.Tests
                     TestDatabase.ProductBagId, Day1, new[] { range1, range2 }, shares, confirmOverride: true));
 
             Assert.Contains("مفيش عامل متوزع عليها", ex.Message);
+        }
+
+        // ======================= حذف الإنتاج لا يخلّف أشباح =======================
+
+        [Fact]
+        public async Task DeletingTheOnlyWorkerRecordOnAStage_RemovesTheNowOrphanedActualOutputRow()
+        {
+            await RecordAsync(Day1, TestDatabase.BagStage1Id, TestDatabase.BagStage1Id, 100);
+            var record = Assert.Single(await _db.GetProductionAsync());
+            Assert.Single(await _db.GetProductionStageOutputsAsync()); // موجود قبل الحذف
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope)
+                    .DeleteProductionAsync(record.Id, "", "اتسجل بالغلط");
+
+            // مفيش أي سجل عامل باقي لنفس المرحلة/اليوم — الإنتاج الفعلي بقى شبح ويتشال
+            Assert.Empty(await _db.GetProductionStageOutputsAsync());
+        }
+
+        [Fact]
+        public async Task DeletingOneOfTwoWorkersOnTheSameStage_LeavesTheActualOutputRowUntouched()
+        {
+            // رحلتين منفصلتين، عاملين مختلفين، نفس المرحلة/اليوم — الإنتاج
+            // الفعلي بيتجمّع من الاتنين (100 + 50 = 150)
+            await RecordAsync(Day1, TestDatabase.BagStage1Id, TestDatabase.BagStage1Id, 100,
+                TestDatabase.WorkerAhmedId);
+            await RecordAsync(Day1, TestDatabase.BagStage1Id, TestDatabase.BagStage1Id, 50,
+                TestDatabase.WorkerSaidId);
+
+            var ahmedRecord = (await _db.GetProductionAsync())
+                .Single(r => r.WorkerId == TestDatabase.WorkerAhmedId);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope)
+                    .DeleteProductionAsync(ahmedRecord.Id, "", "اتسجل بالغلط");
+
+            // سعيد لسه له سجل على نفس المرحلة/اليوم — الإنتاج الفعلي (150)
+            // ما بيتلمسش خالص، مش بينقص بمقدار قطع أحمد
+            var row = Assert.Single(await _db.GetProductionStageOutputsAsync());
+            Assert.Equal(150, row.PieceCount);
+        }
+
+        [Fact]
+        public async Task DeletingTheWholeDay_RemovesActualOutputForEveryStageItTouched()
+        {
+            await RecordAsync(Day1, TestDatabase.BagStage1Id, TestDatabase.BagStage3Id, 100);
+            Assert.Equal(3, (await _db.GetProductionStageOutputsAsync()).Count); // 3 مراحل
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope)
+                    .DeleteProductionDayAsync(Day1, "", "اليوم اتسجل غلط بالكامل");
+
+            Assert.Empty(await _db.GetProductionStageOutputsAsync());
         }
     }
 }

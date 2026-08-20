@@ -67,6 +67,71 @@ namespace WorkforceManager.Business.Services
         public Task<bool> HasAnyForStageAsync(int stageId) =>
             _db.ProductionStageOutputs.AnyAsync(o => o.ProductionStageId == stageId);
 
+        /// <summary>
+        /// بتتنادى فورًا بعد ما DailyProduction يتشال (سجل أو يوم كامل).
+        /// لو ده كان **آخر** سجل باقي لنفس (المرحلة، اليوم)، الإنتاج الفعلي
+        /// المرتبط بيهم (لو موجود) بقى شبح — مفيش أي سجل عامل وراه خالص —
+        /// فبيتشال معاه.
+        ///
+        /// **لو لسه فيه سجلات تانية باقية لنفس المرحلة/اليوم (لعامل تاني،
+        /// أو حتى نفس العامل)، الإنتاج الفعلي مايتلمسش خالص**: الرقم ده
+        /// مش مشتق من مجموع قطع العمال — هو رقم النطاق المستقل وقت
+        /// التسجيل (شوف تعليق النموذج + اختبار
+        /// TheActualOutputNumber_IsStoredIndependently_...)، فحذف أو تعديل
+        /// سجل عامل واحد لا يعني إن الإنتاج الفعلي "نقص" أو "زاد" بنفس
+        /// القدر — التخمين هنا أخطر من عدم اللمس.
+        ///
+        /// لازم يتنادى **بعد** ما حذف DailyProduction يتحفظ فعليًا
+        /// (SaveChangesAsync) — فحص "فيه سجل باقي؟" بيقرا من قاعدة البيانات،
+        /// ولو اتنادى قبل الحفظ هيلاقي السجل المحذوف لسه شايفه موجود.
+        /// </summary>
+        public async Task RemoveIfNowOrphanedAsync(int productionStageId, DateTime date)
+        {
+            var day = date.Date;
+
+            var stillHasSupport = await _db.DailyProductions.AnyAsync(dp =>
+                dp.ProductionStageId == productionStageId && dp.Date == day);
+            if (stillHasSupport) return;
+
+            var existing = await _db.ProductionStageOutputs.FirstOrDefaultAsync(o =>
+                o.ProductionStageId == productionStageId && o.Date == day);
+            if (existing is not null) _db.ProductionStageOutputs.Remove(existing);
+        }
+
+        /// <summary>
+        /// تصحيح لمرة واحدة (بينادى من App.OnStartup، بنفس نمط
+        /// DeletedRowsCleaner): بيمسح بس صفوف ProductionStageOutput اللي
+        /// بقت شبح كامل 100% — صفر سجل DailyProduction باقي خالص لنفس
+        /// (المرحلة، اليوم)، يعني كل قطع العمال المرتبطة اتمسحت بالكامل.
+        /// أي صف لسه ليه دعم جزئي (حتى باختلاف رقمي عن مجموع العمال)
+        /// متتلمسش — الاختلاف ده مصمّم عمدًا (شوف تعليق النموذج)، ومينفعش
+        /// نخمّن هل هو عطل أو مقصود. آمن يتنادى أي عدد مرات.
+        /// </summary>
+        public async Task<int> RemoveFullyOrphanedRowsAsync()
+        {
+            var outputs = await _db.ProductionStageOutputs
+                .Select(o => new { o.Id, o.ProductionStageId, o.Date })
+                .ToListAsync();
+            if (outputs.Count == 0) return 0;
+
+            var stillSupported = (await _db.DailyProductions
+                    .Select(dp => new { dp.ProductionStageId, dp.Date })
+                    .Distinct()
+                    .ToListAsync())
+                .Select(x => (x.ProductionStageId, x.Date))
+                .ToHashSet();
+
+            var orphanIds = outputs
+                .Where(o => !stillSupported.Contains((o.ProductionStageId, o.Date)))
+                .Select(o => o.Id)
+                .ToList();
+            if (orphanIds.Count == 0) return 0;
+
+            return await _db.ProductionStageOutputs
+                .Where(o => orphanIds.Contains(o.Id))
+                .ExecuteDeleteAsync();
+        }
+
         // ======================= القراية =======================
 
         /// <summary>إنتاج فعلي ليوم واحد لكل مرحلة — رقم جديد لو موجود، وإلا مجموع العمال القديم</summary>

@@ -66,6 +66,66 @@ namespace WorkforceManager.Business.Services
             };
         }
 
+        /// <summary>
+        /// نفس تقرير GetAsync بالظبط، بس مجموع على مدى أيام (أسبوع/شهر)
+        /// بدل يوم واحد — كل يوم في المدى بياخد نفس صيغة "تام/داخل/هالك"
+        /// المستخدمة في GetAsync، والنتيجة مجموع الأيام. الإقفال مفهوم
+        /// يوم واحد بس، فبيرجع IsClosed=false دايمًا هنا.
+        /// </summary>
+        public async Task<DailyProductionReportDto> GetForRangeAsync(DateTime from, DateTime to)
+        {
+            var fromDay = from.Date;
+            var toDay = to.Date;
+            var products = await _productRepo.GetAllWithStagesAsync();
+
+            var completed = new Dictionary<int, int>();
+            var started = new Dictionary<int, int>();
+            var scrapTotals = new Dictionary<int, int>();
+
+            for (var day = fromDay; day <= toDay; day = day.AddDays(1))
+            {
+                var dayOutput = await _productionOutput.GetStageTotalsOnAsync(day);
+                var dayScrap = await _scrap.GetStageTotalsOnAsync(day);
+
+                foreach (var product in products)
+                {
+                    var dayRow = Describe(product, dayOutput, dayScrap);
+                    if (!dayRow.HasActivity) continue;
+
+                    completed[product.Id] = completed.GetValueOrDefault(product.Id) + dayRow.CompletedPieces;
+                    started[product.Id] = started.GetValueOrDefault(product.Id) + dayRow.StartedPieces;
+                    scrapTotals[product.Id] = scrapTotals.GetValueOrDefault(product.Id) + dayRow.ScrapPieces;
+                }
+            }
+
+            var activeProductIds = completed.Keys
+                .Union(started.Keys)
+                .Union(scrapTotals.Keys)
+                .ToHashSet();
+
+            var rows = products
+                .Where(p => activeProductIds.Contains(p.Id))
+                .Select(p => new DailyProductReportDto
+                {
+                    ProductId = p.Id,
+                    ProductName = p.Name,
+                    CompletedPieces = completed.GetValueOrDefault(p.Id),
+                    StartedPieces = started.GetValueOrDefault(p.Id),
+                    ScrapPieces = scrapTotals.GetValueOrDefault(p.Id)
+                })
+                .OrderByDescending(row => row.CompletedPieces)
+                .ThenBy(row => row.ProductName)
+                .ToList();
+
+            return new DailyProductionReportDto
+            {
+                Date = fromDay,
+                IsClosed = false,
+                ClosedAt = null,
+                Products = rows
+            };
+        }
+
         private static DailyProductReportDto Describe(
             Product product,
             IReadOnlyDictionary<int, int> today,
