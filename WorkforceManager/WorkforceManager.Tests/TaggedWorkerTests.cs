@@ -110,6 +110,44 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task TaggedWorkerAlone_OnAStageWithPieces_SavesAndStillRecordsTheActualOutput()
+        {
+            // متدرّب لوحده على مرحلة "خياطة" (مفيش أي نصيب قطع حقيقي
+            // عليها)، بس النطاق فعلاً بيقول 100 قطعة طلعت منها — لازم
+            // يتسجّل عادي، والـ100 قطعة تفضل ظاهرة في الإنتاج الفعلي
+            // للمرحلة حتى من غير عامل ياخد أجر عنها
+            var ranges = new[]
+            {
+                new FlowRangeDto { FromStageId = TestDatabase.BagStage1Id, ToStageId = TestDatabase.BagStage1Id, PieceCount = 100 },
+                new FlowRangeDto { FromStageId = TestDatabase.BagStage2Id, ToStageId = TestDatabase.BagStage2Id, PieceCount = 100 }
+            };
+            var shares = new List<FlowShareDto>
+            {
+                // نصيب حقيقي على مرحلة تانية بس — عشان يعدّي حارس
+                // "وزّع العمال الأول قبل الحفظ" (shares.Count > 0 إجمالًا)
+                new() { ProductionStageId = TestDatabase.BagStage1Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 100 }
+            };
+            var tagged = new[]
+            {
+                new FlowTaggedWorkerDto { ProductionStageId = TestDatabase.BagStage2Id, WorkerId = TestDatabase.WorkerMonaHourlyId }
+            };
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<ProductionFlowService>(scope).RecordFlowAsync(
+                    TestDatabase.ProductBagId, Day1, ranges, shares,
+                    taggedWorkers: tagged, confirmOverride: true);
+
+            using var checkScope = _db.CreateScope();
+            var output = await _db.GetService<ProductionStageOutputService>(checkScope)
+                .GetStageTotalsOnAsync(Day1);
+            Assert.Equal(100, output.GetValueOrDefault(TestDatabase.BagStage2Id));
+
+            // ومحدش بياخد أجر عن المرحلة دي — المتدرّبة بالساعة مش بالقطعة
+            var records = await _db.GetProductionAsync();
+            Assert.DoesNotContain(records, r => r.ProductionStageId == TestDatabase.BagStage2Id);
+        }
+
+        [Fact]
         public async Task TaggedWorkerAndRackingWorker_BothGetMarkedPresent_InTheSameFlow()
         {
             using (var scope = _db.CreateScope())

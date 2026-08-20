@@ -809,37 +809,60 @@
 
             <!-- ============ تبويب سجلات اليوم (المراجعة والتصحيح) ============ -->
             <TabItem Header="  سجلات اليوم  ">
-                <Grid Margin="10">
+                <Grid x:Name="RecordsTabRoot" Margin="10">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Style="{StaticResource HintText}" FontSize="12.5" Margin="4,0,4,8"
-                               Text="كل سجلات الإنتاج المحفوظة في اليوم المختار — لو فيه رقم اتحفظ بالغلط صححه أو امسحه من هنا، واليوميات هتتظبط في كل الحسابات فورًا." />
+                               Text="كل سجلات الإنتاج المحفوظة في الفترة المختارة — لو فيه رقم اتحفظ بالغلط صححه أو امسحه من هنا، واليوميات هتتظبط في كل الحسابات فورًا. الفترة هنا مستقلة عن يوم التسجيل فوق الشاشة." />
 
-                    <Border Grid.Row="1" Style="{StaticResource Card}" Padding="6">
+                    <!-- الفترة (يوم/أسبوع/شهر) وفلتر المنتج — مستقلين عن تاريخ التسجيل فوق -->
+                    <Border Grid.Row="1" Style="{StaticResource ToolbarCard}" Margin="0,0,0,10">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                <RadioButton Style="{StaticResource Chip}" Content="بيوم" GroupName="RecordsGrain"
+                                             IsChecked="{Binding IsRecordsGrainDay, Mode=OneWay}"
+                                             Command="{Binding SetRecordsGrainCommand}" CommandParameter="day" />
+                                <RadioButton Style="{StaticResource Chip}" Content="بأسبوع" GroupName="RecordsGrain"
+                                             IsChecked="{Binding IsRecordsGrainWeek, Mode=OneWay}"
+                                             Command="{Binding SetRecordsGrainCommand}" CommandParameter="week" />
+                                <RadioButton Style="{StaticResource Chip}" Content="بشهر" GroupName="RecordsGrain"
+                                             IsChecked="{Binding IsRecordsGrainMonth, Mode=OneWay}"
+                                             Command="{Binding SetRecordsGrainCommand}" CommandParameter="month" />
+                            </StackPanel>
+
+                            <DatePicker DockPanel.Dock="Right" SelectedDate="{Binding RecordsDate}" Width="150"
+                                        VerticalAlignment="Center" Margin="10,0,0,0" />
+
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding RecordsPeriodLabel}" FontSize="12.5"
+                                       VerticalAlignment="Center" Margin="10,0,0,0"
+                                       Foreground="{DynamicResource TextMutedBrush}" />
+
+                            <TextBlock Text="المنتج:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <ComboBox ItemsSource="{Binding RecordsProductOptions}"
+                                      SelectedItem="{Binding SelectedRecordsProduct}"
+                                      DisplayMemberPath="Display" Width="200" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Padding="6">
                         <Grid>
-                            <!-- رسالة لما مفيش سجلات في اليوم -->
-                            <TextBlock Text="مفيش سجلات إنتاج محفوظة في اليوم ده"
+                            <!-- رسالة لما مفيش سجلات في الفترة/الفلتر المختارين -->
+                            <TextBlock Text="مفيش سجلات إنتاج محفوظة في الفترة دي"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="14">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DayRecords.Count}" Value="0">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
+                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="14"
+                                       Visibility="{Binding RecordsTabIsEmpty, Converter={StaticResource BoolToVis}}" />
 
                             <DataGrid ItemsSource="{Binding DayRecords}"
                                       Style="{StaticResource ModernDataGrid}"
                                       AutoGenerateColumns="False" IsReadOnly="True">
                                 <DataGrid.Columns>
+                                    <!-- التاريخ بس لما الفترة أكتر من يوم واحد — في وضع اليوم كل الصفوف نفس التاريخ فمفيش داعي -->
+                                    <DataGridTextColumn Header="التاريخ" Binding="{Binding DateText}" Width="70"
+                                                        Visibility="{Binding DataContext.IsRecordsGrainDay, ElementName=RecordsTabRoot, Converter={StaticResource InverseBoolToVis}}" />
                                     <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="Auto" MinWidth="150" />
                                     <DataGridTextColumn Header="المنتج / المرحلة" Binding="{Binding StageDisplay}" Width="Auto" MinWidth="170" />
                                     <DataGridTextColumn Header="القطع" Binding="{Binding PieceCount}" Width="90" />

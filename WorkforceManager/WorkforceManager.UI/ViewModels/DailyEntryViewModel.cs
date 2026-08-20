@@ -95,7 +95,8 @@ namespace WorkforceManager.UI.ViewModels
             firstSession.SelectedProduct = _products.FirstOrDefault();
             FlowSessions.Add(firstSession);
 
-            await LoadDayRecordsAsync();
+            await LoadDaySummaryAsync();
+            await LoadRecordsTabAsync();
             await LoadAttendanceAsync();
             await LoadPenaltiesAsync();
             await LoadAdjustmentsAsync();
@@ -109,7 +110,8 @@ namespace WorkforceManager.UI.ViewModels
             foreach (var session in FlowSessions)
                 await session.ReloadAsync();
 
-            await LoadDayRecordsAsync();
+            await LoadDaySummaryAsync();
+            await LoadRecordsTabAsync();
             await LoadAttendanceAsync();
             await LoadPenaltiesAsync();
             await LoadAdjustmentsAsync();
@@ -121,7 +123,8 @@ namespace WorkforceManager.UI.ViewModels
         private async Task OnFlowSavedAsync()
         {
             await LoadAttendanceAsync();
-            await LoadDayRecordsAsync();
+            await LoadDaySummaryAsync();
+            await LoadRecordsTabAsync();
             // الرحلة ممكن تكون سجّلت هالك (البرنامج بيسأل عن الفرق بعد الحفظ)
             await LoadScrapAsync();
             await LoadClosureStateAsync();
@@ -230,7 +233,8 @@ namespace WorkforceManager.UI.ViewModels
                     return;
                 }
 
-                await LoadDayRecordsAsync();
+                await LoadDaySummaryAsync();
+                await LoadRecordsTabAsync();
                 await LoadClosureStateAsync();
 
                 var note = result.PasswordNotConfigured
@@ -287,10 +291,60 @@ namespace WorkforceManager.UI.ViewModels
 
         // ======================= قسم سجلات اليوم (التصحيح) =======================
 
-        /// <summary>كل سجلات الإنتاج المحفوظة في اليوم المختار — للمراجعة والتصحيح</summary>
+        /// <summary>
+        /// كل سجلات الإنتاج المحفوظة في الفترة المعروضة (بعد فلتر المنتج
+        /// لو مفعّل) — للمراجعة والتصحيح. الفترة دي مستقلة عن EntryDate
+        /// عن قصد (شوف RecordsGrain تحت): تغيير يوم التسجيل فوق الشاشة
+        /// كلها مش المفروض يقلب التبويب ده لمكان تاني كل مرة.
+        /// </summary>
         public ObservableCollection<DayRecordRow> DayRecords { get; } = new();
 
-        // ------- ملخص اليوم (فوق تبويب تسجيل الإنتاج) -------
+        /// <summary>كل سجلات الفترة قبل فلتر المنتج — مصدر خيارات الفلتر، والفلترة نفسها من غير رجعة لقاعدة البيانات</summary>
+        private readonly List<DayRecordRow> _allDayRecords = new();
+
+        /// <summary>يوم/أسبوع/شهر لتبويب "سجلات اليوم" — نفس نمط تبويب "الإنتاج" في شاشة التقييم والمتابعة بالظبط</summary>
+        [ObservableProperty]
+        private ChartGrain _recordsGrain = ChartGrain.Day;
+
+        partial void OnRecordsGrainChanged(ChartGrain value)
+        {
+            OnPropertyChanged(nameof(IsRecordsGrainDay));
+            OnPropertyChanged(nameof(IsRecordsGrainWeek));
+            OnPropertyChanged(nameof(IsRecordsGrainMonth));
+            SafeAsync.Run(LoadRecordsTabAsync);
+        }
+
+        public bool IsRecordsGrainDay => RecordsGrain == ChartGrain.Day;
+        public bool IsRecordsGrainWeek => RecordsGrain == ChartGrain.Week;
+        public bool IsRecordsGrainMonth => RecordsGrain == ChartGrain.Month;
+
+        [RelayCommand]
+        private void SetRecordsGrain(string? key) => RecordsGrain = key switch
+        {
+            "week" => ChartGrain.Week,
+            "month" => ChartGrain.Month,
+            _ => ChartGrain.Day
+        };
+
+        /// <summary>أي يوم جوّه الأسبوع/الشهر المعروض — افتراضيًا النهارده</summary>
+        [ObservableProperty]
+        private DateTime _recordsDate = DateTime.Today;
+
+        partial void OnRecordsDateChanged(DateTime value) => SafeAsync.Run(LoadRecordsTabAsync);
+
+        /// <summary>وصف الفترة المعروضة ("الأسبوع من.." أو "شهر..") — فاضي في وضع اليوم لأن التاريخ نفسه كافي</summary>
+        [ObservableProperty]
+        private string _recordsPeriodLabel = "";
+
+        /// <summary>منتجات فيها سجلات في الفترة المعروضة بس — "كل المنتجات" أولها دايمًا</summary>
+        public ObservableCollection<RecordsProductOption> RecordsProductOptions { get; } = new();
+
+        [ObservableProperty]
+        private RecordsProductOption? _selectedRecordsProduct;
+
+        partial void OnSelectedRecordsProductChanged(RecordsProductOption? value) => ApplyRecordsProductFilter();
+
+        // ------- ملخص اليوم (فوق تبويب تسجيل الإنتاج) — دايمًا بتاريخ EntryDate -------
 
         /// <summary>
         /// القطع اللي خلصت الخط كامل النهارده = المنتج التام.
@@ -344,8 +398,13 @@ namespace WorkforceManager.UI.ViewModels
 
         partial void OnDayScrapPiecesChanged(int value) => OnPropertyChanged(nameof(DayHasScrap));
 
-        /// <summary>مفيش أي إنتاج مسجل لسه (بيخفي أرقام الملخص)</summary>
-        public bool DayHasNoProduction => DayRecords.Count == 0;
+        /// <summary>
+        /// مفيش أي إنتاج مسجل في EntryDate لسه (بيخفي أرقام الملخص).
+        /// **مش من DayRecords** عن قصد — دي بقت مستقلة (فترة تانية
+        /// محتمل)، فمصدرها عدد سجلات EntryDate الخام نفسه.
+        /// </summary>
+        private int _entryDayRecordCount;
+        public bool DayHasNoProduction => _entryDayRecordCount == 0;
 
         private void RefreshDaySummaryFlags()
         {
@@ -359,7 +418,8 @@ namespace WorkforceManager.UI.ViewModels
         partial void OnDayTotalPiecesChanged(int value) => RefreshDaySummaryFlags();
         partial void OnDayStartedPiecesChanged(int value) => RefreshDaySummaryFlags();
 
-        private async Task LoadDayRecordsAsync()
+        /// <summary>ملخص الأرقام فوق تبويب "تسجيل الإنتاج" — دايمًا يوم EntryDate بالظبط</summary>
+        private async Task LoadDaySummaryAsync()
         {
             using var scope = _scopeFactory.CreateScope();
             var productionRepo = scope.ServiceProvider.GetRequiredService<IDailyProductionRepository>();
@@ -380,25 +440,98 @@ namespace WorkforceManager.UI.ViewModels
             DayTotalWorkdays = Math.Round(records.Sum(r => r.WorkdaysCompleted), 2);
             DayWorkersCount = records.Select(r => r.WorkerId).Distinct().Count();
             DayProductsCount = records.Select(r => r.ProductionStage.ProductId).Distinct().Count();
-
-            DayRecords.Clear();
-            foreach (var r in records.OrderBy(r => r.Worker.FullName).ThenBy(r => r.Id))
-            {
-                DayRecords.Add(new DayRecordRow
-                {
-                    RecordId = r.Id,
-                    WorkerName = r.Worker.FullName,
-                    StageDisplay = $"{r.ProductionStage.Product.Name} / {r.ProductionStage.StageName}",
-                    PieceCount = r.PieceCount,
-                    QuotaAtEntry = r.PiecesPerWorkdayAtEntry,
-                    Workdays = r.WorkdaysCompleted
-                });
-            }
+            _entryDayRecordCount = records.Count;
 
             // "اليوم فاضي" بقى معناه مفيش سجلات خالص — مش إن التام صفر.
             // يوم شغل كامل في نص الخط تامه صفر وهو مش فاضي.
             RefreshDaySummaryFlags();
         }
+
+        /// <summary>
+        /// تبويب "سجلات اليوم": نفس منطق تبويب "الإنتاج" (يوم/أسبوع/شهر
+        /// حسب RecordsGrain)، وبعده فلتر منتج اختياري بيتبني من منتجات
+        /// الفترة المعروضة بس. مستقل تمامًا عن ملخص EntryDate فوق.
+        /// </summary>
+        private async Task LoadRecordsTabAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var productionRepo = scope.ServiceProvider.GetRequiredService<IDailyProductionRepository>();
+
+            IReadOnlyList<DailyProduction> records;
+
+            switch (RecordsGrain)
+            {
+                case ChartGrain.Week:
+                    var (weekStart, weekEnd) = WeeklySummaryService.GetWorkWeekRange(RecordsDate);
+                    records = await productionRepo.GetByRangeAsync(weekStart, weekEnd);
+                    RecordsPeriodLabel = $"الأسبوع من {weekStart:dd/MM} إلى {weekEnd:dd/MM}";
+                    break;
+
+                case ChartGrain.Month:
+                    var monthStart = new DateTime(RecordsDate.Year, RecordsDate.Month, 1);
+                    var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+                    records = await productionRepo.GetByRangeAsync(monthStart, monthEnd);
+                    RecordsPeriodLabel = $"شهر {monthStart:MM/yyyy}";
+                    break;
+
+                default:
+                    records = await productionRepo.GetByDateAsync(RecordsDate);
+                    RecordsPeriodLabel = "";
+                    break;
+            }
+
+            _allDayRecords.Clear();
+            foreach (var r in records.OrderBy(r => r.Date).ThenBy(r => r.Worker.SortOrder).ThenBy(r => r.Id))
+            {
+                _allDayRecords.Add(new DayRecordRow
+                {
+                    RecordId = r.Id,
+                    ProductId = r.ProductionStage.ProductId,
+                    ProductName = r.ProductionStage.Product.Name,
+                    WorkerName = r.Worker.FullName,
+                    StageDisplay = $"{r.ProductionStage.Product.Name} / {r.ProductionStage.StageName}",
+                    PieceCount = r.PieceCount,
+                    QuotaAtEntry = r.PiecesPerWorkdayAtEntry,
+                    Workdays = r.WorkdaysCompleted,
+                    Date = r.Date
+                });
+            }
+
+            // خيارات الفلتر: منتجات الفترة المعروضة بس — "الأسبوع/الشهر"
+            // بيتغيّر ممكن يخلّي منتج مختار قبل كده مالوش سجلات دلوقتي،
+            // فبيرجع لـ"كل المنتجات" تلقائي بدل ما يعرض قايمة فاضية بصمت
+            var previousProductId = SelectedRecordsProduct?.ProductId;
+
+            RecordsProductOptions.Clear();
+            RecordsProductOptions.Add(new RecordsProductOption(null, "كل المنتجات"));
+            foreach (var product in _allDayRecords
+                         .Select(r => (r.ProductId, r.ProductName))
+                         .Distinct()
+                         .OrderBy(p => p.ProductName))
+                RecordsProductOptions.Add(new RecordsProductOption(product.ProductId, product.ProductName));
+
+            // نداء صريح دايمًا: RecordsProductOption record فبالمساواة بالقيمة —
+            // لو نفس المنتج المختار قبل كده لسه موجود، الـ setter مش هيلاقي
+            // فرق ومش هينادي ApplyRecordsProductFilter لوحده، مع إن
+            // _allDayRecords اتغيّرت فعلاً (فترة تانية) ولازم DayRecords تتحدّث
+            SelectedRecordsProduct = RecordsProductOptions.FirstOrDefault(o => o.ProductId == previousProductId)
+                                      ?? RecordsProductOptions[0];
+            ApplyRecordsProductFilter();
+        }
+
+        private void ApplyRecordsProductFilter()
+        {
+            var productId = SelectedRecordsProduct?.ProductId;
+
+            DayRecords.Clear();
+            foreach (var row in _allDayRecords.Where(r => productId is null || r.ProductId == productId))
+                DayRecords.Add(row);
+
+            OnPropertyChanged(nameof(RecordsTabIsEmpty));
+        }
+
+        /// <summary>مفيش سجلات في الفترة/الفلتر المختارين حاليًا — رسالة التبويب الفاضي</summary>
+        public bool RecordsTabIsEmpty => DayRecords.Count == 0;
 
         [RelayCommand]
         private async Task EditDayRecordAsync(DayRecordRow? row)
@@ -639,7 +772,7 @@ namespace WorkforceManager.UI.ViewModels
                 .ToDictionary(h => h.WorkerId, h => h.EndHour24);
 
             AttendanceRows.Clear();
-            foreach (var w in workers.OrderBy(w => w.IsHourly).ThenBy(w => w.FullName))
+            foreach (var w in workers.OrderBy(w => w.IsHourly).ThenBy(w => w.SortOrder))
             {
                 savedStatuses.TryGetValue(w.Id, out var saved);
                 var hasSaved = savedStatuses.ContainsKey(w.Id);
@@ -1117,7 +1250,7 @@ namespace WorkforceManager.UI.ViewModels
             }
 
             await LoadScrapAsync();
-            await LoadDayRecordsAsync(); // ملخص اليوم بيتغيّر مع الهالك
+            await LoadDaySummaryAsync(); // ملخص اليوم بيتغيّر مع الهالك
         }
 
         [RelayCommand]
@@ -1134,7 +1267,7 @@ namespace WorkforceManager.UI.ViewModels
                 await scope.ServiceProvider.GetRequiredService<ScrapService>().RemoveAsync(row.Id);
 
             await LoadScrapAsync();
-            await LoadDayRecordsAsync();
+            await LoadDaySummaryAsync();
         }
 
         [RelayCommand]

@@ -327,13 +327,13 @@ namespace WorkforceManager.Business.Services
         ///     مرحلة كان هيبقى 11 استعلام لمنتج من 11 مرحلة
         ///
         /// النجوم الأول (رأي المدير)، وبعدين الأداء المقاس بيفصل بين
-        /// المتساويين، وبعدين الاسم عشان الترتيب يبقى ثابت.
+        /// المتساويين، وبعدين ترتيب العامل المخصص عشان الترتيب يبقى ثابت.
         /// </summary>
         public static IEnumerable<WorkerSkill> Rank(IEnumerable<WorkerSkill> skills) =>
             skills
                 .OrderByDescending(s => s.Stars)
                 .ThenByDescending(s => s.MeasuredRatio)
-                .ThenBy(s => s.Worker.FullName);
+                .ThenBy(s => s.Worker.SortOrder);
 
         /// <summary>
         /// العمال المؤهلين لمرحلة، مرتبين بالنجوم من الأحسن للأضعف.

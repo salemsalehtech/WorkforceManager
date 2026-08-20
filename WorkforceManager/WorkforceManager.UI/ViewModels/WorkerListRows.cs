@@ -18,8 +18,11 @@ namespace WorkforceManager.UI.ViewModels
 
     public enum WorkerFilter { All, PieceRate, Hourly, Inactive }
 
+    /// <summary>الفترة المعروضة في الشاشة كلها — بتتحكم في يوميات/حضور كل عامل وكارت أحسن 3</summary>
+    public enum WorkersPeriodGrain { Week, Month, Custom }
+
     /// <summary>طرق ترتيب قائمة العمال</summary>
-    public enum WorkerSort { Name, NetDesc, NetAsc, AbsenceDesc, SkillsDesc }
+    public enum WorkerSort { Custom, Name, NetDesc, NetAsc, AbsenceDesc, SkillsDesc }
 
     /// <summary>خيار ترتيب في القائمة المنسدلة</summary>
     public record WorkerSortOption(WorkerSort Value, string Display);
@@ -35,12 +38,19 @@ namespace WorkforceManager.UI.ViewModels
 
     public record AttendanceFilterOption(AttendanceStatus? Status, string Display);
 
-    /// <summary>بطاقة عامل واحد في القائمة: بياناته + أرقام الأسبوع الحالي + تنبيهاته</summary>
+    /// <summary>
+    /// بطاقة عامل واحد في القائمة: بياناته + تنبيهاته + أرقام الفترة
+    /// المعروضة حاليًا (WorkersViewModel.PeriodGrain — أسبوع/شهر/مدة
+    /// مخصوصة). الأسماء لسه فيها "Week" بس القيمة بقت لأي فترة مختارة.
+    /// </summary>
     public class WorkerRow
     {
         public int WorkerId { get; init; }
         public string FullName { get; init; } = "";
         public bool IsActive { get; init; }
+
+        /// <summary>ترتيب العامل المخصص (شاشة "ترتيب العمال") — شوف Worker.SortOrder</summary>
+        public int SortOrder { get; init; }
         public int PresentDays { get; init; }
         public int AbsentWithPermissionDays { get; init; }
         public int AbsentWithoutPermissionDays { get; init; }

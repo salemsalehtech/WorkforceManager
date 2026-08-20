@@ -84,6 +84,16 @@ namespace WorkforceManager.Core.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+        /// <summary>
+        /// ترتيب العامل اللي المدير حدده بنفسه — نفس فكرة
+        /// <see cref="ProductionStage.SortOrder"/> بالظبط: مفيش معنى
+        /// حسابي وراه، بس هو الترتيب المعتمد لعرض العمال في كل مكان
+        /// (شاشة العمال، فلاتر التقارير، اختيار العمال في التسجيل
+        /// اليومي…) بدل الترتيب الأبجدي التلقائي. بيتغيّر بس من شاشة
+        /// "ترتيب العمال" (WorkerManagementService.MoveWorkerAsync).
+        /// </summary>
+        public int SortOrder { get; set; }
+
         // ------- العلاقات (Navigation Properties) -------
 
         /// <summary>كل المهارات (المراحل) التي يجيد هذا العامل تنفيذها</summary>

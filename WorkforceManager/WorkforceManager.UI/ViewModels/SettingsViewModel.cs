@@ -194,6 +194,55 @@ namespace WorkforceManager.UI.ViewModels
             AppSettingsStore.Save(settings);
         }
 
+        // ------- شعار البرنامج نفسه -------
+
+        /// <summary>
+        /// منفصل عن <see cref="LogoPath"/> (شعار التقارير) عن قصد —
+        /// شوف توثيق AppSettingsStore.AppLogoPath. ده بيحل محل شعار
+        /// WMS في القايمة الجانبية وشاشة الدخول وكارت العمال الفاضي
+        /// وأيقونة النافذة، لحظة ما يتغيّر.
+        /// </summary>
+        [ObservableProperty]
+        private string _appLogoPath = "";
+
+        public string AppLogoText => string.IsNullOrWhiteSpace(AppLogoPath)
+            ? "مفيش شعار — شعار WMS الافتراضي هيفضل في البرنامج"
+            : System.IO.Path.GetFileName(AppLogoPath);
+
+        partial void OnAppLogoPathChanged(string value) => OnPropertyChanged(nameof(AppLogoText));
+
+        [RelayCommand]
+        private void ChooseAppLogo()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "اختار شعار البرنامج",
+                Filter = "صور (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp"
+            };
+
+            if (dialog.ShowDialog() != true) return;
+
+            AppLogoPath = dialog.FileName;
+
+            var settings = AppSettingsStore.Load();
+            settings.AppLogoPath = dialog.FileName;
+            AppSettingsStore.Save(settings);
+            RefreshMainWindowIdentity();
+
+            Notify.Success("شعار البرنامج اتحفظ — هيبان بدل شعار WMS في البرنامج");
+        }
+
+        [RelayCommand]
+        private void ClearAppLogo()
+        {
+            AppLogoPath = "";
+
+            var settings = AppSettingsStore.Load();
+            settings.AppLogoPath = null;
+            AppSettingsStore.Save(settings);
+            RefreshMainWindowIdentity();
+        }
+
         // ------- أسباب الهالك -------
 
         /// <summary>
@@ -412,9 +461,11 @@ namespace WorkforceManager.UI.ViewModels
             FactoryName = settings.FactoryName ?? "";
             DepartmentName = settings.DepartmentName ?? "";
             LogoPath = settings.LogoPath ?? "";
+            AppLogoPath = settings.AppLogoPath ?? "";
             _loadingSettings = false;
             OnPropertyChanged(nameof(LogRetentionText));
             OnPropertyChanged(nameof(LogoText));
+            OnPropertyChanged(nameof(AppLogoText));
 
             SafeAsync.Run(LoadScrapReasonsAsync);
 

@@ -53,13 +53,19 @@ namespace WorkforceManager.Business.Services
             if (dailyWageEgp < 0)
                 throw new ArgumentException("سعر اليومية لا يصح يكون سالبًا", nameof(dailyWageEgp));
 
+            // بيتحط آخر واحد في الترتيب المخصص — نفس منطق إضافة مرحلة
+            // جديدة لخط الإنتاج (بتاخد آخر رقم +1)
+            var maxOrder = (await _workerRepo.GetAllAsync())
+                .Select(w => w.SortOrder).DefaultIfEmpty(0).Max();
+
             var worker = new Worker
             {
                 FullName = fullName.Trim(),
                 PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim(),
                 HireDate = hireDate,
                 HourlyRole = hourlyRole,
-                DailyWageEgp = dailyWageEgp
+                DailyWageEgp = dailyWageEgp,
+                SortOrder = maxOrder + 1
             };
 
             await _workerRepo.AddAsync(worker);
@@ -208,6 +214,61 @@ namespace WorkforceManager.Business.Services
 
             worker.IsActive = true;
             _workerRepo.Update(worker);
+            await _workerRepo.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// بيحرّك عامل مكان واحد لفوق أو لتحت في الترتيب المخصص — نفس
+        /// أسلوب ProductManagementService.MoveStageAsync بالظبط: تبديل
+        /// مع الجار وإعادة ترقيم الكل من 1، عشان الترتيب يفضل نضيف من
+        /// غير فجوات أو تكرار مهما اتحرك. بيرجع false عند الطرفين بدل
+        /// ما يرمي خطأ.
+        /// </summary>
+        public async Task<bool> MoveWorkerAsync(int workerId, bool moveUp)
+        {
+            // نفس مجموعة "العمال" اللي شاشة العمال وكل فلاتر التقارير
+            // بتشتغل عليها — الحسابات الإدارية مستبعدة هنا كمان،
+            // ترتيبهم مالوش معنى في الشاشة دي
+            var siblings = (await _workerRepo.GetAllWithSkillsAsync())
+                .OrderBy(w => w.SortOrder).ThenBy(w => w.Id)
+                .ToList();
+
+            var index = siblings.FindIndex(w => w.Id == workerId);
+            if (index < 0) throw new InvalidOperationException("العامل المحدد غير موجود");
+
+            var targetIndex = moveUp ? index - 1 : index + 1;
+            if (targetIndex < 0 || targetIndex >= siblings.Count) return false;
+
+            (siblings[index], siblings[targetIndex]) = (siblings[targetIndex], siblings[index]);
+            for (var i = 0; i < siblings.Count; i++)
+            {
+                siblings[i].SortOrder = i + 1;
+                _workerRepo.Update(siblings[i]);
+            }
+
+            await _workerRepo.SaveChangesAsync();
+            return true;
+        }
+
+        /// <summary>
+        /// بيحدد ترتيب كل العمال دفعة واحدة بالترتيب اللي اتبعت — للسحب
+        /// والإفلات وكتابة رقم الترتيب يدويًا في شاشة "ترتيب العمال"،
+        /// عشان نقلة كبيرة (عامل من مكان 40 لمكان 2 مثلاً) تتحفظ بعملية
+        /// واحدة مش سلسلة تبديلات زي <see cref="MoveWorkerAsync"/>.
+        /// أي Id مش موجود بيتجاهل، وأي عامل مش في القائمة المبعوتة
+        /// بيفضل ترتيبه زي ما هو.
+        /// </summary>
+        public async Task ReorderAsync(IReadOnlyList<int> orderedWorkerIds)
+        {
+            var workers = (await _workerRepo.GetAllWithSkillsAsync()).ToDictionary(w => w.Id);
+
+            for (var i = 0; i < orderedWorkerIds.Count; i++)
+            {
+                if (!workers.TryGetValue(orderedWorkerIds[i], out var worker)) continue;
+                worker.SortOrder = i + 1;
+                _workerRepo.Update(worker);
+            }
+
             await _workerRepo.SaveChangesAsync();
         }
 

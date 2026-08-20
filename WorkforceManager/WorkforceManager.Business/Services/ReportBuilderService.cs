@@ -328,7 +328,7 @@ namespace WorkforceManager.Business.Services
                 }
             };
 
-            foreach (var r in rows.OrderBy(r => r.Date).ThenBy(r => r.Worker?.FullName))
+            foreach (var r in rows.OrderBy(r => r.Date).ThenBy(r => r.Worker?.SortOrder))
                 detail.Rows.Add(new ReportDetailRow
                 {
                     GroupLabel = Key(r, spec.GroupBy).Label,
@@ -563,7 +563,7 @@ namespace WorkforceManager.Business.Services
                 }
             };
 
-            foreach (var w in workers.OrderBy(w => w.FullName))
+            foreach (var w in workers.OrderBy(w => w.SortOrder))
                 foreach (var s in w.Skills.Where(s => s.ProductionStage?.Product is not null))
                 {
                     var product = s.ProductionStage.Product;
@@ -955,7 +955,7 @@ namespace WorkforceManager.Business.Services
                     continue;
                 }
 
-                foreach (var w in workers.OrderByDescending(w => w.NetWageEgp).ThenBy(w => w.WorkerName))
+                foreach (var w in workers.OrderByDescending(w => w.NetWageEgp).ThenBy(w => w.SortOrder))
                     table.Rows.Add(new ReportRow
                     {
                         Label = w.WorkerName,
@@ -1152,7 +1152,7 @@ namespace WorkforceManager.Business.Services
             {
                 foreach (var w in workers
                              .Where(w => w.Skills.Count > 0)
-                             .OrderByDescending(w => w.Skills.Count).ThenBy(w => w.FullName))
+                             .OrderByDescending(w => w.Skills.Count).ThenBy(w => w.SortOrder))
                     table.Rows.Add(new ReportRow
                     {
                         Label = w.FullName,
@@ -1287,12 +1287,28 @@ namespace WorkforceManager.Business.Services
         /// بيستبعدهم دايمًا، حتى لو المستخدم مفعّل مفيش فلتر عمال خالص.
         /// تقارير العمال (حضور/أجور/جزاءات/سلف وحوافز) لازم تفضل نظيفة
         /// منهم تمامًا — تقريرهم منفصل (ReportSubject.DepartmentAccounts).
+        ///
+        /// فلتر منتج/مرحلة هنا معناه "مين اشتغل عليه في المدة دي؟" —
+        /// مش تقييد رقم الأجر/الحضور نفسه بمنتج واحد (الأجر عن شغل
+        /// العامل كله في المدة، مهما كان عدد المنتجات). قبل السطرين
+        /// الجايين كان الفلترين دول بيوصلوا هنا وميعملوا حاجة خالص —
+        /// كشف الأجور كان بيرجع كل العمال بصرف النظر عن المنتج/المرحلة
+        /// المُعلّمة، وده اللي كان بيبان "الفلتر مش شغال".
         /// </summary>
         private async Task<HashSet<int>?> AllowedWorkerIdsAsync(ReportSpec spec)
         {
             var workers = await _workers.GetAllWithSkillsAsync();
+            var allowed = workers.Where(w => Matches(w, spec)).Select(w => w.Id).ToHashSet();
 
-            return workers.Where(w => Matches(w, spec)).Select(w => w.Id).ToHashSet();
+            if (spec.ProductIds is { Count: > 0 } || spec.StageIds is { Count: > 0 })
+            {
+                var worked = Filter(await _production.GetByRangeAsync(spec.From, spec.To), spec)
+                    .Select(r => r.WorkerId)
+                    .ToHashSet();
+                allowed.IntersectWith(worked);
+            }
+
+            return allowed;
         }
 
         private static bool Matches(Worker worker, ReportSpec spec)

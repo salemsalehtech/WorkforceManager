@@ -254,10 +254,15 @@ namespace WorkforceManager.UI.ViewModels
         {
             get
             {
-                // مرحلة الرص مالهاش نطاق قطع خالص — عامل واحد بس متحط
-                // تاجه يكفي عشان تبقى "جاهزة"، وده مش "عليها عمال من غير
-                // إنتاج" زي المراحل العادية (ده متوقع منها بالتصميم)
-                if (IsRackingStage)
+                // مرحلة الرص مالهاش نطاق قطع خالص — وكمان مرحلة عادية
+                // عليها متدرّب بس (تاج بلا نصيب قطع، شوف FlowShareEntry.IsTagOnly).
+                // عامل واحد بس متحط تاجه يكفي عشان تبقى "جاهزة"، وده مش
+                // "عليها عمال من غير إنتاج" زي المراحل العادية — التاج
+                // أصلاً مش قطعة عمل بيتحسب لها إنتاج، فمفيش حاجة "ناقصة"
+                // (ده متوقع منه بالتصميم). لو فيه عامل حقيقي واحد على
+                // الأقل وسط التاجات، بيرجع للحكم العادي تحت — هو اللي
+                // المفروض يتحاسب بقطع.
+                if (IsRackingStage || (AssignedWorkers.Count > 0 && AssignedWorkers.All(w => w.IsTagOnly)))
                     return AssignedWorkers.Count > 0 ? FlowStageState.Ready : FlowStageState.NotToday;
 
                 if (ComputedPieces == 0)

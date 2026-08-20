@@ -73,6 +73,9 @@ namespace WorkforceManager.UI
         {
             var settings = Data.AppSettingsStore.Load();
 
+            SidebarLogo.Refresh();
+            Views.AppIcon.ApplyTo(this);
+
             var factory = string.IsNullOrWhiteSpace(settings.FactoryName)
                 ? "WMS"
                 : settings.FactoryName!.Trim();

@@ -316,7 +316,7 @@
                                 <TextBlock Text="المصنع الواحد فيه أكتر من قسم، وكل قسم ليه عماله وخط إنتاجه — القسم بيقول النسخة دي بتاعة مين."
                                            Style="{StaticResource HintText}" Margin="2,3,0,0" TextWrapping="Wrap" />
 
-                                <TextBlock Text="الشعار" FontSize="12.5" FontWeight="SemiBold"
+                                <TextBlock Text="شعار التقارير" FontSize="12.5" FontWeight="SemiBold"
                                            Margin="0,12,0,4" />
                                 <StackPanel Orientation="Horizontal">
                                     <Button Command="{Binding ChooseLogoCommand}"
@@ -337,6 +337,44 @@
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                Foreground="{DynamicResource TextMutedBrush}" />
                                 </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== شعار البرنامج ذات نفسه =====
+                     منفصل عن شعار التقارير فوق عن قصد: ده بيحل محل
+                     شعار WMS جوّه البرنامج نفسه (مربع صغير)، مش هيدر
+                     ورقة مطبوعة — نادرًا ما تناسب نفس الصورة الاتنين. -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ImageOutline" Width="18" Height="18"
+                                                     Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="شعار البرنامج" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                   Text="بيحل محل شعار WMS جوّه البرنامج نفسه: القايمة الجانبية، شاشة تسجيل الدخول، كارت العمال لما تكون الشاشة فاضية، وأيقونة النافذة. منفصل عن شعار التقارير فوق." />
+
+                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,10">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Command="{Binding ChooseAppLogoCommand}"
+                                        Style="{StaticResource GhostButton}" Padding="12,7">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="ImageOutline" Width="15" Height="15"
+                                                                 VerticalAlignment="Center" />
+                                        <TextBlock Text="اختار صورة" Margin="6,0,0,0" FontSize="12.5" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Command="{Binding ClearAppLogoCommand}"
+                                        Style="{StaticResource GhostButton}" Padding="12,7" Margin="8,0,0,0">
+                                    <TextBlock Text="شيل الشعار" FontSize="12.5" />
+                                </Button>
+
+                                <TextBlock Text="{Binding AppLogoText}" FontSize="12" Margin="12,0,0,0"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource TextMutedBrush}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

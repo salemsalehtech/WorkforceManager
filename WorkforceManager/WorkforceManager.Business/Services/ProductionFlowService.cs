@@ -300,6 +300,22 @@ namespace WorkforceManager.Business.Services
                 .GroupBy(ws => ws.WorkerId)
                 .ToDictionary(g => g.Key, g => g.First().Worker);
 
+            // عمال رص/تدريب متحطين تاج على مراحل لليوم بس — بلا قطع وبلا
+            // تحقق تأهيل عن قصد. التحقق هنا على **كل** مراحل المنتج
+            // (مش orderedStages بس) عشان مرحلة الرص نفسها — المستبعدة من
+            // خط الإنتاج المحسوب — تقبل تاج عليها، شوف
+            // <see cref="ProductionStage.IsRackingStage"/>. مبني هنا فوق
+            // (مش تحت زي ما كان) عشان taggedStageIds يتستخدم في تحقق
+            // توزيع العمال جاي تحت.
+            var taggedList = taggedWorkers ?? Array.Empty<FlowTaggedWorkerDto>();
+            var allStageIds = product.Stages.Select(s => s.Id).ToHashSet();
+            foreach (var tagged in taggedList)
+                if (!allStageIds.Contains(tagged.ProductionStageId))
+                    throw new InvalidOperationException(
+                        "عامل رص/تدريب متحط تاج على مرحلة مش من مراحل المنتج المحدد");
+
+            var taggedStageIds = taggedList.Select(t => t.ProductionStageId).ToHashSet();
+
             var seenPairs = new HashSet<(int StageId, int WorkerId)>();
             foreach (var share in shares)
             {
@@ -323,7 +339,11 @@ namespace WorkforceManager.Business.Services
                         $"فيه عامل غير مؤهل لمرحلة \"{stageName}\" — اربط المهارة من شاشة العمال الأول");
             }
 
-            // كل مرحلة مغطاة بنطاق: لازم يكون عليها عمال، ومجموع أنصبتهم = إنتاجها بالظبط
+            // كل مرحلة مغطاة بنطاق: لازم يكون عليها عمال، ومجموع أنصبتهم = إنتاجها بالظبط.
+            // الاستثناء الوحيد: مرحلة عليها متدرّب بس (تاج بلا نصيب قطع) —
+            // القطع فعلاً طلعت من المرحلة (بتتسجل في ProductionStageOutputService
+            // تحت زي أي مرحلة تانية)، بس محدش حقيقي عليها ياخد أجر عنها.
+            // "مفيش عامل" رسالة غلط هنا: فيه عامل، هو بس بالساعة مش بالقطعة.
             var sharesByStage = shares.ToLookup(s => s.ProductionStageId);
             for (var i = 0; i < orderedStages.Count; i++)
             {
@@ -332,7 +352,7 @@ namespace WorkforceManager.Business.Services
                 var stage = orderedStages[i];
                 var stageShares = sharesByStage[stage.Id].ToList();
 
-                if (stageShares.Count == 0)
+                if (stageShares.Count == 0 && !taggedStageIds.Contains(stage.Id))
                     throw new InvalidOperationException(
                         $"مرحلة \"{stage.StageName}\" عليها إنتاج ({piecesPerStage[i]} قطعة) لكن مفيش عامل متوزع عليها");
 
@@ -342,18 +362,6 @@ namespace WorkforceManager.Business.Services
                 // هالك أو مايكملش. الرقمين منفصلين تمامًا، شوف
                 // ProductionStageOutputService.
             }
-
-            // عمال رص/تدريب متحطين تاج على مراحل لليوم بس — بلا قطع وبلا
-            // تحقق تأهيل عن قصد. التحقق هنا على **كل** مراحل المنتج
-            // (مش orderedStages بس) عشان مرحلة الرص نفسها — المستبعدة من
-            // خط الإنتاج المحسوب — تقبل تاج عليها، شوف
-            // <see cref="ProductionStage.IsRackingStage"/>.
-            var taggedList = taggedWorkers ?? Array.Empty<FlowTaggedWorkerDto>();
-            var allStageIds = product.Stages.Select(s => s.Id).ToHashSet();
-            foreach (var tagged in taggedList)
-                if (!allStageIds.Contains(tagged.ProductionStageId))
-                    throw new InvalidOperationException(
-                        "عامل رص/تدريب متحط تاج على مرحلة مش من مراحل المنتج المحدد");
 
             var stageById = orderedStages.ToDictionary(s => s.Id);
             int attendanceMarked;

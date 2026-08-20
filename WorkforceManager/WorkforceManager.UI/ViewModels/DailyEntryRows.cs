@@ -49,12 +49,25 @@ namespace WorkforceManager.UI.ViewModels
     public class DayRecordRow
     {
         public int RecordId { get; init; }
+        public int ProductId { get; init; }
+        public string ProductName { get; init; } = "";
         public string WorkerName { get; init; } = "";
         public string StageDisplay { get; init; } = "";
         public int PieceCount { get; init; }
         public int QuotaAtEntry { get; init; }
         public decimal Workdays { get; init; }
+
+        /// <summary>يوم السجل نفسه — مهم بس لما الفترة المعروضة أسبوع أو شهر (أكتر من يوم واحد)</summary>
+        public DateTime Date { get; init; }
+        public string DateText => Date.ToString("dd/MM");
     }
+
+    /// <summary>
+    /// خيار فلتر منتج في "سجلات اليوم" — null = كل المنتجات. القائمة
+    /// نفسها بتتبني من منتجات الفترة المعروضة بس (شوف
+    /// DailyEntryViewModel.LoadRecordsTabAsync)، مش كل منتجات البرنامج.
+    /// </summary>
+    public record RecordsProductOption(int? ProductId, string Display);
 
     /// <summary>خيار وقت انتهاء الشغل في قائمة العامل بالساعة</summary>
     /// <summary>
