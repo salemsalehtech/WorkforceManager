@@ -11,6 +11,9 @@ namespace WorkforceManager.Business.DTOs
         public string WorkerName { get; init; } = string.Empty;
         public bool IsHourly { get; init; }
 
+        /// <summary>ترتيب العامل المخصص (شاشة "ترتيب العمال") — شوف Worker.SortOrder</summary>
+        public int SortOrder { get; init; }
+
         /// <summary>سعر اليومية بالجنيه (الحالي)</summary>
         public decimal DailyWageEgp { get; init; }
 

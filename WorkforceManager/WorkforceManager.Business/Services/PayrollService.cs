@@ -99,6 +99,7 @@ namespace WorkforceManager.Business.Services
                     WorkerId = workerId,
                     WorkerName = workerRef.FullName,
                     IsHourly = workerRef.IsHourly,
+                    SortOrder = workerRef.SortOrder,
                     DailyWageEgp = workerRef.DailyWageEgp,
                     TotalPieces = wp.Sum(p => p.PieceCount),
 

@@ -1107,7 +1107,7 @@ namespace WorkforceManager.UI.ViewModels
                 foreach (var w in Workers) w.PropertyChanged -= OnCheckableChanged;
                 Workers.Clear();
 
-                foreach (var w in (await workerRepo.GetAllWithSkillsAsync()).OrderBy(w => w.FullName))
+                foreach (var w in await workerRepo.GetAllWithSkillsAsync())
                 {
                     var item = new CheckableItem(w.Id, w.FullName);
                     item.PropertyChanged += OnCheckableChanged;

@@ -47,7 +47,7 @@ namespace WorkforceManager.Data.Repositories
                         .ThenInclude(ps => ps.Product)
                 .Where(w => w.IsActive &&
                     w.HourlyRole != HourlyRole.DepartmentManager && w.HourlyRole != HourlyRole.DepartmentHead)
-                .OrderBy(w => w.FullName)
+                .OrderBy(w => w.SortOrder).ThenBy(w => w.Id)
                 .ToListAsync();
         }
 
@@ -61,7 +61,7 @@ namespace WorkforceManager.Data.Repositories
                     .ThenInclude(s => s.ProductionStage)
                         .ThenInclude(ps => ps.Product)
                 .Where(w => w.HourlyRole != HourlyRole.DepartmentManager && w.HourlyRole != HourlyRole.DepartmentHead)
-                .OrderBy(w => w.FullName)
+                .OrderBy(w => w.SortOrder).ThenBy(w => w.Id)
                 .ToListAsync();
         }
 
@@ -82,7 +82,7 @@ namespace WorkforceManager.Data.Repositories
             return await Context.Set<WorkerSkill>()
                 .Include(ws => ws.Worker)
                 .Where(ws => ws.ProductionStage.ProductId == productId && ws.Worker.IsActive)
-                .OrderBy(ws => ws.Worker.FullName)
+                .OrderBy(ws => ws.Worker.SortOrder).ThenBy(ws => ws.WorkerId)
                 .ToListAsync();
         }
     }

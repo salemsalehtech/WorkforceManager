@@ -151,7 +151,7 @@ namespace WorkforceManager.UI.ViewModels
                 var allHourly = await workerRepo.GetActiveWithSkillsAsync();
                 var trainees = allHourly
                     .Where(w => w.HourlyRole == HourlyRole.Training)
-                    .OrderBy(w => w.FullName)
+                    .OrderBy(w => w.SortOrder)
                     .Select(w => new WorkerPick(w.Id, w.FullName, IsTagOnly: true, TagLabel: "تحت التدريب"))
                     .ToList();
 
@@ -160,7 +160,7 @@ namespace WorkforceManager.UI.ViewModels
                 // من الدور ده مش من WorkerSkill
                 var rackingWorkers = allHourly
                     .Where(w => w.HourlyRole == HourlyRole.Racking)
-                    .OrderBy(w => w.FullName)
+                    .OrderBy(w => w.SortOrder)
                     .Select(w => new WorkerPick(w.Id, w.FullName, IsTagOnly: true))
                     .ToList();
 

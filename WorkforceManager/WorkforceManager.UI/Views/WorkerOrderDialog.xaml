@@ -1,0 +1,96 @@
+<Window x:Class="WorkforceManager.UI.Views.WorkerOrderDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="ترتيب العمال" Width="480" Height="640"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
+
+    <!-- الترتيب هنا هو المعتمد لعرض العمال في كل شاشة بالبرنامج —
+         فلاتر التقارير، قوايم اختيار العمال في التسجيل اليومي، شاشة
+         العمال نفسها... بدل الترتيب الأبجدي التلقائي. كل حركة بتتحفظ
+         فورًا (WorkerManagementService.MoveWorkerAsync)، زي بالظبط
+         ترتيب مراحل المنتج في شاشة المنتجات. -->
+    <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
+        </Border.Effect>
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="{DynamicResource SidebarBrush}"
+                    CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Foreground="{DynamicResource SidebarInkBrush}"
+                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
+                            ToolTip="إغلاق">
+                        <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
+                    </Button>
+                    <StackPanel>
+                        <TextBlock Text="ترتيب العمال" Foreground="{DynamicResource SidebarInkBrush}"
+                                   FontSize="15.5" FontWeight="Bold" />
+                        <TextBlock Foreground="{DynamicResource SidebarInkBrush}" FontSize="12"
+                                   Margin="0,2,0,0" TextWrapping="Wrap"
+                                   Text="بالترتيب ده هيظهروا في كل مكان بالبرنامج — اسحب العامل لمكانه، أو اكتب رقم ترتيبه، أو استخدم الزرارين. كل حركة بتتحفظ فورًا" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource SubtleBgBrush}"
+                    CornerRadius="0,0,18,18" Padding="18,12">
+                <Button HorizontalAlignment="Left" Style="{StaticResource GhostButton}"
+                        Padding="18,8" IsCancel="True" Content="إغلاق" />
+            </Border>
+
+            <Grid Margin="18,14,18,10">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="WorkersList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <!-- قابل للسحب: دوس كليك شمال واسحب — مفيش حاجة تانية
+                                     محتاجة تتضغط. الإفلات فوق صف تاني بيحطه مكانه. -->
+                                <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="9"
+                                        Padding="12,8" Margin="0,0,0,7" Cursor="SizeAll"
+                                        AllowDrop="True"
+                                        PreviewMouseLeftButtonDown="Row_PreviewMouseLeftButtonDown"
+                                        PreviewMouseMove="Row_PreviewMouseMove"
+                                        DragEnter="Row_DragEnter" DragLeave="Row_DragLeave" Drop="Row_Drop">
+                                    <DockPanel>
+                                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Style="{StaticResource IconButton}" Padding="3"
+                                                    ToolTip="تحريك لفوق" Click="MoveUp_Click">
+                                                <materialDesign:PackIcon Kind="ChevronUp" Width="16" Height="16" />
+                                            </Button>
+                                            <Button Style="{StaticResource IconButton}" Padding="3" Margin="2,0,0,0"
+                                                    ToolTip="تحريك لتحت" Click="MoveDown_Click">
+                                                <materialDesign:PackIcon Kind="ChevronDown" Width="16" Height="16" />
+                                            </Button>
+                                        </StackPanel>
+
+                                        <!-- رقم الترتيب قابل للكتابة: غيّره واضغط Enter أو
+                                             اخرج منه، والعامل بينقل مكانه على طول -->
+                                        <Border DockPanel.Dock="Right" Width="32" Height="28" CornerRadius="13"
+                                                VerticalAlignment="Center" Margin="0,0,10,0"
+                                                Background="{DynamicResource ChipBgBrush}">
+                                            <TextBox Text="{Binding Rank, Mode=OneWay}"
+                                                     FontSize="11.5" FontWeight="Bold" Padding="0"
+                                                     TextAlignment="Center" VerticalContentAlignment="Center"
+                                                     BorderThickness="0" Background="Transparent"
+                                                     Foreground="{DynamicResource BrandBrush}"
+                                                     ToolTip="اكتب رقم الترتيب اللي عايزه"
+                                                     KeyDown="RankBox_KeyDown" LostFocus="RankBox_LostFocus" />
+                                        </Border>
+
+                                        <TextBlock Text="{Binding FullName}" FontSize="13.5" FontWeight="Bold"
+                                                   VerticalAlignment="Center" TextWrapping="Wrap" Margin="10,0,0,0"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </DockPanel>
+    </Border>
+</Window>

@@ -347,7 +347,7 @@ namespace WorkforceManager.UI.ViewModels
 
             foreach (var worker in (await workerRepo.GetAllAsync())
                          .Where(w => w.IsActive)
-                         .OrderBy(w => w.FullName))
+                         .OrderBy(w => w.SortOrder))
                 WorkerFilterOptions.Add(new WorkerNameFilterOption(worker.Id, worker.FullName));
 
             SelectedStageFilter = StageFilterOptions.FirstOrDefault(o => o.StageName == previousStage)
@@ -494,7 +494,7 @@ namespace WorkforceManager.UI.ViewModels
             var choices = new List<RackingWorkerChoice> { new(null, "بدون") };
             choices.AddRange(workers
                 .Where(w => w.HourlyRole == HourlyRole.Racking)
-                .OrderBy(w => w.FullName)
+                .OrderBy(w => w.SortOrder)
                 .Select(w => new RackingWorkerChoice(w.Id, w.FullName)));
 
             return choices;

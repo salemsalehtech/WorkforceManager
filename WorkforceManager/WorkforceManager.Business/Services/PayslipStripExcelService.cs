@@ -73,9 +73,10 @@ namespace WorkforceManager.Business.Services
 
             using var workbook = new XLWorkbook();
 
-            // العمال بالاسم: الترتيب ده اللي بيخلي التوزيع سهل — بتدوّر
-            // على الاسم في الورق زي ما بتدوّر عليه في أي كشف
-            var workers = payroll.Workers.OrderBy(w => w.WorkerName).ToList();
+            // بترتيب المدير المخصص: الترتيب ده اللي بيخلي التوزيع سهل —
+            // بتدوّر على القسيمة في الورق زي ما بتدوّر على العامل في
+            // أي كشف تاني في البرنامج، مش أبجديًا
+            var workers = payroll.Workers.OrderBy(w => w.SortOrder).ToList();
 
             // **عدد سطور المراحل واحد في كل القسايم.** العامل اللي اشتغل
             // على مرحلة واحدة بياخد نفس المساحة بتاعة اللي اشتغل على
