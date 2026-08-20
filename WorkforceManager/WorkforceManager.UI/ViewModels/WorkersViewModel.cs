@@ -29,7 +29,7 @@ namespace WorkforceManager.UI.ViewModels
         public WorkersViewModel(IServiceScopeFactory scopeFactory)
         {
             _scopeFactory = scopeFactory;
-            _selectedSort = SortOptions[0]; // الترتيب الافتراضي: بالاسم
+            _selectedSort = SortOptions[0]; // الترتيب الافتراضي: ترتيب المدير المخصص
         }
 
         // ------- حالة الشاشة -------
@@ -194,6 +194,7 @@ namespace WorkforceManager.UI.ViewModels
 
         public List<WorkerSortOption> SortOptions { get; } = new()
         {
+            new(WorkerSort.Custom, "ترتيبي المخصّص"),
             new(WorkerSort.Name, "الاسم (أ ← ي)"),
             new(WorkerSort.NetDesc, "الأعلى صافي يوميات"),
             new(WorkerSort.NetAsc, "الأقل صافي يوميات"),
@@ -214,10 +215,6 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>العمال المعروضين دلوقتي بعد البحث والفلترة والترتيب</summary>
         public ObservableCollection<WorkerRow> Workers { get; } = new();
 
-        /// <summary>عنوان الأسبوع الحالي المعروض فوق القائمة (من الخميس للأربع)</summary>
-        [ObservableProperty]
-        private string _weekTitle = string.Empty;
-
         // ------- عدّادات الملخص -------
 
         public int TotalCount => _allWorkers.Count;
@@ -228,15 +225,102 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>عدد العمال اللي محتاجين انتباه (مفيش سعر يومية أو مفيش مهارات)</summary>
         public int NeedsAttentionCount => _allWorkers.Count(w => w.IsActive && w.NeedsAttention);
 
-        // ------- كارت "أحسن 3 عمال الأسبوع" -------
-        // منفصلة تمامًا عن _allWorkers عشان تصفح أسبوع فات ما يعملش Reload
-        // للقايمة كلها ولا يبوّظ البحث/الفلاتر الحالية. مين الفايزين
-        // بيتحدد في WeeklySummaryService/WorkerRecognitionRules — هنا بس
-        // بتتحوّل لصفوف عرض بترتيبهم الحقيقي 1/2/3.
+        // ------- فترة الشاشة كلها: بتتحكم في يوميات/حضور كل عامل وكارت "أحسن 3" -------
+        //
+        // الاتنين كانوا منفصلين قبل كده (تصفح كارت أحسن عامل لوحده من غير
+        // ما يأثر على أرقام باقي الكروت) — ده كان بيخلي الصفحة تقول رقمين
+        // مختلفين لنفس الأسبوع. دلوقتي فترة واحدة بتتحكم في الاتنين مع
+        // بعض، فالكل بيتماشى.
 
-        /// <summary>الأسبوع المعروض حاليًا في الكارت — تاريخ أي يوم فيه</summary>
         [ObservableProperty]
-        private DateTime _bestWorkerWeekAnchor = DateTime.Today;
+        private WorkersPeriodGrain _periodGrain = WorkersPeriodGrain.Week;
+
+        partial void OnPeriodGrainChanged(WorkersPeriodGrain value)
+        {
+            OnPropertyChanged(nameof(IsPeriodWeek));
+            OnPropertyChanged(nameof(IsPeriodMonth));
+            OnPropertyChanged(nameof(IsPeriodCustom));
+            OnPropertyChanged(nameof(CanShowRecognitionDetail));
+            OnPropertyChanged(nameof(RecognitionCardTooltip));
+            NextPeriodCommand.NotifyCanExecuteChanged();
+            SafeAsync.Run(LoadAsync);
+        }
+
+        public bool IsPeriodWeek => PeriodGrain == WorkersPeriodGrain.Week;
+        public bool IsPeriodMonth => PeriodGrain == WorkersPeriodGrain.Month;
+        public bool IsPeriodCustom => PeriodGrain == WorkersPeriodGrain.Custom;
+
+        /// <summary>
+        /// "ليه فاز؟" شرحها مبني على حساب أسبوع عمل حقيقي (WorkerRecognitionService.GetWeeklyExplanationAsync)
+        /// — مش متاحة لما الفترة شهر أو مدة مخصوصة، الدوسة على الفايز بتفتح بروفايله مباشرة بدلها.
+        /// </summary>
+        public bool CanShowRecognitionDetail => IsPeriodWeek;
+
+        /// <summary>تلميح زرار الفايز — بيقول الفعل الحقيقي اللي هيحصل لما تدوسه</summary>
+        public string RecognitionCardTooltip => CanShowRecognitionDetail ? "ليه فاز؟" : "شوف بروفايله";
+
+        [RelayCommand]
+        private void SetPeriodGrain(string? key) => PeriodGrain = key switch
+        {
+            "month" => WorkersPeriodGrain.Month,
+            "custom" => WorkersPeriodGrain.Custom,
+            _ => WorkersPeriodGrain.Week
+        };
+
+        /// <summary>أي يوم جوّه الأسبوع/الشهر المعروض حاليًا</summary>
+        [ObservableProperty]
+        private DateTime _periodAnchor = DateTime.Today;
+
+        [ObservableProperty]
+        private DateTime _customFrom = DateTime.Today.AddDays(-6);
+
+        partial void OnCustomFromChanged(DateTime value) => SafeAsync.Run(LoadAsync);
+
+        [ObservableProperty]
+        private DateTime _customTo = DateTime.Today;
+
+        partial void OnCustomToChanged(DateTime value) => SafeAsync.Run(LoadAsync);
+
+        /// <summary>وصف الفترة المعروضة فوق كارت "أحسن 3 عمال"</summary>
+        [ObservableProperty]
+        private string _periodLabel = "الأسبوع الحالي";
+
+        [ObservableProperty]
+        private bool _isPeriodCurrent = true;
+
+        partial void OnIsPeriodCurrentChanged(bool value) => NextPeriodCommand.NotifyCanExecuteChanged();
+
+        /// <summary>مينفعش تتصفح لفترة مستقبلية، والمدة المخصوصة مالهاش تنقّل خالص (تاريخين يدويين بس)</summary>
+        public bool CanGoNextPeriod => !IsPeriodCurrent && !IsPeriodCustom;
+
+        [RelayCommand]
+        private async Task PrevPeriodAsync()
+        {
+            PeriodAnchor = IsPeriodMonth ? PeriodAnchor.AddMonths(-1) : PeriodAnchor.AddDays(-7);
+            await LoadAsync();
+        }
+
+        [RelayCommand(CanExecute = nameof(CanGoNextPeriod))]
+        private async Task NextPeriodAsync()
+        {
+            PeriodAnchor = IsPeriodMonth ? PeriodAnchor.AddMonths(1) : PeriodAnchor.AddDays(7);
+            await LoadAsync();
+        }
+
+        /// <summary>بيحوّل اختيار الفترة الحالي لتاريخين — مكان واحد يستخدمه LoadAsync وكارت أحسن 3</summary>
+        private (DateTime From, DateTime To) ResolvePeriod() => PeriodGrain switch
+        {
+            WorkersPeriodGrain.Month => (
+                new DateTime(PeriodAnchor.Year, PeriodAnchor.Month, 1),
+                new DateTime(PeriodAnchor.Year, PeriodAnchor.Month, 1).AddMonths(1).AddDays(-1)),
+            WorkersPeriodGrain.Custom => (CustomFrom.Date, CustomTo.Date),
+            _ => WeeklySummaryService.GetWorkWeekRange(PeriodAnchor)
+        };
+
+        // ------- كارت "أحسن 3 عمال" -------
+        // مين الفايزين بيتحدد في WeeklySummaryService/WorkerRecognitionRules
+        // (بيشتغل صح لأي مدى تاريخ، مش أسبوع بس) — هنا بس بتتحوّل لصفوف
+        // عرض بترتيبهم الحقيقي 1/2/3.
 
         [ObservableProperty]
         private List<BestWorkerCardRow> _bestWorkerCards = new();
@@ -261,28 +345,26 @@ namespace WorkforceManager.UI.ViewModels
         public bool HasBestWorkerCard2 => BestWorkerCard2 is not null;
         public bool HasBestWorkerCard3 => BestWorkerCard3 is not null;
 
-        [ObservableProperty]
-        private string _bestWorkerWeekLabel = "الأسبوع الحالي";
-
-        [ObservableProperty]
-        private bool _isBestWorkerWeekCurrent = true;
-
-        partial void OnIsBestWorkerWeekCurrentChanged(bool value) =>
-            NextBestWorkerWeekCommand.NotifyCanExecuteChanged();
-
-        /// <summary>مينفعش تتصفح لأسبوع مستقبلي</summary>
-        public bool CanGoToNextBestWorkerWeek => !IsBestWorkerWeekCurrent;
-
-        /// <summary>يبني صفوف كارت الفايزين لأسبوع معيّن من ملخصه الأسبوعي، والصور من _allWorkers (ثابتة، مش محتاجة استعلام جديد)</summary>
-        private void ApplyBestWorkerWeek(List<WorkerWeeklySummaryDto> team, DateTime anchor)
+        /// <summary>يبني صفوف كارت الفايزين للفترة المحسوبة، والصور من _allWorkers (ثابتة، مش محتاجة استعلام جديد)</summary>
+        private void ApplyBestWorkerCards(List<WorkerWeeklySummaryDto> team, DateTime from, DateTime to)
         {
-            var (weekStart, weekEnd) = WeeklySummaryService.GetWorkWeekRange(anchor);
-            var (currentWeekStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);
-
-            IsBestWorkerWeekCurrent = weekStart == currentWeekStart;
-            BestWorkerWeekLabel = IsBestWorkerWeekCurrent
-                ? "الأسبوع الحالي"
-                : $"{weekStart:d MMMM} — {weekEnd:d MMMM}";
+            if (IsPeriodCustom)
+            {
+                // مفيش "الحالي" لمدة مخصوصة، ومفيش تنقّل أصلًا (CanGoNextPeriod بيرفض دايمًا)
+                IsPeriodCurrent = true;
+                PeriodLabel = $"من {from:d MMMM} إلى {to:d MMMM}";
+            }
+            else if (IsPeriodMonth)
+            {
+                IsPeriodCurrent = from.Year == DateTime.Today.Year && from.Month == DateTime.Today.Month;
+                PeriodLabel = IsPeriodCurrent ? "الشهر الحالي" : $"{from:MMMM yyyy}";
+            }
+            else
+            {
+                var (currentWeekStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);
+                IsPeriodCurrent = from == currentWeekStart;
+                PeriodLabel = IsPeriodCurrent ? "الأسبوع الحالي" : $"{from:d MMMM} — {to:d MMMM}";
+            }
 
             BestWorkerCards = team
                 .Where(s => s.IsBestWorkerOfWeek)
@@ -297,53 +379,42 @@ namespace WorkforceManager.UI.ViewModels
                 .ToList();
         }
 
-        /// <summary>استعلام واحد خفيف لأسبوع الكارت بس — من غير إعادة تحميل قائمة العمال كلها</summary>
-        private async Task LoadBestWorkerCardAsync()
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var weeklyService = scope.ServiceProvider.GetRequiredService<WeeklySummaryService>();
-            var team = await weeklyService.GetTeamWeeklySummaryAsync(BestWorkerWeekAnchor);
-            ApplyBestWorkerWeek(team, BestWorkerWeekAnchor);
-        }
-
-        [RelayCommand]
-        private async Task PrevBestWorkerWeekAsync()
-        {
-            BestWorkerWeekAnchor = BestWorkerWeekAnchor.AddDays(-7);
-            await LoadBestWorkerCardAsync();
-        }
-
-        [RelayCommand(CanExecute = nameof(CanGoToNextBestWorkerWeek))]
-        private async Task NextBestWorkerWeekAsync()
-        {
-            BestWorkerWeekAnchor = BestWorkerWeekAnchor.AddDays(7);
-            await LoadBestWorkerCardAsync();
-        }
-
-        /// <summary>يفتح نافذة "ليه فاز؟" لهذا الفايز في أسبوع الكارت المعروض حاليًا</summary>
+        /// <summary>
+        /// يفتح نافذة "ليه فاز؟" لهذا الفايز — بس لو الفترة أسبوع (الشرح
+        /// مبني على حساب أسبوعي حقيقي، شوف CanShowRecognitionDetail).
+        /// غير كده بيفتح بروفايله مباشرة بدل ما الزرار يتعطّل.
+        /// </summary>
         [RelayCommand]
         private async Task OpenRecognitionDetailAsync(BestWorkerCardRow? card)
         {
             if (card is null) return;
 
+            if (!CanShowRecognitionDetail)
+            {
+                OpenWorkerProfile(card.WorkerId);
+                return;
+            }
+
             await WorkerRecognitionDetailDialog.ShowAsync(
-                Application.Current.MainWindow, _scopeFactory, card.WorkerId, BestWorkerWeekAnchor,
-                onOpenProfile: workerId =>
-                {
-                    var worker = _allWorkers.FirstOrDefault(w => w.WorkerId == workerId);
-                    if (worker is null) return;
+                Application.Current.MainWindow, _scopeFactory, card.WorkerId, PeriodAnchor,
+                onOpenProfile: OpenWorkerProfile);
+        }
 
-                    // ممكن يكون مخفي تحت فلتر شغال دلوقتي، فبنرجّع القايمة
-                    // لوضعها الطبيعي الأول عشان الاختيار يبان فعلاً
-                    if (!Workers.Contains(worker))
-                    {
-                        SearchText = string.Empty;
-                        ActiveFilter = WorkerFilter.All;
-                        ClearExtraFilters();
-                    }
+        private void OpenWorkerProfile(int workerId)
+        {
+            var worker = _allWorkers.FirstOrDefault(w => w.WorkerId == workerId);
+            if (worker is null) return;
 
-                    SelectedWorker = worker;
-                });
+            // ممكن يكون مخفي تحت فلتر شغال دلوقتي، فبنرجّع القايمة
+            // لوضعها الطبيعي الأول عشان الاختيار يبان فعلاً
+            if (!Workers.Contains(worker))
+            {
+                SearchText = string.Empty;
+                ActiveFilter = WorkerFilter.All;
+                ClearExtraFilters();
+            }
+
+            SelectedWorker = worker;
         }
 
         /// <summary>عدد النتايج المعروضة دلوقتي (بيظهر جنب البحث)</summary>
@@ -386,15 +457,16 @@ namespace WorkforceManager.UI.ViewModels
                     ArabicSearch.Contains(w.FullName, query) ||
                     ArabicSearch.Contains(w.SkillsSearchText, query));
 
-            result = (SelectedSort?.Value ?? WorkerSort.Name) switch
+            result = (SelectedSort?.Value ?? WorkerSort.Custom) switch
             {
-                WorkerSort.NetDesc => result.OrderByDescending(w => w.NetWorkdays).ThenBy(w => w.FullName),
-                WorkerSort.NetAsc => result.OrderBy(w => w.NetWorkdays).ThenBy(w => w.FullName),
+                WorkerSort.Name => result.OrderBy(w => w.FullName),
+                WorkerSort.NetDesc => result.OrderByDescending(w => w.NetWorkdays).ThenBy(w => w.SortOrder),
+                WorkerSort.NetAsc => result.OrderBy(w => w.NetWorkdays).ThenBy(w => w.SortOrder),
                 WorkerSort.AbsenceDesc => result
                     .OrderByDescending(w => w.AbsentWithoutPermissionDays + w.AbsentWithPermissionDays)
-                    .ThenBy(w => w.FullName),
-                WorkerSort.SkillsDesc => result.OrderByDescending(w => w.SkillsCount).ThenBy(w => w.FullName),
-                _ => result.OrderBy(w => w.FullName)
+                    .ThenBy(w => w.SortOrder),
+                WorkerSort.SkillsDesc => result.OrderByDescending(w => w.SkillsCount).ThenBy(w => w.SortOrder),
+                _ => result.OrderBy(w => w.SortOrder)
             };
 
             Workers.Clear();
@@ -423,7 +495,7 @@ namespace WorkforceManager.UI.ViewModels
             ActiveFilter = WorkerFilter.All;
 
             Workers.Clear();
-            foreach (var row in _allWorkers.Where(w => w.IsActive && w.NeedsAttention).OrderBy(w => w.FullName))
+            foreach (var row in _allWorkers.Where(w => w.IsActive && w.NeedsAttention).OrderBy(w => w.SortOrder))
                 Workers.Add(row);
 
             OnPropertyChanged(nameof(ResultsText));
@@ -499,11 +571,12 @@ namespace WorkforceManager.UI.ViewModels
                 var attendanceRepo = scope.ServiceProvider.GetRequiredService<IAttendanceRepository>();
                 var productRepo = scope.ServiceProvider.GetRequiredService<IProductRepository>();
 
-                var (weekStart, weekEnd) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);
-                WeekTitle = $"الأسبوع الحالي: من الخميس {weekStart:yyyy/MM/dd} إلى الأربعاء {weekEnd:yyyy/MM/dd}";
+                var (periodFrom, periodTo) = ResolvePeriod();
 
-                // إحصائيات الأسبوع الحالي لكل العمال (استعلام واحد مجمّع)
-                var weekly = await weeklyService.GetTeamWeeklySummaryAsync(DateTime.Today);
+                // إحصائيات الفترة المختارة لكل العمال (استعلام واحد مجمّع) —
+                // نفس الدالة اللي بتحسب "أحسن عامل الشهر"، فمالهاش افتراض
+                // إن المدى أسبوع بالظبط
+                var weekly = await weeklyService.GetTeamSummaryForRangeAsync(periodFrom, periodTo);
                 var weeklyByWorker = weekly.ToDictionary(w => w.WorkerId);
 
                 // الألقاب الرسمية الحالية (أسبوعي حد 3 عمال + شهري عامل واحد) —
@@ -543,6 +616,7 @@ namespace WorkforceManager.UI.ViewModels
                         WorkerId = w.Id,
                         FullName = w.FullName,
                         IsActive = w.IsActive,
+                        SortOrder = w.SortOrder,
                         HourlyRoleText = w.HourlyRole?.ToArabicName() ?? "",
                         IsHourly = w.IsHourly,
                         DailyWageEgp = w.DailyWageEgp,
@@ -582,11 +656,11 @@ namespace WorkforceManager.UI.ViewModels
                     });
                 }
 
-                // كارت "أحسن 3 عمال الأسبوع" بيرجع لأسبوعه الحالي مع كل
-                // إعادة تحميل، ومبني من نفس weekly المجاب فوق — مفيش
-                // استعلام إضافي أول ما الشاشة تفتح
-                BestWorkerWeekAnchor = DateTime.Today;
-                ApplyBestWorkerWeek(weekly, BestWorkerWeekAnchor);
+                // كارت "أحسن 3 عمال" مبني من نفس weekly المجاب فوق للفترة
+                // المختارة — مفيش استعلام إضافي. PeriodAnchor **مش** بيترجع
+                // للنهارده هنا: لو المستخدم متصفح فترة فاتت والشاشة اتعمّلها
+                // Reload (تعديل عامل مثلًا)، لازم يفضل واقف في نفس الفترة
+                ApplyBestWorkerCards(weekly, periodFrom, periodTo);
 
                 ApplyFilters();
                 RefreshSummary();
@@ -838,6 +912,18 @@ namespace WorkforceManager.UI.ViewModels
             {
                 Notify.Warn(ex.Message, "خطأ في إضافة العامل");
             }
+        }
+
+        /// <summary>
+        /// بيفتح شاشة "ترتيب العمال" — ترتيب مخصص بيحل محل الترتيب
+        /// الأبجدي في كل مكان بالبرنامج (شوف Worker.SortOrder وWorkerOrderDialog).
+        /// بعد القفل بيعيد تحميل القائمة عشان الترتيب الجديد يبان فورًا.
+        /// </summary>
+        [RelayCommand]
+        private async Task OpenWorkerOrderAsync()
+        {
+            await WorkerOrderDialog.ShowAsync(Application.Current.MainWindow, _scopeFactory);
+            await LoadAsync();
         }
 
         [RelayCommand]

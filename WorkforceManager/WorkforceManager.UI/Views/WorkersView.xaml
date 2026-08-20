@@ -44,7 +44,7 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                <TextBlock Text="العمال والمهارات" Style="{DynamicResource Title}" />
+                <TextBlock Text="العمال" Style="{DynamicResource Title}" />
 
                 <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
                     <TextBlock Style="{DynamicResource Muted}">
@@ -90,14 +90,26 @@
                 </StackPanel>
             </StackPanel>
 
-            <Button Grid.Column="1" Command="{Binding AddWorkerCommand}"
-                    Style="{DynamicResource GoldButton}" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="AccountPlus" Width="17" Height="17"
-                                             VerticalAlignment="Center" />
-                    <TextBlock Text="عامل جديد" Margin="7,0,0,0" />
-                </StackPanel>
-            </Button>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Command="{Binding OpenWorkerOrderCommand}"
+                        Style="{DynamicResource GhostButton}" VerticalAlignment="Center"
+                        Margin="0,0,8,0" ToolTip="رتّب العمال بالترتيب اللي عايزه — نفس الترتيب هيظهر في كل مكان">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="SwapVertical" Width="16" Height="16"
+                                                 VerticalAlignment="Center" />
+                        <TextBlock Text="ترتيب العمال" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Button>
+
+                <Button Command="{Binding AddWorkerCommand}"
+                        Style="{DynamicResource GoldButton}" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="AccountPlus" Width="17" Height="17"
+                                                 VerticalAlignment="Center" />
+                        <TextBlock Text="عامل جديد" Margin="7,0,0,0" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
         </Grid>
 
         <!-- ═══════════ تذكير مراجعة التقييمات ═══════════
@@ -298,15 +310,64 @@
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- ═══ كارت أحسن 3 عمال الأسبوع ═══
+                <!-- ═══ فترة الشاشة كلها ═══
+                     بتتحكم في يوميات/حضور/غياب كل عامل تحت وكارت أحسن 3
+                     عمال سوا — مستقلة عن أي فلتر تاني وبتفضل زي ما هي
+                     بعد أي Reload (تعديل عامل مثلًا). -->
+                <Border Grid.Row="0" Style="{StaticResource ToolbarCard}" Margin="0,0,0,10">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <RadioButton Style="{StaticResource Chip}" Content="أسبوع" GroupName="WorkersPeriod"
+                                         IsChecked="{Binding IsPeriodWeek, Mode=OneWay}"
+                                         Command="{Binding SetPeriodGrainCommand}" CommandParameter="week" />
+                            <RadioButton Style="{StaticResource Chip}" Content="شهر" GroupName="WorkersPeriod"
+                                         IsChecked="{Binding IsPeriodMonth, Mode=OneWay}"
+                                         Command="{Binding SetPeriodGrainCommand}" CommandParameter="month" />
+                            <RadioButton Style="{StaticResource Chip}" Content="مدة مخصوصة" GroupName="WorkersPeriod"
+                                         IsChecked="{Binding IsPeriodCustom, Mode=OneWay}"
+                                         Command="{Binding SetPeriodGrainCommand}" CommandParameter="custom" />
+                        </StackPanel>
+
+                        <!-- أسبوع/شهر: سهمين رجوع وقدّام -->
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="10,0,0,0"
+                                    Visibility="{Binding IsPeriodCustom, Converter={StaticResource InverseBoolToVis}}">
+                            <Button Command="{Binding PrevPeriodCommand}"
+                                    Style="{StaticResource IconButton}" Padding="5,3"
+                                    ToolTip="الفترة اللي فاتت">
+                                <materialDesign:PackIcon Kind="ChevronRight" Width="15" Height="15" />
+                            </Button>
+                            <TextBlock Text="{Binding PeriodLabel}" VerticalAlignment="Center"
+                                       FontSize="12.5" Margin="4,0,4,0"
+                                       Foreground="{DynamicResource TextMutedBrush}" />
+                            <Button Command="{Binding NextPeriodCommand}"
+                                    Style="{StaticResource IconButton}" Padding="5,3"
+                                    ToolTip="الفترة اللي بعدها">
+                                <materialDesign:PackIcon Kind="ChevronLeft" Width="15" Height="15" />
+                            </Button>
+                        </StackPanel>
+
+                        <!-- مدة مخصوصة: تاريخين بدل السهمين -->
+                        <StackPanel Orientation="Horizontal"
+                                    Visibility="{Binding IsPeriodCustom, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="من" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <DatePicker SelectedDate="{Binding CustomFrom}" Width="140" VerticalAlignment="Center" />
+                            <TextBlock Text="لحد" VerticalAlignment="Center" Margin="10,0,6,0" />
+                            <DatePicker SelectedDate="{Binding CustomTo}" Width="140" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- ═══ كارت أحسن 3 عمال ═══
                      الكارت الوحيد اللي بياخد الدهبي كخلفية في الشاشة —
-                     عشان كده بيبان من غير ما يبقى أكبر من غيره. سهمين
-                     للتصفح بين الأسابيع، وكارت #1 أكبر من #2/#3. الدوسة
-                     على أي فايز بتفتح "ليه فاز؟" مش البروفايل مباشرة. -->
-                <Border Grid.Row="0" CornerRadius="{DynamicResource RadiusCard}" Padding="16,13"
+                     عشان كده بيبان من غير ما يبقى أكبر من غيره. كارت #1
+                     أكبر من #2/#3. الدوسة على فايز بتفتح "ليه فاز؟" في
+                     وضع الأسبوع، وبروفايله مباشرة في وضع الشهر/المدة
+                     المخصوصة (الشرح الأسبوعي مش متاح غير لأسبوع حقيقي). -->
+                <Border Grid.Row="1" CornerRadius="{DynamicResource RadiusCard}" Padding="16,13"
                         Margin="0,0,0,12" Background="{DynamicResource SidebarBrush}">
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="20" ShadowDepth="3" Direction="270"
@@ -314,44 +375,18 @@
                     </Border.Effect>
 
                     <StackPanel>
-                        <!-- صف العنوان: أيقونة + عنوان + تسمية الأسبوع + سهمين -->
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <materialDesign:PackIcon Kind="TrophyVariantOutline"
+                                                     Width="22" Height="22" VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource GoldBrush}" />
+                            <TextBlock Text="أحسن 3 عمال" VerticalAlignment="Center"
+                                       FontSize="{DynamicResource FontSmall}" FontWeight="Bold"
+                                       Margin="8,0,0,0"
+                                       Foreground="{DynamicResource GoldBrush}" />
+                        </StackPanel>
 
-                            <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="TrophyVariantOutline"
-                                                         Width="22" Height="22" VerticalAlignment="Center"
-                                                         Foreground="{DynamicResource GoldBrush}" />
-                                <TextBlock Text="أحسن 3 عمال الأسبوع" VerticalAlignment="Center"
-                                           FontSize="{DynamicResource FontSmall}" FontWeight="Bold"
-                                           Margin="8,0,0,0"
-                                           Foreground="{DynamicResource GoldBrush}" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <Button Command="{Binding PrevBestWorkerWeekCommand}"
-                                        Style="{StaticResource IconButton}" Padding="5,3"
-                                        Foreground="{DynamicResource SidebarInkBrush}"
-                                        ToolTip="الأسبوع اللي فات">
-                                    <materialDesign:PackIcon Kind="ChevronRight" Width="15" Height="15" />
-                                </Button>
-                                <TextBlock Text="{Binding BestWorkerWeekLabel}" VerticalAlignment="Center"
-                                           FontSize="{DynamicResource FontTiny}" Margin="4,0,4,0"
-                                           Foreground="{DynamicResource SidebarInkSoftBrush}" />
-                                <Button Command="{Binding NextBestWorkerWeekCommand}"
-                                        Style="{StaticResource IconButton}" Padding="5,3"
-                                        Foreground="{DynamicResource SidebarInkBrush}"
-                                        ToolTip="الأسبوع اللي بعده">
-                                    <materialDesign:PackIcon Kind="ChevronLeft" Width="15" Height="15" />
-                                </Button>
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- حالة مفيش فايزين (أسبوع قبل الميزة، أو مفيش إنتاج قطع أصلًا) -->
-                        <TextBlock Text="لا يوجد عمال مؤهلين للتقييم في هذا الأسبوع"
+                        <!-- حالة مفيش فايزين (فترة قبل الميزة، أو مفيش إنتاج قطع أصلًا) -->
+                        <TextBlock Text="لا يوجد عمال مؤهلين للتقييم في الفترة دي"
                                    FontSize="{DynamicResource FontSmall}" HorizontalAlignment="Center"
                                    Margin="0,6,0,4"
                                    Visibility="{Binding HasBestWorkerCards, Converter={StaticResource InverseBoolToVis}}"
@@ -369,7 +404,7 @@
                             <Button Grid.Column="0" Style="{StaticResource CardButton}"
                                     Command="{Binding OpenRecognitionDetailCommand}"
                                     CommandParameter="{Binding BestWorkerCard1}"
-                                    ToolTip="ليه فاز؟">
+                                    ToolTip="{Binding RecognitionCardTooltip}">
                                 <Border CornerRadius="{DynamicResource RadiusCard}" Padding="10,8">
                                     <DockPanel>
                                         <Border DockPanel.Dock="Left" Width="20" Height="20" CornerRadius="10"
@@ -397,7 +432,7 @@
                                         Command="{Binding OpenRecognitionDetailCommand}"
                                         CommandParameter="{Binding BestWorkerCard2}"
                                         Visibility="{Binding HasBestWorkerCard2, Converter={StaticResource BoolToVis}}"
-                                        ToolTip="ليه فاز؟">
+                                        ToolTip="{Binding RecognitionCardTooltip}">
                                     <Border CornerRadius="{DynamicResource RadiusCard}" Padding="8,6">
                                         <DockPanel>
                                             <Border DockPanel.Dock="Left" Width="17" Height="17" CornerRadius="9"
@@ -423,7 +458,7 @@
                                         Command="{Binding OpenRecognitionDetailCommand}"
                                         CommandParameter="{Binding BestWorkerCard3}"
                                         Visibility="{Binding HasBestWorkerCard3, Converter={StaticResource BoolToVis}}"
-                                        ToolTip="ليه فاز؟">
+                                        ToolTip="{Binding RecognitionCardTooltip}">
                                     <Border CornerRadius="{DynamicResource RadiusCard}" Padding="8,6">
                                         <DockPanel>
                                             <Border DockPanel.Dock="Left" Width="17" Height="17" CornerRadius="9"
@@ -450,7 +485,7 @@
                 </Border>
 
                 <!-- ═══ قائمة العمال ═══ -->
-                <Border Grid.Row="1" Style="{DynamicResource Card}" Padding="8">
+                <Border Grid.Row="2" Style="{DynamicResource Card}" Padding="8">
                     <Grid>
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                             <StackPanel.Style>
@@ -665,7 +700,7 @@
                                             </StackPanel>
                                         </StackPanel>
 
-                                        <!-- أرقام الأسبوع: الرقم كبير والكلمة صغيرة تحته -->
+                                        <!-- أرقام الفترة المختارة: الرقم كبير والكلمة صغيرة تحته -->
                                         <StackPanel Grid.Column="2" Orientation="Horizontal"
                                                     VerticalAlignment="Center" Margin="12,0,0,0">
                                             <StackPanel Margin="0,0,16,0">
