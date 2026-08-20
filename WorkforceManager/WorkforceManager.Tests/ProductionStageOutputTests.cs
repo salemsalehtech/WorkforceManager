@@ -165,5 +165,126 @@ namespace WorkforceManager.Tests
             Assert.True(await _db.InScopeAsync<ProductionStageOutputService, bool>(
                 svc => svc.HasAnyForStageAsync(TestDatabase.RingStage1Id)));
         }
+
+        // ======================= RemoveIfNowOrphanedAsync (الحذف اللحظي) =======================
+
+        private async Task RemoveIfOrphanedAsync(int stageId, DateTime date)
+        {
+            using var scope = _db.CreateScope();
+            await _db.GetService<ProductionStageOutputService>(scope).RemoveIfNowOrphanedAsync(stageId, date);
+            await _db.GetService<AppDbContext>(scope).SaveChangesAsync();
+        }
+
+        [Fact]
+        public async Task RemoveIfOrphaned_WithNoDailyProductionSupportAtAll_RemovesTheRow()
+        {
+            await RecordAsync(TestDatabase.RingStage1Id, Day1, 100); // مفيش أي DailyProduction مرتبط خالص
+            await RemoveIfOrphanedAsync(TestDatabase.RingStage1Id, Day1);
+
+            Assert.Empty(await _db.GetProductionStageOutputsAsync());
+        }
+
+        [Fact]
+        public async Task RemoveIfOrphaned_WithAnyRemainingDailyProduction_LeavesTheRowCompletelyUntouched()
+        {
+            // رقم مختلف عمدًا عن قطع العامل — نفس فلسفة اختبار
+            // WithANewTableRow_...EvenIfDifferent: مينفعش نخمّن إن الاختلاف عطل
+            using (var scope = _db.CreateScope())
+            {
+                var db = _db.GetService<AppDbContext>(scope);
+                db.DailyProductions.Add(new Core.Models.DailyProduction
+                {
+                    WorkerId = TestDatabase.WorkerAhmedId, ProductionStageId = TestDatabase.RingStage1Id,
+                    Date = Day1, PieceCount = 999, PiecesPerWorkdayAtEntry = 10
+                });
+                await db.SaveChangesAsync();
+            }
+            await RecordAsync(TestDatabase.RingStage1Id, Day1, 40);
+
+            await RemoveIfOrphanedAsync(TestDatabase.RingStage1Id, Day1);
+
+            var row = Assert.Single(await _db.GetProductionStageOutputsAsync());
+            Assert.Equal(40, row.PieceCount); // زي ما هو بالظبط
+        }
+
+        [Fact]
+        public async Task RemoveIfOrphaned_WithNoOutputRowAtAll_IsASafeNoOp()
+        {
+            await RemoveIfOrphanedAsync(TestDatabase.RingStage1Id, Day1);
+
+            Assert.Empty(await _db.GetProductionStageOutputsAsync());
+        }
+
+        // ======================= RemoveFullyOrphanedRowsAsync (تنظيف الأشباح) =======================
+
+        private Task<int> RemoveOrphansAsync() =>
+            _db.InScopeAsync<ProductionStageOutputService, int>(svc => svc.RemoveFullyOrphanedRowsAsync());
+
+        [Fact]
+        public async Task RemoveOrphans_DeletesARow_WhoseEntireDailyProductionSupportWasDeleted()
+        {
+            // إنتاج عامل حقيقي + رقم إنتاج فعلي مسجّل معاه لنفس المرحلة/اليوم
+            using (var scope = _db.CreateScope())
+            {
+                var db = _db.GetService<AppDbContext>(scope);
+                db.DailyProductions.Add(new Core.Models.DailyProduction
+                {
+                    WorkerId = TestDatabase.WorkerAhmedId, ProductionStageId = TestDatabase.RingStage1Id,
+                    Date = Day1, PieceCount = 100, PiecesPerWorkdayAtEntry = 10
+                });
+                await db.SaveChangesAsync();
+            }
+            await RecordAsync(TestDatabase.RingStage1Id, Day1, 100);
+
+            // كل قطع العامل اتشالت (زي ما يحصل لما المستخدم يمسح اليوم) —
+            // بس ProductionStageOutput فضل زي ما هو (الباج قبل الإصلاح)
+            using (var scope = _db.CreateScope())
+            {
+                var db = _db.GetService<AppDbContext>(scope);
+                db.DailyProductions.RemoveRange(db.DailyProductions);
+                await db.SaveChangesAsync();
+            }
+
+            var removed = await RemoveOrphansAsync();
+
+            Assert.Equal(1, removed);
+            Assert.Empty(await _db.GetProductionStageOutputsAsync());
+        }
+
+        [Fact]
+        public async Task RemoveOrphans_NeverTouchesARow_WithAnyRemainingSupport_EvenIfTheNumberDiffers()
+        {
+            // نفس سيناريو WithANewTableRow_...EvenIfDifferent: رقم مختلف
+            // عمدًا عن قطع العامل — الفرق ده مصمّم، مش عطل، فمينفعش يتلمس
+            using (var scope = _db.CreateScope())
+            {
+                var db = _db.GetService<AppDbContext>(scope);
+                db.DailyProductions.Add(new Core.Models.DailyProduction
+                {
+                    WorkerId = TestDatabase.WorkerAhmedId, ProductionStageId = TestDatabase.RingStage1Id,
+                    Date = Day1, PieceCount = 999, PiecesPerWorkdayAtEntry = 10
+                });
+                await db.SaveChangesAsync();
+            }
+            await RecordAsync(TestDatabase.RingStage1Id, Day1, 40);
+
+            var removed = await RemoveOrphansAsync();
+
+            Assert.Equal(0, removed);
+            var row = Assert.Single(await _db.GetProductionStageOutputsAsync());
+            Assert.Equal(40, row.PieceCount); // زي ما هو، من غير أي "تصحيح" لمطابقة الـ999
+        }
+
+        [Fact]
+        public async Task RemoveOrphans_RunningTwiceInARow_IsIdempotent()
+        {
+            await RecordAsync(TestDatabase.RingStage1Id, Day1, 50); // مفيش DailyProduction وراه خالص
+
+            var first = await RemoveOrphansAsync();
+            var second = await RemoveOrphansAsync();
+
+            Assert.Equal(1, first);
+            Assert.Equal(0, second);
+        }
     }
 }

@@ -254,6 +254,12 @@ namespace WorkforceManager.UI
                     // بتتنضّف بنفس قاعدة الحذف الحالية
                     await DeletedRowsCleaner.PurgeAsync(
                         purgeScope.ServiceProvider.GetRequiredService<AppDbContext>());
+
+                    // إنتاج فعلي (ProductionStageOutput) بقى شبح كامل بسبب
+                    // حذف إنتاج قبل ما هذا الإصلاح يتحط — بيتصحح مرة واحدة
+                    // هنا لأي نسخة عميل قديمة، ومش بيلمس أي صف لسه له دعم جزئي
+                    await purgeScope.ServiceProvider.GetRequiredService<ProductionStageOutputService>()
+                        .RemoveFullyOrphanedRowsAsync();
                 }
                 catch
                 {
