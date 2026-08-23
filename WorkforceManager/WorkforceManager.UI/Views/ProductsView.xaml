@@ -577,7 +577,7 @@
                                 <Button Command="{Binding AddRackingStageCommand}" Style="{StaticResource GhostButton}"
                                         Margin="0,0,6,0"
                                         Visibility="{Binding SelectedProduct.HasRackingStage, Converter={StaticResource InverseBoolToVis}}"
-                                        ToolTip="مرحلة آخر الخط لعامل الرص — من غير كوتة ومن غير قطع في التسجيل">
+                                        ToolTip="مرحلة آخر الخط لعامل الرص — من غير يومية ومن غير قطع في التسجيل">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="PackageVariantClosed" Width="14" Height="14" VerticalAlignment="Center" />
                                         <TextBlock Text="إضافة مرحلة الرص" Margin="5,0,0,0" />
