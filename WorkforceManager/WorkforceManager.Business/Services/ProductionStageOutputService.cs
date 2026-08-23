@@ -23,6 +23,12 @@ namespace WorkforceManager.Business.Services
     /// **مالوش سجل في الجدول ده** — الجدول بدأ فاضي، وأيام قبل هذا
     /// الفيتشر مالها رقم إنتاج فعلي محفوظ. من غير الرجوع ده، كل تقرير
     /// قديم كان هيطلع صفر بدل رقمه الحقيقي.
+    ///
+    /// **سجلات إعادة العمل مستبعدة من كل استعلام هنا** (شوف
+    /// <see cref="DailyProduction.IsRework"/>). لازم تتستبعد في الرجوع
+    /// للحساب القديم بالذات: مرحلة/يوم كل شغلها إعادة مالهاش سجل في
+    /// الجدول الجديد خالص، فالرجوع القديم كان هيجمّع قطع الإعادة ويحطها
+    /// إنتاج فعلي — وده بالظبط اللي المفروض مايحصلش.
     /// </summary>
     public class ProductionStageOutputService
     {
@@ -89,8 +95,11 @@ namespace WorkforceManager.Business.Services
         {
             var day = date.Date;
 
+            // سجل إعادة عمل مش "دعم" للرقم ده — هو أصلاً معدّاش فيه. لو
+            // مفضلش غيره، الرقم بقى شبح ولازم يتشال، وإلا هيفضل واقف
+            // بقيمته القديمة للأبد من غير أي إنتاج حقيقي وراه
             var stillHasSupport = await _db.DailyProductions.AnyAsync(dp =>
-                dp.ProductionStageId == productionStageId && dp.Date == day);
+                dp.ProductionStageId == productionStageId && dp.Date == day && !dp.IsRework);
             if (stillHasSupport) return;
 
             var existing = await _db.ProductionStageOutputs.FirstOrDefaultAsync(o =>
@@ -115,6 +124,7 @@ namespace WorkforceManager.Business.Services
             if (outputs.Count == 0) return 0;
 
             var stillSupported = (await _db.DailyProductions
+                    .Where(dp => !dp.IsRework) // إعادة العمل مش دعم — زي RemoveIfNowOrphanedAsync
                     .Select(dp => new { dp.ProductionStageId, dp.Date })
                     .Distinct()
                     .ToListAsync())
@@ -148,7 +158,7 @@ namespace WorkforceManager.Business.Services
 
             var legacy = await _db.DailyProductions
                 .AsNoTracking()
-                .Where(dp => dp.Date == day)
+                .Where(dp => dp.Date == day && !dp.IsRework)
                 .GroupBy(dp => dp.ProductionStageId)
                 .Select(g => new { StageId = g.Key, Pieces = g.Sum(dp => dp.PieceCount) })
                 .ToListAsync();
@@ -183,7 +193,7 @@ namespace WorkforceManager.Business.Services
                 // القديم بالظبط، من غير أي تكلفة دمج زيادة
                 var legacyOnly = await _db.DailyProductions
                     .AsNoTracking()
-                    .Where(dp => dp.Date <= day)
+                    .Where(dp => dp.Date <= day && !dp.IsRework)
                     .GroupBy(dp => dp.ProductionStageId)
                     .Select(g => new { StageId = g.Key, Pieces = g.Sum(dp => dp.PieceCount) })
                     .ToListAsync();
@@ -198,7 +208,7 @@ namespace WorkforceManager.Business.Services
 
             var legacyByStageDate = await _db.DailyProductions
                 .AsNoTracking()
-                .Where(dp => dp.Date <= day)
+                .Where(dp => dp.Date <= day && !dp.IsRework)
                 .GroupBy(dp => new { dp.ProductionStageId, dp.Date })
                 .Select(g => new { g.Key.ProductionStageId, g.Key.Date, Pieces = g.Sum(dp => dp.PieceCount) })
                 .ToListAsync();
@@ -238,7 +248,7 @@ namespace WorkforceManager.Business.Services
             var legacyByStageDate = await _db.DailyProductions
                 .AsNoTracking()
                 .Include(dp => dp.ProductionStage).ThenInclude(s => s.Product)
-                .Where(dp => dp.Date >= fromDate && dp.Date <= toDate)
+                .Where(dp => dp.Date >= fromDate && dp.Date <= toDate && !dp.IsRework)
                 .GroupBy(dp => new { dp.ProductionStageId, dp.Date })
                 .Select(g => new
                 {
