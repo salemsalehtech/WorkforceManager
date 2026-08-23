@@ -527,6 +527,7 @@ namespace WorkforceManager.UI.ViewModels
                     PieceCount = r.PieceCount,
                     QuotaAtEntry = r.PiecesPerWorkdayAtEntry,
                     Workdays = r.WorkdaysCompleted,
+                    IsRework = r.IsRework,
                     Date = r.Date
                 });
             }
