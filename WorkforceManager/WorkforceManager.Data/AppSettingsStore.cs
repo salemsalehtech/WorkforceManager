@@ -99,6 +99,14 @@ namespace WorkforceManager.Data
         /// </summary>
         public string? AppLogoPath { get; set; }
 
+        /// <summary>
+        /// البنود المختارة لقسايم الأجر المطبوعة (قسايم الأسبوع) — أسماء
+        /// قيم من enum PayslipStripField. null = كل البنود (نفس القسيمة
+        /// الأصلية قبل ما البنود تبقى اختيارية)، فمستخدم قديم فتح
+        /// البرنامج بعد التحديث مش هيلاقي أي فرق.
+        /// </summary>
+        public List<string>? PayslipStripFields { get; set; }
+
         // ------- تنظيف سجل العمليات -------
 
         /// <summary>

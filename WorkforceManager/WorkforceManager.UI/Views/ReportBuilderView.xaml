@@ -620,8 +620,7 @@
                         </Button>
 
                         <!-- قسايم الأسبوع: ورقة تتقص بالطول، شريط لكل
-                             عامل. منفصلة عن "قسيمة أجر" اللي بتطبع واحد
-                             بس — دي للتوزيع على القسم كله دفعة واحدة.
+                             عامل — للتوزيع على القسم كله دفعة واحدة.
 
                              **بتظهر مع تقرير الأجور بس.** كانت ظاهرة على
                              كل تقرير — يعني وإنت شايف جدول حضور أو هالك
@@ -638,18 +637,121 @@
                             </StackPanel>
                         </Button>
 
-                        <!-- القسيمة ورقة عامل واحد — بتظهر في تقرير الأجور
-                             لما تختار عامل واحد من الفلاتر، لأن قبل كده
-                             السؤال "قسيمة مين؟" مالوش إجابة -->
-                        <Button Command="{Binding PrintPayslipCommand}"
-                                Style="{StaticResource PrimaryButton}" Padding="14,8" Margin="8,0,0,0"
-                                Visibility="{Binding CanPrintPayslip, Converter={StaticResource BoolToVis}}">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="PrinterOutline" Width="16" Height="16"
-                                                         VerticalAlignment="Center" />
-                                <TextBlock Text="قسيمة أجر" Margin="6,0,0,0" />
-                            </StackPanel>
-                        </Button>
+                        <!-- بنود القسيمة: علّم على اللي عايز يظهر في قسايم
+                             الأجر — نفس الاختيار بيتحفظ ويستخدم في كل تصدير جاي -->
+                        <Grid VerticalAlignment="Center" Margin="4,0,0,4"
+                              Visibility="{Binding IsWagesReport, Converter={StaticResource BoolToVis}}">
+                            <ToggleButton x:Name="PayslipFieldToggle" Style="{StaticResource ToolbarToggle}"
+                                          IsChecked="{Binding IsPayslipFieldMenuOpen, Mode=TwoWay}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ViewColumnOutline" Width="15" Height="15"
+                                                             VerticalAlignment="Center" />
+                                    <TextBlock Text="بنود القسيمة" Margin="5,0,0,0" VerticalAlignment="Center" />
+                                    <materialDesign:PackIcon Kind="ChevronDown" Width="14" Height="14"
+                                                             Margin="4,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <Popup IsOpen="{Binding IsPayslipFieldMenuOpen, Mode=TwoWay}" StaysOpen="False"
+                                   PlacementTarget="{Binding ElementName=PayslipFieldToggle}" Placement="Bottom"
+                                   AllowsTransparency="True" PopupAnimation="Fade"
+                                   HorizontalOffset="-6" VerticalOffset="2">
+                                <Border Style="{StaticResource ToolbarPopupCard}"
+                                        FlowDirection="RightToLeft" Width="280" MaxHeight="460">
+                                    <StackPanel>
+                                        <!-- فورمات محفوظ: بنود مسمّاة يقدر يبدّل بينها بضغطة،
+                                             زي قوالب التقارير فوق بالظبط -->
+                                        <TextBlock Text="فورمات جاهز" FontSize="11" Margin="0,0,0,4"
+                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                        <DockPanel Margin="0,0,0,4">
+                                            <Button DockPanel.Dock="Left" Command="{Binding StartRenamePayslipFormatCommand}"
+                                                    Style="{StaticResource IconButton}" Padding="6,4" Margin="4,0,0,0"
+                                                    Visibility="{Binding CanRenameSelectedPayslipFormat, Converter={StaticResource BoolToVis}}"
+                                                    ToolTip="تعديل اسم الفورمات — وبيحفظ البنود المعلّمة دلوقتي معاه">
+                                                <materialDesign:PackIcon Kind="PencilOutline" Width="13" Height="13" />
+                                            </Button>
+                                            <Button DockPanel.Dock="Left" Command="{Binding DeletePayslipFormatCommand}"
+                                                    CommandParameter="{Binding SelectedPayslipFormat}"
+                                                    Style="{StaticResource IconButton}" Padding="6,4" Margin="2,0,0,0"
+                                                    Foreground="{DynamicResource DangerBrush}"
+                                                    Visibility="{Binding CanRenameSelectedPayslipFormat, Converter={StaticResource BoolToVis}}"
+                                                    ToolTip="حذف الفورمات (الجاهزة مبتتحذفش)">
+                                                <materialDesign:PackIcon Kind="DeleteOutline" Width="13" Height="13" />
+                                            </Button>
+                                            <ComboBox ItemsSource="{Binding PayslipFormats}"
+                                                      SelectedItem="{Binding SelectedPayslipFormat}"
+                                                      DisplayMemberPath="Name" FontSize="12.5"
+                                                      ToolTip="بيملّي البنود تحت — تقدر تعدّل عليها بعدها عادي" />
+                                        </DockPanel>
+
+                                        <!-- تعديل الاسم: مطويّة، بتظهر بس لما تدوس قلم التسمية.
+                                             حفظ هنا بيحفظ الاسم **والبنود المعلّمة دلوقتي** مع
+                                             بعض — مش بس الاسم -->
+                                        <DockPanel Margin="0,0,0,6"
+                                                   Visibility="{Binding IsRenamingPayslipFormat, Converter={StaticResource BoolToVis}}">
+                                            <Button DockPanel.Dock="Right" Command="{Binding CancelRenamePayslipFormatCommand}"
+                                                    Style="{StaticResource IconButton}" Padding="5,3" Margin="3,0,0,0" ToolTip="إلغاء">
+                                                <materialDesign:PackIcon Kind="Close" Width="12" Height="12" />
+                                            </Button>
+                                            <Button DockPanel.Dock="Right" Command="{Binding ConfirmRenamePayslipFormatCommand}"
+                                                    Style="{StaticResource GhostButton}" Padding="8,4" Margin="4,0,0,0">
+                                                <TextBlock Text="حفظ" FontSize="11" />
+                                            </Button>
+                                            <TextBox Text="{Binding RenamePayslipFormatText, UpdateSourceTrigger=PropertyChanged}"
+                                                     Padding="6,4" FontSize="12" VerticalContentAlignment="Center" />
+                                        </DockPanel>
+
+                                        <!-- حفظ البنود الحالية كفورمات جديد -->
+                                        <Button Command="{Binding ToggleAddNewPayslipFormatCommand}"
+                                                Style="{StaticResource GhostButton}" Padding="8,5"
+                                                HorizontalAlignment="Left" Margin="0,0,0,6"
+                                                Visibility="{Binding IsAddingNewPayslipFormat, Converter={StaticResource InverseBoolToVis}}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Plus" Width="13" Height="13" VerticalAlignment="Center" />
+                                                <TextBlock Text="احفظ البنود الحالية كفورمات" Margin="4,0,0,0" FontSize="11.5" />
+                                            </StackPanel>
+                                        </Button>
+                                        <DockPanel Margin="0,0,0,6"
+                                                   Visibility="{Binding IsAddingNewPayslipFormat, Converter={StaticResource BoolToVis}}">
+                                            <Button DockPanel.Dock="Right" Command="{Binding ToggleAddNewPayslipFormatCommand}"
+                                                    Style="{StaticResource IconButton}" Padding="5,3" Margin="3,0,0,0" ToolTip="إلغاء">
+                                                <materialDesign:PackIcon Kind="Close" Width="12" Height="12" />
+                                            </Button>
+                                            <Button DockPanel.Dock="Right" Command="{Binding SavePayslipFormatCommand}"
+                                                    IsEnabled="{Binding CanSavePayslipFormat}"
+                                                    Style="{StaticResource GhostButton}" Padding="8,4" Margin="4,0,0,0">
+                                                <TextBlock Text="حفظ" FontSize="11" />
+                                            </Button>
+                                            <TextBox Text="{Binding NewPayslipFormatName, UpdateSourceTrigger=PropertyChanged}"
+                                                     Padding="6,4" FontSize="12" VerticalContentAlignment="Center" />
+                                        </DockPanel>
+
+                                        <Border Height="1" Margin="0,0,0,8"
+                                                Background="{DynamicResource CardBorderBrush}" />
+
+                                        <TextBlock Text="البنود اللي تظهر في قسيمة الأجر" FontSize="11"
+                                                   Margin="0,0,0,8"
+                                                   Foreground="{DynamicResource TextMutedBrush}" />
+
+                                        <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding PayslipFieldChoices}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox Content="{Binding Display}"
+                                                                  IsChecked="{Binding IsChecked}"
+                                                                  FontSize="12.5" Margin="0,3" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+
+                                        <TextBlock Text="اسم المصنع والعامل والفترة والصافي المستحق ثابتين دايمًا"
+                                                   FontSize="10.5" Margin="0,10,0,0" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+                        </Grid>
                         </StackPanel>
                     </Grid>
                 </Border>

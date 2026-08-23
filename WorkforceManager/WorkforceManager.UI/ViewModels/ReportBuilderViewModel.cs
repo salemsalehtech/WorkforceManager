@@ -42,6 +42,8 @@ namespace WorkforceManager.UI.ViewModels
 
             RefreshGroupings();
             ReloadTemplates();
+            LoadPayslipFieldChoices();
+            ReloadPayslipFormats();
         }
 
         // ======================= الاختيارات =======================
@@ -62,7 +64,6 @@ namespace WorkforceManager.UI.ViewModels
             RefreshColumnChoices(); // كل موضوع وأعمدته
             OnPropertyChanged(nameof(UsesPeriod));
             OnPropertyChanged(nameof(IsWagesReport));
-            OnPropertyChanged(nameof(CanPrintPayslip));
             RequestPreview();
         }
 
@@ -217,7 +218,6 @@ namespace WorkforceManager.UI.ViewModels
         {
             OnPropertyChanged(nameof(HasFilters));
             OnPropertyChanged(nameof(ActiveFilterCount));
-            OnPropertyChanged(nameof(CanPrintPayslip));
             RequestPreview();
         }
 
@@ -735,36 +735,243 @@ namespace WorkforceManager.UI.ViewModels
                 });
         }
 
-        // ======================= قسيمة الأجر =======================
+        // ======================= بنود قسايم الأجر المطبوعة =======================
 
         /// <summary>
-        /// القسيمة ورقة العامل نفسه — مش جدول، فمالهاش مكان في المُنشئ
-        /// العام. بتظهر لما المستخدم يختار عامل واحد في الفلاتر: ساعتها
-        /// بس السؤال "قسيمة مين؟" يبقى ليه إجابة.
+        /// البنود اللي المستخدم يقدر يظهرها/يخفيها في "قسايم الأجر"
+        /// (شوف ExportPayslipStripsAsync). كل تعليم/إلغاء بيتحفظ فورًا
+        /// في الإعدادات — نفس اختيار المستخدم بيفضل في المرة الجاية،
+        /// زي قوالب التقارير بالظبط. اسم المصنع والعامل والفترة
+        /// و"الصافي المستحق" ثابتين دايمًا في القسيمة نفسها، فمش هنا.
         /// </summary>
-        /// <summary>
-        /// القسيمة ورقة عامل **واحد** في تقرير **أجور**، فبتظهر لما
-        /// يبقى فيه واحد بالظبط متعلّم في الفلاتر — لا صفر (مفيش إجابة
-        /// لسؤال "قسيمة مين؟") ولا اتنين (مش هنطبع قسيمة الأول ونسيب
-        /// التاني).
-        /// </summary>
-        public bool CanPrintPayslip => IsWagesReport && SingleCheckedWorkerId is not null;
+        public ObservableCollection<PayslipFieldChoice> PayslipFieldChoices { get; } = new();
 
-        private int? SingleCheckedWorkerId
+        [ObservableProperty]
+        private bool _isPayslipFieldMenuOpen;
+
+        private void LoadPayslipFieldChoices()
         {
-            get
+            var saved = AppSettingsStore.Load().PayslipStripFields;
+
+            // null = كل البنود — نفس القسيمة الأصلية قبل ما البنود تبقى اختيارية
+            var selected = saved is null
+                ? PayslipStripExcelService.AllFields
+                : saved
+                    .Select(name => Enum.TryParse<PayslipStripField>(name, out var f) ? f : (PayslipStripField?)null)
+                    .Where(f => f is not null)
+                    .Select(f => f!.Value)
+                    .ToHashSet();
+
+            foreach (var choice in PayslipFieldChoices) choice.Changed -= SavePayslipFieldChoices;
+            PayslipFieldChoices.Clear();
+
+            void Add(PayslipStripField field, string label)
             {
-                var checkedWorkers = Workers.Where(w => w.IsChecked).Take(2).ToList();
-                return checkedWorkers.Count == 1 ? checkedWorkers[0].Id : null;
+                var item = new PayslipFieldChoice(field, label) { IsChecked = selected.Contains(field) };
+                item.Changed += SavePayslipFieldChoices;
+                PayslipFieldChoices.Add(item);
             }
+
+            Add(PayslipStripField.DailyWageRate, "سعر اليومية");
+            Add(PayslipStripField.ProducedWorkdays, "يوميات منتجة");
+            Add(PayslipStripField.DaysWorked, "أيام فيها شغل");
+            Add(PayslipStripField.StageBreakdown, "اشتغل على (تفاصيل المراحل والقطع)");
+            Add(PayslipStripField.TotalPieces, "إجمالي القطع");
+            Add(PayslipStripField.AbsenceDeduction, "خصم غياب");
+            Add(PayslipStripField.PenaltyDeduction, "خصم جزاءات");
+            Add(PayslipStripField.NetWorkdays, "صافي اليوميات");
+            Add(PayslipStripField.WorkdaysWageEgp, "أجر اليوميات");
+            Add(PayslipStripField.Bonus, "حوافز");
+            Add(PayslipStripField.Advance, "سلف");
+        }
+
+        private void SavePayslipFieldChoices()
+        {
+            var settings = AppSettingsStore.Load();
+            settings.PayslipStripFields = PayslipFieldChoices
+                .Where(c => c.IsChecked)
+                .Select(c => c.Field.ToString())
+                .ToList();
+            AppSettingsStore.Save(settings);
+        }
+
+        private HashSet<PayslipStripField> SelectedPayslipFields() =>
+            PayslipFieldChoices.Where(c => c.IsChecked).Select(c => c.Field).ToHashSet();
+
+        // ------- فورمات محفوظة (بنود مسمّاة، زي قوالب التقارير) -------
+
+        /// <summary>
+        /// فورمات جاهزة أو محفوظة بالاسم — اختياره بيملّي <see cref="PayslipFieldChoices"/>
+        /// دفعة واحدة بدل ما المستخدم يعلّم/يشيل يدويًا كل مرة. الاختيار
+        /// اليدوي بعد كده لسه شغال عادي (مش قفل على الفورمات المختار).
+        /// </summary>
+        public ObservableCollection<PayslipFormat> PayslipFormats { get; } = new();
+
+        [ObservableProperty]
+        private PayslipFormat? _selectedPayslipFormat;
+
+        partial void OnSelectedPayslipFormatChanged(PayslipFormat? value)
+        {
+            IsRenamingPayslipFormat = false;
+            OnPropertyChanged(nameof(CanRenameSelectedPayslipFormat));
+
+            if (value is null) return;
+
+            var fields = value.ToFieldSet();
+
+            foreach (var choice in PayslipFieldChoices)
+            {
+                choice.Changed -= SavePayslipFieldChoices;
+                choice.IsChecked = fields.Contains(choice.Field);
+                choice.Changed += SavePayslipFieldChoices;
+            }
+
+            SavePayslipFieldChoices();
+        }
+
+        [ObservableProperty]
+        private string _newPayslipFormatName = "";
+
+        public bool CanSavePayslipFormat => NewPayslipFormatName.Trim().Length > 0;
+
+        partial void OnNewPayslipFormatNameChanged(string value) =>
+            OnPropertyChanged(nameof(CanSavePayslipFormat));
+
+        /// <summary>فورم "احفظ باسم" مطويّة افتراضيًا — نفس سبب طيّها في القوالب</summary>
+        [ObservableProperty]
+        private bool _isAddingNewPayslipFormat;
+
+        [RelayCommand]
+        private void ToggleAddNewPayslipFormat()
+        {
+            IsAddingNewPayslipFormat = !IsAddingNewPayslipFormat;
+            if (!IsAddingNewPayslipFormat) NewPayslipFormatName = "";
+        }
+
+        [RelayCommand]
+        private void SavePayslipFormat()
+        {
+            var name = NewPayslipFormatName.Trim();
+            if (name.Length == 0) return;
+
+            // لو الاسم زي فورمات جاهز بالظبط، الحفظ كان بيعمل نسخة
+            // تانية بنفس الاسم من غير ما يستبدلها — الكومبو كان بيبقى
+            // فيه سطرين بنفس الاسم، والاختيار بعد الحفظ كان بيوقع على
+            // الجاهز (الأول في الترتيب) بدل نسخة المستخدم، فتعديله كان
+            // بيختفي فورًا من الشاشة وهو ساعتها متأكد إنه ضغط حفظ
+            if (PayslipFormats.Any(f => f.IsBuiltIn && string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                Notify.Warn($"\"{name}\" اسم فورمات جاهز مع البرنامج — اختار اسم تاني", "مش هينفع");
+                return;
+            }
+
+            PayslipFormatStore.Save(PayslipFormat.FromFields(name, SelectedPayslipFields()));
+
+            NewPayslipFormatName = "";
+            IsAddingNewPayslipFormat = false;
+            ReloadPayslipFormats();
+            SelectedPayslipFormat = PayslipFormats.FirstOrDefault(f =>
+                string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
+
+            Notify.Info($"الفورمات \"{name}\" اتحفظ. هتلاقيه في القايمة.", "تم الحفظ");
+        }
+
+        [RelayCommand]
+        private void DeletePayslipFormat(PayslipFormat? format)
+        {
+            if (format is null || format.IsBuiltIn) return;
+
+            if (!Notify.Ask($"حذف فورمات \"{format.Name}\"؟", "تأكيد")) return;
+
+            // بعد الحذف الكولكشن بتتبني من جديد بعناصر جديدة، فالمقارنة
+            // بعد الحذف لازم تبقى بالاسم مش بمرجع الكائن القديم — وإلا
+            // الكومبو بتاع الفورمات بيفضل شايل الاختيار القديم اللي
+            // بقى مش موجود في القايمة، ويبان فاضي من غير سبب واضح
+            var currentName = SelectedPayslipFormat?.Name;
+            PayslipFormatStore.Delete(format.Name);
+            ReloadPayslipFormats();
+
+            SelectedPayslipFormat = string.Equals(currentName, format.Name, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : PayslipFormats.FirstOrDefault(f => string.Equals(f.Name, currentName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        [ObservableProperty]
+        private bool _isRenamingPayslipFormat;
+
+        [ObservableProperty]
+        private string _renamePayslipFormatText = "";
+
+        public bool CanRenameSelectedPayslipFormat =>
+            SelectedPayslipFormat is not null && !SelectedPayslipFormat.IsBuiltIn;
+
+        [RelayCommand]
+        private void StartRenamePayslipFormat()
+        {
+            if (!CanRenameSelectedPayslipFormat) return;
+
+            RenamePayslipFormatText = SelectedPayslipFormat!.Name;
+            IsRenamingPayslipFormat = true;
         }
 
         /// <summary>
-        /// قسايم الأسبوع: ورقة تتطبع وتتقص بالطول، شريط لكل عامل.
+        /// بيحفظ الاسم **والبنود المعلّمة دلوقتي** مع بعض — مش الاسم بس.
         ///
-        /// منفصلة عن "قسيمة أجر" (اللي بتطبع عامل واحد على نافذة): دي
-        /// للتوزيع الأسبوعي على القسم كله دفعة واحدة، وبتخرج Excel عشان
-        /// تتطبع من أي مكان من غير ما البرنامج يبقى مفتوح.
+        /// لو المستخدم اختار فورمات، عدّل البنود، وبعدين فتح مربع
+        /// "إعادة التسمية" وضغط حفظ (زي ما بيحصل غالبًا لو مفيش زرار
+        /// تاني ظاهر قدامه)، كان بيتوقّع إن تعديله يتحفظ — لكن
+        /// PayslipFormatStore.Rename بتغيّر الاسم بس ومبتلمسش البنود،
+        /// فتعديله كان بيختفي بصمت والفورمات القديم يفضل زي ما هو.
+        /// عشان كده هنا بنحفظ فورمات كامل بالاسم الجديد (بالبنود
+        /// الحالية) بدل ما ننادي Rename، وبعدين نشيل النسخة القديمة لو
+        /// الاسم اتغيّر فعلاً.
+        /// </summary>
+        [RelayCommand]
+        private void ConfirmRenamePayslipFormat()
+        {
+            if (SelectedPayslipFormat is null) return;
+
+            var oldName = SelectedPayslipFormat.Name;
+            var newName = RenamePayslipFormatText.Trim();
+
+            if (newName.Length == 0)
+            {
+                Notify.Warn("اسم الفورمات مينفعش يبقى فاضي", "مش هينفع");
+                return;
+            }
+
+            if (!string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase)
+                && PayslipFormats.Any(f => !f.IsBuiltIn && string.Equals(f.Name, newName, StringComparison.OrdinalIgnoreCase)))
+            {
+                Notify.Warn($"في فورمات اسمه \"{newName}\" بالفعل", "مش هينفع");
+                return;
+            }
+
+            PayslipFormatStore.Save(PayslipFormat.FromFields(newName, SelectedPayslipFields()));
+            if (!string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase))
+                PayslipFormatStore.Delete(oldName);
+
+            IsRenamingPayslipFormat = false;
+            ReloadPayslipFormats();
+            SelectedPayslipFormat = PayslipFormats.FirstOrDefault(f =>
+                string.Equals(f.Name, newName, StringComparison.OrdinalIgnoreCase));
+
+            Notify.Info($"الفورمات \"{newName}\" اتحفظ بالبنود الحالية.", "تم");
+        }
+
+        [RelayCommand]
+        private void CancelRenamePayslipFormat() => IsRenamingPayslipFormat = false;
+
+        private void ReloadPayslipFormats()
+        {
+            PayslipFormats.Clear();
+            foreach (var f in PayslipFormatStore.Load()) PayslipFormats.Add(f);
+        }
+
+        // ======================= قسايم الأجر =======================
+
+        /// <summary>
+        /// قسايم الأسبوع: ورقة تتطبع وتتقص بالطول، شريط لكل عامل.
         ///
         /// الأرقام بتيجي من PayrollService — نفس اللي كشف الأجور بيقوله
         /// بالحرف، فالورقة اللي في إيد العامل متطابقة مع الكشف.
@@ -810,6 +1017,8 @@ namespace WorkforceManager.UI.ViewModels
             var pages = (int)Math.Ceiling(
                 payroll.Workers.Count / (double)PayslipStripExcelService.SlipsPerPage);
 
+            var fields = SelectedPayslipFields();
+
             await ExcelExport.RunAsync(
                 "حفظ قسايم الأجر",
                 $"قسايم الأجر {from:yyyy-MM-dd}",
@@ -817,7 +1026,7 @@ namespace WorkforceManager.UI.ViewModels
                 {
                     using var scope = _scopeFactory.CreateScope();
                     scope.ServiceProvider.GetRequiredService<PayslipStripExcelService>()
-                        .Export(payroll, path, options);
+                        .Export(payroll, path, options, fields);
                     return Task.CompletedTask;
                 });
 
@@ -826,32 +1035,6 @@ namespace WorkforceManager.UI.ViewModels
                 $"({PayslipStripExcelService.SlipsPerPage} في الورقة).\n" +
                 "اطبع بالعرض (Landscape) وقص على الخطوط الرأسية.",
                 "القسايم جاهزة");
-        }
-
-        [RelayCommand]
-        private async Task PrintPayslipAsync()
-        {
-            if (SingleCheckedWorkerId is not { } workerId)
-            {
-                Notify.Info("علّم على عامل واحد بس في الفلاتر عشان تطبع قسيمته");
-                return;
-            }
-
-            var (from, to) = SelectedPeriod.Kind == ReportPeriodKind.Custom
-                ? (CustomFrom, CustomTo)
-                : ReportPeriod.Resolve(SelectedPeriod.Kind);
-
-            WorkerProductionReportDto report;
-            using (var scope = _scopeFactory.CreateScope())
-                report = await scope.ServiceProvider
-                    .GetRequiredService<ProductionReportService>()
-                    .GetWorkerReportAsync(workerId, from, to);
-
-            // معاينة في نافذة، والطباعة من جواها لأي طابعة أو PDF
-            new Views.PayslipWindow(PayslipData.From(report))
-            {
-                Owner = System.Windows.Application.Current.MainWindow
-            }.ShowDialog();
         }
 
         // ======================= القوالب =======================
