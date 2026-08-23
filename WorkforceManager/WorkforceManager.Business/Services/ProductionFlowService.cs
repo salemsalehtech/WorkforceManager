@@ -330,7 +330,10 @@ namespace WorkforceManager.Business.Services
                 if (share.PieceCount <= 0)
                     throw new InvalidOperationException($"نصيب كل عامل في مرحلة \"{stageName}\" لازم يكون رقمًا موجبًا");
 
-                if (piecesPerStage[stageIndex] == 0)
+                // إعادة العمل مستثناة: العامل بيصلّح شغل خلص من قبل، فمفيش
+                // نطاق إنتاج جديد وراها أصلاً — دي بالظبط الحالة اللي
+                // بتخلي المرحلة تبقى برّه كل النطاقات ولسه عليها عامل
+                if (piecesPerStage[stageIndex] == 0 && !share.IsRework)
                     throw new InvalidOperationException(
                         $"مرحلة \"{stageName}\" عليها عمال لكن مش داخلة في أي نطاق إنتاج — إما ضيفها لنطاق أو شيل عمالها");
 
@@ -350,7 +353,10 @@ namespace WorkforceManager.Business.Services
                 if (piecesPerStage[i] == 0) continue; // مرحلة مش داخلة في الرحلة النهارده — عادي
 
                 var stage = orderedStages[i];
-                var stageShares = sharesByStage[stage.Id].ToList();
+
+                // عمال الإعادة مش محسوبين هنا: النطاق بيقول إن القطع دي
+                // خرجت من المرحلة فعلاً، والمصلّح مش هو اللي خرّجها
+                var stageShares = sharesByStage[stage.Id].Where(s => !s.IsRework).ToList();
 
                 if (stageShares.Count == 0 && !taggedStageIds.Contains(stage.Id))
                     throw new InvalidOperationException(
@@ -379,7 +385,8 @@ namespace WorkforceManager.Business.Services
                         ProductId = product.Id,
                         ProductName = product.Name,
                         ProductionStageId = share.ProductionStageId,
-                        StageName = stageById[share.ProductionStageId].StageName
+                        StageName = stageById[share.ProductionStageId].StageName,
+                        IsRework = share.IsRework
                     })
                     .ToList();
 
@@ -398,7 +405,8 @@ namespace WorkforceManager.Business.Services
                         ProductionStageId = share.ProductionStageId,
                         Date = date.Date,
                         PieceCount = share.PieceCount,
-                        PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday
+                        PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday,
+                        IsRework = share.IsRework
                     });
                 }
 
@@ -406,6 +414,10 @@ namespace WorkforceManager.Business.Services
                 // نفس رقم النطاق بيروح لكل مرحلة فيه (زي ما كان بيتحقق منه
                 // بس من غير تخزين). تراكمي: رحلة تانية على نفس المرحلة/اليوم
                 // (بعد إعادة فتح يوم مقفول مثلًا) بتتجمّع، ماتستبدلش.
+                //
+                // إعادة العمل عمرها ما بتوصل هنا: الرقم ده جاي من النطاقات
+                // بس، وسجل الإعادة أصلاً مالوش نطاق — فالإنتاج الفعلي
+                // مابيزيدش بيها، وده كل المطلوب منها.
                 for (var i = 0; i < orderedStages.Count; i++)
                 {
                     if (piecesPerStage[i] == 0) continue;
