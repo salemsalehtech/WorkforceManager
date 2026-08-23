@@ -167,6 +167,9 @@ namespace WorkforceManager.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsRework")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("PieceCount")
                         .HasColumnType("INTEGER");
 
@@ -185,7 +188,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("WorkerId", "ProductionStageId", "Date");
 
-                    b.HasIndex("ProductionStageId", "Date", "IsDeleted", "PieceCount");
+                    b.HasIndex("ProductionStageId", "Date", "IsDeleted", "PieceCount", "IsRework");
 
                     b.ToTable("DailyProductions", t =>
                         {
