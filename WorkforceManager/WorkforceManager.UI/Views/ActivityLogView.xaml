@@ -70,9 +70,39 @@
                            Foreground="{DynamicResource TextMutedBrush}"
                            Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}" />
 
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Events}" Margin="12">
-                        <ItemsControl.ItemTemplate>
+                <!--
+                    ListBox بدل ItemsControl+ScrollViewer يدوي — الفرق مش
+                    شكلي: ListBox بيفرّج نفسه (VirtualizingStackPanel
+                    ضمنيًا)، فبيبني العناصر الظاهرة بس. ItemsControl لفّه
+                    ScrollViewer صريح مش بيفرّج حتى لو حطّيت VirtualizingStackPanel
+                    كـ ItemsPanel — ScrollViewer الخارجي بيقطع معلومات
+                    الـ viewport اللي التفريج محتاجها. الفرق كان بيبين على
+                    سجل شهر كامل (كل كارت فيه ~15 عنصر مربوط بالثيم): كل
+                    الكروت كانت بتتبني وقت الفتح حتى اللي برّه الشاشة.
+                    ItemContainerStyle هنا بيشيل شكل التحديد/الفوكس بتاع
+                    ListBox عشان يفضل شكله زي القايمة القديمة بالظبط —
+                    قايمة عرض مش قايمة اختيار.
+                -->
+                <ListBox ItemsSource="{Binding Events}" Margin="12"
+                         Background="Transparent" BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.VirtualizationMode="Recycling">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Focusable" Value="False" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <ContentPresenter />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <!-- الكارت اتقسّم لطبقات واضحة: أيقونة تدّي هوية الحدث
                                      فورًا، عنوان + وقت، جسم بس لو فيه سبب أو تفاصيل
@@ -156,9 +186,8 @@
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                        </ListBox.ItemTemplate>
+                </ListBox>
             </Grid>
         </Border>
     </Grid>
