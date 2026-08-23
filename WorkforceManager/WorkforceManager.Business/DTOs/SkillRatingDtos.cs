@@ -20,7 +20,7 @@ namespace WorkforceManager.Business.DTOs
         /// <summary>تقييم المدير من 1 لـ 5</summary>
         public int Stars { get; init; }
 
-        /// <summary>الأداء الفعلي المقاس (1.0 = بيعمل الكوتة بالظبط)</summary>
+        /// <summary>الأداء الفعلي المقاس (1.0 = بيعمل اليومية بالظبط)</summary>
         public decimal MeasuredRatio { get; init; }
 
         /// <summary>عدد أيام الشغل اللي القياس اتبنى عليها</summary>
@@ -45,7 +45,7 @@ namespace WorkforceManager.Business.DTOs
         /// شرح الرقم للمدير — من غيره الأرقام بتبقى بلا سياق.
         /// </summary>
         public string MeasuredTooltip => HasMeasurement
-            ? $"إنتاجه الفعلي {MeasuredText} من الكوتة — محسوب من {MeasuredDays} يوم شغل"
+            ? $"إنتاجه الفعلي {MeasuredText} من اليومية — محسوب من {MeasuredDays} يوم شغل"
             : "لسه مافيش إنتاج كفاية للقياس";
     }
 
