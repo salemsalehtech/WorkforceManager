@@ -96,8 +96,14 @@ namespace WorkforceManager.UI
                     // الشاشات الداخلية Transient: نسخة جديدة نظيفة مع كل تنقّل
                     services.AddTransient<Views.WorkersView>();
                     services.AddTransient<ViewModels.WorkersViewModel>();
-                    services.AddTransient<Views.DailyEntryView>();
-                    services.AddTransient<ViewModels.DailyEntryViewModel>();
+                    // التسجيل اليومي وحدها Singleton: فيها توزيع عمال على
+                    // مراحل لسه مش محفوظ، ونسخة جديدة كل تنقّل كانت بتمسحه
+                    // لو المستخدم راح لشاشة تانية ورجع من غير حفظ. الحمل
+                    // الفعلي (استعلامات قاعدة البيانات) لسه بيحصل مرة واحدة
+                    // بس (شوف DailyEntryViewModel._initialized) — الفرق إن
+                    // الرجوع للشاشة بقى مبيعيدش بناءها من الصفر.
+                    services.AddSingleton<Views.DailyEntryView>();
+                    services.AddSingleton<ViewModels.DailyEntryViewModel>();
                     services.AddTransient<Views.ReportsView>();
                     services.AddTransient<ViewModels.ReportsViewModel>();
                     services.AddTransient<Views.ReportBuilderView>();

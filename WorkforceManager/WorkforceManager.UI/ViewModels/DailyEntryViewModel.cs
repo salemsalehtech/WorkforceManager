@@ -30,6 +30,18 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>كل المنتجات النشطة بمراحلها — بتتحمل مرة واحدة وتتشارك بين كل الرحلات</summary>
         private readonly List<ProductOption> _products = new();
 
+        /// <summary>
+        /// الشاشة دي Singleton (شوف App.xaml.cs) عشان توزيع العمال على
+        /// المراحل يفضل موجود لو المستخدم راح لشاشة تانية ورجع من غير
+        /// ما يحفظ — قبل كده كل تنقّل كان بيبني الشاشة من جديد ويمسح أي
+        /// توزيع لسه مش محفوظ. بس Singleton لوحدها معناها InitializeAsync
+        /// (اللي View.Loaded بينادّيها في كل رجوع للشاشة) هتتنفذ تاني
+        /// وتمسح FlowSessions من غير قصد — الحارس ده بيمنع ده: أول مرة
+        /// بس هي اللي بتبني الرحلة الأولى، وبعدها الرجوع للشاشة مبيغيّرش
+        /// حاجة إلا لو المستخدم غيّر التاريخ (OnEntryDateChanged) بنفسه.
+        /// </summary>
+        private bool _initialized;
+
         public DailyEntryViewModel(IServiceScopeFactory scopeFactory)
         {
             _scopeFactory = scopeFactory;
@@ -56,9 +68,17 @@ namespace WorkforceManager.UI.ViewModels
             SafeAsync.Run(ReloadForDateAsync);
         }
 
-        /// <summary>أول تحميل للشاشة: المنتجات + أول رحلة + الحضور + الجزاءات</summary>
+        /// <summary>
+        /// أول تحميل للشاشة: المنتجات + أول رحلة + الحضور + الجزاءات.
+        /// View.Loaded بينادّيها في كل رجوع للشاشة (الشاشة Singleton)،
+        /// فبترجع فورًا من غير ما تعمل حاجة لو سبق واتحمّلت — رجوع
+        /// المستخدم للشاشة مش لازم يمسح توزيع لسه مش محفوظ.
+        /// </summary>
         public async Task InitializeAsync()
         {
+            if (_initialized) return;
+            _initialized = true;
+
             using (var scope = _scopeFactory.CreateScope())
             {
                 var productRepo = scope.ServiceProvider.GetRequiredService<IProductRepository>();
@@ -117,6 +137,20 @@ namespace WorkforceManager.UI.ViewModels
             await LoadAdjustmentsAsync();
             await LoadScrapAsync();
             await LoadClosureStateAsync();
+        }
+
+        /// <summary>
+        /// بيرجّع الشاشة لحالتها الأولى — لازم يتنادى عند تسجيل الخروج.
+        /// الشاشة Singleton (شوف توثيق _initialized فوق)، فمن غير الدالة
+        /// دي حساب إداري تاني بيدخل بعد كده كان هيلاقي رحلة إنتاج لسه
+        /// من غير حفظ سابها الحساب اللي قبله — والبرنامج بالتصميم بيسمح
+        /// بأكتر من حساب إداري يستخدموا نفس الجهاز في نفس الشيفت.
+        /// </summary>
+        public void ResetForNewSession()
+        {
+            FlowSessions.Clear();
+            _initialized = false;
+            EntryDate = DateTime.Today;
         }
 
         /// <summary>بعد حفظ أي رحلة: الحضور التلقائي وسجلات اليوم بيظهروا فورًا</summary>
