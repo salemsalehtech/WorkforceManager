@@ -167,6 +167,20 @@
                 <Setter Property="FontFamily" Value="{StaticResource AppFont}" />
             </Style>
 
+            <!--
+              كل حدود البرنامج (كروت، شرايح، أزرار...) بترسم بـ Border —
+              ومفيش ولا واحد فيهم كان بيحط SnapsToDevicePixels. النص كان
+              متظبط بعناية (ClearType + Ideal formatting فوق)، بس الحدود
+              لأ: خط رفيع (1-1.6 بكسل) بيقع على بكسل كسري بعد تحجيم DPI
+              بيترسم antialiased — يعني خط باهت مطموس بدل خط حاد — وده
+              اللي بيدي إحساس "الإطار مش واضح/شكله غريب" حتى بعد ما مقاس
+              الاستدارة يتظبط صح. النمط الضمني ده بيوصل التصحيح لكل حدود
+              البرنامج دفعة واحدة، زي نمط TextBlock فوق بالظبط.
+            -->
+            <Style TargetType="{x:Type Border}">
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+            </Style>
+
             <!-- ــــــــــ البطاقات ــــــــــ -->
             <!-- ظل ناعم موحّد — إحساس بارتفاع البطاقة عن خلفية الصفحة من غير ما يزعج العين -->
             <DropShadowEffect x:Key="CardShadow" Color="{DynamicResource ShadowColor}" Direction="270" ShadowDepth="1.5"
@@ -532,12 +546,24 @@
                 بالصدفة.
             -->
 
-            <!-- بطاقة عامل واحد في قائمة الحضور (بتعلى شوية مع الماوس) -->
+            <!--
+                بطاقة عامل واحد في قائمة الحضور (بتعلى شوية مع الماوس) —
+                نفس الستايل ده بيتستخدم لكل بطاقات القوائم في البرنامج
+                (عمال، منتجات، مراحل الخط...)، فأي تعديل هنا بيوصل للكل
+                دفعة واحدة.
+
+                CornerRadius كان 12 — على بطاقة طويلة (عامل بصورة وحالة
+                وشرايح) الاستدارة دي متناسبة، لكن على بطاقة قصيرة (منتج
+                من غير وصف مثلاً) بتبقى نسبتها لطول البطاقة كبيرة والشكل
+                يميل للحبة/الكبسولة بدل الكارت. 9 بيفضل واضح إنه كارت
+                مش شريحة مهما كان طول المحتوى، وبرضه مش حاد بدرجة تبين
+                رسمي أكتر من باقي شكل البرنامج المدوّر.
+            -->
             <Style x:Key="WorkerCard" TargetType="Border">
                 <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
                 <Setter Property="BorderThickness" Value="1.4" />
-                <Setter Property="CornerRadius" Value="12" />
+                <Setter Property="CornerRadius" Value="9" />
                 <Setter Property="Padding" Value="14,11" />
                 <Style.Triggers>
                     <Trigger Property="IsMouseOver" Value="True">
