@@ -31,6 +31,18 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>عدد القطع اللي أنتجها هذا العامل تحديدًا في هذه المرحلة</summary>
         public int PieceCount { get; init; }
+
+        /// <summary>
+        /// إعادة عمل: العامل رجع صلّح شغل خلص على المرحلة دي، مش إنتاج
+        /// جديد. بيتحسب في يوميته وأجره عادي، ومابيعدّش في الإنتاج
+        /// الفعلي — الإنتاج الفعلي بيتسجّل من النطاقات لوحدها، والسجل
+        /// المتعلّم بالإعادة بيتستبعد من كل حسابات الإنتاج (شوف
+        /// <see cref="WorkforceManager.Core.Models.DailyProduction.IsRework"/>).
+        ///
+        /// كمان هو الاستثناء الوحيد لقاعدة "نفس العامل مايتسجلش مرتين على
+        /// نفس المرحلة في نفس اليوم" — شوف WorkerAssignmentGuard.
+        /// </summary>
+        public bool IsRework { get; init; }
     }
 
     /// <summary>
