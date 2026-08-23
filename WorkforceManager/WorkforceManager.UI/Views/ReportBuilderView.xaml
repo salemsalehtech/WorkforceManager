@@ -620,8 +620,7 @@
                         </Button>
 
                         <!-- قسايم الأسبوع: ورقة تتقص بالطول، شريط لكل
-                             عامل. منفصلة عن "قسيمة أجر" اللي بتطبع واحد
-                             بس — دي للتوزيع على القسم كله دفعة واحدة.
+                             عامل — للتوزيع على القسم كله دفعة واحدة.
 
                              **بتظهر مع تقرير الأجور بس.** كانت ظاهرة على
                              كل تقرير — يعني وإنت شايف جدول حضور أو هالك
@@ -753,19 +752,6 @@
                                 </Border>
                             </Popup>
                         </Grid>
-
-                        <!-- القسيمة ورقة عامل واحد — بتظهر في تقرير الأجور
-                             لما تختار عامل واحد من الفلاتر، لأن قبل كده
-                             السؤال "قسيمة مين؟" مالوش إجابة -->
-                        <Button Command="{Binding PrintPayslipCommand}"
-                                Style="{StaticResource PrimaryButton}" Padding="14,8" Margin="8,0,0,0"
-                                Visibility="{Binding CanPrintPayslip, Converter={StaticResource BoolToVis}}">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="PrinterOutline" Width="16" Height="16"
-                                                         VerticalAlignment="Center" />
-                                <TextBlock Text="قسيمة أجر" Margin="6,0,0,0" />
-                            </StackPanel>
-                        </Button>
                         </StackPanel>
                     </Grid>
                 </Border>

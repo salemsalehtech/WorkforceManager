@@ -64,7 +64,6 @@ namespace WorkforceManager.UI.ViewModels
             RefreshColumnChoices(); // كل موضوع وأعمدته
             OnPropertyChanged(nameof(UsesPeriod));
             OnPropertyChanged(nameof(IsWagesReport));
-            OnPropertyChanged(nameof(CanPrintPayslip));
             RequestPreview();
         }
 
@@ -219,7 +218,6 @@ namespace WorkforceManager.UI.ViewModels
         {
             OnPropertyChanged(nameof(HasFilters));
             OnPropertyChanged(nameof(ActiveFilterCount));
-            OnPropertyChanged(nameof(CanPrintPayslip));
             RequestPreview();
         }
 
@@ -970,36 +968,10 @@ namespace WorkforceManager.UI.ViewModels
             foreach (var f in PayslipFormatStore.Load()) PayslipFormats.Add(f);
         }
 
-        // ======================= قسيمة الأجر =======================
-
-        /// <summary>
-        /// القسيمة ورقة العامل نفسه — مش جدول، فمالهاش مكان في المُنشئ
-        /// العام. بتظهر لما المستخدم يختار عامل واحد في الفلاتر: ساعتها
-        /// بس السؤال "قسيمة مين؟" يبقى ليه إجابة.
-        /// </summary>
-        /// <summary>
-        /// القسيمة ورقة عامل **واحد** في تقرير **أجور**، فبتظهر لما
-        /// يبقى فيه واحد بالظبط متعلّم في الفلاتر — لا صفر (مفيش إجابة
-        /// لسؤال "قسيمة مين؟") ولا اتنين (مش هنطبع قسيمة الأول ونسيب
-        /// التاني).
-        /// </summary>
-        public bool CanPrintPayslip => IsWagesReport && SingleCheckedWorkerId is not null;
-
-        private int? SingleCheckedWorkerId
-        {
-            get
-            {
-                var checkedWorkers = Workers.Where(w => w.IsChecked).Take(2).ToList();
-                return checkedWorkers.Count == 1 ? checkedWorkers[0].Id : null;
-            }
-        }
+        // ======================= قسايم الأجر =======================
 
         /// <summary>
         /// قسايم الأسبوع: ورقة تتطبع وتتقص بالطول، شريط لكل عامل.
-        ///
-        /// منفصلة عن "قسيمة أجر" (اللي بتطبع عامل واحد على نافذة): دي
-        /// للتوزيع الأسبوعي على القسم كله دفعة واحدة، وبتخرج Excel عشان
-        /// تتطبع من أي مكان من غير ما البرنامج يبقى مفتوح.
         ///
         /// الأرقام بتيجي من PayrollService — نفس اللي كشف الأجور بيقوله
         /// بالحرف، فالورقة اللي في إيد العامل متطابقة مع الكشف.
@@ -1063,32 +1035,6 @@ namespace WorkforceManager.UI.ViewModels
                 $"({PayslipStripExcelService.SlipsPerPage} في الورقة).\n" +
                 "اطبع بالعرض (Landscape) وقص على الخطوط الرأسية.",
                 "القسايم جاهزة");
-        }
-
-        [RelayCommand]
-        private async Task PrintPayslipAsync()
-        {
-            if (SingleCheckedWorkerId is not { } workerId)
-            {
-                Notify.Info("علّم على عامل واحد بس في الفلاتر عشان تطبع قسيمته");
-                return;
-            }
-
-            var (from, to) = SelectedPeriod.Kind == ReportPeriodKind.Custom
-                ? (CustomFrom, CustomTo)
-                : ReportPeriod.Resolve(SelectedPeriod.Kind);
-
-            WorkerProductionReportDto report;
-            using (var scope = _scopeFactory.CreateScope())
-                report = await scope.ServiceProvider
-                    .GetRequiredService<ProductionReportService>()
-                    .GetWorkerReportAsync(workerId, from, to);
-
-            // معاينة في نافذة، والطباعة من جواها لأي طابعة أو PDF
-            new Views.PayslipWindow(PayslipData.From(report))
-            {
-                Owner = System.Windows.Application.Current.MainWindow
-            }.ShowDialog();
         }
 
         // ======================= القوالب =======================
