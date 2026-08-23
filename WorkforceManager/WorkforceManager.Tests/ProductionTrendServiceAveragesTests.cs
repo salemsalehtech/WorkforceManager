@@ -31,7 +31,8 @@ namespace WorkforceManager.Tests
         {
             var today = TestDatabase.Today;
 
-            // أحمد: متوسط 3000، سعيد: متوسط 5000 — سعيد لازم يظهر الأول
+            // RingStage1Id يوميته 10 قطعة — أحمد: متوسط 3000/10=300 يومية،
+            // سعيد: متوسط 5000/10=500 يومية، سعيد لازم يظهر الأول
             await RecordDaysAsync(TestDatabase.WorkerAhmedId, TestDatabase.RingStage1Id, today, 7, 3000);
             await RecordDaysAsync(TestDatabase.WorkerSaidId, TestDatabase.RingStage1Id, today, 7, 5000);
 
@@ -40,9 +41,9 @@ namespace WorkforceManager.Tests
 
             Assert.Equal(2, averages.Count);
             Assert.Equal(TestDatabase.WorkerSaidId, averages[0].WorkerId);
-            Assert.Equal(5000m, averages[0].TrailingAverage);
+            Assert.Equal(500m, averages[0].TrailingAverageWorkdays);
             Assert.Equal(TestDatabase.WorkerAhmedId, averages[1].WorkerId);
-            Assert.Equal(3000m, averages[1].TrailingAverage);
+            Assert.Equal(300m, averages[1].TrailingAverageWorkdays);
         }
 
         [Fact]

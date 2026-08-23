@@ -707,15 +707,39 @@ namespace WorkforceManager.UI.ViewModels
 
         // ======================= تبويب متوسط إنتاج العمال =======================
 
-        /// <summary>كل عامل عنده تاريخ إنتاج كافي (7 أيام شغل فعلية) ومتوسطه اليومي — مرتبين حسب SortDescending</summary>
+        /// <summary>كل عامل عنده تاريخ إنتاج كافي (7 أيام شغل فعلية) ومتوسطه اليومي — مرتبين حسب SortDescending وShowDeclinedOnly</summary>
         public ObservableCollection<WorkerProductionAverageDto> WorkerAverages { get; } = new();
 
         [ObservableProperty]
         private bool _hasWorkerAverages;
 
+        /// <summary>
+        /// عدد الجدول بعد الفلتر > 0؟ لازم عن HasWorkerAverages: لو
+        /// فلتر "اللي قلّ بس" مفعّل ومفيش حد قلّ دلوقتي، HasWorkerAverages
+        /// بتفضل true (فيه عمال ليهم تاريخ كافي أصلًا) بس الجدول بيبقى
+        /// فاضي — من غيرها الشاشة كانت بتبان فاضية بلا أي تفسير، وكأن
+        /// الفلتر "مش شغال".
+        /// </summary>
+        [ObservableProperty]
+        private bool _hasFilteredWorkerAverages;
+
         /// <summary>الأعلى إنتاجًا فوق (true، الافتراضي) أو الأقل فوق (false)</summary>
         [ObservableProperty]
         private bool _sortDescending = true;
+
+        /// <summary>كام عامل إنتاجه النهارده قلّ عن معتاده — بادچ فوق الجدول، صفر يعني البادچ مختفي</summary>
+        [ObservableProperty]
+        private int _declinedTodayCount;
+
+        public bool HasDeclinedToday => DeclinedTodayCount > 0;
+
+        partial void OnDeclinedTodayCountChanged(int value) => OnPropertyChanged(nameof(HasDeclinedToday));
+
+        /// <summary>فلتر "اللي قلّ بس" — لما يبقى مفعّل الجدول يعرض المتراجعين بس</summary>
+        [ObservableProperty]
+        private bool _showDeclinedOnly;
+
+        partial void OnShowDeclinedOnlyChanged(bool value) => ApplyWorkerAveragesSort();
 
         private List<WorkerProductionAverageDto> _allWorkerAverages = new();
 
@@ -728,12 +752,17 @@ namespace WorkforceManager.UI.ViewModels
 
         private void ApplyWorkerAveragesSort()
         {
+            var source = ShowDeclinedOnly
+                ? _allWorkerAverages.Where(w => w.IsBelowToday)
+                : _allWorkerAverages.AsEnumerable();
+
             var sorted = SortDescending
-                ? _allWorkerAverages.OrderByDescending(w => w.TrailingAverage).ToList()
-                : _allWorkerAverages.OrderBy(w => w.TrailingAverage).ToList();
+                ? source.OrderByDescending(w => w.TrailingAverageWorkdays).ToList()
+                : source.OrderBy(w => w.TrailingAverageWorkdays).ToList();
 
             WorkerAverages.Clear();
             foreach (var worker in sorted) WorkerAverages.Add(worker);
+            HasFilteredWorkerAverages = WorkerAverages.Count > 0;
         }
 
         /// <summary>
@@ -748,6 +777,7 @@ namespace WorkforceManager.UI.ViewModels
 
             _allWorkerAverages = await trendService.GetAllWorkerAveragesAsync(DateTime.Today);
             HasWorkerAverages = _allWorkerAverages.Count > 0;
+            DeclinedTodayCount = _allWorkerAverages.Count(w => w.IsBelowToday);
             ApplyWorkerAveragesSort();
         }
     }

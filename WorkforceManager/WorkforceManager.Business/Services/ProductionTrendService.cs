@@ -9,8 +9,14 @@ namespace WorkforceManager.Business.Services
     /// أيام تقويمية؛ يوم غياب أو من غير تسجيل مبيدخلش في المتوسط ولا
     /// بيوقف السلسلة)، وتنبيه لو إنتاج النهارده قلّ عنه بشكل ملحوظ.
     ///
-    /// عامل من غير إنتاج النهارده خالص (0 قطعة) مش بيتنبّه عليه هنا —
-    /// ده غياب، وشاشة الحضور أصلًا بتمسكه؛ التنبيه ده خاص بعامل حاضر
+    /// المقارنة كلها بـ**يوميات** (PieceCount / PiecesPerWorkdayAtEntry)
+    /// مش قطع خام — عشان العامل ممكن يشتغل على منتج مختلف كل يوم وكل
+    /// منتج/مرحلة له يومية مختلفة، فعدد القطع الخام مش قابل للمقارنة
+    /// بين يومين على مرحلتين مختلفتين. اليومية هي نفس الوحدة اللي
+    /// الأجر وصافي اليوميات مبنيين عليها أصلاً في باقي البرنامج.
+    ///
+    /// عامل من غير إنتاج النهارده خالص (0) مش بيتنبّه عليه هنا — ده
+    /// غياب، وشاشة الحضور أصلًا بتمسكه؛ التنبيه ده خاص بعامل حاضر
     /// وشغال بس إنتاجه قلّ عن المعتاد.
     /// </summary>
     public class ProductionTrendService
@@ -23,6 +29,9 @@ namespace WorkforceManager.Business.Services
 
         /// <summary>النسبة اللي تحتها إنتاج النهارده يتحسب "تراجع"</summary>
         private const decimal DeclineThreshold = 0.80m;
+
+        /// <summary>أقصى عدد أيام تتعرض في تفاصيل "الأيام اللي قلّ فيها" — سجل كامل هيبقى طويل يتصفّح من غير فايدة إضافية</summary>
+        private const int RecentDaysDisplayCount = 10;
 
         private readonly IDailyProductionRepository _productionRepo;
 
@@ -63,7 +72,7 @@ namespace WorkforceManager.Business.Services
                 .ToLookup(r => r.WorkerId)
                 .Select(group => EvaluateAverage(group.Key, group.First().Worker.FullName, group.ToList(), today))
                 .Where(dto => dto.HasEnoughHistory)
-                .OrderByDescending(dto => dto.TrailingAverage)
+                .OrderByDescending(dto => dto.TrailingAverageWorkdays)
                 .ToList();
 
             return result;
@@ -78,34 +87,52 @@ namespace WorkforceManager.Business.Services
         public static WorkerProductionAverageDto EvaluateAverage(
             int workerId, string workerName, IReadOnlyList<DailyProduction> records, DateTime today)
         {
-            var pieceCountByDay = records
-                .GroupBy(r => r.Date.Date)
-                .ToDictionary(g => g.Key, g => g.Sum(r => r.PieceCount));
+            var recordsByDay = records.GroupBy(r => r.Date.Date).ToList();
+            var workdaysByDay = recordsByDay.ToDictionary(g => g.Key, g => g.Sum(r => r.WorkdaysCompleted));
+            var pieceCountByDay = recordsByDay.ToDictionary(g => g.Key, g => g.Sum(r => r.PieceCount));
 
-            var priorDays = pieceCountByDay
+            var priorDays = workdaysByDay
                 .Where(kv => kv.Key < today)
                 .OrderByDescending(kv => kv.Key)
                 .Take(RequiredPriorDays)
-                .Select(kv => (decimal)kv.Value)
+                .Select(kv => kv.Value)
                 .ToList();
 
             decimal? average = priorDays.Count >= RequiredPriorDays && priorDays.Average() > 0
-                ? Math.Round(priorDays.Average(), 0)
+                ? Math.Round(priorDays.Average(), 2)
                 : null;
 
+            decimal? todayWorkdays = workdaysByDay.TryGetValue(today, out var workdays) ? workdays : null;
             int? todayPieces = pieceCountByDay.TryGetValue(today, out var pieces) ? pieces : null;
 
-            decimal? percentOfAverage = average is not null && todayPieces is not null
-                ? Math.Round(todayPieces.Value / average.Value, 2)
+            decimal? percentOfAverage = average is not null && todayWorkdays is not null
+                ? Math.Round(todayWorkdays.Value / average.Value, 2)
                 : null;
+
+            var recentDays = average is null
+                ? new List<WorkerProductionDayDto>()
+                : workdaysByDay
+                    .Where(kv => kv.Key <= today)
+                    .OrderByDescending(kv => kv.Key)
+                    .Take(RecentDaysDisplayCount)
+                    .Select(kv => new WorkerProductionDayDto
+                    {
+                        Date = kv.Key,
+                        Workdays = kv.Value,
+                        Pieces = pieceCountByDay[kv.Key],
+                        PercentOfAverage = Math.Round(kv.Value / average.Value, 2)
+                    })
+                    .ToList();
 
             return new WorkerProductionAverageDto
             {
                 WorkerId = workerId,
                 WorkerName = workerName,
-                TrailingAverage = average,
+                TrailingAverageWorkdays = average,
+                TodayWorkdays = todayWorkdays,
                 TodayPieces = todayPieces,
-                PercentOfAverage = percentOfAverage
+                PercentOfAverage = percentOfAverage,
+                RecentDays = recentDays
             };
         }
 
@@ -116,10 +143,10 @@ namespace WorkforceManager.Business.Services
             var avg = EvaluateAverage(workerId, workerName, records, today);
 
             // مفيش إنتاج النهارده خالص = غياب، مش "تراجع" — شاشة الحضور بتمسك دي
-            if (avg.TodayPieces is null or 0) return null;
+            if (avg.TodayWorkdays is null or 0) return null;
 
             // لسه مفيش تاريخ كفاية يتقاس عليه — بلاغ خطأ أسوأ من مفيش بلاغ
-            if (avg.TrailingAverage is null || avg.PercentOfAverage is null) return null;
+            if (avg.TrailingAverageWorkdays is null || avg.PercentOfAverage is null) return null;
 
             if (avg.PercentOfAverage >= DeclineThreshold) return null;
 
@@ -127,8 +154,8 @@ namespace WorkforceManager.Business.Services
             {
                 WorkerId = workerId,
                 WorkerName = workerName,
-                TodayPieces = avg.TodayPieces.Value,
-                TrailingAverage = avg.TrailingAverage.Value,
+                TodayWorkdays = avg.TodayWorkdays.Value,
+                TrailingAverageWorkdays = avg.TrailingAverageWorkdays.Value,
                 PercentOfAverage = avg.PercentOfAverage.Value
             };
         }
