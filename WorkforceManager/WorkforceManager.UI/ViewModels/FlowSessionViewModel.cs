@@ -251,7 +251,7 @@ namespace WorkforceManager.UI.ViewModels
             if (pick is null) return; // العامل مبقاش عامل رص نشط (اتوقف أو اتغيّر دوره)
 
             rackingRow.AssignedWorkers.Add(new FlowShareEntry(
-                rackingRow, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare,
+                rackingRow, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare, OnReworkToggled,
                 isTagOnly: true, tagLabel: pick.TagLabel));
         }
 
@@ -275,9 +275,6 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private string _pendingSummaryText = "";
 
-        /// <summary>آخر مرحلة في الخط — التكميل بيوصل لعندها</summary>
-        private int _lastStageId;
-
         /// <summary>
         /// بيقرا الشغل الواقف على المنتج المختار لحد اليوم المعروض.
         ///
@@ -299,8 +296,6 @@ namespace WorkforceManager.UI.ViewModels
 
             if (pending is null) return;
 
-            _lastStageId = pending.LastStageId;
-
             foreach (var stage in pending.Resumable) PendingStages.Add(stage);
             foreach (var error in pending.Stages.Where(s => s.IsDataError)) PendingErrors.Add(error);
 
@@ -318,6 +313,11 @@ namespace WorkforceManager.UI.ViewModels
         /// **بيملا النطاق بس** — العمال بيتحطوا بإيد المستخدم. الأعداد
         /// جاهزة لأنها معروفة (الواقف بالظبط)، لكن مين هيشتغل عليها
         /// قرار بتاعه هو.
+        ///
+        /// النطاق بيوصل لآخر الخط عن قصد: القطع الواقفة قدام المرحلة دي
+        /// هتعدّي على كل المراحل اللي بعدها فعلاً. ولو المستخدم مكمّلش
+        /// كلهم النهارده، الحفظ بيسأله ويحفظ اللي عليه عمال بس بدل ما
+        /// يرفض الرحلة كلها (شوف TrimUnstaffedStages).
         /// </summary>
         [RelayCommand]
         private void ResumePending(PendingStageDto? stage)
@@ -325,7 +325,7 @@ namespace WorkforceManager.UI.ViewModels
             if (stage is null || SelectedProduct is not { } product) return;
 
             var from = product.Stages.FirstOrDefault(s => s.StageId == stage.StageId);
-            var to = product.Stages.FirstOrDefault(s => s.StageId == _lastStageId);
+            var to = product.Stages.LastOrDefault(s => !s.IsRackingStage);
             if (from is null || to is null) return;
 
             _suppressCallbacks = true;
@@ -351,6 +351,62 @@ namespace WorkforceManager.UI.ViewModels
             RecomputeFlow();
         }
 
+        /// <summary>
+        /// بيشيل من النطاقات أي مرحلة مفيش عليها عمال، بعد ما يسأل المستخدم.
+        ///
+        /// ليه ده موجود أصلاً: الخدمة بترفض أي مرحلة عليها إنتاج ومفيهاش
+        /// عمال، والرفض "يا كله يا مفيش" — فمستخدم جهّز نطاق من مرحلة
+        /// لآخر الخط وكمّل نصّه النهارده كان بيلاقي الحفظ اترفض بالكامل
+        /// ومفيش ولا سجل اتكتب، وبعدين يشوف الشغل الواقف زي ما هو
+        /// ويفتكره عطل.
+        ///
+        /// النطاق بيتقطّع لمقاطع متصلة من المراحل اللي عليها عمال بس —
+        /// كل مقطع بياخد نفس عدد قطع النطاق الأصلي، لأن كل مرحلة في
+        /// النطاق أصلاً بتاخد نفس الرقم. المراحل اللي اتشالت مايتسجّلش
+        /// عليها حاجة خالص، فبتفضل شغل واقف زي ما هي — وده بالظبط
+        /// الصح: اللي اشتغلته يتحفظ، واللي مااشتغلتوش يفضل مستني.
+        ///
+        /// بترجّع null لو المستخدم لغى (عايز يكمّل العمال الأول).
+        /// </summary>
+        private List<FlowRangeDto>? TrimUnstaffedStages(List<FlowRangeRow> rows)
+        {
+            // مرحلة الرص مستبعدة عشان القاعدة تمشي على نفس خط الإنتاج
+            // اللي الخدمة بتمشي عليه (ProductionLine.Active)
+            var line = FlowStages.Where(s => !s.IsRackingStage).ToList();
+
+            // "عليها عمال" بنفس تعريف الخدمة بالظبط: نصيب عامل حقيقي
+            // (مش تاج ومش إعادة عمل)، أو تاج متدرّب/رص على المرحلة
+            var staffed = line
+                .Where(row => row.AssignedWorkers.Any(w => w.IsTagOnly) ||
+                              row.AssignedWorkers.Any(w => !w.IsTagOnly && !w.IsRework &&
+                                                           int.TryParse(w.SharePieces?.Trim(), out var p) && p > 0))
+                .Select(row => row.StageId)
+                .ToHashSet();
+
+            var result = FlowRangeTrimmer.Trim(
+                rows.Select(r => new FlowRangeDto
+                {
+                    FromStageId = r.FromStage!.StageId,
+                    ToStageId = r.ToStage!.StageId,
+                    PieceCount = int.Parse(r.PiecesText!.Trim())
+                }).ToList(),
+                line.Select(s => s.StageId).ToList(),
+                staffed);
+
+            if (!result.HasDropped) return result.Ranges.ToList();
+
+            var nameByStageId = line.ToDictionary(s => s.StageId, s => s.StageName);
+            var names = string.Join("\n", result.DroppedStageIds
+                .Select(id => $"  • {nameByStageId.GetValueOrDefault(id, "")}"));
+
+            var question =
+                $"المراحل دي داخلة في نطاق إنتاج بس مفيش عليها عمال:\n{names}\n\n" +
+                "أحفظ المراحل اللي عليها عمال بس وأسيب دول؟\n" +
+                "اللي هيتساب هيفضل شغل واقف تقدر تكمّله في أي يوم تاني.";
+
+            return Notify.Ask(question, "مراحل من غير عمال") ? result.Ranges.ToList() : null;
+        }
+
         /// <summary>تغيير هيكلي (نطاق اتعدل/اتضاف/اتشال أو عامل اتضاف/اتشال) → إعادة حساب وتوزيع</summary>
         private void OnStructureEdited()
         {
@@ -363,6 +419,17 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (_suppressCallbacks) return;
             RecomputeTotals();
+        }
+
+        /// <summary>
+        /// تعليم عامل كإعادة عمل (أو شيل العلامة) تغيير هيكلي مش تعديل
+        /// رقم: العامل بيخرج من التوزيع المتساوي أو بيرجع له، فباقي عمال
+        /// المرحلة أنصبتهم بتتغيّر — فلازم RecomputeFlow مش RecomputeTotals.
+        /// </summary>
+        private void OnReworkToggled()
+        {
+            if (_suppressCallbacks) return;
+            RecomputeFlow();
         }
 
         /// <summary>
@@ -432,9 +499,10 @@ namespace WorkforceManager.UI.ViewModels
                 // 2) توزيع متساوٍ تلقائي على عمال كل مرحلة (قابل للتعديل اليدوي بعدها)
                 foreach (var row in FlowStages)
                 {
-                    // التاجات (متدرّب/عامل رص) مالهاش نصيب قطع خالص —
-                    // مستبعدة من التوزيع المتساوي
-                    var workers = row.AssignedWorkers.Where(w => !w.IsTagOnly).ToList();
+                    // التاجات (متدرّب/عامل رص) مالهاش نصيب قطع خالص، وعمال
+                    // الإعادة رقمهم بيتكتب بإيد المستخدم — الاتنين مستبعدين
+                    // من التوزيع المتساوي
+                    var workers = row.AssignedWorkers.Where(w => !w.IsTagOnly && !w.IsRework).ToList();
                     if (workers.Count == 0) continue;
 
                     if (row.ComputedPieces == 0)
@@ -623,7 +691,8 @@ namespace WorkforceManager.UI.ViewModels
                     if (stage.AssignedWorkers.Any(s => s.WorkerId == assignment.WorkerId)) continue;
 
                     stage.AssignedWorkers.Add(new FlowShareEntry(
-                        stage, assignment.WorkerId, assignment.WorkerName, OnSharesEdited, RemoveWorkerShare));
+                        stage, assignment.WorkerId, assignment.WorkerName,
+                        OnSharesEdited, RemoveWorkerShare, OnReworkToggled));
                 }
 
                 // مرحلة الرص مفيش لها DailyProduction خالص، فمكانتش داخلة
@@ -682,7 +751,7 @@ namespace WorkforceManager.UI.ViewModels
             if (pick.IsTagOnly)
             {
                 stage.AssignedWorkers.Add(new FlowShareEntry(
-                    stage, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare,
+                    stage, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare, OnReworkToggled,
                     isTagOnly: true, tagLabel: pick.TagLabel));
                 stage.ResetWorkerPicker();
                 RefreshAllWorkerPickers();
@@ -705,12 +774,31 @@ namespace WorkforceManager.UI.ViewModels
             var known = await LoadKnownAssignmentsAsync();
             var check = WorkerAssignmentGuard.Evaluate(known, new[] { attempted });
 
-            // تكرار حرفي: مسجل بالفعل على نفس المرحلة النهارده — مش حالة تأكيد
+            // تكرار حرفي: مسجل بالفعل على نفس المرحلة النهارده. الحالة دي
+            // ليها معنيين مختلفين تمامًا — نسيان (تسجيل مكرر بالغلط) أو
+            // إعادة عمل مقصودة — فالمستخدم هو اللي يقول أنهي واحدة.
+            // الافتراضي "لأ" عشان الغلط ميعديش بضغطة زايدة
             if (check.HasDuplicates)
             {
-                Notify.Info($"العامل \"{pick.Name}\" مسجل بالفعل على مرحلة \"{stage.StageName}\" النهارده.\n" +
-                    "لو عايز تعدّل عدد قطعه، استخدم تبويب \"سجلات اليوم\".", "مسجل بالفعل");
+                var isRework = Notify.Ask(
+                    $"العامل \"{pick.Name}\" مسجل بالفعل على مرحلة \"{stage.StageName}\" النهارده.\n\n" +
+                    "هو رجع صلّح شغل خلص على المرحلة دي (إعادة عمل)؟\n" +
+                    "لو أيوه: هياخد يوميته وأجره عادي، والقطع دي مش هتزوّد إنتاج الخط.\n\n" +
+                    "لو ده تسجيل مكرر بالغلط، اضغط لأ وعدّل عدد قطعه من تبويب \"سجلات اليوم\".",
+                    "إعادة عمل؟");
+
                 stage.ResetWorkerPicker();
+                if (!isRework) return;
+
+                stage.AssignedWorkers.Add(new FlowShareEntry(
+                    stage, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare, OnReworkToggled)
+                {
+                    IsRework = true
+                });
+
+                RefreshAllWorkerPickers();
+                RecomputeFlow();
+                WorkerAdded?.Invoke(stage);
                 return;
             }
 
@@ -724,8 +812,8 @@ namespace WorkforceManager.UI.ViewModels
             if (check.RequiresConfirmation)
                 _confirmedAssignments.Add((stage.StageId, pick.WorkerId));
 
-            stage.AssignedWorkers.Add(
-                new FlowShareEntry(stage, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare));
+            stage.AssignedWorkers.Add(new FlowShareEntry(
+                stage, pick.WorkerId, pick.Name, OnSharesEdited, RemoveWorkerShare, OnReworkToggled));
             stage.ResetWorkerPicker();
             RefreshAllWorkerPickers();
             RecomputeFlow(); // إعادة التوزيع المتساوي بعد إضافة عامل
@@ -851,17 +939,21 @@ namespace WorkforceManager.UI.ViewModels
 
             var entryDate = _getEntryDate();
 
-            // النطاقات المكتملة بس (مرحلة بداية ونهاية وعدد صحيح موجب)
-            var ranges = FlowRanges
+            // النطاقات المكتملة بس (مرحلة بداية ونهاية وعدد صحيح موجب)،
+            // وبعدها بيتشال منها أي مرحلة مفيش عليها عمال — الخدمة بترفض
+            // الرحلة كلها بسببها، فبنسأل المستخدم بدل ما شغله يضيع
+            var ranges = TrimUnstaffedStages(FlowRanges
                 .Where(r => r.FromStage is not null && r.ToStage is not null &&
                             int.TryParse(r.PiecesText?.Trim(), out var p) && p > 0)
-                .Select(r => new FlowRangeDto
-                {
-                    FromStageId = r.FromStage!.StageId,
-                    ToStageId = r.ToStage!.StageId,
-                    PieceCount = int.Parse(r.PiecesText!.Trim())
-                })
-                .ToList();
+                .ToList());
+
+            if (ranges is null) return; // المستخدم لغى عشان يكمّل العمال الأول
+
+            if (ranges.Count == 0)
+            {
+                Notify.Warn("مفيش ولا مرحلة عليها عمال — حط العمال الأول قبل الحفظ.", "مفيش حاجة تتحفظ");
+                return;
+            }
 
             // أنصبة العمال من كل بطاقات المراحل — التاجات (متدرّب/عامل رص) مستبعدة هنا عمدًا
             var shares = FlowStages
@@ -871,7 +963,8 @@ namespace WorkforceManager.UI.ViewModels
                     {
                         ProductionStageId = row.StageId,
                         WorkerId = s.WorkerId,
-                        PieceCount = int.Parse(s.SharePieces!.Trim())
+                        PieceCount = int.Parse(s.SharePieces!.Trim()),
+                        IsRework = s.IsRework
                     }))
                 .ToList();
 
@@ -959,8 +1052,10 @@ namespace WorkforceManager.UI.ViewModels
             catch (InvalidOperationException ex)
             {
                 // رسائل التحقق العربية الواضحة من الخدمة بتوصل للمستخدم زي ما هي
-                // (AssignmentConfirmationRequiredException اتمسك فوق، فمبيوصلش هنا)
-                Notify.Warn(ex.Message, "راجع بيانات الرحلة");
+                // (AssignmentConfirmationRequiredException اتمسك فوق، فمبيوصلش هنا).
+                // العنوان بيقول "مفيش حاجة اتحفظت" عن قصد: الحفظ يا كله يا
+                // مفيش، ومستخدم فاكر إن جزء اتحفظ بيدوّر على عطل مش موجود
+                Notify.Warn(ex.Message, "مفيش حاجة اتحفظت — راجع بيانات الرحلة");
             }
 
             // نداء واحد للخدمة بنفس المدخلات — الفرق بين المحاولة والتأكيد
