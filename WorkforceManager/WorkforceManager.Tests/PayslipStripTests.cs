@@ -48,10 +48,12 @@ namespace WorkforceManager.Tests
         private Task<PeriodPayrollDto> PayrollAsync() =>
             _db.InScopeAsync<PayrollService, PeriodPayrollDto>(s => s.GetPeriodPayrollAsync(Day, Day));
 
-        private string Export(PeriodPayrollDto payroll, ReportExportOptions? options = null)
+        private string Export(
+            PeriodPayrollDto payroll, ReportExportOptions? options = null,
+            IReadOnlySet<PayslipStripField>? fields = null)
         {
             var path = NewPath();
-            new PayslipStripExcelService().Export(payroll, path, options);
+            new PayslipStripExcelService().Export(payroll, path, options, fields);
             return path;
         }
 
@@ -248,6 +250,68 @@ namespace WorkforceManager.Tests
             var sheet = workbook.Worksheets.First();
 
             Assert.Contains(sheet.CellsUsed(), c => c.GetString() == "مصنع الاختبار");
+        }
+
+        // ---------------- بنود اختيارية ----------------
+
+        [Fact]
+        public async Task WithARestrictedFieldSet_OnlySelectedLinesAppear()
+        {
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<PenaltyService>(scope).RecordPenaltyAsync(
+                    TestDatabase.WorkerAhmedId, Day, "اتأخر", Core.Enums.PenaltyDeduction.HalfDay);
+
+            // "القسيمة المختصرة" اللي المستخدم طلبها: يوميات + جزاء + حافز + المبلغ النهائي بس
+            var fields = new HashSet<PayslipStripField>
+            {
+                PayslipStripField.NetWorkdays,
+                PayslipStripField.PenaltyDeduction,
+                PayslipStripField.Bonus
+            };
+
+            var path = Export(await PayrollAsync(), fields: fields);
+
+            using var workbook = new XLWorkbook(path);
+            var texts = workbook.Worksheets.First().CellsUsed().Select(c => c.GetString()).ToList();
+
+            Assert.Contains(texts, t => t.Contains("صافي اليوميات"));
+            Assert.Contains(texts, t => t.Contains("خصم جزاءات"));
+            Assert.Contains(texts, t => t.Contains("حوافز"));
+            Assert.Contains(texts, t => t.Contains("الصافي المستحق")); // ثابت دايمًا
+
+            // اللي متعلّمش عليه، مش المفروض يظهر خالص
+            Assert.DoesNotContain(texts, t => t.Contains("سعر اليومية"));
+            Assert.DoesNotContain(texts, t => t.Contains("يوميات منتجة"));
+            Assert.DoesNotContain(texts, t => t.Contains("أيام فيها شغل"));
+            Assert.DoesNotContain(texts, t => t.Contains("خصم غياب"));
+            Assert.DoesNotContain(texts, t => t.Contains("أجر اليوميات"));
+            Assert.DoesNotContain(texts, t => t.Contains("سلف"));
+
+            // "اشتغل على" مالهاش أي بند معلّم (لا تفاصيل ولا إجمالي)، فمفروض تختفي بعنوانها كمان
+            Assert.DoesNotContain(texts, t => t.Contains("اشتغل على"));
+            Assert.DoesNotContain(texts, t => t.Contains("إجمالي القطع"));
+        }
+
+        [Fact]
+        public async Task WithStageBreakdownHidden_SlipsOfDifferentWorkersStayTheSameLength()
+        {
+            // نفس اختبار "أطوال مختلفة" الأصلي، بس من غير قسم "اشتغل على" —
+            // لازم خط القص يفضل مستقيم حتى لو أهم سبب لاختلاف الطول (عدد
+            // المراحل) مش ظاهر في القسيمة أصلًا
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.BagStage1Id, 100);
+            await RecordAsync(TestDatabase.WorkerAhmedId, TestDatabase.RingStage1Id, 70);
+            await RecordAsync(TestDatabase.WorkerSaidId, TestDatabase.BagStage2Id, 50);
+
+            var fields = new HashSet<PayslipStripField> { PayslipStripField.NetWorkdays };
+
+            var path = Export(await PayrollAsync(), fields: fields);
+
+            using var workbook = new XLWorkbook(path);
+            var sheet = workbook.Worksheets.First();
+
+            Assert.Equal(LastUsedRow(sheet, column: 1), LastUsedRow(sheet, column: 4));
         }
 
         [Fact]

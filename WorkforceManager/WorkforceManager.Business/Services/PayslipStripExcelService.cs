@@ -4,6 +4,27 @@ using WorkforceManager.Business.DTOs;
 namespace WorkforceManager.Business.Services
 {
     /// <summary>
+    /// بند اختياري في قسيمة الأجر المطبوعة — كل قيمة سطر أو مجموعة سطور
+    /// المستخدم يقدر يظهرها/يخفيها من شاشة "التقارير". اسم المصنع
+    /// والعامل والفترة و"الصافي المستحق" ثابتين دايمًا، مش جزء من القائمة
+    /// دي — قسيمة من غير رقم نهائي مالهاش معنى.
+    /// </summary>
+    public enum PayslipStripField
+    {
+        DailyWageRate,
+        ProducedWorkdays,
+        DaysWorked,
+        StageBreakdown,
+        TotalPieces,
+        AbsenceDeduction,
+        PenaltyDeduction,
+        NetWorkdays,
+        WorkdaysWageEgp,
+        Bonus,
+        Advance
+    }
+
+    /// <summary>
     /// قسايم أجر الأسبوع: ورقة تتطبع وتتقص بالطول، كل شريط قسيمة عامل.
     ///
     /// **متصمّمة للطباعة أبيض وأسود.** الورقة دي بتتطبع على طابعة القسم
@@ -63,13 +84,19 @@ namespace WorkforceManager.Business.Services
         // للألوف فمش محتاجة فاصلة.
         private const string DaysFormat = "General";
 
+        /// <summary>القسيمة الافتراضية: كل البنود ظاهرة — نفس القسيمة اللي كانت موجودة قبل ما البنود تبقى اختيارية</summary>
+        public static readonly IReadOnlySet<PayslipStripField> AllFields =
+            Enum.GetValues<PayslipStripField>().ToHashSet();
+
         public void Export(
-            PeriodPayrollDto payroll, string filePath, ReportExportOptions? options = null)
+            PeriodPayrollDto payroll, string filePath, ReportExportOptions? options = null,
+            IReadOnlySet<PayslipStripField>? fields = null)
         {
             if (payroll.Workers.Count == 0)
                 throw new InvalidOperationException("مفيش عمال في المدة دي لطباعة قسايمهم");
 
             options ??= new ReportExportOptions();
+            fields ??= AllFields;
 
             using var workbook = new XLWorkbook();
 
@@ -81,6 +108,7 @@ namespace WorkforceManager.Business.Services
             // **عدد سطور المراحل واحد في كل القسايم.** العامل اللي اشتغل
             // على مرحلة واحدة بياخد نفس المساحة بتاعة اللي اشتغل على
             // أربعة، والناقص بيفضل فاضي — وده اللي بيخلي خط القص مستقيم.
+            // فاضل صحيح حتى لو StageBreakdown مش ظاهر — ساعتها مش بيتستخدم.
             var breakdownLines = Math.Min(
                 MaxBreakdownLines,
                 Math.Max(1, workers.Max(w => w.StageBreakdown.Count)));
@@ -90,7 +118,7 @@ namespace WorkforceManager.Business.Services
             for (var page = 0; page < pages; page++)
             {
                 var slice = workers.Skip(page * SlipsPerPage).Take(SlipsPerPage).ToList();
-                WritePage(workbook, slice, payroll, options, page + 1, pages, breakdownLines);
+                WritePage(workbook, slice, payroll, options, page + 1, pages, breakdownLines, fields);
             }
 
             workbook.SaveAs(filePath);
@@ -103,7 +131,8 @@ namespace WorkforceManager.Business.Services
             ReportExportOptions options,
             int pageNumber,
             int pageCount,
-            int breakdownLines)
+            int breakdownLines,
+            IReadOnlySet<PayslipStripField> fields)
         {
             var sheet = workbook.Worksheets.Add(
                 pageCount == 1 ? "قسايم الأجر" : $"قسايم {pageNumber}");
@@ -132,7 +161,7 @@ namespace WorkforceManager.Business.Services
             for (var slot = 0; slot < workers.Count; slot++)
                 lastRow = Math.Max(
                     lastRow,
-                    WriteSlip(sheet, workers[slot], payroll, options, slot, breakdownLines));
+                    WriteSlip(sheet, workers[slot], payroll, options, slot, breakdownLines, fields));
 
             // إطار كل قسيمة — حدود الورقة اللي هتتقص
             for (var slot = 0; slot < workers.Count; slot++)
@@ -178,7 +207,8 @@ namespace WorkforceManager.Business.Services
             PeriodPayrollDto payroll,
             ReportExportOptions options,
             int slot,
-            int breakdownLines)
+            int breakdownLines,
+            IReadOnlySet<PayslipStripField> fields)
         {
             var col = SlotFirstColumn(slot);
             var value = col + 1;
@@ -219,31 +249,63 @@ namespace WorkforceManager.Business.Services
             row = Gap(sheet, row + 1);
 
             // ---------- الشغل ----------
-            row = Section(sheet, col, value, row, "الشغل");
-            row = Line(sheet, col, value, row, "سعر اليومية", worker.DailyWageEgp, MoneyFormat);
-            row = Line(sheet, col, value, row, "يوميات منتجة", worker.ProducedWorkdays, DaysFormat);
-            row = Line(sheet, col, value, row, "أيام فيها شغل", worker.DaysWorked, PiecesFormat);
-            row = Gap(sheet, row);
+            // كل قسم بس بيظهر لو بند واحد فيه على الأقل مُعلّم — قسم
+            // بعنوان وبلا سطور تحته مالوش معنى
+            if (fields.Contains(PayslipStripField.DailyWageRate) ||
+                fields.Contains(PayslipStripField.ProducedWorkdays) ||
+                fields.Contains(PayslipStripField.DaysWorked))
+            {
+                row = Section(sheet, col, value, row, "الشغل");
+                if (fields.Contains(PayslipStripField.DailyWageRate))
+                    row = Line(sheet, col, value, row, "سعر اليومية", worker.DailyWageEgp, MoneyFormat);
+                if (fields.Contains(PayslipStripField.ProducedWorkdays))
+                    row = Line(sheet, col, value, row, "يوميات منتجة", worker.ProducedWorkdays, DaysFormat);
+                if (fields.Contains(PayslipStripField.DaysWorked))
+                    row = Line(sheet, col, value, row, "أيام فيها شغل", worker.DaysWorked, PiecesFormat);
+                row = Gap(sheet, row);
+            }
 
             // ---------- اشتغل على إيه ----------
-            row = Section(sheet, col, value, row, "اشتغل على");
-            row = WriteBreakdown(sheet, col, value, row, worker, breakdownLines);
-            row = Line(sheet, col, value, row, "إجمالي القطع", worker.TotalPieces, PiecesFormat, strong: true);
-            row = Gap(sheet, row);
+            if (fields.Contains(PayslipStripField.StageBreakdown) ||
+                fields.Contains(PayslipStripField.TotalPieces))
+            {
+                row = Section(sheet, col, value, row, "اشتغل على");
+                if (fields.Contains(PayslipStripField.StageBreakdown))
+                    row = WriteBreakdown(sheet, col, value, row, worker, breakdownLines);
+                if (fields.Contains(PayslipStripField.TotalPieces))
+                    row = Line(sheet, col, value, row, "إجمالي القطع", worker.TotalPieces, PiecesFormat, strong: true);
+                row = Gap(sheet, row);
+            }
 
             // ---------- الخصومات ----------
-            row = Section(sheet, col, value, row, "الخصومات");
-            row = Line(sheet, col, value, row, "خصم غياب", worker.AbsenceDeduction, DaysFormat);
-            row = Line(sheet, col, value, row, "خصم جزاءات", worker.PenaltyDeduction, DaysFormat);
-            row = Line(sheet, col, value, row, "صافي اليوميات", worker.NetWorkdays, DaysFormat, strong: true);
-            row = Gap(sheet, row);
+            if (fields.Contains(PayslipStripField.AbsenceDeduction) ||
+                fields.Contains(PayslipStripField.PenaltyDeduction) ||
+                fields.Contains(PayslipStripField.NetWorkdays))
+            {
+                row = Section(sheet, col, value, row, "الخصومات");
+                if (fields.Contains(PayslipStripField.AbsenceDeduction))
+                    row = Line(sheet, col, value, row, "خصم غياب", worker.AbsenceDeduction, DaysFormat);
+                if (fields.Contains(PayslipStripField.PenaltyDeduction))
+                    row = Line(sheet, col, value, row, "خصم جزاءات", worker.PenaltyDeduction, DaysFormat);
+                if (fields.Contains(PayslipStripField.NetWorkdays))
+                    row = Line(sheet, col, value, row, "صافي اليوميات", worker.NetWorkdays, DaysFormat, strong: true);
+                row = Gap(sheet, row);
+            }
 
             // ---------- الحساب ----------
-            row = Section(sheet, col, value, row, "الحساب");
-            row = Line(sheet, col, value, row, "أجر اليوميات", worker.WorkdaysWageEgp, MoneyFormat);
-            row = Line(sheet, col, value, row, "حوافز", worker.BonusEgp, MoneyFormat);
-            row = Line(sheet, col, value, row, "سلف", worker.AdvanceEgp, MoneyFormat);
-            row = Gap(sheet, row);
+            if (fields.Contains(PayslipStripField.WorkdaysWageEgp) ||
+                fields.Contains(PayslipStripField.Bonus) ||
+                fields.Contains(PayslipStripField.Advance))
+            {
+                row = Section(sheet, col, value, row, "الحساب");
+                if (fields.Contains(PayslipStripField.WorkdaysWageEgp))
+                    row = Line(sheet, col, value, row, "أجر اليوميات", worker.WorkdaysWageEgp, MoneyFormat);
+                if (fields.Contains(PayslipStripField.Bonus))
+                    row = Line(sheet, col, value, row, "حوافز", worker.BonusEgp, MoneyFormat);
+                if (fields.Contains(PayslipStripField.Advance))
+                    row = Line(sheet, col, value, row, "سلف", worker.AdvanceEgp, MoneyFormat);
+                row = Gap(sheet, row);
+            }
 
             // ---------- الصافي المستحق ----------
             sheet.Cell(row, col).Value = "الصافي المستحق";

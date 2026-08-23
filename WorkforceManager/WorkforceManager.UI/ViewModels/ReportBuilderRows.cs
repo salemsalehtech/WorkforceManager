@@ -46,6 +46,27 @@ namespace WorkforceManager.UI.ViewModels
         private bool _isChecked;
     }
 
+    /// <summary>بند اختياري في قسيمة الأجر المطبوعة — شوف ReportBuilderViewModel.PayslipFieldChoices</summary>
+    public partial class PayslipFieldChoice : ObservableObject
+    {
+        public PayslipFieldChoice(PayslipStripField field, string display)
+        {
+            Field = field;
+            Display = display;
+        }
+
+        public PayslipStripField Field { get; }
+        public string Display { get; }
+
+        [ObservableProperty]
+        private bool _isChecked = true;
+
+        partial void OnIsCheckedChanged(bool value) => Changed?.Invoke();
+
+        /// <summary>بيتنادى مباشرة (مش Command) عشان الحفظ يحصل فورًا مع كل تعليم/إلغاء</summary>
+        public event Action? Changed;
+    }
+
     /// <summary>
     /// عمود في محرّر الأعمدة: يظهر ولا لأ، واسمه إيه، وترتيبه.
     ///
