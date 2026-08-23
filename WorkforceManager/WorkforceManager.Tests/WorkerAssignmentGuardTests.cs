@@ -22,13 +22,15 @@ namespace WorkforceManager.Tests
         private const int ChainWelding = 200;
 
         private static WorkerAssignmentDto Assignment(
-            int workerId, int productId, int stageId, string workerName = "أحمد") =>
+            int workerId, int productId, int stageId, string workerName = "أحمد",
+            bool isRework = false) =>
             new()
             {
                 WorkerId = workerId,
                 WorkerName = workerName,
                 ProductId = productId,
                 ProductName = productId == RingProduct ? "دبلة" : "سلسلة",
+                IsRework = isRework,
                 ProductionStageId = stageId,
                 StageName = stageId switch
                 {
@@ -139,6 +141,60 @@ namespace WorkforceManager.Tests
 
             Assert.IsNotType<AssignmentConfirmationRequiredException>(ex);
             Assert.Contains("مسجلة بالفعل", ex.Message);
+        }
+
+        // ------- الاستثناء الوحيد للتكرار: إعادة عمل مقصودة -------
+        // العلم ده بيتحط على تكليف واحد بعينه لما المستخدم يقول بنفسه إن
+        // العامل رجع صلّح نفس المرحلة — مش confirmOverride العام، اللي
+        // بيفضل عاجز عن تعدية التكرار (الاختبارين اللي فوق).
+
+        [Fact]
+        public void Evaluate_DuplicateMarkedAsRework_IsClear()
+        {
+            var result = WorkerAssignmentGuard.Evaluate(
+                existing: new[] { Assignment(Ahmed, RingProduct, RingShaping) },
+                requested: new[] { Assignment(Ahmed, RingProduct, RingShaping, isRework: true) });
+
+            Assert.True(result.IsClear);
+            Assert.False(result.HasDuplicates);
+            Assert.False(result.RequiresConfirmation); // نفس المرحلة، فمفيش تعارض R2 كمان
+        }
+
+        [Fact]
+        public void EnsureAllowed_DuplicateMarkedAsRework_DoesNotThrow()
+        {
+            var result = WorkerAssignmentGuard.Evaluate(
+                existing: new[] { Assignment(Ahmed, RingProduct, RingShaping) },
+                requested: new[] { Assignment(Ahmed, RingProduct, RingShaping, isRework: true) });
+
+            WorkerAssignmentGuard.EnsureAllowed(result, confirmOverride: false);
+        }
+
+        [Fact]
+        public void Evaluate_ReworkOnAStage_ThenNewStage_StillRequiresConfirmation()
+        {
+            // الإعادة بتتحسب "معروفة" زي أي تكليف مقبول — فمرحلة تانية
+            // بعدها في نفس الطلب لازم تفضل محتاجة تأكيد
+            var result = WorkerAssignmentGuard.Evaluate(
+                existing: new[] { Assignment(Ahmed, RingProduct, RingShaping) },
+                requested: new[]
+                {
+                    Assignment(Ahmed, RingProduct, RingShaping, isRework: true),
+                    Assignment(Ahmed, ChainProduct, ChainWelding)
+                });
+
+            Assert.False(result.HasDuplicates);
+            Assert.True(result.RequiresConfirmation);
+        }
+
+        [Fact]
+        public void Evaluate_ReworkFlagOnFirstTimeAssignment_ChangesNothing()
+        {
+            var result = WorkerAssignmentGuard.Evaluate(
+                existing: Array.Empty<WorkerAssignmentDto>(),
+                requested: new[] { Assignment(Ahmed, RingProduct, RingShaping, isRework: true) });
+
+            Assert.True(result.IsClear);
         }
 
         // ---------------- EnsureAllowed: قرار "نكمّل ولا نقف" ----------------
