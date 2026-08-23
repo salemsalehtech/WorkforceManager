@@ -10,6 +10,12 @@
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <AssemblyName>WorkforceManager</AssemblyName>
     <!--
+      DPI-awareness (app.manifest) — من غيره ويندوز بيعمل Bitmap Stretch
+      للنافذة على أي شاشة مكبّرة (125%+، الوضع الافتراضي على أغلب الأجهزة)،
+      وده اللي بيظهر كضبابية عامة وألوان باهتة. التفاصيل في app.manifest.
+    -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!--
       البرنامج WPF يعني ويندوز 64-بت وبس. من غير تحديد المنصة دي، حزمة SQLite
       بتنسخ مكتباتها الأصلية لـ 20 منصة (لينكس، ماك، wasm، mips، ppc64...) —
       24 ميجا في كل بناء، منها 22.5 ملهاش أي لازمة على ويندوز.
