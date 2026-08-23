@@ -51,7 +51,7 @@ namespace WorkforceManager.Business.DTOs
         /// </summary>
         public int TotalPending { get; init; }
 
-        /// <summary>آخر مرحلة في الخط — الزرار بيكمّل لحد عندها</summary>
+        /// <summary>آخر مرحلة نشطة في خط المنتج</summary>
         public int LastStageId { get; init; }
 
         public bool HasPending => Stages.Any(s => !s.IsDataError && s.PendingPieces > 0);
