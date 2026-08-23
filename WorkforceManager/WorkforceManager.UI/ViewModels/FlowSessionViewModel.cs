@@ -947,12 +947,10 @@ namespace WorkforceManager.UI.ViewModels
                     (outputLines.Length > 0 ? $"حالة الإنتاج:\n{outputLines}\n\n" : "") +
                     $"يوميات العمال:\n{totalsLines}{attendanceLine}", "تم الحفظ");
 
-                // **السؤال عن الهالك بعد الحفظ مباشرة.** الفرق بين
-                // مرحلتين معناه إما شغل هيتكمّل بكرة أو قطع اتشالت —
-                // والبرنامج مش هيعرف يفرّق لوحده. لو ماسألش دلوقتي،
-                // القطع المشالة هتفضل ظاهرة "واقفة" للأبد ومجموع الشهر
-                // هيبان غلط.
-                await AskAboutGapsAsync(entryDate);
+                // السؤال التلقائي عن الهالك بعد كل حفظ اتشال — كان بيظهر
+                // كل يوم فيه شغل واقف حتى لو المستخدم مش قاصد يسجّل هالك
+                // النهارده. تسجيل الهالك بقى يدوي بس من تبويب "الهالك"،
+                // وقت ما المستخدم يحب (آخر الأسبوع مثلاً).
 
                 // إعادة تحميل الرحلة ("مسجل اليوم" بيتحدث وبتبدأ نظيفة) + إبلاغ الشاشة الأم (تحديث الحضور)
                 await ReloadAsync();
@@ -963,73 +961,6 @@ namespace WorkforceManager.UI.ViewModels
                 // رسائل التحقق العربية الواضحة من الخدمة بتوصل للمستخدم زي ما هي
                 // (AssignmentConfirmationRequiredException اتمسك فوق، فمبيوصلش هنا)
                 Notify.Warn(ex.Message, "راجع بيانات الرحلة");
-            }
-
-            // بيسأل عن كل فرق بين مرحلتين على المنتج ده: هالك ولا هيتكمّل؟
-            //
-            // بيسأل عن كل فرق لوحده مش عن الإجمالي: الفروق ممكن تبقى
-            // في مراحل مختلفة ولأسباب مختلفة، وجمعهم في سؤال واحد
-            // بيخلي الإجابة مستحيلة تبقى دقيقة.
-            async Task AskAboutGapsAsync(DateTime date)
-            {
-                List<PendingStageDto> gaps;
-                List<WorkforceManager.Core.Models.ScrapReason> reasons;
-
-                using (var scope = _scopeFactory.CreateScope())
-                {
-                    var pending = await scope.ServiceProvider
-                        .GetRequiredService<PendingWorkService>()
-                        .GetForProductAsync(SelectedProduct!.ProductId, date);
-
-                    // الأخطاء (مرحلة عليها أكتر من اللي قبلها) مش هالك —
-                    // دي بيانات غلط ليها تحذيرها الخاص
-                    gaps = pending?.Stages
-                        .Where(s => !s.IsDataError && s.PendingPieces > 0)
-                        .ToList() ?? new List<PendingStageDto>();
-
-                    if (gaps.Count == 0) return;
-
-                    reasons = await scope.ServiceProvider
-                        .GetRequiredService<ScrapService>()
-                        .GetActiveReasonsAsync();
-                }
-
-                foreach (var gap in gaps)
-                {
-                    var dialog = ScrapDialog.ForGap(
-                        Application.Current.MainWindow,
-                        SelectedProduct!.Name,
-                        gap.PreviousStageName,
-                        gap.StageName,
-                        PreviousStageIdOf(gap),
-                        gap.PendingPieces,
-                        reasons);
-
-                    if (dialog.ShowDialog() != true) continue;
-
-                    using var scope = _scopeFactory.CreateScope();
-                    await scope.ServiceProvider.GetRequiredService<ScrapService>().RecordAsync(
-                        dialog.StageId, date, dialog.PieceCount,
-                        dialog.ReasonId, dialog.Note,
-                        scope.ServiceProvider.GetRequiredService<CurrentUserContext>().ActorName);
-
-                    Notify.Info(
-                        $"اتسجّل {dialog.PieceCount:N0} قطعة هالك على \"{gap.PreviousStageName}\" — " +
-                        "اتشالوا من الشغل الواقف.", "تم");
-                }
-            }
-
-            /// <summary>
-            /// المرحلة اللي القطع خلصتها = اللي قبل المرحلة الواقفة
-            /// قدامها. الفرق نفسه معرّف بالمرحلتين، فالبحث هنا على
-            /// الترتيب مش على الاسم.
-            /// </summary>
-            int PreviousStageIdOf(PendingStageDto gap)
-            {
-                var stages = FlowStages.Select(r => r.StageId).ToList();
-                var index = stages.IndexOf(gap.StageId);
-
-                return index > 0 ? stages[index - 1] : gap.StageId;
             }
 
             // نداء واحد للخدمة بنفس المدخلات — الفرق بين المحاولة والتأكيد
