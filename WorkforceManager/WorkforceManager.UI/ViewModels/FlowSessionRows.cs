@@ -333,9 +333,10 @@ namespace WorkforceManager.UI.ViewModels
     {
         private readonly Action _onEdited;
         private readonly Action<FlowShareEntry> _onRemove;
+        private readonly Action _onReworkToggled;
 
         public FlowShareEntry(FlowStageRow parent, int workerId, string workerName,
-            Action onEdited, Action<FlowShareEntry> onRemove,
+            Action onEdited, Action<FlowShareEntry> onRemove, Action onReworkToggled,
             bool isTagOnly = false, string tagLabel = "")
         {
             Parent = parent;
@@ -345,6 +346,7 @@ namespace WorkforceManager.UI.ViewModels
             TagLabel = tagLabel;
             _onEdited = onEdited;
             _onRemove = onRemove;
+            _onReworkToggled = onReworkToggled;
         }
 
         /// <summary>البطاقة الأم — عشان أمر الإزالة يعرف يشيل النصيب من مرحلته</summary>
@@ -364,6 +366,28 @@ namespace WorkforceManager.UI.ViewModels
         public string TagLabel { get; }
 
         public bool HasTagLabel => TagLabel.Length > 0;
+
+        /// <summary>
+        /// إعادة عمل: العامل بيصلّح شغل خلص خلاص على المرحلة دي. بياخد
+        /// يوميته وأجره عادي، والقطع دي مابتزوّدش الإنتاج الفعلي للخط.
+        ///
+        /// مستبعد من التوزيع المتساوي التلقائي عن قصد (زي التاجات): عدد
+        /// قطع الإعادة رقم بيكتبه المستخدم بنفسه، مالوش أي علاقة بإنتاج
+        /// المرحلة النهارده.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isRework;
+
+        partial void OnIsReworkChanged(bool value)
+        {
+            // الرقم اللي كان متوزّع تلقائي بقى بلا معنى للإعادة — يتفضّى
+            // عشان المستخدم يكتب عدد الإعادة الحقيقي
+            if (value) SharePieces = "";
+            _onReworkToggled();
+        }
+
+        [RelayCommand]
+        private void ToggleRework() => IsRework = !IsRework;
 
         [ObservableProperty]
         private string _sharePieces = "";
