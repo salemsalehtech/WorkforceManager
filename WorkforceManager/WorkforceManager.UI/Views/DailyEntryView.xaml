@@ -1272,34 +1272,32 @@
                                 <DataGridTextColumn Header="العامل" Binding="{Binding WorkerName}" Width="Auto" MinWidth="150" />
                                 <DataGridTextColumn Header="السبب" Binding="{Binding Reason}" Width="2*" />
                                 <DataGridTextColumn Header="الخصم" Binding="{Binding DeductionName}" Width="90" />
-                                <DataGridTemplateColumn Header="" Width="60">
+                                <!--
+                                    أيقونة بس من غير نص — زي عمود "سجلات اليوم" بالظبط. عمود
+                                    نص+أيقونة في عرض ضيق (60-70) كان بيقصّ النص ("حذف" بتبقى
+                                    "حذ")، وده اللي كان بيبين كإطار/عمود "مش متناسق". الأيقونة
+                                    وحدها مالهاش نص يتقصّ، والـ ToolTip بيقول نفس المعنى.
+                                    نفس عرض عمود "سجلات اليوم" (120) لأنه نفس المحتوى بالظبط:
+                                    زرارين أيقونة جنب بعض.
+                                -->
+                                <DataGridTemplateColumn Header="" Width="120">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button FontSize="11" Foreground="{DynamicResource BrandBrush}"
-                                                    Style="{StaticResource IconButton}"
-                                                    ToolTip="تعديل الجزاء"
-                                                    Command="{Binding DataContext.EditPenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="PencilOutline" Width="12" Height="12" VerticalAlignment="Center" />
-                                                    <TextBlock Text="تعديل" Margin="4,0,0,0" />
-                                                </StackPanel>
-                                            </Button>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Header="" Width="70">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Button FontSize="11" Foreground="{DynamicResource DangerBrush}"
-                                                    Style="{StaticResource IconButton}"
-                                                    Command="{Binding DataContext.RemovePenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="12" Height="12" VerticalAlignment="Center" />
-                                                    <TextBlock Text="حذف" Margin="4,0,0,0" />
-                                                </StackPanel>
-                                            </Button>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Margin="0,0,4,0"
+                                                        Style="{StaticResource IconButton}" Foreground="{DynamicResource BrandBrush}"
+                                                        ToolTip="تعديل الجزاء"
+                                                        Command="{Binding DataContext.EditPenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <materialDesign:PackIcon Kind="PencilOutline" Width="13" Height="13" />
+                                                </Button>
+                                                <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}"
+                                                        ToolTip="حذف الجزاء"
+                                                        Command="{Binding DataContext.RemovePenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
+                                                </Button>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
@@ -1380,17 +1378,15 @@
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="المبلغ" Binding="{Binding AmountText}" Width="110" />
                                 <DataGridTextColumn Header="البيان" Binding="{Binding Note}" Width="2*" />
-                                <DataGridTemplateColumn Header="" Width="70">
+                                <!-- أيقونة بس من غير نص — زي عمود "سجلات اليوم"، شوف تعليقه في تبويب الجزاءات -->
+                                <DataGridTemplateColumn Header="" Width="50">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button FontSize="11" Foreground="{DynamicResource DangerBrush}"
-                                                    Style="{StaticResource IconButton}"
+                                            <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}"
+                                                    ToolTip="حذف الحركة"
                                                     Command="{Binding DataContext.RemoveAdjustmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="12" Height="12" VerticalAlignment="Center" />
-                                                    <TextBlock Text="حذف" Margin="4,0,0,0" />
-                                                </StackPanel>
+                                                <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
                                             </Button>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
@@ -1465,18 +1461,15 @@
                                     <DataGridTextColumn Header="السبب" Binding="{Binding ReasonDisplay}"
                                                         Width="Auto" MinWidth="120" />
                                     <DataGridTextColumn Header="ملاحظة" Binding="{Binding Note}" Width="2*" />
-                                    <DataGridTemplateColumn Header="" Width="70">
+                                    <!-- أيقونة بس من غير نص — زي عمود "سجلات اليوم"، شوف تعليقه في تبويب الجزاءات -->
+                                    <DataGridTemplateColumn Header="" Width="50">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <Button FontSize="11" Foreground="{DynamicResource DangerBrush}"
-                                                        Style="{StaticResource IconButton}"
+                                                <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}"
+                                                        ToolTip="حذف الهالك"
                                                         Command="{Binding DataContext.RemoveScrapCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Kind="TrashCanOutline" Width="12" Height="12"
-                                                                                 VerticalAlignment="Center" />
-                                                        <TextBlock Text="حذف" Margin="4,0,0,0" />
-                                                    </StackPanel>
+                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
                                                 </Button>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
