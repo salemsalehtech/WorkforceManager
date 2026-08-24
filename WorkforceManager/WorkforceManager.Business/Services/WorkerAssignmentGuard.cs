@@ -12,6 +12,10 @@ namespace WorkforceManager.Business.Services
     /// القواعد بالترتيب اللي بتتفحص بيه (الترتيب مقصود):
     /// • تكرار حرفي (نفس العامل + نفس المرحلة + نفس اليوم) → ممنوع دايمًا،
     ///   حتى لو المستخدم أكّد. ده مش تخطي قاعدة، ده تسجيل مكرر بالغلط.
+    ///   الاستثناء الوحيد: التكليف متعلّم <see cref="WorkerAssignmentDto.IsRework"/>
+    ///   — يعني المستخدم قال بنفسه إن العامل رجع صلّح شغل خلص، مش نسي
+    ///   إنه سجّله. ده علم مستقل بيتحط لتكليف واحد بعينه، مش
+    ///   <c>confirmOverride</c> العام (اللي بيفضل عاجز عن تعدية التكرار).
     /// • العامل مكلّف بمرحلة تانية (نفس المنتج) أو بمنتج تاني في نفس اليوم
     ///   → محتاج تأكيد صريح من المستخدم.
     /// • غير كده → تكليف عادي.
@@ -53,7 +57,8 @@ namespace WorkforceManager.Business.Services
                     ProductId = r.ProductionStage?.ProductId ?? 0,
                     ProductName = r.ProductionStage?.Product?.Name ?? string.Empty,
                     ProductionStageId = r.ProductionStageId,
-                    StageName = r.ProductionStage?.StageName ?? string.Empty
+                    StageName = r.ProductionStage?.StageName ?? string.Empty,
+                    IsRework = r.IsRework
                 })
                 .ToList();
         }
@@ -84,6 +89,14 @@ namespace WorkforceManager.Business.Services
                 // R5: نفس العامل على نفس المرحلة في نفس اليوم = تسجيل مكرر، ممنوع
                 if (sameWorker.Any(k => k.ProductionStageId == attempted.ProductionStageId))
                 {
+                    // ...إلا لو ده إعادة عمل مقصودة: العامل رجع صلّح نفس
+                    // المرحلة. مفيش تعارض R2 كمان — المرحلة هي هي أصلاً
+                    if (attempted.IsRework)
+                    {
+                        known.Add(attempted);
+                        continue;
+                    }
+
                     duplicates.Add(attempted);
                     continue; // متتحسبش تعارض كمان — التكرار حالة مستقلة
                 }
@@ -125,7 +138,9 @@ namespace WorkforceManager.Business.Services
         /// </param>
         public static void EnsureAllowed(AssignmentCheckResultDto result, bool confirmOverride)
         {
-            // التكرار الحرفي ممنوع دايمًا — التأكيد مبيعديهوش (R5)
+            // التكرار الحرفي ممنوع دايمًا — التأكيد مبيعديهوش (R5).
+            // اللي بيعدّي هو علم IsRework على التكليف نفسه، اللي Evaluate
+            // بيفلتره قبل ما يوصل هنا أصلاً — مش الموافقة العامة دي.
             if (result.HasDuplicates)
             {
                 var names = string.Join("\n", result.Duplicates

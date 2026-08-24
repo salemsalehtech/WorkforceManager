@@ -57,6 +57,9 @@ namespace WorkforceManager.UI.ViewModels
         public int QuotaAtEntry { get; init; }
         public decimal Workdays { get; init; }
 
+        /// <summary>إعادة عمل — بتتحسب في يومية العامل بس مش في إنتاج الخط</summary>
+        public bool IsRework { get; init; }
+
         /// <summary>يوم السجل نفسه — مهم بس لما الفترة المعروضة أسبوع أو شهر (أكتر من يوم واحد)</summary>
         public DateTime Date { get; init; }
         public string DateText => Date.ToString("dd/MM");

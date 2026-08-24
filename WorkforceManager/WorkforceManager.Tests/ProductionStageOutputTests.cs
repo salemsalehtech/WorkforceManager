@@ -166,6 +166,75 @@ namespace WorkforceManager.Tests
                 svc => svc.HasAnyForStageAsync(TestDatabase.RingStage1Id)));
         }
 
+        // ======================= إعادة العمل مستبعدة من كل الأرقام =======================
+        // سجل الإعادة بيتحسب في يومية العامل وأجره، ومابيعدّش في إنتاج
+        // الخط. الخطر الحقيقي هنا هو الرجوع للحساب القديم: مرحلة/يوم كل
+        // شغلها إعادة مالهاش سجل في الجدول الجديد خالص، فمن غير الفلتر
+        // كان هيجمّع قطع الإعادة ويحطها إنتاج فعلي.
+
+        private async Task AddReworkRowAsync(int stageId, DateTime date, int pieces)
+        {
+            using var scope = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(scope);
+            db.DailyProductions.Add(new Core.Models.DailyProduction
+            {
+                WorkerId = TestDatabase.WorkerAhmedId,
+                ProductionStageId = stageId,
+                Date = date,
+                PieceCount = pieces,
+                PiecesPerWorkdayAtEntry = 10,
+                IsRework = true
+            });
+            await db.SaveChangesAsync();
+        }
+
+        [Fact]
+        public async Task ReworkOnly_OnAStageWithNoOutputRow_CountsAsZeroProduction()
+        {
+            await AddReworkRowAsync(TestDatabase.RingStage1Id, Day1, 500);
+
+            var totals = await _db.InScopeAsync<ProductionStageOutputService, IReadOnlyDictionary<int, int>>(
+                svc => svc.GetStageTotalsOnAsync(Day1));
+
+            Assert.False(totals.ContainsKey(TestDatabase.RingStage1Id));
+        }
+
+        [Fact]
+        public async Task CumulativeTotal_IgnoresReworkRows_InTheLegacyFallback()
+        {
+            await AddReworkRowAsync(TestDatabase.RingStage1Id, Day1, 500);
+            await RecordAsync(TestDatabase.RingStage1Id, Day2, 40);
+
+            var cumulative = await _db.InScopeAsync<ProductionStageOutputService, IReadOnlyDictionary<int, int>>(
+                svc => svc.GetStageTotalsUpToAsync(Day2));
+
+            Assert.Equal(40, cumulative[TestDatabase.RingStage1Id]);
+        }
+
+        [Fact]
+        public async Task CumulativeTotal_FastPath_IgnoresReworkRows()
+        {
+            // مفيش ولا سجل في الجدول الجديد خالص — المسار السريع
+            await AddReworkRowAsync(TestDatabase.RingStage1Id, Day1, 500);
+
+            var cumulative = await _db.InScopeAsync<ProductionStageOutputService, IReadOnlyDictionary<int, int>>(
+                svc => svc.GetStageTotalsUpToAsync(Day1));
+
+            Assert.False(cumulative.ContainsKey(TestDatabase.RingStage1Id));
+        }
+
+        [Fact]
+        public async Task RangeRows_IgnoreReworkRows_InTheLegacyFallback()
+        {
+            await AddReworkRowAsync(TestDatabase.RingStage1Id, Day1, 500);
+
+            var rows = await _db.InScopeAsync<ProductionStageOutputService,
+                IReadOnlyList<Business.DTOs.ProductionOutputRecordDto>>(
+                svc => svc.GetByRangeAsync(Day1, Day1));
+
+            Assert.Empty(rows);
+        }
+
         // ======================= RemoveIfNowOrphanedAsync (الحذف اللحظي) =======================
 
         private async Task RemoveIfOrphanedAsync(int stageId, DateTime date)
@@ -205,6 +274,20 @@ namespace WorkforceManager.Tests
 
             var row = Assert.Single(await _db.GetProductionStageOutputsAsync());
             Assert.Equal(40, row.PieceCount); // زي ما هو بالظبط
+        }
+
+        [Fact]
+        public async Task RemoveIfOrphaned_WithOnlyReworkRemaining_StillRemovesTheRow()
+        {
+            // سجل الإعادة مش "دعم" للرقم — هو أصلاً معدّاش فيه. لو فضل
+            // لوحده، الرقم بقى شبح ولازم يتشال، وإلا هيفضل واقف بقيمته
+            // القديمة للأبد من غير أي إنتاج حقيقي وراه
+            await RecordAsync(TestDatabase.RingStage1Id, Day1, 100);
+            await AddReworkRowAsync(TestDatabase.RingStage1Id, Day1, 20);
+
+            await RemoveIfOrphanedAsync(TestDatabase.RingStage1Id, Day1);
+
+            Assert.Empty(await _db.GetProductionStageOutputsAsync());
         }
 
         [Fact]

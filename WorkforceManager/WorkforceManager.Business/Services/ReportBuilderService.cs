@@ -324,7 +324,7 @@ namespace WorkforceManager.Business.Services
                     // "الضربات" هنا، بصرف النظر عن أي تجميع
                     new ReportColumn { Header = "عدد الضربات", Key = "pieces", Kind = ReportValueKind.Whole, Sums = true },
                     new ReportColumn { Header = "اليوميات", Key = "workdays", Kind = ReportValueKind.Fraction, Sums = true },
-                    new ReportColumn { Header = "الكوتة وقت التسجيل", Key = "quota", Kind = ReportValueKind.Whole }
+                    new ReportColumn { Header = "اليومية وقت التسجيل", Key = "quota", Kind = ReportValueKind.Whole }
                 }
             };
 

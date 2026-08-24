@@ -341,14 +341,27 @@
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">
-                                            <Border x:Name="SelectionRing" CornerRadius="13" Margin="-2"
-                                                    BorderThickness="2" BorderBrush="Transparent">
-                                                <ContentPresenter Margin="2" />
-                                            </Border>
+                                            <!--
+                                                كان في إطار (SelectionRing) بيلف حوالين الكارت
+                                                ويستنوّر لما المنتج يتختار — لازم استدارته تطابق
+                                                استدارة WorkerCard اللي جواه بالظبط، وأي تعديل
+                                                على استدارة واحد فيهم من غير التاني بيبين كإطار
+                                                "مش متناسق مع الكارت". شاشة العمال حلّت نفس
+                                                المشكلة بشريط دهبي على الحرف بدل الإطار (شوف
+                                                تعليقها هناك: "الإطار بيزوّد خط رابع حوالين كل
+                                                كارت")، فمفيش استدارة تتطابق أصلاً. نفس الحل هنا.
+                                            -->
+                                            <Grid>
+                                                <Border x:Name="Rail" Width="3" CornerRadius="2"
+                                                        HorizontalAlignment="Right"
+                                                        Margin="0,10,0,10"
+                                                        Background="{DynamicResource GoldBrush}"
+                                                        Opacity="0" />
+                                                <ContentPresenter />
+                                            </Grid>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="SelectionRing" Property="BorderBrush"
-                                                            Value="{DynamicResource BrandBrush}" />
+                                                    <Setter TargetName="Rail" Property="Opacity" Value="1" />
                                                 </Trigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
@@ -564,7 +577,7 @@
                                 <Button Command="{Binding AddRackingStageCommand}" Style="{StaticResource GhostButton}"
                                         Margin="0,0,6,0"
                                         Visibility="{Binding SelectedProduct.HasRackingStage, Converter={StaticResource InverseBoolToVis}}"
-                                        ToolTip="مرحلة آخر الخط لعامل الرص — من غير كوتة ومن غير قطع في التسجيل">
+                                        ToolTip="مرحلة آخر الخط لعامل الرص — من غير يومية ومن غير قطع في التسجيل">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="PackageVariantClosed" Width="14" Height="14" VerticalAlignment="Center" />
                                         <TextBlock Text="إضافة مرحلة الرص" Margin="5,0,0,0" />

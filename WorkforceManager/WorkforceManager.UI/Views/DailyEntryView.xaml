@@ -389,6 +389,10 @@
                                                                                                     <DataTrigger Binding="{Binding IsTagOnly}" Value="True">
                                                                                                         <Setter Property="Background" Value="{DynamicResource InfoBgBrush}" />
                                                                                                     </DataTrigger>
+                                                                                                    <!-- إعادة عمل: لون مختلف عشان تتميّز فورًا عن الإنتاج العادي -->
+                                                                                                    <DataTrigger Binding="{Binding IsRework}" Value="True">
+                                                                                                        <Setter Property="Background" Value="{DynamicResource WarnTintBrush}" />
+                                                                                                    </DataTrigger>
                                                                                                 </Style.Triggers>
                                                                                             </Style>
                                                                                         </Border.Style>
@@ -409,6 +413,12 @@
                                                                                                        VerticalAlignment="Center" Margin="0,0,4,0"
                                                                                                        Visibility="{Binding HasTagLabel, Converter={StaticResource BoolToVis}}" />
 
+                                                                                            <!-- بادج "إعادة عمل" -->
+                                                                                            <TextBlock Text="إعادة عمل" FontSize="10.5" FontWeight="Bold"
+                                                                                                       Foreground="{DynamicResource WarnBrush}"
+                                                                                                       VerticalAlignment="Center" Margin="0,0,4,0"
+                                                                                                       Visibility="{Binding IsRework, Converter={StaticResource BoolToVis}}" />
+
                                                                                             <!-- نصيب العامل: بيتملى تلقائي بالتساوي وينفع يتعدل يدوي
                                                                                                  (مش موجودة خالص للتاجات — مفيش قطع ليهم) -->
                                                                                             <TextBox Text="{Binding SharePieces, UpdateSourceTrigger=PropertyChanged}"
@@ -416,6 +426,16 @@
                                                                                                      VerticalContentAlignment="Center"
                                                                                                      ToolTip="عدد القطع لهذا العامل (اتوزع تلقائيًا — عدّله لو التوزيع مش بالتساوي)"
                                                                                                      Visibility="{Binding IsTagOnly, Converter={StaticResource InverseBoolToVis}}" />
+
+                                                                                            <!-- تعليم الشريحة كإعادة عمل: القطع بتتحسب في يومية
+                                                                                                 العامل وأجره، ومش بتزوّد إنتاج الخط -->
+                                                                                            <Button Style="{StaticResource IconButton}" Margin="2,0,0,0"
+                                                                                                    Foreground="{DynamicResource WarnBrush}"
+                                                                                                    ToolTip="إعادة عمل — العامل بيصلّح شغل خلص. بياخد يوميته عادي والقطع مش بتزوّد إنتاج الخط"
+                                                                                                    Command="{Binding ToggleReworkCommand}"
+                                                                                                    Visibility="{Binding IsTagOnly, Converter={StaticResource InverseBoolToVis}}">
+                                                                                                <materialDesign:PackIcon Kind="Restore" Width="12" Height="12" />
+                                                                                            </Button>
                                                                                         </StackPanel>
                                                                                     </Border>
                                                                                 </DataTemplate>
@@ -634,7 +654,7 @@
                                                                                     <Button DockPanel.Dock="Left"
                                                                                             Style="{StaticResource PrimaryButton}" Padding="10,5"
                                                                                             VerticalAlignment="Center"
-                                                                                            ToolTip="يجهّز نطاق من المرحلة دي لآخر الخط بالعدد الواقف"
+                                                                                            ToolTip="يجهّز نطاق من المرحلة دي لآخر الخط بالعدد الواقف — لو مكمّلتش كلهم النهارده هيسألك ويحفظ اللي عليه عمال بس"
                                                                                             Command="{Binding DataContext.ResumePendingCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                                                             CommandParameter="{Binding}">
                                                                                         <TextBlock Text="كمّل من هنا" FontSize="11.5" />
@@ -866,8 +886,20 @@
                                     <DataGridTextColumn Header="اسم العامل" Binding="{Binding WorkerName}" Width="Auto" MinWidth="150" />
                                     <DataGridTextColumn Header="المنتج / المرحلة" Binding="{Binding StageDisplay}" Width="Auto" MinWidth="170" />
                                     <DataGridTextColumn Header="القطع" Binding="{Binding PieceCount}" Width="90" />
-                                    <DataGridTextColumn Header="يومية وقتها" Binding="{Binding QuotaAtEntry}" Width="90" />
+                                    <DataGridTextColumn Header="اليومية" Binding="{Binding QuotaAtEntry}" Width="90" />
                                     <DataGridTextColumn Header="اليوميات" Binding="{Binding Workdays}" Width="80" />
+                                    <!-- إعادة عمل: بتتحسب في يومية العامل بس مش في إنتاج الخط -->
+                                    <DataGridTemplateColumn Header="" Width="80">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="إعادة عمل" FontSize="11" FontWeight="Bold"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource WarnBrush}"
+                                                           ToolTip="إعادة عمل — محسوبة في يومية العامل، مش في إنتاج الخط"
+                                                           Visibility="{Binding IsRework, Converter={StaticResource BoolToVis}}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <DataGridTemplateColumn Header="" Width="120">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
@@ -1272,34 +1304,32 @@
                                 <DataGridTextColumn Header="العامل" Binding="{Binding WorkerName}" Width="Auto" MinWidth="150" />
                                 <DataGridTextColumn Header="السبب" Binding="{Binding Reason}" Width="2*" />
                                 <DataGridTextColumn Header="الخصم" Binding="{Binding DeductionName}" Width="90" />
-                                <DataGridTemplateColumn Header="" Width="60">
+                                <!--
+                                    أيقونة بس من غير نص — زي عمود "سجلات اليوم" بالظبط. عمود
+                                    نص+أيقونة في عرض ضيق (60-70) كان بيقصّ النص ("حذف" بتبقى
+                                    "حذ")، وده اللي كان بيبين كإطار/عمود "مش متناسق". الأيقونة
+                                    وحدها مالهاش نص يتقصّ، والـ ToolTip بيقول نفس المعنى.
+                                    نفس عرض عمود "سجلات اليوم" (120) لأنه نفس المحتوى بالظبط:
+                                    زرارين أيقونة جنب بعض.
+                                -->
+                                <DataGridTemplateColumn Header="" Width="120">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button FontSize="11" Foreground="{DynamicResource BrandBrush}"
-                                                    Style="{StaticResource IconButton}"
-                                                    ToolTip="تعديل الجزاء"
-                                                    Command="{Binding DataContext.EditPenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="PencilOutline" Width="12" Height="12" VerticalAlignment="Center" />
-                                                    <TextBlock Text="تعديل" Margin="4,0,0,0" />
-                                                </StackPanel>
-                                            </Button>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Header="" Width="70">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Button FontSize="11" Foreground="{DynamicResource DangerBrush}"
-                                                    Style="{StaticResource IconButton}"
-                                                    Command="{Binding DataContext.RemovePenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="12" Height="12" VerticalAlignment="Center" />
-                                                    <TextBlock Text="حذف" Margin="4,0,0,0" />
-                                                </StackPanel>
-                                            </Button>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Margin="0,0,4,0"
+                                                        Style="{StaticResource IconButton}" Foreground="{DynamicResource BrandBrush}"
+                                                        ToolTip="تعديل الجزاء"
+                                                        Command="{Binding DataContext.EditPenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <materialDesign:PackIcon Kind="PencilOutline" Width="13" Height="13" />
+                                                </Button>
+                                                <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}"
+                                                        ToolTip="حذف الجزاء"
+                                                        Command="{Binding DataContext.RemovePenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
+                                                </Button>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
@@ -1380,17 +1410,15 @@
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="المبلغ" Binding="{Binding AmountText}" Width="110" />
                                 <DataGridTextColumn Header="البيان" Binding="{Binding Note}" Width="2*" />
-                                <DataGridTemplateColumn Header="" Width="70">
+                                <!-- أيقونة بس من غير نص — زي عمود "سجلات اليوم"، شوف تعليقه في تبويب الجزاءات -->
+                                <DataGridTemplateColumn Header="" Width="50">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Button FontSize="11" Foreground="{DynamicResource DangerBrush}"
-                                                    Style="{StaticResource IconButton}"
+                                            <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}"
+                                                    ToolTip="حذف الحركة"
                                                     Command="{Binding DataContext.RemoveAdjustmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="12" Height="12" VerticalAlignment="Center" />
-                                                    <TextBlock Text="حذف" Margin="4,0,0,0" />
-                                                </StackPanel>
+                                                <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
                                             </Button>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
@@ -1465,18 +1493,15 @@
                                     <DataGridTextColumn Header="السبب" Binding="{Binding ReasonDisplay}"
                                                         Width="Auto" MinWidth="120" />
                                     <DataGridTextColumn Header="ملاحظة" Binding="{Binding Note}" Width="2*" />
-                                    <DataGridTemplateColumn Header="" Width="70">
+                                    <!-- أيقونة بس من غير نص — زي عمود "سجلات اليوم"، شوف تعليقه في تبويب الجزاءات -->
+                                    <DataGridTemplateColumn Header="" Width="50">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <Button FontSize="11" Foreground="{DynamicResource DangerBrush}"
-                                                        Style="{StaticResource IconButton}"
+                                                <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}"
+                                                        ToolTip="حذف الهالك"
                                                         Command="{Binding DataContext.RemoveScrapCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Kind="TrashCanOutline" Width="12" Height="12"
-                                                                                 VerticalAlignment="Center" />
-                                                        <TextBlock Text="حذف" Margin="4,0,0,0" />
-                                                    </StackPanel>
+                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
                                                 </Button>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>

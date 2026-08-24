@@ -14,12 +14,10 @@ namespace WorkforceManager.UI.Views
     /// <summary>
     /// تسجيل هالك: قطع اتشالت من الخط ومش هتتكمّل.
     ///
-    /// بتتفتح بشكلين:
-    ///   • <see cref="ForGap"/> — البرنامج لقى فرق بين مرحلتين بعد
-    ///     الحفظ وبيسأل عنه. المرحلة متحددة ومقفولة، والعدد مملّي
-    ///     بالفرق كله.
-    ///   • <see cref="ForStage"/> — المستخدم فتحها بنفسه من تبويب
-    ///     الهالك (مثلاً الجودة رفضت منتج خلص الخط كله).
+    /// المستخدم بيفتحها بنفسه من تبويب الهالك (مثلاً الجودة رفضت منتج
+    /// خلص الخط كله) — مفيش سؤال تلقائي بعد الحفظ (اتشال، شوف
+    /// FlowSessionViewModel)، فمفيش افتراض إن أي فرق "هيتكمّل بكرة"؛
+    /// القطع الواقفة تفضل واقفة لحد ما المستخدم يقرر بنفسه هو ولا هالك.
     ///
     /// الكود هنا شكلي بس — القاعدة والحساب في ScrapService.
     /// </summary>
@@ -45,53 +43,6 @@ namespace WorkforceManager.UI.Views
 
         public string? Note { get; private set; }
 
-        /// <summary>
-        /// البرنامج لقى فرق بين مرحلتين — بيسأل عنه بدل ما يفترض إنه
-        /// هيتكمّل بكرة ويسيبه واقف للأبد.
-        /// </summary>
-        public static ScrapDialog ForGap(
-            Window owner,
-            string productName,
-            string previousStageName,
-            string currentStageName,
-            int previousStageId,
-            int gapPieces,
-            IReadOnlyList<ScrapReason> reasons)
-        {
-            // اسم المنتج معروض لوحده في ProductBox، فمش محتاج يتكرر في
-            // اسم المرحلة زي ما كان قبل إضافة القايمتين المتتاليتين
-            var stage = new ScrapStageChoice(previousStageId, previousStageName, gapPieces);
-            var product = new ScrapProductChoice(0, productName, new[] { stage });
-
-            var dialog = new ScrapDialog(new[] { product }, reasons)
-            {
-                Owner = owner,
-                _maxPieces = gapPieces
-            };
-
-            dialog.SubtitleText.Text = productName;
-            dialog.ProductBox.SelectedIndex = 0;
-            dialog.ProductBox.IsEnabled = false; // المنتج والمرحلة معروفين من الفرق نفسه
-            dialog.StageBox.SelectedIndex = 0;
-            dialog.StageBox.IsEnabled = false;
-
-            dialog.GapHeadline.Text =
-                $"فيه {gapPieces:N0} قطعة خلصت \"{previousStageName}\" وماكملتش لـ\"{currentStageName}\"";
-            dialog.GapDetail.Text =
-                "لو دول هالك مش هيتكمّلوا، سجّلهم هنا عشان يتشالوا من الشغل الواقف. " +
-                "ولو هيتكمّلوا بكرة، اقفل النافذة وسيبهم زي ما هم.";
-
-            dialog.PiecesBox.Text = gapPieces.ToString();
-            dialog.UpdateRemainder();
-
-            return dialog;
-        }
-
-        /// <summary>
-        /// المستخدم بيسجّل هالك بنفسه — لأي مرحلة، وأهمها **آخر مرحلة**:
-        /// دي الحالة اللي مفيش فرق بين المراحل بيكشفها، لأن مفيش مرحلة
-        /// بعد الأخيرة نقارنها بيها.
-        /// </summary>
         public static ScrapDialog ForStage(
             Window owner,
             IReadOnlyList<ScrapProductChoice> products,
@@ -100,8 +51,6 @@ namespace WorkforceManager.UI.Views
             var dialog = new ScrapDialog(products, reasons) { Owner = owner };
 
             dialog.SubtitleText.Text = "قطع اتشالت من الخط";
-            dialog.GapCard.Visibility = Visibility.Collapsed;
-            dialog.KeepPendingButton.Content = "إلغاء";
 
             // بيختار أول منتج، وده بيسلسل Product_Changed فيملّي StageBox
             // بمراحله تلقائيًا — مفيش لازمة لتحديد المرحلة يدوي هنا

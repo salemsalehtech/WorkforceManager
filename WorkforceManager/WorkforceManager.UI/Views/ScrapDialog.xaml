@@ -7,13 +7,7 @@
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
 
-    <!--
-      القطع اللي اتشالت من الخط ومش هتتكمّل.
-
-      الرقم بييجي مملّي بالفرق كله: الحالة الغالبة إن الفرق كله هالك،
-      فضغطة واحدة تكفي. واللي عايز يقسّم (300 هالك و200 هيتكملوا بكرة)
-      يغيّر الرقم والباقي بيفضل واقف زي ما هو.
-    -->
+    <!-- القطع اللي اتشالت من الخط ومش هتتكمّل — المستخدم بيسجّلها بنفسه وقت ما يحب -->
     <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
         <Border.Effect>
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
@@ -38,19 +32,6 @@
 
             <StackPanel Margin="20,16,20,18">
 
-                <!-- الفرق اللي البرنامج لقاه -->
-                <Border x:Name="GapCard" Background="{DynamicResource SurfaceAltBrush}"
-                        CornerRadius="10" Padding="14,12" Margin="0,0,0,14">
-                    <StackPanel>
-                        <TextBlock x:Name="GapHeadline" FontSize="13.5" FontWeight="SemiBold"
-                                   TextWrapping="Wrap" />
-                        <TextBlock x:Name="GapDetail" FontSize="12" Margin="0,5,0,0"
-                                   TextWrapping="Wrap"
-                                   Foreground="{DynamicResource TextMutedBrush}" />
-                    </StackPanel>
-                </Border>
-
-                <!-- المنتج والمرحلة: بيتقفلوا لما البرنامج هو اللي لقى الفرق -->
                 <TextBlock Text="المنتج" Style="{StaticResource FieldLabel}" />
                 <ComboBox x:Name="ProductBox" DisplayMemberPath="Name" Margin="0,0,0,12"
                           SelectionChanged="Product_Changed" />
@@ -92,7 +73,7 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,14,0,0">
                     <Button Content="سجّل الهالك" Click="Save_Click" IsDefault="True"
                             Style="{StaticResource PrimaryButton}" Padding="24,9" Margin="0,0,8,0" />
-                    <Button x:Name="KeepPendingButton" Content="كلهم هيتكملوا بكرة"
+                    <Button Content="إلغاء"
                             Click="Cancel_Click" IsCancel="True"
                             Style="{StaticResource GhostButton}" Padding="20,9" />
                 </StackPanel>

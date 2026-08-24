@@ -125,6 +125,11 @@ namespace WorkforceManager.UI
             ShowIdentity();
             RefreshActivityBadge(); // الحساب الجديد ممكن يكون له عدد مختلف تمامًا
 
+            // شاشة التسجيل اليومي Singleton (عشان رجوعك لها من شاشة تانية
+            // ميمسحش رحلة لسه مش محفوظة) — من غيرها هنا، الحساب الجديد
+            // كان هيلاقي رحلة الحساب اللي فات لسه واقفة على الشاشة
+            App.AppHost.Services.GetRequiredService<ViewModels.DailyEntryViewModel>().ResetForNewSession();
+
             // الرجوع للشاشة الافتراضية بدل ما يفضل واقف على شاشة ممكن
             // ماعادش مسموح للحساب الجديد يشوفها (زي الحسابات الإدارية)
             NavWorkersItem.IsChecked = true;

@@ -140,7 +140,7 @@ Core  <----------------------- UI
 - **WorkforceManager.Business** — all business rules live here, nowhere else (especially not in UI code):
   `WorkdayCalculationService`, `AttendanceService`, `ProductionFlowService`,
   `WeeklySummaryService`, `PenaltyService`, `WorkerManagementService`, `ProductManagementService`,
-  `ProductionReportService`, `WageAdjustmentService`, `AuthService`, `WeeklyReportExcelService`, plus
+  `ProductionReportService`, `WageAdjustmentService`, `AuthService`, `PayslipStripExcelService`, plus
   their DTOs in `DTOs/`.
 - **WorkforceManager.UI** — WPF, MVVM (CommunityToolkit.Mvvm) + MaterialDesignThemes. `App.xaml.cs` wires
   up DI via `Microsoft.Extensions.Hosting`'s `Host` (`AppHost`) — this is the single place new
@@ -472,6 +472,29 @@ Core  <----------------------- UI
   mistake it for a bug. `UsesPeriod` hides the date controls for Skills, which is a state, not a movement.
 - **Templates store a period *kind*, not two dates** — a template called "أجور الشهر" must mean the current
   month every time, not the month it was saved in.
+- **`PayslipStripExcelService` prints the whole team's payslips on one sheet**, 4 workers per A4 landscape
+  page, cut apart along the vertical lines — it reads `PayrollService.GetPeriodPayrollAsync` directly, so
+  the numbers on paper always match the wage report on screen. **Every slip must have exactly the same
+  line count**, even when workers worked different numbers of stages, or the cut line stops being straight;
+  `WriteBreakdown`'s zero-padding is what keeps them equal. Which lines print is now **user-selectable**
+  (`PayslipStripField`: daily rate, produced workdays, days worked, stage breakdown, total pieces, absence/
+  penalty deductions, net workdays, workdays wage, bonus, advance — factory/worker/period/net-amount are
+  always on and aren't part of the list). Hiding a whole section is done by gating the section header too,
+  not just its lines, so an empty section never prints a bare heading; hiding `StageBreakdown` specifically
+  skips the padding logic rather than breaking it, so the cut-line invariant survives field selection.
+  Field choice auto-persists to `AppSettingsStore.PayslipStripFields` (`null` = every field — an existing
+  install sees no change after the update). **`PayslipFormatStore`** layers named, saved, switchable
+  presets on top of that single live selection — same JSON-file-next-to-the-DB shape as
+  `ReportTemplateStore` (`payslip-formats.json`), with two built-ins ("الفورمات الكامل" = every field,
+  "مختصر" = net workdays + penalty + bonus). Picking a preset applies it to the live field checklist (which
+  keeps auto-persisting from there); saving a new preset or renaming one folds in whatever is checked
+  *at that moment*, not just the name — an earlier version's "rename" only touched the name and silently
+  dropped any checklist edits the user had just made, and saving under a name that collided with a built-in
+  produced two identically-labelled entries where the built-in (first in list order) won every reselect,
+  making the user's edit vanish right after they saved it; both are guarded against now. **There is no
+  single-worker full-page payslip window any more** (`PrintPayslipCommand`/`CanPrintPayslip`,
+  `Views/PayslipWindow`, `ViewModels/PayslipData`) — it was removed outright at the user's request; don't
+  reintroduce it. The team-wide strips above are the only payslip-printing path left.
 
 ### Database rules (audited — don't undo these)
 
@@ -695,15 +718,19 @@ Core  <----------------------- UI
 - `PayrollService.GetPeriodPayrollAsync(from, to)`: custom-period (e.g. monthly) wage sheet. Aggregates
   ALL days in the range directly (not whole weeks): produced + hourly workdays − absence/penalty
   deductions, × current wage = workdays-wage, then **+ bonuses − advances (EGP)** = net wage. Surfaced in
-  ReportsView's "كشف الأجور" tab (date range + Excel export via `WeeklyReportExcelService.ExportPeriodPayroll`,
-  with حافز/سلفة columns). Weekly wage also shows in the weekly sheet (`NetWageEgp` column + totals row in
-  Excel) and per-week in the worker profile. (NOTE: weekly sheet wage does NOT include EGP adjustments —
-  advances/bonuses only flow through the period payroll + worker report + payslip.)
+  `ReportBuilderView` as the "كشف الأسبوع" / "كشف أجور الشهر" built-in wage templates (see the report
+  engine above) and as the source of the payslip strips (`PayslipStripExcelService`, see below) — there is
+  no separate "كشف الأجور" screen or `WeeklyReportExcelService` any more, both were absorbed into the
+  report builder. Weekly wage also shows in the weekly sheet (`NetWageEgp` column + totals row in Excel)
+  and per-week in the worker profile. (NOTE: weekly sheet wage does NOT include EGP adjustments —
+  advances/bonuses only flow through the period payroll + worker report + payslip strips.)
 - `WageAdjustmentService.RecordAdjustmentAsync/RemoveAdjustmentAsync`: add/hard-delete an advance (سلفة) or
   bonus (حافز) in EGP for a worker on a date. Surfaced in DailyEntryView's "السلف والحوافز" tab (same
   attendance-row worker picker as penalties; سلفة shown red, حافز green). Both `PayrollService` and
   `ProductionReportService.GetWorkerReportAsync` fold these into net wage; the worker report shows the full
-  breakdown line (أجر اليوميات + حوافز − سلف = الأجر النهائي) and a printable payslip (see ReportsView).
+  breakdown line (أجر اليوميات + حوافز − سلف = الأجر النهائي), and the same breakdown prints on the payslip
+  strips (see `PayslipStripExcelService` in the report engine section — there is no single-worker payslip
+  window any more, it was removed outright).
 - `HourlyWorkdayService`: hourly wage ladder. Shift 8am→4pm. `ComputeWorkdays(endHour24)` (pure/static):
   finished by 4pm → pro-rata `(endHour-8)/8` (max 1.0); finished 4pm–8pm → 1.5; finished 8pm–midnight →
   2.0. NON-cumulative (last period reached wins). `RecordHourlyWorkAsync` upserts + snapshots + auto-marks

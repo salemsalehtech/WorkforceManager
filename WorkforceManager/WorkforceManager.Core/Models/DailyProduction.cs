@@ -27,9 +27,14 @@ namespace WorkforceManager.Core.Models
     // فبيتحسب من الفهرس نفسه من غير ما يلمس الجدول — **40 مللي**.
     //
     // الترتيب مقصود: المرحلة أولًا (هي اللي بيتجمّع عليها)، وبعدها
-    // التاريخ (الفلتر)، وبعدها العمودين الباقيين عشان التغطية تكتمل.
+    // التاريخ (الفلتر)، وبعدها الأعمدة الباقية عشان التغطية تكتمل.
     // أي تغيير في ترتيبهم بيرجّع الاستعلام لمسح الجدول.
-    [Index(nameof(ProductionStageId), nameof(Date), nameof(IsDeleted), nameof(PieceCount))]
+    //
+    // IsRework آخر عمود عن قصد: استعلامات الرجوع للحساب القديم في
+    // ProductionStageOutputService بتفلتر عليه (سجلات الإعادة مش إنتاج)،
+    // ولو مش جوّه الفهرس ده الفلتر هيرجّع SQLite للجدول صف صف — يعني
+    // نفس الـ1047 مللي اللي الفهرس اتعمل أصلًا عشانها.
+    [Index(nameof(ProductionStageId), nameof(Date), nameof(IsDeleted), nameof(PieceCount), nameof(IsRework))]
     public class DailyProduction : SoftDeletableEntity
     {
         [Key]
@@ -66,6 +71,21 @@ namespace WorkforceManager.Core.Models
         /// </summary>
         [NotMapped]
         public decimal WorkdaysCompleted => WorkdayMath.FromPieces(PieceCount, PiecesPerWorkdayAtEntry);
+
+        /// <summary>
+        /// إعادة عمل: العامل رجع صلّح شغل خلص خلاص على المرحلة دي — مش
+        /// إنتاج جديد خارج من الخط.
+        ///
+        /// السجل ده بيتحسب في يومية العامل وأجره **زي أي سجل تاني** —
+        /// هو اشتغل فعلاً. اللي بيتغيّر إنه مايعدّش في الإنتاج الفعلي:
+        /// ProductionStageOutputService بيتجاهله في كل استعلامات الرجوع
+        /// للحساب القديم، فمايظهرش في "خلص كام" ولا في الشغل الواقف.
+        ///
+        /// الإنتاج الفعلي نفسه بيتسجّل من نطاقات الرحلة لوحدها
+        /// (ProductionFlowService.RecordFlowAsync)، فسجل الإعادة أصلاً
+        /// عمره ما بيضيف عليه حاجة.
+        /// </summary>
+        public bool IsRework { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 

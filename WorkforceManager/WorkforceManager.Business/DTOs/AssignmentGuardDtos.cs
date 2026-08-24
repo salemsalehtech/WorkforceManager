@@ -17,6 +17,13 @@ namespace WorkforceManager.Business.DTOs
         public int ProductionStageId { get; init; }
         public string StageName { get; init; } = string.Empty;
 
+        /// <summary>
+        /// المتصل قايل صراحة إن ده إعادة عمل مقصودة على نفس المرحلة، مش
+        /// تسجيل مكرر بالغلط — الحالة الوحيدة اللي بتعدّي قاعدة منع
+        /// التكرار الحرفي (شوف WorkerAssignmentGuard.Evaluate).
+        /// </summary>
+        public bool IsRework { get; init; }
+
         /// <summary>"منتج – مرحلة" للعرض في رسائل التحذير</summary>
         public string Display => $"{ProductName} – {StageName}";
     }

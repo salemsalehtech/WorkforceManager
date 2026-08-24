@@ -377,7 +377,7 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private int _stars = SkillRatingService.DefaultStars;
 
-        /// <summary>إنتاجه الفعلي ÷ الكوتة (0 = لسه مافيش قياس)</summary>
+        /// <summary>إنتاجه الفعلي ÷ اليومية (0 = لسه مافيش قياس)</summary>
         public decimal MeasuredRatio { get; set; }
 
         /// <summary>عدد أيام الشغل اللي القياس اتبنى عليها</summary>
@@ -415,7 +415,7 @@ namespace WorkforceManager.UI.ViewModels
             !IsKnown
                 ? "دوس على عدد النجوم اللي شايفه — هيتضاف للعامل بالمستوى ده"
                 : HasMeasurement
-                    ? $"تقييمك: {StarsLabel} ({Stars}/5)\nإنتاجه الفعلي: {MeasuredText} من الكوتة على مدار {MeasuredDays} يوم"
+                    ? $"تقييمك: {StarsLabel} ({Stars}/5)\nإنتاجه الفعلي: {MeasuredText} من اليومية على مدار {MeasuredDays} يوم"
                     : $"تقييمك: {StarsLabel} ({Stars}/5)\nلسه مافيش إنتاج كفاية للقياس";
 
         // ------- حالة كل نجمة (للعرض والضغط) -------
