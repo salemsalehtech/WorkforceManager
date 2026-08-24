@@ -72,6 +72,46 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task ReassigningWorker_DoesNotChangeStageOutputOrPendingWorkValidation()
+        {
+            var recordId = await RecordAhmedOnChainAsync(100);
+
+            using (var scope = _db.CreateScope())
+            {
+                var output = _db.GetService<ProductionStageOutputService>(scope);
+                var db = _db.GetService<AppDbContext>(scope);
+
+                await output.RecordOutputAsync(TestDatabase.BagStage1Id, Today, 100);
+                await output.RecordOutputAsync(TestDatabase.BagStage2Id, Today, 150);
+                await db.SaveChangesAsync();
+            }
+
+            var beforeOutputs = (await _db.GetProductionStageOutputsAsync())
+                .OrderBy(o => o.ProductionStageId)
+                .Select(o => (o.ProductionStageId, o.Date, o.PieceCount))
+                .ToList();
+            var beforePending = await _db.InScopeAsync<PendingWorkService, ProductPendingDto?>(
+                service => service.GetForProductAsync(TestDatabase.ProductBagId, Today));
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope).UpdateProductionAsync(
+                    recordId, 100, newWorkerId: TestDatabase.WorkerSaidId, confirmOverride: true);
+
+            var afterOutputs = (await _db.GetProductionStageOutputsAsync())
+                .OrderBy(o => o.ProductionStageId)
+                .Select(o => (o.ProductionStageId, o.Date, o.PieceCount))
+                .ToList();
+            var afterPending = await _db.InScopeAsync<PendingWorkService, ProductPendingDto?>(
+                service => service.GetForProductAsync(TestDatabase.ProductBagId, Today));
+
+            Assert.Equal(beforeOutputs, afterOutputs);
+            Assert.Equal(beforePending!.HasDataError, afterPending!.HasDataError);
+            Assert.Equal(
+                beforePending.Stages.Single(stage => stage.IsDataError).ExcessPieces,
+                afterPending.Stages.Single(stage => stage.IsDataError).ExcessPieces);
+        }
+
+        [Fact]
         public async Task ReassigningWorker_CanChangePiecesInTheSameOperation()
         {
             var recordId = await RecordAhmedOnChainAsync(100);

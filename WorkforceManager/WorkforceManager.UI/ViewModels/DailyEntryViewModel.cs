@@ -646,8 +646,20 @@ namespace WorkforceManager.UI.ViewModels
                     }
                 }
 
-                // إعادة تحميل كل حاجة مرتبطة باليوم — الأرقام بتتصحح في كل مكان فورًا
-                await ReloadForDateAsync();
+                if (workerChanged)
+                {
+                    // نقل العامل لا يغيّر كمية الإنتاج الفعلي في الخط ولا
+                    // الشغل الواقف؛ إعادة تحميل الرحلات هنا كانت تعيد عرض
+                    // تنبيه توازن مراحل مستقل فيبدو وكأنه ناتج عن النقل.
+                    await LoadDaySummaryAsync();
+                    await LoadRecordsTabAsync();
+                    await LoadAttendanceAsync();
+                }
+                else
+                {
+                    // تصحيح عدد القطع يظل يعيد تحميل كل ما يعتمد على السجل.
+                    await ReloadForDateAsync();
+                }
 
                 // تسجيل العملية للتراجع — القيم القديمة هنا لسه زي ما هي
                 // (row مبنيّة من قراءة قبل التعديل، وماتغيرتش محليًا)
