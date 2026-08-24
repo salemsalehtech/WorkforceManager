@@ -29,6 +29,9 @@ namespace WorkforceManager.Data.Repositories
             if (connection.State != ConnectionState.Open)
                 await _context.Database.OpenConnectionAsync();
 
+            if (_context.Database.CurrentTransaction is not null)
+                return new NoOpTransaction();
+
             // SQLite بيدعم BEGIN IMMEDIATE عن طريق deferred: false — أي مزوّد
             // تاني (أو قاعدة بيانات داخل الذاكرة في الاختبارات) بيرجع لمعاملة
             // EF العادية، وساعتها الحماية بتيجي من الـ Serializable المعتاد
@@ -38,6 +41,12 @@ namespace WorkforceManager.Data.Repositories
                 : await _context.Database.BeginTransactionAsync();
 
             return new EfDataTransaction(transaction!);
+        }
+
+        private sealed class NoOpTransaction : IDataTransaction
+        {
+            public Task CommitAsync() => Task.CompletedTask;
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
 
         private sealed class EfDataTransaction : IDataTransaction

@@ -830,6 +830,11 @@
             <!-- ============ تبويب سجلات اليوم (المراجعة والتصحيح) ============ -->
             <TabItem Header="  سجلات اليوم  ">
                 <Grid x:Name="RecordsTabRoot" Margin="10">
+                    <Grid.InputBindings>
+                        <!-- Ctrl+Z يتراجع عن آخر تعديل/حذف طالما مركّز على تبويب سجلات
+                             اليوم — نفس زرار "تراجع" في الشريط تحت -->
+                        <KeyBinding Key="Z" Modifiers="Control" Command="{Binding UndoLastActionCommand}" />
+                    </Grid.InputBindings>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -853,6 +858,19 @@
                                              IsChecked="{Binding IsRecordsGrainMonth, Mode=OneWay}"
                                              Command="{Binding SetRecordsGrainCommand}" CommandParameter="month" />
                             </StackPanel>
+
+                            <!-- تراجع عن آخر تصحيح/نقل/حذف — بيظهر شغال بس لما يكون فيه
+                                 حاجة نتراجع عنها فعلاً. نفس تأثير Ctrl+Z. -->
+                            <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}"
+                                    Command="{Binding UndoLastActionCommand}"
+                                    ToolTip="{Binding UndoDescription}"
+                                    Visibility="{Binding CanUndo, Converter={StaticResource BoolToVis}}"
+                                    Padding="10,4" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="UndoVariant" Width="15" Height="15" VerticalAlignment="Center" />
+                                    <TextBlock Text="تراجع" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
 
                             <DatePicker DockPanel.Dock="Right" SelectedDate="{Binding RecordsDate}" Width="150"
                                         VerticalAlignment="Center" Margin="10,0,0,0" />

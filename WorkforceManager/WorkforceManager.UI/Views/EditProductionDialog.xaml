@@ -9,7 +9,8 @@
         ResizeMode="NoResize" ShowInTaskbar="False"
         FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
 
-    <!-- تصحيح عدد قطع سجل محفوظ بالغلط — اليومية المحفوظة وقت التسجيل بتفضل زي ما هي —
+    <!-- تصحيح عدد قطع سجل محفوظ بالغلط، واختياريًا تحويله لعامل تاني تمامًا
+         (اتسجّل على عامل غلط بالغلط) — اليومية المحفوظة وقت التسجيل بتفضل زي ما هي —
          بطاقة عائمة بلا إطار نظام زي شاشة الدخول، بشريط علوي بلون البراند -->
     <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
         <Border.Effect>
@@ -30,13 +31,15 @@
             </Border>
 
             <StackPanel Margin="24,20,24,22">
-                <!-- معلومات السجل (للتأكد إنه السجل الصح قبل التعديل) -->
+                <!-- المرحلة/المنتج (للتأكد إنه السجل الصح قبل التعديل) -->
                 <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="10" Margin="0,0,0,14">
-                    <StackPanel>
-                        <TextBlock x:Name="WorkerText" FontWeight="Bold" FontSize="14" />
-                        <TextBlock x:Name="StageText" Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5" Margin="0,2,0,0" />
-                    </StackPanel>
+                    <TextBlock x:Name="StageText" FontWeight="Bold" FontSize="13.5" />
                 </Border>
+
+                <TextBlock Text="العامل" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="WorkerBox" DisplayMemberPath="Name" Margin="0,0,0,4" FontSize="14" />
+                <TextBlock Text="غيّر العامل لو السجل اتسجّل على حد غلط بالغلط — يومية السجل ده هتتحول من العامل القديم للعامل الجديد"
+                           Style="{StaticResource HintText}" Margin="0,0,0,14" TextWrapping="Wrap" />
 
                 <TextBlock Text="عدد القطع الصحيح" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="PiecesBox" Margin="0,0,0,6" FontSize="15" />
