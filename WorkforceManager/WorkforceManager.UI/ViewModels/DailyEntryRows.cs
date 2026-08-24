@@ -49,6 +49,8 @@ namespace WorkforceManager.UI.ViewModels
     public class DayRecordRow
     {
         public int RecordId { get; init; }
+        public int WorkerId { get; init; }
+        public int ProductionStageId { get; init; }
         public int ProductId { get; init; }
         public string ProductName { get; init; } = "";
         public string WorkerName { get; init; } = "";

@@ -520,6 +520,8 @@ namespace WorkforceManager.UI.ViewModels
                 _allDayRecords.Add(new DayRecordRow
                 {
                     RecordId = r.Id,
+                    WorkerId = r.WorkerId,
+                    ProductionStageId = r.ProductionStageId,
                     ProductId = r.ProductionStage.ProductId,
                     ProductName = r.ProductionStage.Product.Name,
                     WorkerName = r.Worker.FullName,
@@ -573,20 +575,41 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (row is null) return;
 
+            List<WorkerPick> workerOptions;
+            using (var lookupScope = _scopeFactory.CreateScope())
+            {
+                var workerSkillRepo = lookupScope.ServiceProvider.GetRequiredService<IWorkerSkillRepository>();
+                var qualified = await workerSkillRepo.GetByStageAsync(row.ProductionStageId);
+                workerOptions = qualified
+                    .OrderBy(ws => ws.Worker.SortOrder)
+                    .Select(ws => new WorkerPick(ws.WorkerId, ws.Worker.FullName))
+                    .ToList();
+            }
+
             var dialog = new Views.EditProductionDialog { Owner = Application.Current.MainWindow };
-            dialog.LoadRecord(row.WorkerName, row.StageDisplay, row.PieceCount);
+            dialog.LoadRecord(row.WorkerId, row.WorkerName, row.StageDisplay, row.PieceCount, workerOptions);
             if (dialog.ShowDialog() != true) return;
 
-            // تصحيح القطع بيعيد حساب اليومية، واليومية هي الأجر — نفس
-            // بوابة حذف السجل بالظبط
+            var workerChanged = dialog.WorkerChanged;
+            var piecesChanged = dialog.NewPieceCount != row.PieceCount;
+            if (!workerChanged && !piecesChanged) return; // مفيش أي تغيير فعلي
+
+            // تصحيح القطع (أو نقل السجل لعامل تاني) بيعيد حساب اليومية،
+            // واليومية هي الأجر — نفس بوابة حذف السجل بالظبط. السبب هنا
+            // اختياري: تغيير العامل مفيد يتوثّق بس مش لازم يوقّف العملية
             var gate = SensitiveActionDialog.Ask(
                 Application.Current.MainWindow,
-                "تصحيح عدد القطع",
-                $"{row.WorkerName} — {row.StageDisplay}\n" +
-                $"من {row.PieceCount:N0} قطعة إلى {dialog.NewPieceCount:N0}.",
+                workerChanged ? "نقل سجل إنتاج إلى عامل جديد" : "تصحيح عدد القطع",
+                workerChanged
+                    ? $"{row.StageDisplay}\n" +
+                      $"نقل اليومية من {row.WorkerName} إلى {dialog.SelectedWorker.Name}" +
+                      (piecesChanged ? $"\n{row.PieceCount:N0} قطعة ← {dialog.NewPieceCount:N0} قطعة" : "")
+                    : $"{row.WorkerName} — {row.StageDisplay}\n" +
+                      $"من {row.PieceCount:N0} قطعة إلى {dialog.NewPieceCount:N0}.",
                 SensitiveActionKind.Save,
                 passwordRequired: true,
-                reasonRequired: false);
+                reasonRequired: false,
+                reasonOptionalVisible: workerChanged);
 
             if (gate is null) return;
 
@@ -594,14 +617,45 @@ namespace WorkforceManager.UI.ViewModels
             {
                 using var scope = _scopeFactory.CreateScope();
                 var workdayService = scope.ServiceProvider.GetRequiredService<WorkdayCalculationService>();
-                await workdayService.UpdateProductionAsync(row.RecordId, dialog.NewPieceCount, gate.Password);
+                var reason = string.IsNullOrWhiteSpace(gate.Reason) ? null : gate.Reason;
+
+                try
+                {
+                    await workdayService.UpdateProductionAsync(
+                        row.RecordId, dialog.NewPieceCount, gate.Password,
+                        newWorkerId: workerChanged ? dialog.SelectedWorker.WorkerId : null,
+                        confirmOverride: false, reason: reason);
+                }
+                catch (AssignmentConfirmationRequiredException ex)
+                {
+                    // التأكيد للتكليف الإضافي لازم يروح في scope جديد، مش نفس
+                    // الـ DbContext اللي رجع فيه الاستثناء — من غير كده SQLite
+                    // يحاول يفتح transaction داخل transaction ويطلع الخطأ.
+                    var question = string.Join("\n\n", ex.Conflicts.Select(c => c.ConfirmationQuestion));
+                    if (!Notify.AskDangerous(question, "تأكيد تكليف إضافي")) return;
+
+                    using (var retryScope = _scopeFactory.CreateScope())
+                    {
+                        var retryService = retryScope.ServiceProvider
+                            .GetRequiredService<WorkdayCalculationService>();
+
+                        await retryService.UpdateProductionAsync(
+                            row.RecordId, dialog.NewPieceCount, gate.Password,
+                            newWorkerId: dialog.SelectedWorker.WorkerId,
+                            confirmOverride: true, reason: reason);
+                    }
+                }
 
                 // إعادة تحميل كل حاجة مرتبطة باليوم — الأرقام بتتصحح في كل مكان فورًا
                 await ReloadForDateAsync();
+
+                // تسجيل العملية للتراجع — القيم القديمة هنا لسه زي ما هي
+                // (row مبنيّة من قراءة قبل التعديل، وماتغيرتش محليًا)
+                RegisterUndoableEdit(row, workerChanged);
             }
             catch (Exception ex)
             {
-                Notify.Warn(ex.Message, "خطأ في التصحيح");
+                Notify.Warn(ex.Message, workerChanged ? "خطأ في تغيير العامل" : "خطأ في التصحيح");
             }
         }
 
@@ -637,12 +691,111 @@ namespace WorkforceManager.UI.ViewModels
                 }
 
                 await ReloadForDateAsync();
+
+                LastAction = new UndoableAction(
+                    UndoActionKind.Delete, row.Date, row.RecordId,
+                    row.WorkerId, row.PieceCount, row.ProductionStageId,
+                    row.QuotaAtEntry, row.IsRework,
+                    $"تراجع عن حذف {row.WorkerName} — {row.StageDisplay} ({row.PieceCount:N0} قطعة)");
             }
             catch (Exception ex)
             {
                 Notify.Warn(ex.Message, "خطأ في الحذف");
             }
         }
+
+        /// <summary>يبني وصف عملية التصحيح/النقل القابلة للتراجع، ويحفظها كآخر عملية</summary>
+        private void RegisterUndoableEdit(DayRecordRow row, bool workerChanged)
+        {
+            LastAction = new UndoableAction(
+                UndoActionKind.Edit, row.Date, row.RecordId,
+                row.WorkerId, row.PieceCount, row.ProductionStageId,
+                row.QuotaAtEntry, row.IsRework,
+                workerChanged
+                    ? $"تراجع عن نقل سجل {row.StageDisplay} من {row.WorkerName}"
+                    : $"تراجع عن تصحيح قطع {row.WorkerName} — {row.StageDisplay} ({row.PieceCount:N0} قطعة)");
+        }
+
+        /// <summary>نوع العملية اللي ممكن نتراجع عنها</summary>
+        public enum UndoActionKind { Edit, Delete }
+
+        /// <summary>
+        /// لقطة كافية للتراجع عن آخر تعديل/حذف — بتتخزن في الذاكرة بس
+        /// (مش في قاعدة البيانات) فبتضيع لو البرنامج اتقفل، وده مقصود:
+        /// "تراجع" هنا يعني "غلطت لسه دقيقة"، مش أرشيف تغييرات دائم.
+        /// </summary>
+        public sealed record UndoableAction(
+            UndoActionKind Kind, DateTime Date, int RecordId,
+            int PreviousWorkerId, int PreviousPieceCount, int ProductionStageId,
+            int PiecesPerWorkdayAtEntry, bool IsRework, string Description);
+
+        /// <summary>آخر عملية ينفع نتراجع عنها — null يعني مفيش حاجة نتراجع عنها دلوقتي</summary>
+        [ObservableProperty]
+        [NotifyCanExecuteChangedFor(nameof(UndoLastActionCommand))]
+        private UndoableAction? _lastAction;
+
+        /// <summary>نص الزرار/الـ tooltip — بيوضح المستخدم هيتراجع عن إيه بالظبط</summary>
+        public string? UndoDescription => LastAction?.Description;
+
+        /// <summary>فيه حاجة نتراجع عنها دلوقتي — بيتحكم في ظهور زرار "تراجع"</summary>
+        public bool CanUndo => LastAction is not null;
+
+        partial void OnLastActionChanged(UndoableAction? value)
+        {
+            OnPropertyChanged(nameof(UndoDescription));
+            OnPropertyChanged(nameof(CanUndo));
+        }
+
+        private bool CanUndoLastAction() => LastAction is not null;
+
+        /// <summary>
+        /// تراجع عن آخر عملية (تصحيح قطع، نقل عامل، أو حذف) — من غير
+        /// كلمة سر (شوف تعليق UndoEditAsync/UndoDeleteAsync)، بس بتأكيد
+        /// بسيط عشان مايحصلش تراجع بالغلط بضغطة واحدة أو Ctrl+Z سهو.
+        /// </summary>
+        [RelayCommand(CanExecute = nameof(CanUndoLastAction))]
+        private async Task UndoLastActionAsync()
+        {
+            var action = LastAction;
+            if (action is null) return;
+
+            if (!Notify.AskDangerous(action.Description, "تراجع عن آخر عملية")) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var workdayService = scope.ServiceProvider.GetRequiredService<WorkdayCalculationService>();
+
+                if (action.Kind == UndoActionKind.Edit)
+                {
+                    await workdayService.UndoEditAsync(
+                        action.RecordId, action.PreviousWorkerId, action.PreviousPieceCount);
+                }
+                else
+                {
+                    await workdayService.UndoDeleteAsync(
+                        action.PreviousWorkerId, action.ProductionStageId, action.Date,
+                        action.PreviousPieceCount, action.PiecesPerWorkdayAtEntry, action.IsRework);
+                }
+
+                // تراجع واحد بس — بعد ما ينفّذ، مفيش حاجة تانية نتراجع عنها
+                LastAction = null;
+
+                // لو اليوم اللي اتراجعنا فيه مش هو المعروض في تبويب سجلات
+                // اليوم، ننتقل له عشان المستخدم يشوف نتيجة التراجع فورًا
+                // (تغيير RecordsDate بينادي LoadRecordsTabAsync لوحده)
+                if (RecordsDate.Date != action.Date.Date)
+                    RecordsDate = action.Date;
+                else
+                    await ReloadForDateAsync();
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "مش قدرنا نتراجع");
+                LastAction = null; // الحالة بقت مش صالحة (اتغيرت أو اتحذفت بعد كده) — مفيش داعي نفضل نعرض زرار مش هيشتغل
+            }
+        }
+
 
         // ======================= قسم الحضور (موحّد: بالقطعة + بالساعة) =======================
         //

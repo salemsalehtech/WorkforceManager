@@ -40,7 +40,7 @@ namespace WorkforceManager.UI.Views
 
         private SensitiveActionDialog(
             string title, string subtitle, SensitiveActionKind kind,
-            bool passwordRequired, bool reasonRequired)
+            bool passwordRequired, bool reasonRequired, bool reasonOptionalVisible)
         {
             InitializeComponent();
 
@@ -57,8 +57,14 @@ namespace WorkforceManager.UI.Views
             NotConfiguredBox.Visibility = passwordRequired ? Visibility.Collapsed : Visibility.Visible;
 
             // العمليات المتكررة (حفظ الحضور) بتاخد كلمة سر بس: "اكتب سبب"
-            // على شغل يومي بيتحوّل لخانة المستخدم بيكتب فيها نقطة
-            ReasonSection.Visibility = reasonRequired ? Visibility.Visible : Visibility.Collapsed;
+            // على شغل يومي بيتحوّل لخانة المستخدم بيكتب فيها نقطة.
+            // reasonOptionalVisible بتعرض الخانة من غير ما تفرض تعبئتها —
+            // لعمليات زي تغيير عامل سجل إنتاج: السبب مفيد بس مش إجباري
+            var showReason = reasonRequired || reasonOptionalVisible;
+            ReasonSection.Visibility = showReason ? Visibility.Visible : Visibility.Collapsed;
+
+            if (showReason && !reasonRequired)
+                ReasonLabel.Text += " (اختياري)";
         }
 
         /// <summary>
@@ -100,6 +106,11 @@ namespace WorkforceManager.UI.Views
         /// false للعمليات المتكررة اللي مش بتمسح حاجة (حفظ الحضور):
         /// كلمة سر بس من غير سبب مكتوب.
         /// </param>
+        /// <param name="reasonOptionalVisible">
+        /// true بيعرض خانة السبب من غير ما يفرض تعبئتها — لعمليات
+        /// حساسة (زي تغيير عامل سجل إنتاج) السبب مفيد للمراجعة لاحقًا
+        /// بس مش إجباري. مالوش أثر لو <paramref name="reasonRequired"/> = true.
+        /// </param>
         /// <param name="kind">
         /// حذف ولا حفظ. **إجباري عن قصد ومفيش قيمة افتراضية**: النافذة
         /// دي شغلها إن المستخدم يفهم هو بيوافق على إيه، فاختيار غلط
@@ -107,9 +118,10 @@ namespace WorkforceManager.UI.Views
         /// </param>
         public static SensitiveActionInput? Ask(
             Window? owner, string title, string subtitle, SensitiveActionKind kind,
-            bool passwordRequired, bool reasonRequired = true)
+            bool passwordRequired, bool reasonRequired = true, bool reasonOptionalVisible = false)
         {
-            var dialog = new SensitiveActionDialog(title, subtitle, kind, passwordRequired, reasonRequired);
+            var dialog = new SensitiveActionDialog(
+                title, subtitle, kind, passwordRequired, reasonRequired, reasonOptionalVisible);
             if (owner is not null) dialog.Owner = owner;
 
             return dialog.ShowDialog() == true
