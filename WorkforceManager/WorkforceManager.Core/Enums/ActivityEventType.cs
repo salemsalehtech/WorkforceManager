@@ -72,7 +72,19 @@ namespace WorkforceManager.Core.Enums
         StageCreated = 19,
 
         /// <summary>سلفة أو حافز اتشال</summary>
-        WageAdjustmentDeleted = 20
+        WageAdjustmentDeleted = 20,
+
+        /// <summary>
+        /// سجل إنتاج اتنقل من عامل لعامل تاني (اتسجّل على عامل غلط
+        /// بالغلط) — اليومية بتتحول من القديم للجديد، مش تعديل قطع بس
+        /// </summary>
+        ProductionWorkerReassigned = 21,
+
+        /// <summary>
+        /// تراجع عن آخر عملية على سجل إنتاج (تصحيح قطع، نقل عامل، أو
+        /// حذف) — زرار "تراجع" في تبويب سجلات اليوم أو Ctrl+Z
+        /// </summary>
+        ProductionRecordUndone = 22
 
         // مفيش نوع لاسترجاع النسخة الاحتياطية عن قصد: الاسترجاع بيستبدل
         // ملف قاعدة البيانات كله وبيعيد تشغيل البرنامج، فالحدث اللي
