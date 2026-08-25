@@ -29,6 +29,9 @@ namespace WorkforceManager.Data
         public DbSet<ScrapReason> ScrapReasons => Set<ScrapReason>();
         public DbSet<ProductionStageOutput> ProductionStageOutputs => Set<ProductionStageOutput>();
         public DbSet<WorkerPerformanceTitle> WorkerPerformanceTitles => Set<WorkerPerformanceTitle>();
+        public DbSet<InitialBalance> InitialBalances => Set<InitialBalance>();
+        public DbSet<InitialBalanceRange> InitialBalanceRanges => Set<InitialBalanceRange>();
+        public DbSet<InitialBalanceUsage> InitialBalanceUsages => Set<InitialBalanceUsage>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -290,6 +293,103 @@ namespace WorkforceManager.Data
 
             modelBuilder.Entity<Worker>().ToTable(t => t.HasCheckConstraint(
                 "CK_Worker_DailyWage", "[DailyWageEgp] >= 0"));
+
+            // ---------- الرصيد الأولي ----------
+            // حذف ناعم زي DailyProduction: الرصيد سجل تاريخي (شوف قاعدة
+            // "Created → Source → ... → Edited/Deleted" في مواصفات الفيتشر)
+            modelBuilder.Entity<InitialBalance>().HasQueryFilter(b => !b.IsDeleted);
+
+            // Restrict: حذف منتج له أرصدة أولية لازم يفشل بوضوح، نفس
+            // قاعدة DailyProduction — مايتمسحش رصيد بصمت مع منتجه
+            modelBuilder.Entity<InitialBalance>()
+                .HasOne(b => b.Product)
+                .WithMany()
+                .HasForeignKey(b => b.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // SetNull: تصحيح أو حذف سجل الإنتاج الأصلي مايمسحش الرصيد
+            // المشتق منه، بس الرابط بس بيروح
+            modelBuilder.Entity<InitialBalance>()
+                .HasOne(b => b.OriginalDailyProduction)
+                .WithMany()
+                .HasForeignKey(b => b.OriginalDailyProductionId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<InitialBalance>()
+                .HasIndex(b => new { b.ProductId, b.OriginalDate });
+
+            // ---------- نطاقات الرصيد الأولي ----------
+            // Cascade: النطاق مالوش معنى من غير رصيده — حذف الرصيد يحذف نطاقاته
+            modelBuilder.Entity<InitialBalanceRange>()
+                .HasOne(r => r.InitialBalance)
+                .WithMany(b => b.Ranges)
+                .HasForeignKey(r => r.InitialBalanceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict: نفس قاعدة DailyProduction.ProductionStage — مرحلة
+            // ليها نطاق رصيد مايتحذفش بصمت
+            modelBuilder.Entity<InitialBalanceRange>()
+                .HasOne(r => r.FromStage)
+                .WithMany()
+                .HasForeignKey(r => r.FromStageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<InitialBalanceRange>()
+                .HasOne(r => r.ToStage)
+                .WithMany()
+                .HasForeignKey(r => r.ToStageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // ---------- استخدامات الرصيد الأولي ----------
+            // Restrict: الاستخدام سجل تاريخي مرتبط بيومية/أجر عامل فعلي —
+            // حذف الرصيد (ناعم أصلًا) مايمسحش استخداماته
+            modelBuilder.Entity<InitialBalanceUsage>()
+                .HasOne(u => u.InitialBalance)
+                .WithMany(b => b.Usages)
+                .HasForeignKey(u => u.InitialBalanceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // SetNull: تعديل/حذف النطاق مايمسحش تاريخ الاستخدام، الرابط بس بيروح
+            modelBuilder.Entity<InitialBalanceUsage>()
+                .HasOne(u => u.Range)
+                .WithMany()
+                .HasForeignKey(u => u.InitialBalanceRangeId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<InitialBalanceUsage>()
+                .HasOne(u => u.Worker)
+                .WithMany()
+                .HasForeignKey(u => u.WorkerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<InitialBalanceUsage>()
+                .HasOne(u => u.ProductionStage)
+                .WithMany()
+                .HasForeignKey(u => u.ProductionStageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Restrict: سجل الإنتاج المرتبط هو مصدر يومية/أجر العامل —
+            // لازم يتشال (أو يتصحح) هو نفسه من مسار الحذف الموجود
+            // (WorkdayCalculationService)، اللي بيشيل سجل الاستخدام قبله
+            modelBuilder.Entity<InitialBalanceUsage>()
+                .HasOne(u => u.DailyProduction)
+                .WithMany()
+                .HasForeignKey(u => u.DailyProductionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // استخدام واحد بالحد الأقصى لكل سجل إنتاج — العلاقة 1-إلى-1
+            modelBuilder.Entity<InitialBalanceUsage>()
+                .HasIndex(u => u.DailyProductionId)
+                .IsUnique();
+
+            modelBuilder.Entity<InitialBalance>().ToTable(t => t.HasCheckConstraint(
+                "CK_InitialBalance_Quantity", "[Quantity] > 0"));
+
+            modelBuilder.Entity<InitialBalanceRange>().ToTable(t => t.HasCheckConstraint(
+                "CK_InitialBalanceRange_PieceCount", "[PieceCount] > 0"));
+
+            modelBuilder.Entity<InitialBalanceUsage>().ToTable(t => t.HasCheckConstraint(
+                "CK_InitialBalanceUsage_Quantity", "[Quantity] > 0"));
         }
     }
 }

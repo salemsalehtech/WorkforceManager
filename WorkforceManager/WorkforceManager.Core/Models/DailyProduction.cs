@@ -30,11 +30,12 @@ namespace WorkforceManager.Core.Models
     // التاريخ (الفلتر)، وبعدها الأعمدة الباقية عشان التغطية تكتمل.
     // أي تغيير في ترتيبهم بيرجّع الاستعلام لمسح الجدول.
     //
-    // IsRework آخر عمود عن قصد: استعلامات الرجوع للحساب القديم في
-    // ProductionStageOutputService بتفلتر عليه (سجلات الإعادة مش إنتاج)،
-    // ولو مش جوّه الفهرس ده الفلتر هيرجّع SQLite للجدول صف صف — يعني
-    // نفس الـ1047 مللي اللي الفهرس اتعمل أصلًا عشانها.
-    [Index(nameof(ProductionStageId), nameof(Date), nameof(IsDeleted), nameof(PieceCount), nameof(IsRework))]
+    // IsRework وIsBalanceCompletion آخر عمودين عن قصد: استعلامات الرجوع
+    // للحساب القديم في ProductionStageOutputService بتفلتر عليهم
+    // (سجلات الإعادة وإكمال الرصيد مش إنتاج جديد يوم التسجيل)، ولو مش
+    // جوّه الفهرس ده الفلتر هيرجّع SQLite للجدول صف صف — يعني نفس
+    // الـ1047 مللي اللي الفهرس اتعمل أصلًا عشانها.
+    [Index(nameof(ProductionStageId), nameof(Date), nameof(IsDeleted), nameof(PieceCount), nameof(IsRework), nameof(IsBalanceCompletion))]
     public class DailyProduction : SoftDeletableEntity
     {
         [Key]
@@ -86,6 +87,21 @@ namespace WorkforceManager.Core.Models
         /// عمره ما بيضيف عليه حاجة.
         /// </summary>
         public bool IsRework { get; set; }
+
+        /// <summary>
+        /// إكمال من رصيد أولي (<see cref="InitialBalanceUsage"/>): العامل
+        /// كمّل هنا قطع كانت ناقصة من تاريخ إنتاج أصلي سابق — مش إنتاج
+        /// جديد اتولد يوم التسجيل ده.
+        ///
+        /// السجل ده بيتحسب في يومية وأجر العامل **زي أي سجل تاني** (شغل
+        /// حقيقي في يوم حقيقي)، بالظبط زي <see cref="IsRework"/>. اللي
+        /// بيتغيّر إنه مايعدّش إنتاج فعلي جديد على تاريخ التسجيل هذا:
+        /// ProductionStageOutputService بيتجاهله في رجوع الحساب القديم
+        /// (زي IsRework بالظبط)، لأن الإنتاج الفعلي الحقيقي لهذه القطع
+        /// اتسجّل فعلًا على تاريخ الإنتاج الأصلي (InitialBalance.OriginalDate)
+        /// وقت إنشاء الرصيد — تسجيله تاني هنا يبقى تكرار عد.
+        /// </summary>
+        public bool IsBalanceCompletion { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
