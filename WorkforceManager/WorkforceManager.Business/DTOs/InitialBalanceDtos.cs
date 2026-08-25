@@ -1,0 +1,91 @@
+using WorkforceManager.Core.Enums;
+
+namespace WorkforceManager.Business.DTOs
+{
+    /// <summary>نطاق واحد داخل رصيد أولي — للعرض والإنشاء (شوف InitialBalanceRange)</summary>
+    public class InitialBalanceRangeDto
+    {
+        public int Id { get; init; }
+        public int FromStageId { get; init; }
+        public string FromStageName { get; init; } = string.Empty;
+        public int ToStageId { get; init; }
+        public string ToStageName { get; init; } = string.Empty;
+        public int PieceCount { get; init; }
+        public int SortOrder { get; init; }
+    }
+
+    /// <summary>طلب إضافة نطاق جديد لرصيد قائم</summary>
+    public class AddInitialBalanceRangeRequest
+    {
+        public int FromStageId { get; init; }
+        public int ToStageId { get; init; }
+        public int PieceCount { get; init; }
+    }
+
+    /// <summary>عملية استخدام/إكمال واحدة من رصيد أولي — للعرض في السجل/التاريخ</summary>
+    public class InitialBalanceUsageDto
+    {
+        public int Id { get; init; }
+        public DateTime UsedDate { get; init; }
+        public int Quantity { get; init; }
+        public int WorkerId { get; init; }
+        public string WorkerName { get; init; } = string.Empty;
+        public int ProductionStageId { get; init; }
+        public string StageName { get; init; } = string.Empty;
+        public int? InitialBalanceRangeId { get; init; }
+        public string? Notes { get; init; }
+        public string? RecordedBy { get; init; }
+        public DateTime CreatedAt { get; init; }
+    }
+
+    /// <summary>رصيد أولي كامل بتفاصيله — لبطاقة/شاشة الرصيد الأولي لكل منتج</summary>
+    public class InitialBalanceDto
+    {
+        public int Id { get; init; }
+        public int ProductId { get; init; }
+        public string ProductName { get; init; } = string.Empty;
+        public string Name { get; init; } = string.Empty;
+        public string Reason { get; init; } = string.Empty;
+        public string? Notes { get; init; }
+        public int Quantity { get; init; }
+        public int UsedQuantity { get; init; }
+        public int RemainingQuantity { get; init; }
+        public InitialBalanceStatus Status { get; init; }
+        public DateTime OriginalDate { get; init; }
+        public InitialBalanceSource Source { get; init; }
+        public int? OriginalDailyProductionId { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public string? CreatedBy { get; init; }
+        public List<InitialBalanceRangeDto> Ranges { get; init; } = new();
+
+        /// <summary>عدد القطع من كمية النطاقات مش لسه متخصص لنطاق معين (يفضل قابل للاستخدام من غير نطاق محدد)</summary>
+        public int UnrangedQuantity => Quantity - Ranges.Sum(r => r.PieceCount);
+    }
+
+    /// <summary>طلب إنشاء رصيد أولي يدويًا أو من قطع ناقصة برحلة إنتاج</summary>
+    public class CreateInitialBalanceRequest
+    {
+        public int ProductId { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public string Reason { get; init; } = string.Empty;
+        public string? Notes { get; init; }
+        public int Quantity { get; init; }
+        public DateTime OriginalDate { get; init; }
+        public InitialBalanceSource Source { get; init; } = InitialBalanceSource.Manual;
+        public int? OriginalDailyProductionId { get; init; }
+        public List<AddInitialBalanceRangeRequest> Ranges { get; init; } = new();
+    }
+
+    /// <summary>طلب تسجيل استخدام/إكمال جزء من رصيد أولي</summary>
+    public class RecordInitialBalanceUsageRequest
+    {
+        public int InitialBalanceId { get; init; }
+        public int? InitialBalanceRangeId { get; init; }
+        public DateTime UsedDate { get; init; }
+        public int Quantity { get; init; }
+        public int WorkerId { get; init; }
+        public int ProductionStageId { get; init; }
+        public string? Notes { get; init; }
+        public string OperationsPassword { get; init; } = string.Empty;
+    }
+}
