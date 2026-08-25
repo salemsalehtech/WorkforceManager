@@ -1040,6 +1040,41 @@ namespace WorkforceManager.UI.ViewModels
                     (outputLines.Length > 0 ? $"حالة الإنتاج:\n{outputLines}\n\n" : "") +
                     $"يوميات العمال:\n{totalsLines}{attendanceLine}", "تم الحفظ");
 
+                // سحب المتبقي لرصيد أولي (Initial Balance)
+                var shortfall = result.StartedPieces - result.CompletedPieces;
+                if (shortfall > 0)
+                {
+                    var askToBalance = Notify.Ask(
+                        $"يوجد {shortfall:N0} قطعة متبقية لم تكتمل من هذه الرحلة.\n" +
+                        "هل تريد ترحيلها إلى \"رصيد أولي\" لاستكمالها لاحقاً دون مضاعفة الإنتاج؟",
+                        "ترحيل المتبقي");
+
+                    if (askToBalance)
+                    {
+                        try
+                        {
+                            using var scope = _scopeFactory.CreateScope();
+                            var ibService = scope.ServiceProvider.GetRequiredService<WorkforceManager.Business.Services.InitialBalanceService>();
+                            var balanceReq = new WorkforceManager.Business.DTOs.CreateInitialBalanceRequest
+                            {
+                                ProductId = SelectedProduct.ProductId,
+                                Name = $"بواقي رحلة {entryDate:yyyy-MM-dd}",
+                                Reason = "متبقي من رحلة إنتاج سابقة",
+                                Notes = "تم الترحيل التلقائي بعد حفظ رحلة الإنتاج",
+                                Quantity = shortfall,
+                                OriginalDate = entryDate,
+                                Source = WorkforceManager.Core.Enums.InitialBalanceSource.DailyProduction
+                            };
+                            await ibService.CreateAsync(balanceReq);
+                            Notify.Info($"تم إنشاء رصيد أولي بـ {shortfall:N0} قطعة للمنتج {SelectedProduct.Name} بنجاح.", "تم الترحيل");
+                        }
+                        catch (Exception ex)
+                        {
+                            Notify.Error($"حدث خطأ أثناء ترحيل الرصيد الأولي:\n{ex.Message}", "خطأ");
+                        }
+                    }
+                }
+
                 // السؤال التلقائي عن الهالك بعد كل حفظ اتشال — كان بيظهر
                 // كل يوم فيه شغل واقف حتى لو المستخدم مش قاصد يسجّل هالك
                 // النهارده. تسجيل الهالك بقى يدوي بس من تبويب "الهالك"،
