@@ -254,19 +254,20 @@ namespace WorkforceManager.Business.Services
                 DailyWageEgp = workerRef.DailyWageEgp,
 
                 ProducedWorkdays = workerProduction.Sum(p => p.WorkdaysCompleted) + hourlyWorkdays,
-                TotalPieces = workerProduction.Sum(p => p.PieceCount),
+                TotalPieces = workerProduction.Where(p => !p.IsRework && !p.IsBalanceCompletion).Sum(p => p.PieceCount),
                 // تفصيل الإنتاج مجمّع حسب المرحلة (نفس المرحلة ممكن تتكرر في كذا يوم خلال الأسبوع)
                 Breakdown = workerProduction
-                    .GroupBy(p => p.ProductionStageId)
-                    .Select(g => new StageBreakdownDto
-                    {
-                        ProductionStageId = g.Key,
-                        ProductName = g.First().ProductionStage.Product.Name,
-                        StageName = g.First().ProductionStage.StageName,
-                        PieceCount = g.Sum(p => p.PieceCount),
-                        PiecesPerWorkday = g.First().PiecesPerWorkdayAtEntry
-                    })
-                    .ToList(),
+                   .Where(p => !p.IsRework && !p.IsBalanceCompletion)
+                   .GroupBy(p => p.ProductionStageId)
+                   .Select(g => new StageBreakdownDto
+                   {
+                       ProductionStageId = g.Key,
+                       ProductName = g.First().ProductionStage.Product.Name,
+                       StageName = g.First().ProductionStage.StageName,
+                       PieceCount = g.Sum(p => p.PieceCount),
+                       PiecesPerWorkday = g.First().PiecesPerWorkdayAtEntry
+                   })
+                   .ToList(),
 
                 PresentDays = workerAttendance.Count(a => a.Status == AttendanceStatus.Present),
                 AbsentWithPermissionDays = workerAttendance.Count(a => a.Status == AttendanceStatus.AbsentWithPermission),
