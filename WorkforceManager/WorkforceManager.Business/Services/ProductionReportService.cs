@@ -193,6 +193,7 @@ namespace WorkforceManager.Business.Services
 
             // الإنتاج بالمنتج/المرحلة
             var byProductStage = production
+                .Where(r => !r.IsRework && !r.IsBalanceCompletion)
                 .GroupBy(r => r.ProductionStageId)
                 .Select(g =>
                 {
@@ -203,7 +204,9 @@ namespace WorkforceManager.Business.Services
                         StageName = stage.StageName,
                         SortOrder = stage.SortOrder,
                         Pieces = g.Sum(r => r.PieceCount),
-                        Workdays = g.Sum(r => r.WorkdaysCompleted),
+                        Workdays = production
+                            .Where(r => r.ProductionStageId == g.Key)
+                            .Sum(r => r.WorkdaysCompleted),
                         IsLastStage = lastStageIds.Contains(g.Key)
                     };
                 })
@@ -216,9 +219,10 @@ namespace WorkforceManager.Business.Services
                 .Select(g => new WorkerDayProductionDto
                 {
                     Date = g.Key,
-                    Pieces = g.Sum(r => r.PieceCount),
+                    Pieces = g.Where(r => !r.IsRework && !r.IsBalanceCompletion).Sum(r => r.PieceCount),
                     Workdays = g.Sum(r => r.WorkdaysCompleted),
                     Detail = string.Join("، ", g
+                        .Where(r => !r.IsRework && !r.IsBalanceCompletion)
                         .GroupBy(r => r.ProductionStageId)
                         .Select(sg => $"{sg.First().ProductionStage.Product.Name}/{sg.First().ProductionStage.StageName}: {sg.Sum(r => r.PieceCount)}"))
                 })
@@ -240,6 +244,7 @@ namespace WorkforceManager.Business.Services
 
             var absentWithoutPermission = attendance.Count(a => a.Status == AttendanceStatus.AbsentWithoutPermission);
             var producedWorkdays = production.Sum(r => r.WorkdaysCompleted) + hourly.Sum(h => h.WorkdaysCredited);
+            var totalPieces = production.Where(r => !r.IsRework && !r.IsBalanceCompletion).Sum(r => r.PieceCount);
 
             return new WorkerProductionReportDto
             {
@@ -252,8 +257,10 @@ namespace WorkforceManager.Business.Services
                 To = toDate,
                 // مجموع القطع اللي العامل عملها بنفسه على مراحله — ده
                 // مقياس **شغله هو** مش إنتاج المنتج، فالجمع هنا صح:
-                // كل سجل شغل مختلف عمله بإيده واستحق عليه يوميته
-                TotalPieces = production.Sum(r => r.PieceCount),
+                // كل سجل شغل مختلف عمله بإيده واستحق عليه يوميته.
+                // سجلات إكمال الرصيد/الإعادة بتحتسب في يوميات العامل لكن
+                // مش في القطع المضافة للإنتاج الفعلي، عشان مايتكررش العد.
+                TotalPieces = totalPieces,
                 ProducedWorkdays = producedWorkdays,
                 ByProductStage = byProductStage,
                 ByDay = byDay,

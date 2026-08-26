@@ -1,0 +1,64 @@
+<Window x:Class="WorkforceManager.UI.Views.InitialBalanceUsageDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="استخدام رصيد أولي"
+        Width="500" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="NoResize" ShowInTaskbar="False"
+        FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
+
+    <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
+        </Border.Effect>
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="{DynamicResource SidebarBrush}"
+                    CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Foreground="{DynamicResource SidebarInkBrush}"
+                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
+                            ToolTip="إغلاق">
+                        <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
+                    </Button>
+                    <TextBlock Text="استخدام رصيد أولي" Foreground="{DynamicResource SidebarInkBrush}"
+                               FontSize="15.5" FontWeight="Bold" />
+                </DockPanel>
+            </Border>
+
+            <StackPanel Margin="24,20,24,22">
+                <TextBlock x:Name="BalanceText" FontWeight="Bold" Margin="0,0,0,6" TextWrapping="Wrap" />
+                <TextBlock x:Name="RemainingText" FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,12" />
+
+                <TextBlock Text="التاريخ" Style="{StaticResource FieldLabel}" />
+                <DatePicker x:Name="UsedDatePicker" Margin="0,0,0,12" />
+
+                <TextBlock Text="العامل" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="WorkerBox" Margin="0,0,0,12" DisplayMemberPath="Name" />
+
+                <TextBlock Text="المرحلة" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="StageBox" Margin="0,0,0,12" DisplayMemberPath="Name" />
+
+                <TextBlock Text="النطاق (اختياري)" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="RangeBox" Margin="0,0,0,12" DisplayMemberPath="Name" />
+
+                <TextBlock Text="عدد القطع" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="QuantityBox" Margin="0,0,0,12" />
+
+                <TextBlock Text="ملاحظات (اختياري)" Style="{StaticResource FieldLabel}" />
+                <TextBox x:Name="NotesBox" Margin="0,0,0,16" TextWrapping="Wrap" AcceptsReturn="True" Height="70"
+                         VerticalScrollBarVisibility="Auto" />
+
+                <TextBlock x:Name="ErrorText" Foreground="{DynamicResource DangerBrush}" FontSize="12"
+                           Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Content="حفظ" Click="Save_Click" IsDefault="True"
+                            Style="{StaticResource PrimaryButton}" Padding="26,9" Margin="0,0,8,0" />
+                    <Button Content="إلغاء" IsCancel="True" Style="{StaticResource GhostButton}" Padding="26,9" />
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+    </Border>
+</Window>

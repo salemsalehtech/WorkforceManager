@@ -3,6 +3,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
@@ -25,6 +26,7 @@ namespace WorkforceManager.UI.ViewModels
         public ProductsViewModel(IServiceScopeFactory scopeFactory)
         {
             _scopeFactory = scopeFactory;
+            InitialBalances.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasInitialBalances));
         }
 
         // ------- حالة الشاشة -------
@@ -309,13 +311,25 @@ namespace WorkforceManager.UI.ViewModels
         {
             // تحديث لوحة المراحل فورًا عند تغيير المنتج المحدد
             Stages.Clear();
-            if (value is null) return;
+            if (value is null)
+            {
+                InitialBalances.Clear();
+                return;
+            }
+
             foreach (var s in value.Stages.OrderBy(s => s.SortOrder))
                 Stages.Add(s);
+
+            SafeAsync.Run(LoadInitialBalancesAsync);
         }
 
         /// <summary>مراحل المنتج المحدد (مرتبة بترتيب خط الإنتاج)</summary>
         public ObservableCollection<StageRow> Stages { get; } = new();
+
+        /// <summary>الأرصدة الأولية الخاصة بالمنتج المحدد</summary>
+        public ObservableCollection<InitialBalanceDto> InitialBalances { get; } = new();
+
+        public bool HasInitialBalances => InitialBalances.Count > 0;
 
         // ------- التحميل والفلترة -------
 
@@ -355,6 +369,19 @@ namespace WorkforceManager.UI.ViewModels
             SelectedWorkerFilter = WorkerFilterOptions.FirstOrDefault(o => o.WorkerId == previousWorkerId)
                                    ?? WorkerFilterOptions[0];
             SelectedVolumeFilter ??= VolumeFilterOptions[0];
+        }
+
+        private async Task LoadInitialBalancesAsync()
+        {
+            InitialBalances.Clear();
+            if (SelectedProduct is null) return;
+
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
+            var balances = await service.GetForProductAsync(SelectedProduct.ProductId);
+
+            foreach (var balance in balances.OrderByDescending(b => b.CreatedAt))
+                InitialBalances.Add(balance);
         }
 
         [RelayCommand]
@@ -504,7 +531,7 @@ namespace WorkforceManager.UI.ViewModels
         private async Task AddProductAsync()
         {
             var dialog = new ProductEditDialog(await LoadRackingWorkerChoicesAsync())
-                { Owner = Application.Current.MainWindow };
+            { Owner = Application.Current.MainWindow };
             if (dialog.ShowDialog() != true) return;
 
             try
@@ -535,7 +562,7 @@ namespace WorkforceManager.UI.ViewModels
             if (SelectedProduct is null) return;
 
             var dialog = new ProductEditDialog(await LoadRackingWorkerChoicesAsync())
-                { Owner = Application.Current.MainWindow, Title = "تعديل منتج" };
+            { Owner = Application.Current.MainWindow, Title = "تعديل منتج" };
             dialog.LoadProduct(SelectedProduct.Name,
                 SelectedProduct.Description,
                 SelectedProduct.ImageData,

@@ -24,11 +24,13 @@ namespace WorkforceManager.Business.Services
     /// الفيتشر مالها رقم إنتاج فعلي محفوظ. من غير الرجوع ده، كل تقرير
     /// قديم كان هيطلع صفر بدل رقمه الحقيقي.
     ///
-    /// **سجلات إعادة العمل مستبعدة من كل استعلام هنا** (شوف
-    /// <see cref="DailyProduction.IsRework"/>). لازم تتستبعد في الرجوع
-    /// للحساب القديم بالذات: مرحلة/يوم كل شغلها إعادة مالهاش سجل في
-    /// الجدول الجديد خالص، فالرجوع القديم كان هيجمّع قطع الإعادة ويحطها
-    /// إنتاج فعلي — وده بالظبط اللي المفروض مايحصلش.
+    /// **سجلات إعادة العمل وإكمال الرصيد الأولي مستبعدة من كل استعلام
+    /// هنا** (شوف <see cref="DailyProduction.IsRework"/> و
+    /// <see cref="DailyProduction.IsBalanceCompletion"/>). لازم تتستبعد
+    /// في الرجوع للحساب القديم بالذات: مرحلة/يوم كل شغلها إعادة أو إكمال
+    /// رصيد مالهاش سجل في الجدول الجديد خالص، فالرجوع القديم كان هيجمّع
+    /// قطعها ويحطها إنتاج فعلي جديد — وده بالظبط اللي المفروض مايحصلش،
+    /// لأن إنتاج الرصيد الفعلي اتسجّل خلاص على تاريخه الأصلي.
     /// </summary>
     public class ProductionStageOutputService
     {
@@ -99,7 +101,7 @@ namespace WorkforceManager.Business.Services
             // مفضلش غيره، الرقم بقى شبح ولازم يتشال، وإلا هيفضل واقف
             // بقيمته القديمة للأبد من غير أي إنتاج حقيقي وراه
             var stillHasSupport = await _db.DailyProductions.AnyAsync(dp =>
-                dp.ProductionStageId == productionStageId && dp.Date == day && !dp.IsRework);
+                dp.ProductionStageId == productionStageId && dp.Date == day && !dp.IsRework && !dp.IsBalanceCompletion);
             if (stillHasSupport) return;
 
             var existing = await _db.ProductionStageOutputs.FirstOrDefaultAsync(o =>
@@ -124,7 +126,7 @@ namespace WorkforceManager.Business.Services
             if (outputs.Count == 0) return 0;
 
             var stillSupported = (await _db.DailyProductions
-                    .Where(dp => !dp.IsRework) // إعادة العمل مش دعم — زي RemoveIfNowOrphanedAsync
+                    .Where(dp => !dp.IsRework && !dp.IsBalanceCompletion) // إعادة العمل وإكمال الرصيد مش دعم — زي RemoveIfNowOrphanedAsync
                     .Select(dp => new { dp.ProductionStageId, dp.Date })
                     .Distinct()
                     .ToListAsync())
@@ -158,7 +160,7 @@ namespace WorkforceManager.Business.Services
 
             var legacy = await _db.DailyProductions
                 .AsNoTracking()
-                .Where(dp => dp.Date == day && !dp.IsRework)
+                .Where(dp => dp.Date == day && !dp.IsRework && !dp.IsBalanceCompletion)
                 .GroupBy(dp => dp.ProductionStageId)
                 .Select(g => new { StageId = g.Key, Pieces = g.Sum(dp => dp.PieceCount) })
                 .ToListAsync();
@@ -193,7 +195,7 @@ namespace WorkforceManager.Business.Services
                 // القديم بالظبط، من غير أي تكلفة دمج زيادة
                 var legacyOnly = await _db.DailyProductions
                     .AsNoTracking()
-                    .Where(dp => dp.Date <= day && !dp.IsRework)
+                    .Where(dp => dp.Date <= day && !dp.IsRework && !dp.IsBalanceCompletion)
                     .GroupBy(dp => dp.ProductionStageId)
                     .Select(g => new { StageId = g.Key, Pieces = g.Sum(dp => dp.PieceCount) })
                     .ToListAsync();
@@ -208,7 +210,7 @@ namespace WorkforceManager.Business.Services
 
             var legacyByStageDate = await _db.DailyProductions
                 .AsNoTracking()
-                .Where(dp => dp.Date <= day && !dp.IsRework)
+                .Where(dp => dp.Date <= day && !dp.IsRework && !dp.IsBalanceCompletion)
                 .GroupBy(dp => new { dp.ProductionStageId, dp.Date })
                 .Select(g => new { g.Key.ProductionStageId, g.Key.Date, Pieces = g.Sum(dp => dp.PieceCount) })
                 .ToListAsync();
@@ -248,7 +250,7 @@ namespace WorkforceManager.Business.Services
             var legacyByStageDate = await _db.DailyProductions
                 .AsNoTracking()
                 .Include(dp => dp.ProductionStage).ThenInclude(s => s.Product)
-                .Where(dp => dp.Date >= fromDate && dp.Date <= toDate && !dp.IsRework)
+                .Where(dp => dp.Date >= fromDate && dp.Date <= toDate && !dp.IsRework && !dp.IsBalanceCompletion)
                 .GroupBy(dp => new { dp.ProductionStageId, dp.Date })
                 .Select(g => new
                 {

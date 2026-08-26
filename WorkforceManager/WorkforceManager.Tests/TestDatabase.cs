@@ -112,6 +112,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<PendingWorkService>();
             services.AddScoped<ScrapService>();
             services.AddScoped<ProductionStageOutputService>();
+            services.AddScoped<InitialBalanceService>();
             services.AddScoped<ProductionReportService>();
             services.AddScoped<WageAdjustmentService>();
             services.AddScoped<ReportBuilderService>();

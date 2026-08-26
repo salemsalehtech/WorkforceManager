@@ -832,6 +832,11 @@
                                 </ItemsControl>
                             </StackPanel>
                         </ScrollViewer>
+
+                        <Border Style="{StaticResource Card}" Margin="0,12,0,0" Padding="14,12">
+                            <StackPanel>
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </Grid>
             </Border>

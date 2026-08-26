@@ -84,6 +84,7 @@ namespace WorkforceManager.UI.ViewModels
             _getEntryDate = getEntryDate;
             _onSavedAsync = onSavedAsync;
             _getOpenSessions = getOpenSessions;
+            InitialBalances.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasInitialBalances));
         }
 
         /// <summary>كل المنتجات النشطة (قائمة مشتركة بين كل الرحلات — للقراءة بس)</summary>
@@ -106,6 +107,11 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>معاينة يوميات كل عامل قبل الحفظ (بتتحدث لحظيًا)</summary>
         public ObservableCollection<FlowWorkerTotalDto> FlowPreview { get; } = new();
+
+        /// <summary>الأرصدة الأولية الخاصة بالمنتج المختار</summary>
+        public ObservableCollection<InitialBalanceDto> InitialBalances { get; } = new();
+
+        public bool HasInitialBalances => InitialBalances.Count > 0;
 
         // بلوك التحذيرات الأصفر اللي كان هنا اتشال: كان بيجمّع أخطاء كل
         // النطاقات في نص واحد فوق الشاشة، فالمستخدم بيقرا "مرحلة كذا
@@ -131,6 +137,7 @@ namespace WorkforceManager.UI.ViewModels
                 FlowStages.Clear();
                 FlowRanges.Clear();
                 FlowPreview.Clear();
+                InitialBalances.Clear();
                 // الموافقات بتخص التكليفات اللي كانت على الشاشة — الرحلة بتبدأ نظيفة
                 _confirmedAssignments.Clear();
 
@@ -229,7 +236,87 @@ namespace WorkforceManager.UI.ViewModels
                 _suppressCallbacks = false;
             }
 
+            await LoadInitialBalancesAsync();
             await LoadPendingWorkAsync();
+        }
+
+        private async Task LoadInitialBalancesAsync()
+        {
+            InitialBalances.Clear();
+
+            if (SelectedProduct is not { } product) return;
+
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
+            var balances = await service.GetForProductAsync(product.ProductId);
+
+            foreach (var balance in balances.OrderByDescending(b => b.CreatedAt))
+                InitialBalances.Add(balance);
+        }
+
+        [RelayCommand]
+        private async Task CompleteInitialBalanceAsync(InitialBalanceDto? balance)
+        {
+            if (balance is null || SelectedProduct is null)
+                return;
+
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
+            var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
+            var passwordService = scope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+            var workers = (await workerRepo.GetActiveWithSkillsAsync())
+                .OrderBy(w => w.SortOrder)
+                .Select(w => new WorkerChoice(w.Id, w.FullName))
+                .ToList();
+            var stages = SelectedProduct.Stages
+                .OrderBy(s => s.DisplayOrder)
+                .Select(s => new StageChoice(s.StageId, s.StageName))
+                .ToList();
+
+            var dialog = new InitialBalanceUsageDialog(
+                workers,
+                stages,
+                balance.Ranges,
+                balance.Name,
+                balance.RemainingQuantity);
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            var passwordPrompt = SensitiveActionDialog.Ask(
+                Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsVisible) ?? Application.Current.MainWindow,
+                "إكمال رصيد أولي",
+                $"منتج: {SelectedProduct.Name} — {balance.Name}",
+                SensitiveActionKind.Save,
+                await passwordService.IsConfiguredAsync(),
+                reasonRequired: false,
+                reasonOptionalVisible: true);
+
+            if (passwordPrompt is null)
+                return;
+
+            try
+            {
+                await service.RecordUsageAsync(new RecordInitialBalanceUsageRequest
+                {
+                    InitialBalanceId = balance.Id,
+                    InitialBalanceRangeId = dialog.RangeId,
+                    UsedDate = dialog.UsedDate,
+                    Quantity = dialog.Quantity,
+                    WorkerId = dialog.WorkerId ?? throw new InvalidOperationException("يجب اختيار العامل أولًا"),
+                    ProductionStageId = dialog.StageId ?? throw new InvalidOperationException("يجب اختيار المرحلة أولًا"),
+                    Notes = string.IsNullOrWhiteSpace(dialog.Notes) ? passwordPrompt.Reason : dialog.Notes,
+                    OperationsPassword = passwordPrompt.Password
+                }, recordedBy: null);
+
+                await LoadInitialBalancesAsync();
+                await _onSavedAsync();
+                Notify.Info($"تم استخدام {dialog.Quantity:N0} قطعة من رصيد \"{balance.Name}\" بنجاح.", "تم الإكمال");
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "خطأ في إكمال الرصيد");
+            }
         }
 
         /// <summary>
@@ -718,6 +805,47 @@ namespace WorkforceManager.UI.ViewModels
             FlowRanges.Add(new FlowRangeRow(RangeableStages(product), OnStructureEdited, RemoveRange));
         }
 
+        [RelayCommand]
+        private async Task AddInitialBalanceAsync()
+        {
+            if (SelectedProduct is not { } product)
+            {
+                Notify.Info("اختار المنتج الأول", "تنبيه");
+                return;
+            }
+
+            var dialog = new InitialBalanceDialog
+            {
+                Owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsVisible) ?? Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() != true) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
+
+                var created = await service.CreateAsync(new CreateInitialBalanceRequest
+                {
+                    ProductId = product.ProductId,
+                    Name = dialog.BalanceName,
+                    Reason = dialog.Reason,
+                    Notes = dialog.Notes,
+                    Quantity = dialog.Quantity,
+                    OriginalDate = dialog.OriginalDate,
+                    Source = InitialBalanceSource.Manual
+                });
+
+                await LoadInitialBalancesAsync();
+                Notify.Info($"تم إنشاء رصيد أولي \"{created.Name}\" بنجاح.", "تم الحفظ");
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "خطأ في إنشاء الرصيد");
+            }
+        }
+
         /// <summary>بيتنادى من زرار الحذف اللي على سطر النطاق نفسه</summary>
         private void RemoveRange(FlowRangeRow range)
         {
@@ -1039,6 +1167,41 @@ namespace WorkforceManager.UI.ViewModels
                     $"({result.RecordsCount} سجل على {result.StagesCovered} مراحل)\n\n" +
                     (outputLines.Length > 0 ? $"حالة الإنتاج:\n{outputLines}\n\n" : "") +
                     $"يوميات العمال:\n{totalsLines}{attendanceLine}", "تم الحفظ");
+
+                // سحب المتبقي لرصيد أولي (Initial Balance)
+                var shortfall = result.StartedPieces - result.CompletedPieces;
+                if (shortfall > 0)
+                {
+                    var askToBalance = Notify.Ask(
+                        $"يوجد {shortfall:N0} قطعة متبقية لم تكتمل من هذه الرحلة.\n" +
+                        "هل تريد ترحيلها إلى \"رصيد أولي\" لاستكمالها لاحقاً دون مضاعفة الإنتاج؟",
+                        "ترحيل المتبقي");
+
+                    if (askToBalance)
+                    {
+                        try
+                        {
+                            using var scope = _scopeFactory.CreateScope();
+                            var ibService = scope.ServiceProvider.GetRequiredService<WorkforceManager.Business.Services.InitialBalanceService>();
+                            var balanceReq = new WorkforceManager.Business.DTOs.CreateInitialBalanceRequest
+                            {
+                                ProductId = SelectedProduct.ProductId,
+                                Name = $"بواقي رحلة {entryDate:yyyy-MM-dd}",
+                                Reason = "متبقي من رحلة إنتاج سابقة",
+                                Notes = "تم الترحيل التلقائي بعد حفظ رحلة الإنتاج",
+                                Quantity = shortfall,
+                                OriginalDate = entryDate,
+                                Source = WorkforceManager.Core.Enums.InitialBalanceSource.DailyProduction
+                            };
+                            await ibService.CreateAsync(balanceReq);
+                            Notify.Info($"تم إنشاء رصيد أولي بـ {shortfall:N0} قطعة للمنتج {SelectedProduct.Name} بنجاح.", "تم الترحيل");
+                        }
+                        catch (Exception ex)
+                        {
+                            Notify.Error($"حدث خطأ أثناء ترحيل الرصيد الأولي:\n{ex.Message}", "خطأ");
+                        }
+                    }
+                }
 
                 // السؤال التلقائي عن الهالك بعد كل حفظ اتشال — كان بيظهر
                 // كل يوم فيه شغل واقف حتى لو المستخدم مش قاصد يسجّل هالك

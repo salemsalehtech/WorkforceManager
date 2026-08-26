@@ -57,6 +57,34 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task UndoEdit_CanBeRepeatedInSequence()
+        {
+            var recordId = await RecordAhmedOnChainAsync(100);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope).UpdateProductionAsync(
+                    recordId, 150, newWorkerId: null, confirmOverride: true);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope).UpdateProductionAsync(
+                    recordId, 175, newWorkerId: null, confirmOverride: true);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope).UndoEditAsync(
+                    recordId, TestDatabase.WorkerAhmedId, 150);
+
+            var afterFirstUndo = Assert.Single(await _db.GetProductionAsync());
+            Assert.Equal(150, afterFirstUndo.PieceCount);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkdayCalculationService>(scope).UndoEditAsync(
+                    recordId, TestDatabase.WorkerAhmedId, 100);
+
+            var afterSecondUndo = Assert.Single(await _db.GetProductionAsync());
+            Assert.Equal(100, afterSecondUndo.PieceCount);
+        }
+
+        [Fact]
         public async Task UndoEdit_DoesNotRequireAPassword()
         {
             var recordId = await RecordAhmedOnChainAsync(100);

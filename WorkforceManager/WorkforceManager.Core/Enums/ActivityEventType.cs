@@ -84,7 +84,19 @@ namespace WorkforceManager.Core.Enums
         /// تراجع عن آخر عملية على سجل إنتاج (تصحيح قطع، نقل عامل، أو
         /// حذف) — زرار "تراجع" في تبويب سجلات اليوم أو Ctrl+Z
         /// </summary>
-        ProductionRecordUndone = 22
+        ProductionRecordUndone = 22,
+
+        /// <summary>رصيد أولي جديد اتسجل (يدويًا أو من قطع ناقصة برحلة إنتاج)</summary>
+        InitialBalanceCreated = 23,
+
+        /// <summary>جزء من رصيد أولي اتاخد/اتكمّل — سجل إنتاج جديد اتربط بيه</summary>
+        InitialBalanceUsed = 24,
+
+        /// <summary>رصيد أولي اتعدّل (اسمه، سببه، ملاحظاته، أو نطاقاته)</summary>
+        InitialBalanceEdited = 25,
+
+        /// <summary>رصيد أولي اتشال</summary>
+        InitialBalanceDeleted = 26
 
         // مفيش نوع لاسترجاع النسخة الاحتياطية عن قصد: الاسترجاع بيستبدل
         // ملف قاعدة البيانات كله وبيعيد تشغيل البرنامج، فالحدث اللي

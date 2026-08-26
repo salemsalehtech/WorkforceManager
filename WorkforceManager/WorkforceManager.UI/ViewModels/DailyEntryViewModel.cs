@@ -646,8 +646,20 @@ namespace WorkforceManager.UI.ViewModels
                     }
                 }
 
-                // إعادة تحميل كل حاجة مرتبطة باليوم — الأرقام بتتصحح في كل مكان فورًا
-                await ReloadForDateAsync();
+                if (workerChanged)
+                {
+                    // نقل العامل لا يغيّر كمية الإنتاج الفعلي في الخط ولا
+                    // الشغل الواقف؛ إعادة تحميل الرحلات هنا كانت تعيد عرض
+                    // تنبيه توازن مراحل مستقل فيبدو وكأنه ناتج عن النقل.
+                    await LoadDaySummaryAsync();
+                    await LoadRecordsTabAsync();
+                    await LoadAttendanceAsync();
+                }
+                else
+                {
+                    // تصحيح عدد القطع يظل يعيد تحميل كل ما يعتمد على السجل.
+                    await ReloadForDateAsync();
+                }
 
                 // تسجيل العملية للتراجع — القيم القديمة هنا لسه زي ما هي
                 // (row مبنيّة من قراءة قبل التعديل، وماتغيرتش محليًا)
@@ -692,11 +704,11 @@ namespace WorkforceManager.UI.ViewModels
 
                 await ReloadForDateAsync();
 
-                LastAction = new UndoableAction(
+                PushUndoAction(new UndoableAction(
                     UndoActionKind.Delete, row.Date, row.RecordId,
                     row.WorkerId, row.PieceCount, row.ProductionStageId,
                     row.QuotaAtEntry, row.IsRework,
-                    $"تراجع عن حذف {row.WorkerName} — {row.StageDisplay} ({row.PieceCount:N0} قطعة)");
+                    $"تراجع عن حذف {row.WorkerName} — {row.StageDisplay} ({row.PieceCount:N0} قطعة)"));
             }
             catch (Exception ex)
             {
@@ -707,13 +719,13 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>يبني وصف عملية التصحيح/النقل القابلة للتراجع، ويحفظها كآخر عملية</summary>
         private void RegisterUndoableEdit(DayRecordRow row, bool workerChanged)
         {
-            LastAction = new UndoableAction(
+            PushUndoAction(new UndoableAction(
                 UndoActionKind.Edit, row.Date, row.RecordId,
                 row.WorkerId, row.PieceCount, row.ProductionStageId,
                 row.QuotaAtEntry, row.IsRework,
                 workerChanged
                     ? $"تراجع عن نقل سجل {row.StageDisplay} من {row.WorkerName}"
-                    : $"تراجع عن تصحيح قطع {row.WorkerName} — {row.StageDisplay} ({row.PieceCount:N0} قطعة)");
+                    : $"تراجع عن تصحيح قطع {row.WorkerName} — {row.StageDisplay} ({row.PieceCount:N0} قطعة)"));
         }
 
         /// <summary>نوع العملية اللي ممكن نتراجع عنها</summary>
@@ -729,10 +741,10 @@ namespace WorkforceManager.UI.ViewModels
             int PreviousWorkerId, int PreviousPieceCount, int ProductionStageId,
             int PiecesPerWorkdayAtEntry, bool IsRework, string Description);
 
+        private readonly Stack<UndoableAction> _undoActions = new();
+
         /// <summary>آخر عملية ينفع نتراجع عنها — null يعني مفيش حاجة نتراجع عنها دلوقتي</summary>
-        [ObservableProperty]
-        [NotifyCanExecuteChangedFor(nameof(UndoLastActionCommand))]
-        private UndoableAction? _lastAction;
+        public UndoableAction? LastAction => _undoActions.TryPeek(out var action) ? action : null;
 
         /// <summary>نص الزرار/الـ tooltip — بيوضح المستخدم هيتراجع عن إيه بالظبط</summary>
         public string? UndoDescription => LastAction?.Description;
@@ -740,10 +752,25 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>فيه حاجة نتراجع عنها دلوقتي — بيتحكم في ظهور زرار "تراجع"</summary>
         public bool CanUndo => LastAction is not null;
 
-        partial void OnLastActionChanged(UndoableAction? value)
+        private void PushUndoAction(UndoableAction action)
+        {
+            _undoActions.Push(action);
+            RefreshUndoState();
+        }
+
+        private UndoableAction? PopUndoAction()
+        {
+            if (_undoActions.Count == 0) return null;
+            var action = _undoActions.Pop();
+            RefreshUndoState();
+            return action;
+        }
+
+        private void RefreshUndoState()
         {
             OnPropertyChanged(nameof(UndoDescription));
             OnPropertyChanged(nameof(CanUndo));
+            UndoLastActionCommand.NotifyCanExecuteChanged();
         }
 
         private bool CanUndoLastAction() => LastAction is not null;
@@ -778,8 +805,10 @@ namespace WorkforceManager.UI.ViewModels
                         action.PreviousPieceCount, action.PiecesPerWorkdayAtEntry, action.IsRework);
                 }
 
-                // تراجع واحد بس — بعد ما ينفّذ، مفيش حاجة تانية نتراجع عنها
-                LastAction = null;
+                // نخلّي آخر إجراء داخل المكدس يطلع بعد التنفيذ، ويبقى التراجع
+                // التالي هو اللي قبله مباشرة — ده هو السلوك الطبيعي لـ Ctrl+Z
+                // المتكرر في نفس الجلسة.
+                PopUndoAction();
 
                 // لو اليوم اللي اتراجعنا فيه مش هو المعروض في تبويب سجلات
                 // اليوم، ننتقل له عشان المستخدم يشوف نتيجة التراجع فورًا
@@ -792,7 +821,7 @@ namespace WorkforceManager.UI.ViewModels
             catch (Exception ex)
             {
                 Notify.Warn(ex.Message, "مش قدرنا نتراجع");
-                LastAction = null; // الحالة بقت مش صالحة (اتغيرت أو اتحذفت بعد كده) — مفيش داعي نفضل نعرض زرار مش هيشتغل
+                PopUndoAction(); // أي فشل يخلّي العملية الحالية غير صالحة ويشيلها من المكدس
             }
         }
 

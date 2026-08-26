@@ -201,6 +201,7 @@
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
 
                                             <!-- رأس الرحلة: اختيار المنتج + إزالة الرحلة -->
@@ -228,6 +229,16 @@
                                                     <StackPanel Orientation="Horizontal">
                                                         <materialDesign:PackIcon Kind="ContentCopy" Width="14" Height="14" VerticalAlignment="Center" />
                                                         <TextBlock Text="كرّر يوم فات" Margin="5,0,0,0" FontSize="12.5" />
+                                                    </StackPanel>
+                                                </Button>
+
+                                                <Button DockPanel.Dock="Left" Margin="10,0,0,0"
+                                                        Style="{StaticResource SuccessButton}" Padding="12,6"
+                                                        ToolTip="إنشاء رصيد أولي جديد للمنتج ده"
+                                                        Command="{Binding AddInitialBalanceCommand}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="PackageVariantClosedPlus" Width="14" Height="14" VerticalAlignment="Center" />
+                                                        <TextBlock Text="رصيد أولي" Margin="5,0,0,0" FontSize="12.5" />
                                                     </StackPanel>
                                                 </Button>
 
@@ -276,7 +287,86 @@
                                                 </Border>
                                             </DockPanel>
 
-                                            <Grid Grid.Row="1">
+                                            <Border Grid.Row="1" Margin="0,0,0,8" Padding="10,8"
+                                                    Background="{DynamicResource SubtleBgBrush}" CornerRadius="8">
+                                                <StackPanel>
+                                                    <DockPanel Margin="0,0,0,6">
+                                                        <TextBlock Text="الأرصدة الأولية" FontWeight="Bold" VerticalAlignment="Center" />
+                                                        <TextBlock DockPanel.Dock="Right" Text="استهلاك/متبقي" FontSize="11.5"
+                                                                   Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding HasInitialBalances}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </DockPanel>
+
+                                                    <TextBlock Text="لا يوجد رصيد أولي لهذا المنتج" FontSize="11.8"
+                                                               Foreground="{DynamicResource TextMutedBrush}">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding HasInitialBalances}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+
+                                                    <ItemsControl ItemsSource="{Binding InitialBalances}">
+                                                        <ItemsControl.Style>
+                                                            <Style TargetType="ItemsControl">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding HasInitialBalances}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ItemsControl.Style>
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="14" Padding="10,8" Margin="0,0,8,8"
+                                                                        BorderBrush="{DynamicResource SoftPanelBorderBrush}" BorderThickness="1">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11.8" />
+                                                                        <TextBlock Text="{Binding Quantity, StringFormat='إجمالي: {0:N0}'}" FontSize="11.2"
+                                                                                   Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0" />
+                                                                        <TextBlock Text="{Binding UsedQuantity, StringFormat='مستهلك: {0:N0}'}" FontSize="11.2"
+                                                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                                                        <TextBlock Text="{Binding RemainingQuantity, StringFormat='متبقي: {0:N0}'}" FontSize="11.2"
+                                                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                                                        <Button Style="{StaticResource GhostButton}" Margin="0,8,0,0" Padding="10,6"
+                                                                                Command="{Binding DataContext.CompleteInitialBalanceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                CommandParameter="{Binding}"
+                                                                                ToolTip="إكمال جزء من هذا الرصيد في يومية اليوم">
+                                                                            <StackPanel Orientation="Horizontal">
+                                                                                <materialDesign:PackIcon Kind="CheckCircleOutline" Width="13" Height="13" VerticalAlignment="Center" />
+                                                                                <TextBlock Text="إكمال" Margin="5,0,0,0" FontSize="11.5" />
+                                                                            </StackPanel>
+                                                                        </Button>
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <Grid Grid.Row="2">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*" />
                                                     <ColumnDefinition Width="380" />
