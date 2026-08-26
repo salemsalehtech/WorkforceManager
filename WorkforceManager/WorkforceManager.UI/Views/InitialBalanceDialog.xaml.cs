@@ -12,6 +12,18 @@ namespace WorkforceManager.UI.Views
             OriginalDatePicker.SelectedDate = DateTime.Today;
         }
 
+        public void LoadBalance(string name, string reason, string? notes, int quantity, DateTime originalDate)
+        {
+            HeaderText.Text = "تعديل رصيد أولي";
+            NameBox.Text = name;
+            ReasonBox.Text = reason;
+            NotesBox.Text = notes ?? string.Empty;
+            QuantityBox.Text = quantity.ToString();
+            QuantityBox.IsEnabled = false;
+            OriginalDatePicker.SelectedDate = originalDate;
+            OriginalDatePicker.IsEnabled = false;
+        }
+
         public string BalanceName => NameBox.Text.Trim();
         public string Reason => ReasonBox.Text.Trim();
         public string? Notes => string.IsNullOrWhiteSpace(NotesBox.Text) ? null : NotesBox.Text.Trim();

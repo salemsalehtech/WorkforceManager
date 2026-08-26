@@ -835,59 +835,6 @@
 
                         <Border Style="{StaticResource Card}" Margin="0,12,0,0" Padding="14,12">
                             <StackPanel>
-                                <DockPanel Margin="0,0,0,8">
-                                    <TextBlock Text="الرصيد الأولي" FontWeight="Bold" VerticalAlignment="Center" />
-                                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
-                                        <Button Command="{Binding RefreshInitialBalancesCommand}" Style="{StaticResource GhostButton}" Margin="0,0,6,0">
-                                            <StackPanel Orientation="Horizontal">
-                                                <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14" VerticalAlignment="Center" />
-                                                <TextBlock Text="تحديث" Margin="5,0,0,0" />
-                                            </StackPanel>
-                                        </Button>
-                                        <Button Command="{Binding AddInitialBalanceCommand}" Style="{StaticResource SuccessButton}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <materialDesign:PackIcon Kind="Plus" Width="14" Height="14" VerticalAlignment="Center" />
-                                                <TextBlock Text="إضافة رصيد" Margin="5,0,0,0" />
-                                            </StackPanel>
-                                        </Button>
-                                    </StackPanel>
-                                </DockPanel>
-
-                                <TextBlock Text="لا يوجد أرصدة أولية لهذا المنتج بعد" FontSize="12.5"
-                                           Foreground="{DynamicResource TextMutedBrush}"
-                                           Visibility="{Binding HasInitialBalances, Converter={StaticResource InverseBoolToVis}}" />
-
-                                <ItemsControl ItemsSource="{Binding InitialBalances}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="10" Padding="12,10" Margin="0,0,0,6">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <StackPanel Grid.Column="0">
-                                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" />
-                                                        <TextBlock Text="{Binding Reason}" FontSize="12.2" Margin="0,2,0,0"
-                                                                   Foreground="{DynamicResource TextMutedBrush}" />
-                                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                                            <TextBlock Text="{Binding Quantity}" FontWeight="SemiBold" />
-                                                            <TextBlock Text=" قطعة" Margin="4,0,0,0" />
-                                                            <TextBlock Text="•" Margin="8,0,4,0" />
-                                                            <TextBlock Text="المتبقي" Margin="0,0,4,0" />
-                                                            <TextBlock Text="{Binding RemainingQuantity}" FontWeight="SemiBold" />
-                                                        </StackPanel>
-                                                    </StackPanel>
-                                                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" Margin="10,0,0,0">
-                                                        <Border Background="{DynamicResource SidebarBrush}" CornerRadius="8" Padding="8,4">
-                                                            <TextBlock Text="{Binding Status}" Foreground="{DynamicResource SidebarInkBrush}" FontSize="11.5" />
-                                                        </Border>
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
                             </StackPanel>
                         </Border>
                     </Grid>

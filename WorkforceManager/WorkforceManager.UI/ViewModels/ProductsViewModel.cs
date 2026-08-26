@@ -385,42 +385,6 @@ namespace WorkforceManager.UI.ViewModels
         }
 
         [RelayCommand]
-        private async Task RefreshInitialBalancesAsync()
-        {
-            await LoadInitialBalancesAsync();
-        }
-
-        [RelayCommand]
-        private async Task AddInitialBalanceAsync()
-        {
-            if (SelectedProduct is null) return;
-
-            var dialog = new InitialBalanceDialog
-            {
-                Owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsVisible) ?? Application.Current.MainWindow
-            };
-
-            if (dialog.ShowDialog() != true) return;
-
-            using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
-            var request = new CreateInitialBalanceRequest
-            {
-                ProductId = SelectedProduct.ProductId,
-                Name = dialog.BalanceName,
-                Reason = dialog.Reason,
-                Notes = dialog.Notes,
-                Quantity = dialog.Quantity,
-                OriginalDate = dialog.OriginalDate,
-                Source = InitialBalanceSource.Manual
-            };
-
-            var created = await service.CreateAsync(request);
-            await LoadInitialBalancesAsync();
-            Notify.Info($"تم إنشاء الرصيد الأولي \"{created.Name}\" بنجاح", "تم الحفظ");
-        }
-
-        [RelayCommand]
         public async Task LoadAsync()
         {
             using var scope = _scopeFactory.CreateScope();
@@ -567,7 +531,7 @@ namespace WorkforceManager.UI.ViewModels
         private async Task AddProductAsync()
         {
             var dialog = new ProductEditDialog(await LoadRackingWorkerChoicesAsync())
-                { Owner = Application.Current.MainWindow };
+            { Owner = Application.Current.MainWindow };
             if (dialog.ShowDialog() != true) return;
 
             try
@@ -598,7 +562,7 @@ namespace WorkforceManager.UI.ViewModels
             if (SelectedProduct is null) return;
 
             var dialog = new ProductEditDialog(await LoadRackingWorkerChoicesAsync())
-                { Owner = Application.Current.MainWindow, Title = "تعديل منتج" };
+            { Owner = Application.Current.MainWindow, Title = "تعديل منتج" };
             dialog.LoadProduct(SelectedProduct.Name,
                 SelectedProduct.Description,
                 SelectedProduct.ImageData,
