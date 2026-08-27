@@ -44,6 +44,42 @@
                 <TextBox x:Name="NotesBox" Margin="0,0,0,16" TextWrapping="Wrap" AcceptsReturn="True" Height="70"
                          VerticalScrollBarVisibility="Auto" />
 
+                <StackPanel x:Name="RangesSection" Margin="0,0,0,16">
+                    <DockPanel Margin="0,0,0,8">
+                        <TextBlock DockPanel.Dock="Left" Text="النطاقات والمراحل (اختياري)" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0" />
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="8,4" HorizontalAlignment="Right" Click="AddRange_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Plus" Width="14" Height="14" VerticalAlignment="Center" />
+                                <TextBlock Text="إضافة نطاق" Margin="4,0,0,0" FontSize="12" />
+                            </StackPanel>
+                        </Button>
+                    </DockPanel>
+
+                    <ItemsControl x:Name="RangesListControl">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,0,0,6">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" />
+                                            <ComboBox ItemsSource="{Binding Stages}" SelectedItem="{Binding FromStage}" DisplayMemberPath="Name" Width="120" FontSize="12" />
+                                            <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" />
+                                            <ComboBox ItemsSource="{Binding Stages}" SelectedItem="{Binding ToStage}" DisplayMemberPath="Name" Width="120" FontSize="12" />
+                                        </StackPanel>
+                                        <DockPanel Margin="0,8,0,0">
+                                            <TextBlock DockPanel.Dock="Left" Text="عدد القطع:" VerticalAlignment="Center" FontSize="12" Margin="0,0,6,0" />
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}" Padding="6,4" Click="RemoveRange_Click">
+                                                <materialDesign:PackIcon Kind="TrashCanOutline" Width="14" Height="14" />
+                                            </Button>
+                                            <TextBox Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}" Width="100" HorizontalAlignment="Left" Padding="4,2" FontSize="13" />
+                                        </DockPanel>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
                 <TextBlock x:Name="ErrorText" Foreground="{DynamicResource DangerBrush}" FontSize="12"
                            Margin="0,0,0,8" Visibility="Collapsed" TextWrapping="Wrap" />
 
