@@ -109,7 +109,7 @@ namespace WorkforceManager.Tests
             await ProduceAsync(TestDatabase.BagStage3Id, 1000, Today);
 
             using (var scope = _db.CreateScope())
-                await _db.GetService<ScrapService>(scope).RecordAsync(TestDatabase.BagStage3Id, Today, 100, note: "رفض جودة");
+                await _db.GetService<ScrapService>(scope).RecordAsync(TestDatabase.BagStage3Id, Today, 100, "", note: "رفض جودة");
 
             var points = await ChartAsync(Today, Today, ChartGrain.Day);
 
@@ -125,7 +125,7 @@ namespace WorkforceManager.Tests
             await ProduceAsync(TestDatabase.BagStage3Id, 1000, Today);
 
             using (var scope = _db.CreateScope())
-                await _db.GetService<ScrapService>(scope).RecordAsync(TestDatabase.BagStage1Id, Today, 300, note: "عيب خامة");
+                await _db.GetService<ScrapService>(scope).RecordAsync(TestDatabase.BagStage1Id, Today, 300, "", note: "عيب خامة");
 
             var points = await ChartAsync(Today, Today, ChartGrain.Day);
 
@@ -142,7 +142,7 @@ namespace WorkforceManager.Tests
             await ProduceAsync(TestDatabase.BagStage3Id, 600, Today);
 
             using (var scope = _db.CreateScope())
-                await _db.GetService<ScrapService>(scope).RecordAsync(TestDatabase.BagStage3Id, Today, 50, note: "رفض جودة");
+                await _db.GetService<ScrapService>(scope).RecordAsync(TestDatabase.BagStage3Id, Today, 50, "", note: "رفض جودة");
 
             var daily = await _db.InScopeAsync<DailyProductionReportService, Business.DTOs.DailyProductionReportDto>(
                 s => s.GetAsync(Today));
@@ -158,7 +158,7 @@ namespace WorkforceManager.Tests
             // من غير كده المنتج بيختفي من الرسم خالص، والمستخدم يفتكر
             // إن محدش اشتغل عليه — وهو اشتغل وضاع
             using (var scope = _db.CreateScope())
-                await _db.GetService<ScrapService>(scope).RecordAsync(TestDatabase.BagStage3Id, Today, 400, note: "رفض جودة");
+                await _db.GetService<ScrapService>(scope).RecordAsync(TestDatabase.BagStage3Id, Today, 400, "", note: "رفض جودة");
 
             var points = await ChartAsync(Today, Today, ChartGrain.Day);
 

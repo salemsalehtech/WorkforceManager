@@ -77,6 +77,28 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>قطع دخلت أول مرحلة في الحفظة دي</summary>
         public int StartedPieces { get; init; }
+
+        /// <summary>كل صف DailyProduction اتكتب في الحفظة دي — لأي كود محتاج يبني كتابة تانية فوقها (شوف postWriteHook في RecordFlowAsync)</summary>
+        public List<CreatedProductionRowDto> CreatedRows { get; init; } = new();
+
+        /// <summary>
+        /// أي نطاق مُقدَّم في الحفظة دي مش وصل لآخر مرحلة في خط الإنتاج —
+        /// كل واحد فيهم اتحول تلقائيًا لرصيد أولي مستقل (شوف تعليق
+        /// RecordFlowAsync عن التحويل التلقائي)
+        /// </summary>
+        public List<FlowRangeDto> IncompleteRanges { get; init; } = new();
+    }
+
+    /// <summary>صف DailyProduction واحد اتكتب أثناء حفظ رحلة — للربط بكتابات تانية جوه نفس المعاملة (شوف postWriteHook)</summary>
+    public class CreatedProductionRowDto
+    {
+        public int DailyProductionId { get; init; }
+        public int ProductionStageId { get; init; }
+        public int WorkerId { get; init; }
+        public int PieceCount { get; init; }
+
+        /// <summary>فهرس النطاق المُقدَّم اللي المرحلة دي جزء منه (بترتيب النطاقات في الطلب)</summary>
+        public int SubmittedRangeIndex { get; init; }
     }
 
     /// <summary>إجمالي عامل واحد في رحلة الإنتاج (لملخص ما بعد الحفظ والمعاينة قبل الحفظ)</summary>

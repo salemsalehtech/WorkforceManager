@@ -10,6 +10,9 @@ namespace WorkforceManager.Core.Enums
         Manual = 1,
 
         /// <summary>ناتج عن قطع ناقصة (بدأت ولم تكتمل) في رحلة إنتاج يومية</summary>
-        DailyProduction = 2
+        DailyProduction = 2,
+
+        /// <summary>ناتج عن ترحيل تلقائي لشغل واقف كان موجود قبل هذا الفيتشر (مرة واحدة، أول تشغيل)</summary>
+        Migrated = 3
     }
 }

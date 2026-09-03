@@ -356,6 +356,7 @@ namespace WorkforceManager.Data
                 .HasForeignKey(u => u.InitialBalanceRangeId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            // اختياري: null لسحب لهالك (مفيش عامل وقتها — شوف تعليق الكلاس)
             modelBuilder.Entity<InitialBalanceUsage>()
                 .HasOne(u => u.Worker)
                 .WithMany()
@@ -368,18 +369,34 @@ namespace WorkforceManager.Data
                 .HasForeignKey(u => u.ProductionStageId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Restrict: سجل الإنتاج المرتبط هو مصدر يومية/أجر العامل —
-            // لازم يتشال (أو يتصحح) هو نفسه من مسار الحذف الموجود
-            // (WorkdayCalculationService)، اللي بيشيل سجل الاستخدام قبله
+            // اختياري: null لسحب لهالك. Restrict لو موجود: سجل الإنتاج
+            // المرتبط هو مصدر يومية/أجر العامل — لازم يتشال (أو يتصحح)
+            // هو نفسه من مسار الحذف الموجود (WorkdayCalculationService)،
+            // اللي بيشيل سجل الاستخدام قبله
             modelBuilder.Entity<InitialBalanceUsage>()
                 .HasOne(u => u.DailyProduction)
                 .WithMany()
                 .HasForeignKey(u => u.DailyProductionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // استخدام واحد بالحد الأقصى لكل سجل إنتاج — العلاقة 1-إلى-1
+            // استخدام واحد بالحد الأقصى لكل سجل إنتاج — العلاقة 1-إلى-1.
+            // SQLite بيسمح بأكتر من NULL في فهرس UNIQUE (كل NULL مختلف
+            // عن التاني)، فسحوبات الهالك (DailyProductionId=null) مش بتتعارض
             modelBuilder.Entity<InitialBalanceUsage>()
                 .HasIndex(u => u.DailyProductionId)
+                .IsUnique();
+
+            // اختياري: null لإكمال إنتاج عادي. Restrict لنفس سبب DailyProduction
+            // فوق — سجل الهالك المرتبط لازم يتشال هو نفسه من مساره الموجود
+            modelBuilder.Entity<InitialBalanceUsage>()
+                .HasOne(u => u.ProductionScrap)
+                .WithMany()
+                .HasForeignKey(u => u.ProductionScrapId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // استخدام واحد بالحد الأقصى لكل سجل هالك — نفس منطق DailyProductionId فوق
+            modelBuilder.Entity<InitialBalanceUsage>()
+                .HasIndex(u => u.ProductionScrapId)
                 .IsUnique();
 
             modelBuilder.Entity<InitialBalance>().ToTable(t => t.HasCheckConstraint(

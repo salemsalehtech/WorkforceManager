@@ -93,8 +93,17 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private ProductOption? _selectedProduct;
 
+        /// <summary>
+        /// بيمنع إعادة التحميل التلقائي عند تغيير المنتج برمجيًا — لما
+        /// <see cref="PrepareWithdrawalAsync"/> بتظبط المنتج بنفسها وبتنادي
+        /// <see cref="ReloadAsync"/> بـ await، فمحتاجة تمنع النداء الثاني
+        /// (fire-and-forget) اللي كان هيتسابق معاه على نفس الـ collections.
+        /// </summary>
+        private bool _suppressProductReload;
+
         partial void OnSelectedProductChanged(ProductOption? value)
         {
+            if (_suppressProductReload) return;
             // تغيير المنتج بيعيد بناء بطاقات المراحل (وأي خطأ بيظهر مش بيضيع بصمت)
             SafeAsync.Run(ReloadAsync);
         }
@@ -243,6 +252,7 @@ namespace WorkforceManager.UI.ViewModels
         private async Task LoadInitialBalancesAsync()
         {
             InitialBalances.Clear();
+            InitialBalanceSummary = null;
 
             if (SelectedProduct is not { } product) return;
 
@@ -252,71 +262,135 @@ namespace WorkforceManager.UI.ViewModels
 
             foreach (var balance in balances.OrderByDescending(b => b.CreatedAt))
                 InitialBalances.Add(balance);
+
+            // كارت العرض المُجمّع (progress bar) — رقم واحد، عرض بصري بحت.
+            // البيانات نفسها (InitialBalances فوق) تفضل مقسّمة بالرصيد زي ما هي
+            InitialBalanceSummary = await service.GetProductSummaryAsync(product.ProductId);
+        }
+
+        /// <summary>رصيد/نطاق مسحوب حاليًا على الشاشة — لما موجود، الحفظ بينادي InitialBalanceService.WithdrawAsync بدل RecordFlowAsync مباشرة</summary>
+        private (int BalanceId, List<InitialBalanceRangeWithdrawalDto> Ranges)? _pendingWithdrawal;
+
+        [ObservableProperty]
+        private InitialBalanceSummaryDto? _initialBalanceSummary;
+
+        public bool HasPendingWithdrawal => _pendingWithdrawal is not null;
+
+        /// <summary>يجهّز الشاشة لسحب نطاق أو أكتر من رصيد — بيملي FlowRanges زي ResumePending بالظبط، والعامل بيوزّع من كروت المراحل العادية</summary>
+        private void QueueWithdrawal(ProductOption product, InitialBalanceDto balance, List<(InitialBalanceRangeDto Range, int PieceCount)> ranges)
+        {
+            if (ranges.Count == 0)
+            {
+                Notify.Info("مفيش نطاقات في الرصيد ده لسحبها.", "تنبيه");
+                return;
+            }
+
+            _suppressCallbacks = true;
+            try
+            {
+                foreach (var empty in FlowRanges.Where(r => r.PiecesText.Trim().Length == 0).ToList())
+                    FlowRanges.Remove(empty);
+
+                var rangeableStages = RangeableStages(product);
+                foreach (var (range, pieceCount) in ranges)
+                {
+                    var from = rangeableStages.FirstOrDefault(s => s.StageId == range.FromStageId);
+                    var to = rangeableStages.FirstOrDefault(s => s.StageId == range.ToStageId);
+                    if (from is null || to is null) continue;
+
+                    FlowRanges.Add(new FlowRangeRow(rangeableStages, OnStructureEdited, RemoveRange)
+                    {
+                        FromStage = from,
+                        ToStage = to,
+                        PiecesText = pieceCount.ToString()
+                    });
+                }
+
+                _pendingWithdrawal = (balance.Id, ranges.Select(x => new InitialBalanceRangeWithdrawalDto
+                {
+                    RangeId = x.Range.Id,
+                    PieceCount = x.PieceCount
+                }).ToList());
+            }
+            finally
+            {
+                _suppressCallbacks = false;
+            }
+
+            OnPropertyChanged(nameof(HasPendingWithdrawal));
+            RecomputeFlow();
+            Notify.Info($"جاهز للسحب من رصيد \"{balance.Name}\" — وزّع العمال على المراحل تحت وادوس حفظ.", "سحب رصيد أولي");
+        }
+
+        /// <summary>
+        /// زرار "أخذ من الرصيد الأولي" اللي جوه قسم توزيع الإنتاج —
+        /// بيختار رصيد/نطاق/كمية من نافذة واحدة وبعدها بيجهّز الشاشة
+        /// للسحب (نفس QueueWithdrawal). بيظهر بس لما يكون فيه رصيد أولي
+        /// للمنتج (HasInitialBalances).
+        /// </summary>
+        [RelayCommand]
+        private void TakeFromInitialBalance()
+        {
+            if (SelectedProduct is not { } product) return;
+            if (InitialBalances.Count == 0)
+            {
+                Notify.Info("مفيش رصيد أولي للمنتج ده.", "تنبيه");
+                return;
+            }
+
+            var dialog = new WithdrawInitialBalancePickerDialog(InitialBalances.ToList())
+            {
+                Owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsVisible) ?? Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() != true || dialog.SelectedBalance is not { } balance) return;
+
+            var ranges = dialog.SelectedRange is { } range
+                ? new List<(InitialBalanceRangeDto, int)> { (range, dialog.Quantity) }
+                : balance.Ranges.Where(r => r.PieceCount > 0).Select(r => (r, r.PieceCount)).ToList();
+
+            QueueWithdrawal(product, balance, ranges);
+        }
+
+        /// <summary>
+        /// نقطة دخول السحب من تبويب "الرصيد الأولي": بتتأكد إن الرحلة دي
+        /// على منتج الرصيد (بتظبطه و<c>await ReloadAsync</c> لو مختلف)،
+        /// وبعدها بتجهّز النطاقات زي QueueWithdrawal بالظبط. الشاشة الأم
+        /// بتنقل المستخدم لتبويب "تسجيل الإنتاج" بعد كده.
+        /// </summary>
+        public async Task PrepareWithdrawalAsync(
+            InitialBalanceDto balance,
+            List<(InitialBalanceRangeDto Range, int PieceCount)> ranges)
+        {
+            if (SelectedProduct?.ProductId != balance.ProductId)
+            {
+                var product = Products.FirstOrDefault(p => p.ProductId == balance.ProductId);
+                if (product is null)
+                {
+                    Notify.Warn("المنتج بتاع الرصيد ده مش موجود في قايمة المنتجات النشطة.", "تعذّر السحب");
+                    return;
+                }
+
+                _suppressProductReload = true;
+                try { SelectedProduct = product; }
+                finally { _suppressProductReload = false; }
+
+                await ReloadAsync();
+            }
+
+            if (SelectedProduct is not { } current) return;
+
+            // الرصيد المحمّل في الجلسة (لو موجود) أحدث من اللي جاي من التبويب
+            var live = InitialBalances.FirstOrDefault(b => b.Id == balance.Id) ?? balance;
+            QueueWithdrawal(current, live, ranges);
         }
 
         [RelayCommand]
-        private async Task CompleteInitialBalanceAsync(InitialBalanceDto? balance)
+        private void CancelPendingWithdrawal()
         {
-            if (balance is null || SelectedProduct is null)
-                return;
-
-            using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
-            var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
-            var passwordService = scope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
-            var workers = (await workerRepo.GetActiveWithSkillsAsync())
-                .OrderBy(w => w.SortOrder)
-                .Select(w => new WorkerChoice(w.Id, w.FullName))
-                .ToList();
-            var stages = SelectedProduct.Stages
-                .OrderBy(s => s.DisplayOrder)
-                .Select(s => new StageChoice(s.StageId, s.StageName))
-                .ToList();
-
-            var dialog = new InitialBalanceUsageDialog(
-                workers,
-                stages,
-                balance.Ranges,
-                balance.Name,
-                balance.RemainingQuantity);
-
-            if (dialog.ShowDialog() != true)
-                return;
-
-            var passwordPrompt = SensitiveActionDialog.Ask(
-                Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsVisible) ?? Application.Current.MainWindow,
-                "إكمال رصيد أولي",
-                $"منتج: {SelectedProduct.Name} — {balance.Name}",
-                SensitiveActionKind.Save,
-                await passwordService.IsConfiguredAsync(),
-                reasonRequired: false,
-                reasonOptionalVisible: true);
-
-            if (passwordPrompt is null)
-                return;
-
-            try
-            {
-                await service.RecordUsageAsync(new RecordInitialBalanceUsageRequest
-                {
-                    InitialBalanceId = balance.Id,
-                    InitialBalanceRangeId = dialog.RangeId,
-                    UsedDate = dialog.UsedDate,
-                    Quantity = dialog.Quantity,
-                    WorkerId = dialog.WorkerId ?? throw new InvalidOperationException("يجب اختيار العامل أولًا"),
-                    ProductionStageId = dialog.StageId ?? throw new InvalidOperationException("يجب اختيار المرحلة أولًا"),
-                    Notes = string.IsNullOrWhiteSpace(dialog.Notes) ? passwordPrompt.Reason : dialog.Notes,
-                    OperationsPassword = passwordPrompt.Password
-                }, recordedBy: null);
-
-                await LoadInitialBalancesAsync();
-                await _onSavedAsync();
-                Notify.Info($"تم استخدام {dialog.Quantity:N0} قطعة من رصيد \"{balance.Name}\" بنجاح.", "تم الإكمال");
-            }
-            catch (Exception ex)
-            {
-                Notify.Warn(ex.Message, "خطأ في إكمال الرصيد");
-            }
+            _pendingWithdrawal = null;
+            OnPropertyChanged(nameof(HasPendingWithdrawal));
+            SafeAsync.Run(ReloadAsync);
         }
 
         /// <summary>
@@ -805,48 +879,9 @@ namespace WorkforceManager.UI.ViewModels
             FlowRanges.Add(new FlowRangeRow(RangeableStages(product), OnStructureEdited, RemoveRange));
         }
 
-        [RelayCommand]
-        private async Task AddInitialBalanceAsync()
-        {
-            if (SelectedProduct is not { } product)
-            {
-                Notify.Info("اختار المنتج الأول", "تنبيه");
-                return;
-            }
-
-            var dialog = new InitialBalanceDialog
-            {
-                Owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsVisible) ?? Application.Current.MainWindow
-            };
-            dialog.LoadStages(RangeableStages(product));
-
-            if (dialog.ShowDialog() != true) return;
-
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
-                var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
-
-                var created = await service.CreateAsync(new CreateInitialBalanceRequest
-                {
-                    ProductId = product.ProductId,
-                    Name = dialog.BalanceName,
-                    Reason = dialog.Reason,
-                    Notes = dialog.Notes,
-                    Quantity = dialog.Quantity,
-                    OriginalDate = dialog.OriginalDate,
-                    Source = InitialBalanceSource.Manual,
-                    Ranges = dialog.GetRanges()
-                });
-
-                await LoadInitialBalancesAsync();
-                Notify.Info($"تم إنشاء رصيد أولي \"{created.Name}\" بنجاح.", "تم الحفظ");
-            }
-            catch (Exception ex)
-            {
-                Notify.Warn(ex.Message, "خطأ في إنشاء الرصيد");
-            }
-        }
+        // إنشاء رصيد أولي جديد + عرض سجل الاستخدام اتنقلوا لتبويب "الرصيد
+        // الأولي" (DailyEntryViewModel) — التبويب ده بقى السطح الوحيد
+        // لإدارة الأرصدة، وكارت الرحلة بيعرض الشريط الملخّص بس.
 
         /// <summary>بيتنادى من زرار الحذف اللي على سطر النطاق نفسه</summary>
         private void RemoveRange(FlowRangeRow range)
@@ -1118,7 +1153,7 @@ namespace WorkforceManager.UI.ViewModels
 
             var gate = SensitiveActionDialog.Ask(
                 Application.Current.MainWindow,
-                "حفظ رحلة الإنتاج",
+                _pendingWithdrawal is not null ? "سحب من رصيد أولي" : "حفظ رحلة الإنتاج",
                 $"رحلة \"{SelectedProduct.Name}\" بتاريخ {entryDate:yyyy/MM/dd}: " +
                 $"{totalPieces:N0} قطعة على {workerCount} عامل.",
                 SensitiveActionKind.Save,
@@ -1165,50 +1200,29 @@ namespace WorkforceManager.UI.ViewModels
                     result.CompletedPieces > 0 ? $"  ✔ {result.CompletedPieces:N0} قطعة خلصت آخر مرحلة" : ""
                 }.Where(line => line.Length > 0));
 
-                Notify.Info($"تم حفظ رحلة إنتاج \"{SelectedProduct.Name}\" بتاريخ {entryDate:yyyy/MM/dd}\n" +
+                // أي نطاق في الحفظة دي ماوصلش لآخر مرحلة اتحول تلقائيًا
+                // لرصيد أولي جوه RecordFlowAsync نفسها — من غير سؤال
+                // المستخدم (شوف تعليق التحويل التلقائي هناك). هنا بس نعلمه
+                var incompleteLine = result.IncompleteRanges.Count > 0
+                    ? $"\n\n↷ {result.IncompleteRanges.Count} نطاق ماوصلش لآخر مرحلة — اتحول تلقائيًا لرصيد أولي، متاح للسحب منه من كارت \"رصيد أولي\"."
+                    : "";
+
+                var headline = _pendingWithdrawal is not null
+                    ? $"تم السحب من الرصيد الأولي لمنتج \"{SelectedProduct.Name}\" بتاريخ {entryDate:yyyy/MM/dd}"
+                    : $"تم حفظ رحلة إنتاج \"{SelectedProduct.Name}\" بتاريخ {entryDate:yyyy/MM/dd}";
+
+                Notify.Info($"{headline}\n" +
                     $"({result.RecordsCount} سجل على {result.StagesCovered} مراحل)\n\n" +
                     (outputLines.Length > 0 ? $"حالة الإنتاج:\n{outputLines}\n\n" : "") +
-                    $"يوميات العمال:\n{totalsLines}{attendanceLine}", "تم الحفظ");
-
-                // سحب المتبقي لرصيد أولي (Initial Balance)
-                var shortfall = result.StartedPieces - result.CompletedPieces;
-                if (shortfall > 0)
-                {
-                    var askToBalance = Notify.Ask(
-                        $"يوجد {shortfall:N0} قطعة متبقية لم تكتمل من هذه الرحلة.\n" +
-                        "هل تريد ترحيلها إلى \"رصيد أولي\" لاستكمالها لاحقاً دون مضاعفة الإنتاج؟",
-                        "ترحيل المتبقي");
-
-                    if (askToBalance)
-                    {
-                        try
-                        {
-                            using var scope = _scopeFactory.CreateScope();
-                            var ibService = scope.ServiceProvider.GetRequiredService<WorkforceManager.Business.Services.InitialBalanceService>();
-                            var balanceReq = new WorkforceManager.Business.DTOs.CreateInitialBalanceRequest
-                            {
-                                ProductId = SelectedProduct.ProductId,
-                                Name = $"بواقي رحلة {entryDate:yyyy-MM-dd}",
-                                Reason = "متبقي من رحلة إنتاج سابقة",
-                                Notes = "تم الترحيل التلقائي بعد حفظ رحلة الإنتاج",
-                                Quantity = shortfall,
-                                OriginalDate = entryDate,
-                                Source = WorkforceManager.Core.Enums.InitialBalanceSource.DailyProduction
-                            };
-                            await ibService.CreateAsync(balanceReq);
-                            Notify.Info($"تم إنشاء رصيد أولي بـ {shortfall:N0} قطعة للمنتج {SelectedProduct.Name} بنجاح.", "تم الترحيل");
-                        }
-                        catch (Exception ex)
-                        {
-                            Notify.Error($"حدث خطأ أثناء ترحيل الرصيد الأولي:\n{ex.Message}", "خطأ");
-                        }
-                    }
-                }
+                    $"يوميات العمال:\n{totalsLines}{attendanceLine}{incompleteLine}",
+                    _pendingWithdrawal is not null ? "تم السحب" : "تم الحفظ");
 
                 // السؤال التلقائي عن الهالك بعد كل حفظ اتشال — كان بيظهر
                 // كل يوم فيه شغل واقف حتى لو المستخدم مش قاصد يسجّل هالك
                 // النهارده. تسجيل الهالك بقى يدوي بس من تبويب "الهالك"،
                 // وقت ما المستخدم يحب (آخر الأسبوع مثلاً).
+
+                _pendingWithdrawal = null;
 
                 // إعادة تحميل الرحلة ("مسجل اليوم" بيتحدث وبتبدأ نظيفة) + إبلاغ الشاشة الأم (تحديث الحضور)
                 await ReloadAsync();
@@ -1224,10 +1238,23 @@ namespace WorkforceManager.UI.ViewModels
             }
 
             // نداء واحد للخدمة بنفس المدخلات — الفرق بين المحاولة والتأكيد
-            // هو المعامل ده بس، فمفيش أي احتمال إن الطلبين يختلفوا
+            // هو المعامل ده بس، فمفيش أي احتمال إن الطلبين يختلفوا.
+            // فيه سحب من رصيد أولي جاري (_pendingWithdrawal): بننادي
+            // WithdrawAsync بدل RecordFlowAsync مباشرة — هي اللي بتنادي
+            // RecordFlowAsync من جوّها بنفس الضمانات، وبتربط الصفوف
+            // الناتجة برصيدها (شوف InitialBalanceService.WithdrawAsync)
             async Task<FlowSaveResultDto> RecordFlowAsync(bool confirmOverride)
             {
                 using var scope = _scopeFactory.CreateScope();
+
+                if (_pendingWithdrawal is { } withdrawal)
+                {
+                    var balanceService = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
+                    return await balanceService.WithdrawAsync(
+                        withdrawal.BalanceId, withdrawal.Ranges, shares, entryDate,
+                        confirmOverride: confirmOverride, operationsPassword: gate.Password);
+                }
+
                 var flowService = scope.ServiceProvider.GetRequiredService<ProductionFlowService>();
                 // الخدمة بتتحقق من كل حاجة تاني (مصدر الحقيقة الوحيد للقواعد) — يا كله يا مفيش
                 return await flowService.RecordFlowAsync(

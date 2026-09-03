@@ -16,8 +16,13 @@ namespace WorkforceManager.Tests
         private static DateTime CompletionDay => Day.AddDays(2);
 
         [Fact]
-        public async Task BalanceCompletion_IsExcludedFromPieceTotals_ButRetainsWorkdays()
+        public async Task Withdrawing_from_a_balance_counts_as_completely_normal_production_in_reports()
         {
+            // بعكس التصميم القديم (كان بيستبعد قطع الإكمال من التقارير عشان
+            // كان بيسجّل الإنتاج الفعلي على تاريخ الرصيد الأصلي فمكانش
+            // ينفع يتحسب قطع تانية يوم الإكمال). دلوقتي السحب رحلة إنتاج
+            // عادية بالكامل (WithdrawAsync عبر RecordFlowAsync)، فقطعها
+            // وأجرها بيتحسبوا زي أي رحلة عادية — مفيش استبعاد.
             await _db.SignInTestUserAsync();
 
             var createRequest = new CreateInitialBalanceRequest
@@ -26,7 +31,6 @@ namespace WorkforceManager.Tests
                 Name = "رصيد تقريري",
                 Quantity = 30,
                 OriginalDate = Day,
-                Reason = "اختبار تقارير"
             };
 
             var balance = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
@@ -40,29 +44,29 @@ namespace WorkforceManager.Tests
                     PieceCount = 30
                 }));
 
-            await _db.InScopeAsync<InitialBalanceService, InitialBalanceUsageDto>(s =>
-                s.RecordUsageAsync(new RecordInitialBalanceUsageRequest
-                {
-                    InitialBalanceId = balance.Id,
-                    InitialBalanceRangeId = rangeDto.Id,
-                    WorkerId = TestDatabase.WorkerAhmedId,
-                    ProductionStageId = TestDatabase.BagStage3Id,
-                    Quantity = 30,
-                    UsedDate = CompletionDay,
-                    OperationsPassword = ""
-                }));
+            var shares = new[]
+            {
+                new FlowShareDto { ProductionStageId = TestDatabase.BagStage2Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 30 },
+                new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 30 }
+            };
+            await _db.InScopeAsync<InitialBalanceService, FlowSaveResultDto>(s =>
+                s.WithdrawAsync(
+                    balance.Id,
+                    new[] { new InitialBalanceRangeWithdrawalDto { RangeId = rangeDto.Id, PieceCount = 30 } },
+                    shares, CompletionDay, confirmOverride: true));
 
             var workerReport = await _db.InScopeAsync<ProductionReportService, WorkerProductionReportDto>(s =>
                 s.GetWorkerReportAsync(TestDatabase.WorkerAhmedId, Day, CompletionDay));
 
-            Assert.Equal(0, workerReport.TotalPieces);
+            // العامل لمس 30 قطعة على كل من BagStage2Id وBagStage3Id = 60
+            Assert.Equal(60, workerReport.TotalPieces);
             Assert.True(workerReport.ProducedWorkdays > 0);
 
             var weekly = await _db.InScopeAsync<WeeklySummaryService, WorkerWeeklySummaryDto?>(s =>
                 s.GetWorkerWeeklySummaryAsync(TestDatabase.WorkerAhmedId, CompletionDay));
 
             Assert.NotNull(weekly);
-            Assert.Equal(0, weekly.TotalPieces);
+            Assert.Equal(60, weekly.TotalPieces);
             Assert.True(weekly.ProducedWorkdays > 0);
         }
     }

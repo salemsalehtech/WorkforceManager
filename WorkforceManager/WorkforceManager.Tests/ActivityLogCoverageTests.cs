@@ -146,7 +146,7 @@ namespace WorkforceManager.Tests
         {
             using (var scope = _db.CreateScope())
                 await _db.GetService<ScrapService>(scope).RecordAsync(
-                    TestDatabase.BagStage1Id, Day, 300, note: "عيب خامة");
+                    TestDatabase.BagStage1Id, Day, 300, "", note: "عيب خامة");
 
             var logged = Assert.Single(await EventsOfAsync(ActivityEventType.ScrapRecorded));
             Assert.Contains("300", logged.Details);

@@ -57,6 +57,18 @@ namespace WorkforceManager.UI.ViewModels
             SelectedDeduction = DeductionOptions[0];
         }
 
+        /// <summary>
+        /// التبويب المفتوح — مربوط بـ TabControl.SelectedIndex. تبويب
+        /// "تسجيل الإنتاج" = 0 و"الرصيد الأولي" = 1. بيتغيّر برمجيًا لما
+        /// المستخدم يضغط الشريط الملخّص في كارت الرحلة أو زرار سحب في
+        /// تبويب الرصيد الأولي.
+        /// </summary>
+        [ObservableProperty]
+        private int _selectedTabIndex;
+
+        /// <summary>المنتجات النشطة بمراحلها — لـ ComboBox تبويب الرصيد الأولي (للقراءة بس)</summary>
+        public IReadOnlyList<ProductOption> Products => _products;
+
         // ------- اليوم المختار (مشترك بين الأقسام الثلاثة) -------
 
         [ObservableProperty]
@@ -115,6 +127,10 @@ namespace WorkforceManager.UI.ViewModels
             firstSession.SelectedProduct = _products.FirstOrDefault();
             FlowSessions.Add(firstSession);
 
+            _suppressInitialBalanceReload = true;
+            try { SelectedInitialBalanceProduct = _products.FirstOrDefault(); }
+            finally { _suppressInitialBalanceReload = false; }
+
             await LoadDaySummaryAsync();
             await LoadRecordsTabAsync();
             await LoadAttendanceAsync();
@@ -122,6 +138,7 @@ namespace WorkforceManager.UI.ViewModels
             await LoadAdjustmentsAsync();
             await LoadScrapAsync();
             await LoadClosureStateAsync();
+            await LoadInitialBalanceTabAsync();
         }
 
         private async Task ReloadForDateAsync()
@@ -137,6 +154,7 @@ namespace WorkforceManager.UI.ViewModels
             await LoadAdjustmentsAsync();
             await LoadScrapAsync();
             await LoadClosureStateAsync();
+            await LoadInitialBalanceTabAsync();
         }
 
         /// <summary>
@@ -162,6 +180,8 @@ namespace WorkforceManager.UI.ViewModels
             // الرحلة ممكن تكون سجّلت هالك (البرنامج بيسأل عن الفرق بعد الحفظ)
             await LoadScrapAsync();
             await LoadClosureStateAsync();
+            // السحب من رصيد أولي بيغيّر المستهلك/المتبقي — الشريط والتبويب يتحدّثوا
+            await LoadInitialBalanceTabAsync();
         }
 
         // ======================= إقفال إنتاج اليوم =======================
@@ -321,6 +341,223 @@ namespace WorkforceManager.UI.ViewModels
                 return;
 
             FlowSessions.Remove(session);
+        }
+
+        // ======================= تبويب الرصيد الأولي (تفاصيل وإدارة) =======================
+        //
+        // كارت رحلة الإنتاج بيعرض شريط ملخّص بس (مستهلك/إجمالي). كل تفاصيل
+        // الرصيد — الكروت والنطاقات والسجل والإنشاء — عاشت هنا في تبويب
+        // مستقل. زراير السحب بتجهّز رحلة المنتج وبتنقل المستخدم لتبويب
+        // "تسجيل الإنتاج" عشان يوزّع العمال ويحفظ (السحب نفسه بيمر على
+        // FlowSessionViewModel.PrepareWithdrawalAsync → QueueWithdrawal).
+
+        private bool _suppressInitialBalanceReload;
+
+        /// <summary>المنتج المعروض رصيده الأولي في التبويب</summary>
+        [ObservableProperty]
+        private ProductOption? _selectedInitialBalanceProduct;
+
+        partial void OnSelectedInitialBalanceProductChanged(ProductOption? value)
+        {
+            if (_suppressInitialBalanceReload) return;
+            SafeAsync.Run(LoadInitialBalanceTabAsync);
+        }
+
+        /// <summary>أرصدة المنتج المختار — كارت لكل رصيد بنطاقاته</summary>
+        public ObservableCollection<InitialBalanceDto> InitialBalanceCards { get; } = new();
+
+        /// <summary>الملخّص المُجمّع لأرصدة المنتج (نفس اللي بيتعرض شريطه في كارت الرحلة)</summary>
+        [ObservableProperty]
+        private InitialBalanceSummaryDto? _initialBalanceTabSummary;
+
+        public bool InitialBalanceTabIsEmpty => InitialBalanceCards.Count == 0;
+
+        private async Task LoadInitialBalanceTabAsync()
+        {
+            InitialBalanceCards.Clear();
+            InitialBalanceTabSummary = null;
+
+            if (SelectedInitialBalanceProduct is not { } product)
+            {
+                OnPropertyChanged(nameof(InitialBalanceTabIsEmpty));
+                return;
+            }
+
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
+
+            foreach (var balance in await service.GetForProductAsync(product.ProductId))
+                InitialBalanceCards.Add(balance);
+
+            InitialBalanceTabSummary = await service.GetProductSummaryAsync(product.ProductId);
+            OnPropertyChanged(nameof(InitialBalanceTabIsEmpty));
+        }
+
+        /// <summary>
+        /// من الشريط الملخّص في كارت الرحلة: يفتح تبويب الرصيد الأولي على
+        /// نفس منتج الرحلة.
+        /// </summary>
+        [RelayCommand]
+        private void OpenInitialBalanceTab(ProductOption? product)
+        {
+            var target = product is null
+                ? null
+                : _products.FirstOrDefault(p => p.ProductId == product.ProductId);
+
+            if (target is not null)
+                SelectedInitialBalanceProduct = target;
+
+            SelectedTabIndex = 1;
+        }
+
+        [RelayCommand]
+        private async Task AddInitialBalanceAsync()
+        {
+            if (SelectedInitialBalanceProduct is not { } product)
+            {
+                Notify.Info("اختار المنتج الأول", "تنبيه");
+                return;
+            }
+
+            var dialog = new InitialBalanceDialog
+            {
+                Owner = Application.Current.MainWindow
+            };
+            dialog.LoadStages(product.Stages.Where(s => !s.IsRackingStage));
+
+            if (dialog.ShowDialog() != true) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
+
+                var created = await service.CreateAsync(new CreateInitialBalanceRequest
+                {
+                    ProductId = product.ProductId,
+                    Name = dialog.BalanceName,
+                    Notes = dialog.Notes,
+                    Quantity = dialog.Quantity,
+                    OriginalDate = dialog.OriginalDate,
+                    Source = InitialBalanceSource.Manual,
+                    Ranges = dialog.GetRanges()
+                });
+
+                await LoadInitialBalanceTabAsync();
+                Notify.Info($"تم إنشاء رصيد أولي \"{created.Name}\" بنجاح.", "تم الحفظ");
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "خطأ في إنشاء الرصيد");
+            }
+        }
+
+        [RelayCommand]
+        private async Task ShowInitialBalanceHistoryAsync(InitialBalanceDto? balance)
+        {
+            if (balance is null) return;
+
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
+            var history = await service.GetHistoryAsync(balance.Id);
+
+            var dialog = new InitialBalanceHistoryDialog(
+                balance.Name, balance.Quantity, balance.UsedQuantity, history)
+            {
+                Owner = Application.Current.MainWindow
+            };
+            dialog.ShowDialog();
+        }
+
+        [RelayCommand]
+        private async Task DeleteInitialBalanceAsync(InitialBalanceDto? balance)
+        {
+            if (balance is null) return;
+
+            var input = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                "حذف رصيد أولي",
+                $"رصيد \"{balance.Name}\" ({balance.RemainingQuantity:N0} قطعة متبقية) هيتشال.",
+                SensitiveActionKind.Delete,
+                passwordRequired: true);
+
+            if (input is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<InitialBalanceService>()
+                    .DeleteAsync(balance.Id, deletedBy: null, reason: input.Reason);
+
+                await LoadInitialBalanceTabAsync();
+                Notify.Info($"اتشال رصيد \"{balance.Name}\".", "تم");
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "مش هينفع");
+            }
+        }
+
+        [RelayCommand]
+        private async Task WithdrawBalanceRangeAsync(InitialBalanceRangeDto? range)
+        {
+            if (range is null) return;
+
+            var balance = InitialBalanceCards.FirstOrDefault(b => b.Ranges.Any(r => r.Id == range.Id));
+            if (balance is null) return;
+
+            var dialog = new InitialBalanceUsageDialog(
+                balance.Name,
+                $"النطاق: {range.FromStageName} ← {range.ToStageName}",
+                range.PieceCount)
+            {
+                Owner = Application.Current.MainWindow
+            };
+
+            if (dialog.ShowDialog() != true) return;
+
+            await PrepareWithdrawalForProductAsync(
+                balance, new List<(InitialBalanceRangeDto, int)> { (range, dialog.Quantity) });
+        }
+
+        [RelayCommand]
+        private async Task WithdrawWholeBalanceAsync(InitialBalanceDto? balance)
+        {
+            if (balance is null) return;
+
+            var ranges = balance.Ranges
+                .Where(r => r.PieceCount > 0)
+                .Select(r => (r, r.PieceCount))
+                .ToList();
+
+            if (ranges.Count == 0)
+            {
+                Notify.Info("مفيش نطاقات في الرصيد ده لسحبها.", "تنبيه");
+                return;
+            }
+
+            await PrepareWithdrawalForProductAsync(balance, ranges);
+        }
+
+        /// <summary>
+        /// بيلاقي (أو بيعمل) رحلة على منتج الرصيد، بيجهّز نطاقاتها للسحب،
+        /// وبينقل المستخدم لتبويب "تسجيل الإنتاج" عشان يوزّع العمال ويحفظ.
+        /// </summary>
+        private async Task PrepareWithdrawalForProductAsync(
+            InitialBalanceDto balance,
+            List<(InitialBalanceRangeDto Range, int PieceCount)> ranges)
+        {
+            var session = FlowSessions.FirstOrDefault(s => s.SelectedProduct?.ProductId == balance.ProductId)
+                          ?? FlowSessions.FirstOrDefault(s => !s.HasUserInput);
+
+            if (session is null)
+            {
+                session = CreateSession();
+                FlowSessions.Add(session);
+            }
+
+            await session.PrepareWithdrawalAsync(balance, ranges);
+            SelectedTabIndex = 0;
         }
 
         // ======================= قسم سجلات اليوم (التصحيح) =======================
@@ -1452,11 +1689,21 @@ namespace WorkforceManager.UI.ViewModels
             var dialog = ScrapDialog.ForStage(Application.Current.MainWindow, products, reasons);
             if (dialog.ShowDialog() != true) return;
 
+            var gate = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                "تسجيل هالك",
+                $"{dialog.PieceCount:N0} قطعة هالك يوم {EntryDate:yyyy/MM/dd}.",
+                SensitiveActionKind.Save,
+                passwordRequired: true,
+                reasonRequired: false);
+
+            if (gate is null) return;
+
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<ScrapService>().RecordAsync(
-                    dialog.StageId, EntryDate, dialog.PieceCount,
+                    dialog.StageId, EntryDate, dialog.PieceCount, gate.Password,
                     dialog.ReasonId, dialog.Note,
                     scope.ServiceProvider.GetRequiredService<CurrentUserContext>().ActorName);
             }

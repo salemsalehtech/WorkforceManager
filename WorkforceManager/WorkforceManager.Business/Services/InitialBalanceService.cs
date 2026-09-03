@@ -10,46 +10,42 @@ namespace WorkforceManager.Business.Services
     /// <summary>
     /// "الرصيد الأولي" لمنتج: كمية قطع تخص تاريخ إنتاج أصلي معيّن ولسه
     /// ماكملتش (شوف <see cref="InitialBalance"/>) — إنشاء، إدارة نطاقات،
-    /// وتسجيل استخدام/إكمال.
+    /// وسحب/إكمال.
     ///
-    /// **القاعدة الأهم اللي كل منطق الاستخدام هنا مبني عليها**: إكمال
-    /// جزء من الرصيد بيتحسب في يومية/أجر العامل بتاريخ الإكمال الفعلي
-    /// (سجل <see cref="DailyProduction"/> جديد بعلم
-    /// <see cref="DailyProduction.IsBalanceCompletion"/>)، لكن الإنتاج
-    /// الفعلي الحقيقي للمرحلة بيتسجّل بتاريخ الإنتاج **الأصلي** لصاحب
-    /// الرصيد على <see cref="ProductionStageOutput"/> — عشان القطع دي
-    /// تفضل محسوبة على تاريخها الأصلي مش تتحسب إنتاج جديد يوم الإكمال
-    /// (شوف <see cref="ProductionStageOutputService"/>).
+    /// **السحب (<see cref="WithdrawAsync"/>) بينادي
+    /// <see cref="ProductionFlowService.RecordFlowAsync"/> نفسها** —
+    /// رحلة إنتاج عادية بالكامل: نفس التحقق من النطاقات، نفس
+    /// WorkerAssignmentGuard، نفس الحضور التلقائي، ونفس تسجيل الإنتاج
+    /// الفعلي بتاريخ السحب نفسه (مش تاريخ الرصيد الأصلي، بعكس التصميم
+    /// القديم). **مفيش تكرار عد** رغم كده، لأن الرحلة الأصلية الناقصة
+    /// أصلًا ما سجّلتش إنتاج فعلي على المراحل اللي بعدها — السحب هو أول
+    /// مرة الإنتاج الفعلي بيتسجل عليها. الأجر (<see cref="InitialBalanceUsage"/>)
+    /// بيتسجل مرة واحدة بس لكل صف إنتاج **على مرحلة خروج النطاق**
+    /// (<see cref="InitialBalanceRange.ToStageId"/>) — مراحل النطاق
+    /// الوسيطة بتاخد سجل إنتاج وأجر حقيقي زي أي مرحلة عادية، بس من غير
+    /// InitialBalanceUsage خاص بيها، عشان الكمية المستهلكة من النطاق
+    /// (وبالتبعية InitialBalance.UsedQuantity) متتعدّش وهي بتتجمّع.
     /// </summary>
     public class InitialBalanceService
     {
         private readonly AppDbContext _db;
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly OperationsPasswordService _gate;
         private readonly ActivityLogService _log;
-        private readonly ProductionStageOutputService _productionOutput;
-        private readonly IAttendanceRepository _attendanceRepo;
-        private readonly IProductionDayClosureRepository _closureRepo;
-        private readonly IWorkerSkillRepository _workerSkillRepo;
+        private readonly ProductionFlowService _productionFlow;
+        private readonly ScrapService _scrap;
+        private readonly IUnitOfWork _unitOfWork;
 
         public InitialBalanceService(
             AppDbContext db,
-            IUnitOfWork unitOfWork,
-            OperationsPasswordService gate,
             ActivityLogService log,
-            ProductionStageOutputService productionOutput,
-            IAttendanceRepository attendanceRepo,
-            IProductionDayClosureRepository closureRepo,
-            IWorkerSkillRepository workerSkillRepo)
+            ProductionFlowService productionFlow,
+            ScrapService scrap,
+            IUnitOfWork unitOfWork)
         {
             _db = db;
-            _unitOfWork = unitOfWork;
-            _gate = gate;
             _log = log;
-            _productionOutput = productionOutput;
-            _attendanceRepo = attendanceRepo;
-            _closureRepo = closureRepo;
-            _workerSkillRepo = workerSkillRepo;
+            _productionFlow = productionFlow;
+            _scrap = scrap;
+            _unitOfWork = unitOfWork;
         }
 
         // ======================= الإنشاء =======================
@@ -59,8 +55,6 @@ namespace WorkforceManager.Business.Services
         {
             if (string.IsNullOrWhiteSpace(request.Name))
                 throw new ArgumentException("اسم الرصيد مطلوب", nameof(request));
-            if (string.IsNullOrWhiteSpace(request.Reason))
-                throw new ArgumentException("سبب الرصيد مطلوب", nameof(request));
             if (request.Quantity <= 0)
                 throw new ArgumentException("كمية الرصيد يجب أن تكون رقمًا موجبًا", nameof(request));
 
@@ -74,7 +68,6 @@ namespace WorkforceManager.Business.Services
             {
                 ProductId = request.ProductId,
                 Name = request.Name.Trim(),
-                Reason = request.Reason.Trim(),
                 Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
                 Quantity = request.Quantity,
                 OriginalDate = request.OriginalDate.Date,
@@ -83,10 +76,17 @@ namespace WorkforceManager.Business.Services
                 CreatedBy = createdBy
             };
 
+            // ترتيب/تداخل كل النطاقات المُقدَّمة مع بعض — نفس منطق نطاقات
+            // رحلة الإنتاج العادية بالظبط (شوف StageRangeValidator)
+            if (request.Ranges.Count > 0)
+                StageRangeValidator.ValidateAndComputePiecesPerStage(orderedStages,
+                    request.Ranges
+                        .Select(r => new FlowRangeDto { FromStageId = r.FromStageId, ToStageId = r.ToStageId, PieceCount = r.PieceCount })
+                        .ToList(), out _);
+
             var rangesTotal = 0;
             foreach (var rangeReq in request.Ranges)
             {
-                ValidateRangeStages(orderedStages, rangeReq.FromStageId, rangeReq.ToStageId, rangeReq.PieceCount);
                 rangesTotal += rangeReq.PieceCount;
                 if (rangesTotal > request.Quantity)
                     throw new InvalidOperationException(
@@ -107,33 +107,10 @@ namespace WorkforceManager.Business.Services
             await _log.LogAsync(
                 ActivityEventType.InitialBalanceCreated, "InitialBalance", balance.Id,
                 entityName: $"{product.Name} — {balance.Name}",
-                details: $"{balance.Quantity:N0} قطعة من تاريخ {balance.OriginalDate:yyyy/MM/dd} — {balance.Reason}");
+                details: $"{balance.Quantity:N0} قطعة من تاريخ {balance.OriginalDate:yyyy/MM/dd}");
 
             return await GetByIdAsync(balance.Id)
                 ?? throw new InvalidOperationException("تعذّر إنشاء الرصيد الأولي");
-        }
-
-        /// <summary>
-        /// يتحقق إن مرحلتي النطاق تابعتين لخط إنتاج المنتج وبترتيب صحيح
-        /// (من الأسبق للأحدث) — نفس قاعدة نطاقات رحلة الإنتاج العادية
-        /// بالظبط (شوف <see cref="ProductionFlowService.RecordFlowAsync"/>).
-        /// </summary>
-        private static void ValidateRangeStages(
-            List<ProductionStage> orderedStages, int fromStageId, int toStageId, int pieceCount)
-        {
-            if (pieceCount <= 0)
-                throw new InvalidOperationException("عدد قطع النطاق يجب أن يكون رقمًا موجبًا");
-
-            var fromIndex = orderedStages.FindIndex(s => s.Id == fromStageId);
-            var toIndex = orderedStages.FindIndex(s => s.Id == toStageId);
-
-            if (fromIndex < 0 || toIndex < 0)
-                throw new InvalidOperationException("النطاق بيشاور على مرحلة مش من مراحل خط الإنتاج النشطة لهذا المنتج");
-
-            if (fromIndex > toIndex)
-                throw new InvalidOperationException(
-                    $"النطاق معكوس: \"{orderedStages[fromIndex].StageName}\" بتيجي بعد " +
-                    $"\"{orderedStages[toIndex].StageName}\" في خط الإنتاج");
         }
 
         // ======================= النطاقات =======================
@@ -148,7 +125,13 @@ namespace WorkforceManager.Business.Services
                 ?? throw new InvalidOperationException("الرصيد الأولي غير موجود");
 
             var orderedStages = ProductionLine.Active(balance.Product);
-            ValidateRangeStages(orderedStages, request.FromStageId, request.ToStageId, request.PieceCount);
+
+            // ترتيب/تداخل النطاق الجديد مع النطاقات المحفوظة فعلاً مع بعض
+            var combinedRanges = balance.Ranges
+                .Select(r => new FlowRangeDto { FromStageId = r.FromStageId, ToStageId = r.ToStageId, PieceCount = r.PieceCount })
+                .Append(new FlowRangeDto { FromStageId = request.FromStageId, ToStageId = request.ToStageId, PieceCount = request.PieceCount })
+                .ToList();
+            StageRangeValidator.ValidateAndComputePiecesPerStage(orderedStages, combinedRanges, out _);
 
             var existingTotal = balance.Ranges.Sum(r => r.PieceCount);
             if (existingTotal + request.PieceCount > balance.Quantity)
@@ -204,14 +187,12 @@ namespace WorkforceManager.Business.Services
 
         // ======================= التعديل والحذف =======================
 
-        /// <summary>تعديل الاسم/السبب/الملاحظات — الكمية مايتغيرش بعد أي استخدام (شوف DeleteAsync لنفس المنطق)</summary>
+        /// <summary>تعديل الاسم/الملاحظات — الكمية مايتغيرش بعد أي استخدام (شوف DeleteAsync لنفس المنطق)</summary>
         public async Task<InitialBalanceDto> UpdateAsync(
-            int balanceId, string name, string reason, string? notes)
+            int balanceId, string name, string? notes)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("اسم الرصيد مطلوب", nameof(name));
-            if (string.IsNullOrWhiteSpace(reason))
-                throw new ArgumentException("سبب الرصيد مطلوب", nameof(reason));
 
             var balance = await _db.InitialBalances
                 .Include(b => b.Usages)
@@ -219,7 +200,6 @@ namespace WorkforceManager.Business.Services
                 ?? throw new InvalidOperationException("الرصيد الأولي غير موجود");
 
             balance.Name = name.Trim();
-            balance.Reason = reason.Trim();
             balance.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
 
             await _db.SaveChangesAsync();
@@ -263,137 +243,193 @@ namespace WorkforceManager.Business.Services
                 details: $"{balance.Quantity:N0} قطعة");
         }
 
-        // ======================= الاستخدام/الإكمال =======================
+        // ======================= السحب/الإكمال =======================
 
         /// <summary>
-        /// يسجل استخدام/إكمال جزء من رصيد أولي: بيتحسب في يومية/أجر
-        /// العامل بتاريخ <see cref="RecordInitialBalanceUsageRequest.UsedDate"/>،
-        /// وبيتسجل الإنتاج الفعلي على تاريخ الرصيد الأصلي — شوف تعليق
-        /// الكلاس. لو النطاق (<see cref="RecordInitialBalanceUsageRequest.InitialBalanceRangeId"/>)
-        /// محدد، الإنتاج الفعلي بيتسجل على **كل مراحل النطاق** (زي أي
-        /// نطاق في رحلة إنتاج عادية)، مش المرحلة اللي العامل اتحاسب
-        /// عليها بس.
+        /// يسحب من رصيد أولي — إكمال جزئي أو كلي لواحد أو أكتر من نطاقاته.
+        /// بينادي <see cref="ProductionFlowService.RecordFlowAsync"/> نفسها
+        /// (شوف تعليق الكلاس) بحيث السحب رحلة إنتاج عادية بالكامل: نفس
+        /// WorkerAssignmentGuard، ونفس رسائل الرفض/التأكيد
+        /// (<see cref="AssignmentConfirmationRequiredException"/> بتتصعّد
+        /// زي أي رحلة عادية — المرحلتين نفس نمط SaveFlowAsync).
+        /// "سحب الكل" = المنادي يبعت كل النطاقات النشطة بكامل المتبقي منها؛
+        /// مفيش method منفصلة لها.
         /// </summary>
-        public async Task<InitialBalanceUsageDto> RecordUsageAsync(
-            RecordInitialBalanceUsageRequest request, string? recordedBy = null)
+        public async Task<FlowSaveResultDto> WithdrawAsync(
+            int balanceId,
+            IReadOnlyList<InitialBalanceRangeWithdrawalDto> rangeWithdrawals,
+            IReadOnlyList<FlowShareDto> shares,
+            DateTime date,
+            bool confirmOverride = false,
+            string operationsPassword = "")
         {
-            if (request.Quantity <= 0)
-                throw new ArgumentException("عدد القطع المستخدمة يجب أن يكون رقمًا موجبًا", nameof(request));
-
-            var gate = await _gate.VerifyAsync(SensitiveAction.RecordProduction, request.OperationsPassword);
-            if (!gate.IsAllowed)
-                throw new InvalidOperationException(gate.Message);
+            if (rangeWithdrawals.Count == 0)
+                throw new InvalidOperationException("اختار نطاق واحد على الأقل للسحب منه");
 
             var balance = await _db.InitialBalances
-                .Include(b => b.Product).ThenInclude(p => p.Stages)
                 .Include(b => b.Ranges)
                 .Include(b => b.Usages)
-                .FirstOrDefaultAsync(b => b.Id == request.InitialBalanceId)
+                .FirstOrDefaultAsync(b => b.Id == balanceId)
                 ?? throw new InvalidOperationException("الرصيد الأولي غير موجود");
 
-            if (request.Quantity > balance.RemainingQuantity)
+            // مايتحسبش تكمل حاجة قبل ما تتعمل أصلًا
+            if (date.Date < balance.OriginalDate)
                 throw new InvalidOperationException(
-                    $"الكمية المطلوبة ({request.Quantity:N0}) أكبر من المتاح في الرصيد ({balance.RemainingQuantity:N0})");
+                    $"تاريخ السحب ({date:yyyy/MM/dd}) لازم يكون بعد أو يساوي تاريخ الرصيد الأصلي ({balance.OriginalDate:yyyy/MM/dd})");
 
-            if (await _closureRepo.IsClosedAsync(request.UsedDate))
-                throw new InvalidOperationException(DayClosureService.ClosedDayMessage(request.UsedDate));
+            var rangesById = balance.Ranges.ToDictionary(r => r.Id);
+            var flowRanges = new List<FlowRangeDto>();
+            var rangeIdByFlowIndex = new List<int>();
 
-            var orderedStages = ProductionLine.Active(balance.Product);
-            var stage = orderedStages.FirstOrDefault(s => s.Id == request.ProductionStageId)
-                ?? throw new InvalidOperationException("المرحلة المحددة مش من مراحل خط إنتاج هذا المنتج");
-
-            InitialBalanceRange? range = null;
-            var outputStageIds = new List<int> { stage.Id };
-
-            if (request.InitialBalanceRangeId is { } rangeId)
+            foreach (var withdrawal in rangeWithdrawals)
             {
-                range = balance.Ranges.FirstOrDefault(r => r.Id == rangeId)
-                    ?? throw new InvalidOperationException("النطاق المحدد لا ينتمي لهذا الرصيد");
+                var range = rangesById.TryGetValue(withdrawal.RangeId, out var r)
+                    ? r
+                    : throw new InvalidOperationException("النطاق المحدد لا ينتمي لهذا الرصيد");
 
-                var fromIndex = orderedStages.FindIndex(s => s.Id == range.FromStageId);
-                var toIndex = orderedStages.FindIndex(s => s.Id == range.ToStageId);
-                var stageIndex = orderedStages.FindIndex(s => s.Id == stage.Id);
+                if (withdrawal.PieceCount <= 0)
+                    throw new InvalidOperationException("عدد القطع المسحوبة يجب أن يكون رقمًا موجبًا");
 
-                if (stageIndex < fromIndex || stageIndex > toIndex)
-                    throw new InvalidOperationException("المرحلة المحددة برّه نطاق الرصيد المختار");
+                var remaining = range.PieceCount - UsedFromRange(balance, range);
+                if (withdrawal.PieceCount > remaining)
+                    throw new InvalidOperationException(
+                        $"الكمية المطلوبة من النطاق ({withdrawal.PieceCount:N0}) أكبر من المتاح فيه ({remaining:N0})");
 
-                // الإنتاج الفعلي بيتسجل على كل مراحل النطاق، زي أي نطاق في
-                // رحلة إنتاج عادية — القطعة اللي وصلت لآخر مرحلة في النطاق
-                // تكون عدّت على كل اللي قبلها فيه
-                outputStageIds = orderedStages.Skip(fromIndex).Take(toIndex - fromIndex + 1).Select(s => s.Id).ToList();
-            }
-
-            // العامل لازم يكون مؤهل لهذه المرحلة فعلًا — نفس شرط أي تسجيل إنتاج عادي
-            _ = await _workerSkillRepo.GetAsync(request.WorkerId, request.ProductionStageId)
-                ?? throw new InvalidOperationException("العامل المحدد غير مؤهل لهذه المرحلة");
-
-            var production = new DailyProduction
-            {
-                WorkerId = request.WorkerId,
-                ProductionStageId = request.ProductionStageId,
-                Date = request.UsedDate.Date,
-                PieceCount = request.Quantity,
-                PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday,
-                IsBalanceCompletion = true
-            };
-
-            var usage = new InitialBalanceUsage
-            {
-                InitialBalanceId = balance.Id,
-                InitialBalanceRangeId = range?.Id,
-                UsedDate = request.UsedDate.Date,
-                Quantity = request.Quantity,
-                WorkerId = request.WorkerId,
-                ProductionStageId = request.ProductionStageId,
-                Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim(),
-                RecordedBy = recordedBy,
-                DailyProduction = production // FK بيتحل تلقائيًا وقت الحفظ (نفس السجل جوه نفس الـ Context)
-            };
-
-            await using (var transaction = await _unitOfWork.BeginWriteTransactionAsync())
-            {
-                await _db.DailyProductions.AddAsync(production);
-                await _db.InitialBalanceUsages.AddAsync(usage);
-
-                // الإنتاج الفعلي الحقيقي بيتسجل بتاريخ الرصيد الأصلي، مش
-                // تاريخ الإكمال — شوف تعليق الكلاس
-                foreach (var stageId in outputStageIds)
-                    await _productionOutput.RecordOutputAsync(stageId, balance.OriginalDate, request.Quantity);
-
-                // حضور تلقائي للعامل يوم الإكمال لو مالوش سجل حضور بالفعل
-                if (await _attendanceRepo.GetByWorkerAndDateAsync(request.WorkerId, request.UsedDate) is null)
+                flowRanges.Add(new FlowRangeDto
                 {
-                    await _attendanceRepo.AddAsync(new Attendance
-                    {
-                        WorkerId = request.WorkerId,
-                        Date = request.UsedDate.Date,
-                        Status = AttendanceStatus.Present
-                    });
-                }
-
-                await _db.SaveChangesAsync();
-                await transaction.CommitAsync();
+                    FromStageId = range.FromStageId,
+                    ToStageId = range.ToStageId,
+                    PieceCount = withdrawal.PieceCount
+                });
+                rangeIdByFlowIndex.Add(range.Id);
             }
+
+            var result = await _productionFlow.RecordFlowAsync(
+                balance.ProductId, date, flowRanges, shares,
+                confirmOverride: confirmOverride,
+                operationsPassword: operationsPassword,
+                postWriteHook: rows => WriteUsageRowsAsync(balanceId, date, rangesById, rangeIdByFlowIndex, rows));
 
             await _log.LogAsync(
-                ActivityEventType.InitialBalanceUsed, "InitialBalance", balance.Id,
+                ActivityEventType.InitialBalanceUsed, "InitialBalance", balanceId,
                 entityName: balance.Name,
-                details: $"{request.Quantity:N0} قطعة يوم {request.UsedDate:yyyy/MM/dd} — عامل #{request.WorkerId}");
+                details: $"{rangeWithdrawals.Sum(w => w.PieceCount):N0} قطعة يوم {date:yyyy/MM/dd}");
 
-            return new InitialBalanceUsageDto
+            return result;
+        }
+
+        /// <summary>
+        /// بيتنفذ جوه معاملة RecordFlowAsync نفسها (postWriteHook) بعد ما
+        /// DailyProductionId بقى حقيقي — بيسجل InitialBalanceUsage واحد
+        /// لكل صف وصل **مرحلة خروج نطاقه** بس (مش كل مرحلة وسيطة)، عشان
+        /// InitialBalance.UsedQuantity (وحساب "المتاح" فوق) ما يتضاعفش
+        /// لما نطاق بيغطي أكتر من مرحلة.
+        /// </summary>
+        private async Task WriteUsageRowsAsync(
+            int balanceId, DateTime date,
+            Dictionary<int, InitialBalanceRange> rangesById, List<int> rangeIdByFlowIndex,
+            IReadOnlyList<CreatedProductionRowDto> rows)
+        {
+            foreach (var row in rows)
             {
-                Id = usage.Id,
-                UsedDate = usage.UsedDate,
-                Quantity = usage.Quantity,
-                WorkerId = usage.WorkerId,
-                WorkerName = (await _db.Workers.FindAsync(usage.WorkerId))?.FullName ?? string.Empty,
-                ProductionStageId = usage.ProductionStageId,
-                StageName = stage.StageName,
-                InitialBalanceRangeId = usage.InitialBalanceRangeId,
-                Notes = usage.Notes,
-                RecordedBy = usage.RecordedBy,
-                CreatedAt = usage.CreatedAt
-            };
+                if (row.SubmittedRangeIndex < 0 || row.SubmittedRangeIndex >= rangeIdByFlowIndex.Count)
+                    continue; // مش من ضمن نطاقات السحب دي (نظريًا مايحصلش، rangeIndex بيتحسب من نفس الـ ranges اللي بعتناها)
+
+                var range = rangesById[rangeIdByFlowIndex[row.SubmittedRangeIndex]];
+                if (row.ProductionStageId != range.ToStageId) continue; // مرحلة وسيطة — إنتاج وأجر حقيقي، بدون تتبع رصيد منفصل
+
+                await _db.InitialBalanceUsages.AddAsync(new InitialBalanceUsage
+                {
+                    InitialBalanceId = balanceId,
+                    InitialBalanceRangeId = range.Id,
+                    UsedDate = date.Date,
+                    Quantity = row.PieceCount,
+                    WorkerId = row.WorkerId,
+                    ProductionStageId = row.ProductionStageId,
+                    DailyProductionId = row.DailyProductionId
+                });
+            }
+        }
+
+        /// <summary>
+        /// كام قطعة اتاخدت فعلًا من نطاق معيّن — **مش** كل استخدام مرتبط
+        /// بيه بيتحسب: سحب هالك (<see cref="InitialBalanceUsage.ProductionScrapId"/>
+        /// موجود) بيتحسب دايمًا لأنه استهلاك نهائي (القطعة خرجت من الخط
+        /// خالص)، لكن سحب إكمال إنتاج (<see cref="InitialBalanceUsage.DailyProductionId"/>
+        /// موجود) بيتحسب بس لو وصل **مرحلة خروج النطاق** — غيره صفوف
+        /// وسيطة (شوف WriteUsageRowsAsync). لو الحساب اتعمل بشكل مختلف
+        /// بين المسارين، سحب هالك من أول مرحلة في نطاق متعدد المراحل
+        /// كان هيفلت من الحساب تمامًا ويسمح بسحب أكتر من المتاح الحقيقي.
+        /// </summary>
+        private static int UsedFromRange(InitialBalance balance, InitialBalanceRange range) =>
+            balance.Usages
+                .Where(u => u.InitialBalanceRangeId == range.Id)
+                .Where(u => u.ProductionScrapId is not null || u.ProductionStageId == range.ToStageId)
+                .Sum(u => u.Quantity);
+
+        /// <summary>
+        /// يسحب جزء من رصيد أولي ويحوّله لهالك بدل إكمال إنتاج — بنفس
+        /// كيان الهالك الموجود (<see cref="ProductionScrap"/>)، مش كيان
+        /// جديد. بيستخدم بوابة أمان الهالك نفسها (كلمة سر + رفض يوم
+        /// مقفول) اللي ScrapService.RecordAsync بتستخدمها، من غير ما
+        /// يكررها.
+        /// </summary>
+        public async Task<ProductionScrap> WithdrawToScrapAsync(
+            int balanceId, int rangeId, int stageId, DateTime date, int pieceCount,
+            int? scrapReasonId, string? note, string operationsPassword)
+        {
+            if (pieceCount <= 0)
+                throw new ArgumentException("عدد القطع المحوّلة لهالك يجب أن يكون رقمًا موجبًا", nameof(pieceCount));
+
+            var balance = await _db.InitialBalances
+                .Include(b => b.Ranges)
+                .Include(b => b.Usages)
+                .FirstOrDefaultAsync(b => b.Id == balanceId)
+                ?? throw new InvalidOperationException("الرصيد الأولي غير موجود");
+
+            var range = balance.Ranges.FirstOrDefault(r => r.Id == rangeId)
+                ?? throw new InvalidOperationException("النطاق المحدد لا ينتمي لهذا الرصيد");
+
+            if (date.Date < balance.OriginalDate)
+                throw new InvalidOperationException(
+                    $"تاريخ التحويل لهالك ({date:yyyy/MM/dd}) لازم يكون بعد أو يساوي تاريخ الرصيد الأصلي ({balance.OriginalDate:yyyy/MM/dd})");
+
+            // تقدر تحوّل بس من المرحلة اللي القطع واقفة فيها فعلًا —
+            // مش من أي مرحلة تانية في النطاق
+            if (stageId != range.FromStageId)
+                throw new InvalidOperationException("التحويل لهالك لازم يكون من المرحلة اللي الرصيد واقف فيها بالظبط");
+
+            var remaining = range.PieceCount - UsedFromRange(balance, range);
+            if (pieceCount > remaining)
+                throw new InvalidOperationException(
+                    $"الكمية المطلوب تحويلها لهالك ({pieceCount:N0}) أكبر من المتاح في النطاق ({remaining:N0})");
+
+            await _scrap.EnsureAllowedAsync(date, operationsPassword);
+
+            await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
+
+            var scrap = await _scrap.RecordCoreAsync(stageId, date, pieceCount, scrapReasonId, note);
+
+            await _db.InitialBalanceUsages.AddAsync(new InitialBalanceUsage
+            {
+                InitialBalanceId = balanceId,
+                InitialBalanceRangeId = range.Id,
+                UsedDate = date.Date,
+                Quantity = pieceCount,
+                ProductionStageId = stageId,
+                ProductionScrapId = scrap.Id,
+                Notes = string.IsNullOrWhiteSpace(note) ? null : note.Trim()
+            });
+
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.InitialBalanceUsed, "InitialBalance", balanceId,
+                entityName: balance.Name,
+                details: $"{pieceCount:N0} قطعة تحويل لهالك يوم {date:yyyy/MM/dd}");
+
+            return scrap;
         }
 
         // ======================= القراية =======================
@@ -412,6 +448,25 @@ namespace WorkforceManager.Business.Services
                 .ToListAsync();
 
             return balances.Select(ToDto).ToList();
+        }
+
+        /// <summary>
+        /// تجميع كل أرصدة منتج في رقم واحد — للكارت المُجمّع (progress bar)
+        /// في شاشة الإنتاج اليومي بدل عرض كل رصيد لوحده. عرض بصري بحت:
+        /// بيبني فوق نفس GetForProductAsync، البيانات الأصلية مش بتتغيّر.
+        /// </summary>
+        public async Task<InitialBalanceSummaryDto> GetProductSummaryAsync(int productId)
+        {
+            var balances = await GetForProductAsync(productId);
+
+            return new InitialBalanceSummaryDto
+            {
+                ProductId = productId,
+                TotalQuantity = balances.Sum(b => b.Quantity),
+                UsedQuantity = balances.Sum(b => b.UsedQuantity),
+                RemainingQuantity = balances.Sum(b => b.RemainingQuantity),
+                ActiveBalanceCount = balances.Count(b => b.Status != InitialBalanceStatus.Completed)
+            };
         }
 
         public async Task<InitialBalanceDto?> GetByIdAsync(int balanceId)
@@ -441,8 +496,8 @@ namespace WorkforceManager.Business.Services
                     Id = u.Id,
                     UsedDate = u.UsedDate,
                     Quantity = u.Quantity,
-                    WorkerId = u.WorkerId,
-                    WorkerName = u.Worker.FullName,
+                    WorkerId = u.WorkerId.GetValueOrDefault(),
+                    WorkerName = u.Worker == null ? string.Empty : u.Worker.FullName,
                     ProductionStageId = u.ProductionStageId,
                     StageName = u.ProductionStage.StageName,
                     InitialBalanceRangeId = u.InitialBalanceRangeId,
@@ -459,7 +514,6 @@ namespace WorkforceManager.Business.Services
             ProductId = b.ProductId,
             ProductName = b.Product.Name,
             Name = b.Name,
-            Reason = b.Reason,
             Notes = b.Notes,
             Quantity = b.Quantity,
             UsedQuantity = b.UsedQuantity,
