@@ -31,9 +31,6 @@
                 <TextBlock Text="اسم الرصيد (إجباري)" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="NameBox" Margin="0,0,0,12" />
 
-                <TextBlock Text="سبب الرصيد (إجباري)" Style="{StaticResource FieldLabel}" />
-                <TextBox x:Name="ReasonBox" Margin="0,0,0,12" />
-
                 <TextBlock Text="عدد القطع (إجباري)" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="QuantityBox" Margin="0,0,0,12" />
 
