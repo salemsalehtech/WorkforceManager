@@ -45,7 +45,6 @@ namespace WorkforceManager.Business.DTOs
         public int ProductId { get; init; }
         public string ProductName { get; init; } = string.Empty;
         public string Name { get; init; } = string.Empty;
-        public string Reason { get; init; } = string.Empty;
         public string? Notes { get; init; }
         public int Quantity { get; init; }
         public int UsedQuantity { get; init; }
@@ -67,7 +66,6 @@ namespace WorkforceManager.Business.DTOs
     {
         public int ProductId { get; init; }
         public string Name { get; init; } = string.Empty;
-        public string Reason { get; init; } = string.Empty;
         public string? Notes { get; init; }
         public int Quantity { get; init; }
         public DateTime OriginalDate { get; init; }
@@ -76,16 +74,26 @@ namespace WorkforceManager.Business.DTOs
         public List<AddInitialBalanceRangeRequest> Ranges { get; init; } = new();
     }
 
-    /// <summary>طلب تسجيل استخدام/إكمال جزء من رصيد أولي</summary>
-    public class RecordInitialBalanceUsageRequest
+    /// <summary>سحب كمية معيّنة من نطاق معيّن — جزء من طلب InitialBalanceService.WithdrawAsync</summary>
+    public class InitialBalanceRangeWithdrawalDto
     {
-        public int InitialBalanceId { get; init; }
-        public int? InitialBalanceRangeId { get; init; }
-        public DateTime UsedDate { get; init; }
-        public int Quantity { get; init; }
-        public int WorkerId { get; init; }
-        public int ProductionStageId { get; init; }
-        public string? Notes { get; init; }
-        public string OperationsPassword { get; init; } = string.Empty;
+        public int RangeId { get; init; }
+        public int PieceCount { get; init; }
+    }
+
+    /// <summary>
+    /// تجميع كل الأرصدة الأولية النشطة لمنتج واحد في رقم واحد — للكارت
+    /// المُجمّع في شاشة الإنتاج اليومي (عرض بصري بحت؛ البيانات تحتيه
+    /// تفضل مقسّمة بالرصيد/النطاق زي ما هي فعليًا، شوف InitialBalanceService.GetForProductAsync)
+    /// </summary>
+    public class InitialBalanceSummaryDto
+    {
+        public int ProductId { get; init; }
+        public int TotalQuantity { get; init; }
+        public int UsedQuantity { get; init; }
+        public int RemainingQuantity { get; init; }
+
+        /// <summary>عدد الأرصدة اللي لسه فيها متاح (Available أو PartiallyUsed)</summary>
+        public int ActiveBalanceCount { get; init; }
     }
 }
