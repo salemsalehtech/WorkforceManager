@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 using WorkforceManager.Data;
 
@@ -21,23 +22,53 @@ namespace WorkforceManager.Business.Services
     {
         private readonly AppDbContext _db;
         private readonly ActivityLogService _log;
+        private readonly OperationsPasswordService _gate;
+        private readonly IProductionDayClosureRepository _closureRepo;
 
-        public ScrapService(AppDbContext db, ActivityLogService log)
+        public ScrapService(
+            AppDbContext db, ActivityLogService log,
+            OperationsPasswordService gate, IProductionDayClosureRepository closureRepo)
         {
             _db = db;
             _log = log;
+            _gate = gate;
+            _closureRepo = closureRepo;
         }
 
         // ======================= التسجيل =======================
 
         /// <summary>
-        /// يسجّل هالك على مرحلة في يوم معين.
-        ///
-        /// **بيتجمّع مع اللي قبله في نفس اليوم/المرحلة/السبب** بدل ما
-        /// يعمل سجل جديد كل مرة: المستخدم اللي سجّل 300 ونسي 200 عايز
-        /// يشوف 500 في الآخر، مش سطرين لازم يجمعهم بنفسه.
+        /// يسجّل هالك على مرحلة في يوم معين — ببوابة كلمة سر العمليات
+        /// ورفض اليوم المقفول، زي أي عملية بتلمس فلوس تانية (شوف
+        /// <see cref="SensitiveAction.RecordScrap"/>).
         /// </summary>
         public async Task<ProductionScrap> RecordAsync(
+            int productionStageId, DateTime date, int pieceCount, string operationsPassword,
+            int? reasonId = null, string? note = null, string? recordedBy = null)
+        {
+            await EnsureAllowedAsync(date, operationsPassword);
+            return await RecordCoreAsync(productionStageId, date, pieceCount, reasonId, note, recordedBy);
+        }
+
+        /// <summary>البوابة نفسها اللي RecordAsync بتستخدمها — منفصلة عشان WithdrawToScrapAsync (سحب رصيد أولي لهالك) يستخدمها من غير ما يكرر المنطق</summary>
+        public async Task EnsureAllowedAsync(DateTime date, string operationsPassword)
+        {
+            var gate = await _gate.VerifyAsync(SensitiveAction.RecordScrap, operationsPassword);
+            if (!gate.IsAllowed)
+                throw new InvalidOperationException(gate.Message);
+
+            if (await _closureRepo.IsClosedAsync(date))
+                throw new InvalidOperationException(DayClosureService.ClosedDayMessage(date));
+        }
+
+        /// <summary>
+        /// الكتابة الفعلية بدون بوابة — لكود بيعمل التحقق بنفسه جوه
+        /// معاملته الخاصة (WithdrawToScrapAsync)، عشان EnsureAllowedAsync
+        /// ماتتكررش. **بيتجمّع مع اللي قبله في نفس اليوم/المرحلة/السبب**
+        /// بدل ما يعمل سجل جديد كل مرة: المستخدم اللي سجّل 300 ونسي 200
+        /// عايز يشوف 500 في الآخر، مش سطرين لازم يجمعهم بنفسه.
+        /// </summary>
+        public async Task<ProductionScrap> RecordCoreAsync(
             int productionStageId, DateTime date, int pieceCount,
             int? reasonId = null, string? note = null, string? recordedBy = null)
         {
@@ -102,10 +133,22 @@ namespace WorkforceManager.Business.Services
                 details: $"{addedPieces:N0} قطعة يوم {record.Date:yyyy/MM/dd}");
         }
 
+        /// <summary>
+        /// سجل هالك ناتج من سحب رصيد أولي (<see cref="InitialBalanceService.WithdrawToScrapAsync"/>)
+        /// ليه InitialBalanceUsage مرتبط بـ FK صارم (Restrict) — لازم
+        /// يتشال هو الأول، وإلا الحذف بيفشل برسالة قاعدة بيانات خام،
+        /// نفس مشكلة WorkdayCalculationService.DeleteProductionAsync مع
+        /// سجلات الإنتاج.
+        /// </summary>
         public async Task RemoveAsync(int scrapId)
         {
             var record = await _db.ProductionScraps.FindAsync(scrapId)
                 ?? throw new InvalidOperationException("سجل الهالك مش موجود");
+
+            var linkedUsage = await _db.InitialBalanceUsages
+                .FirstOrDefaultAsync(u => u.ProductionScrapId == scrapId);
+            if (linkedUsage is not null)
+                _db.InitialBalanceUsages.Remove(linkedUsage);
 
             _db.ProductionScraps.Remove(record);
             await _db.SaveChangesAsync();
