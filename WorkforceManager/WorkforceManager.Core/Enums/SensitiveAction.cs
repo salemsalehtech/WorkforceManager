@@ -57,6 +57,13 @@ namespace WorkforceManager.Core.Enums
         /// <summary>
         /// قفل إنتاج اليوم — بيمنع أي تسجيل جديد على اليوم ده.
         /// </summary>
-        CloseProductionDay = 11
+        CloseProductionDay = 11,
+
+        /// <summary>
+        /// تسجيل هالك — نفس منطق RecordProduction: الهالك بيتخصم من
+        /// الإنتاج التام وبيأثر على تقارير حقيقية، فتسجيله غلط بيلخبط
+        /// أرقام زي أي عملية تانية في القايمة دي.
+        /// </summary>
+        RecordScrap = 12
     }
 }

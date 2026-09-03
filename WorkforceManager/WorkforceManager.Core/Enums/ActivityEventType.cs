@@ -96,7 +96,14 @@ namespace WorkforceManager.Core.Enums
         InitialBalanceEdited = 25,
 
         /// <summary>رصيد أولي اتشال</summary>
-        InitialBalanceDeleted = 26
+        InitialBalanceDeleted = 26,
+
+        /// <summary>
+        /// ترحيل تلقائي لشغل واقف كان موجود قبل فيتشر الرصيد الأولي —
+        /// بيحصل مرة واحدة بس (أول تشغيل للنسخة الجديدة)، شوف
+        /// HistoricalPendingMigrationService
+        /// </summary>
+        InitialBalanceMigrated = 27
 
         // مفيش نوع لاسترجاع النسخة الاحتياطية عن قصد: الاسترجاع بيستبدل
         // ملف قاعدة البيانات كله وبيعيد تشغيل البرنامج، فالحدث اللي

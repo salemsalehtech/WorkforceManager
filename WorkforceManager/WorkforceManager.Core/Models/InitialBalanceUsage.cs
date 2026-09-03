@@ -23,6 +23,14 @@ namespace WorkforceManager.Core.Models
     /// <see cref="WorkforceManager.Business.Services.ProductionStageOutputService"/>
     /// للحساب القديم — وإلا كان هيتحسب إنتاج فعلي جديد يوم الإكمال
     /// (تكرار عد بالظبط زي مشكلة الـ10,000 اللي اتحلت قبل الفيتشر ده).
+    ///
+    /// **بالظبط واحد من <see cref="DailyProductionId"/> و
+    /// <see cref="ProductionScrapId"/> لازم يكون موجود، مش الاتنين
+    /// ومش ولا واحد فيهم.** سحب عادي (عامل بيكمّل شغل) بيسجّل
+    /// DailyProduction ومالوش ProductionScrap؛ سحب لهالك (تحويل جزء
+    /// من الرصيد لهالك بدل إكمال) بيسجّل ProductionScrap ومالوش
+    /// DailyProduction ولا عامل (<see cref="WorkerId"/> بيبقى null).
+    /// القاعدة دي متفروضة في طبقة الـ Service مش في قاعدة البيانات.
     /// </summary>
     [Index(nameof(InitialBalanceId))]
     public class InitialBalanceUsage
@@ -46,19 +54,22 @@ namespace WorkforceManager.Core.Models
         [Range(1, int.MaxValue, ErrorMessage = "عدد القطع المستخدمة يجب أن يكون رقمًا موجبًا")]
         public int Quantity { get; set; }
 
-        [Required]
+        /// <summary>العامل اللي كمّل — null لو الاستخدام سحب لهالك (مفيش عامل وقتها)</summary>
         [ForeignKey(nameof(Worker))]
-        public int WorkerId { get; set; }
+        public int? WorkerId { get; set; }
 
         /// <summary>آخر مرحلة اتكملت في عملية الاستخدام دي</summary>
         [Required]
         [ForeignKey(nameof(ProductionStage))]
         public int ProductionStageId { get; set; }
 
-        /// <summary>سجل الإنتاج (اليومية/الأجر) المرتبط بعملية الإكمال دي — واحد لكل استخدام</summary>
-        [Required]
+        /// <summary>سجل الإنتاج (اليومية/الأجر) المرتبط بعملية الإكمال دي — واحد لكل استخدام، null لو سحب لهالك</summary>
         [ForeignKey(nameof(DailyProduction))]
-        public int DailyProductionId { get; set; }
+        public int? DailyProductionId { get; set; }
+
+        /// <summary>سجل الهالك المرتبط بعملية السحب دي — null لو الاستخدام إكمال إنتاج عادي</summary>
+        [ForeignKey(nameof(ProductionScrap))]
+        public int? ProductionScrapId { get; set; }
 
         [MaxLength(300)]
         public string? Notes { get; set; }
@@ -75,10 +86,12 @@ namespace WorkforceManager.Core.Models
 
         public virtual InitialBalanceRange? Range { get; set; }
 
-        public virtual Worker Worker { get; set; } = null!;
+        public virtual Worker? Worker { get; set; }
 
         public virtual ProductionStage ProductionStage { get; set; } = null!;
 
-        public virtual DailyProduction DailyProduction { get; set; } = null!;
+        public virtual DailyProduction? DailyProduction { get; set; }
+
+        public virtual ProductionScrap? ProductionScrap { get; set; }
     }
 }

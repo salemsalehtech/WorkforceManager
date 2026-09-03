@@ -38,11 +38,6 @@ namespace WorkforceManager.Core.Models
         [MaxLength(150)]
         public string Name { get; set; } = string.Empty;
 
-        /// <summary>سبب/نوع الرصيد — من قايمة مقترحة (شغل ناقص، إعادة، هالك، يكمل بكرة، إعادة فحص) أو نص حر</summary>
-        [Required(ErrorMessage = "سبب الرصيد مطلوب")]
-        [MaxLength(100)]
-        public string Reason { get; set; } = string.Empty;
-
         [MaxLength(500)]
         public string? Notes { get; set; }
 
