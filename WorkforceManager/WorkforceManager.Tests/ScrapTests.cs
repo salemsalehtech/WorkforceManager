@@ -34,7 +34,7 @@ namespace WorkforceManager.Tests
 
         private Task ScrapAsync(int stageId, int pieces, int? reasonId = null, string? note = null) =>
             _db.InScopeAsync<ScrapService, Core.Models.ProductionScrap>(s =>
-                s.RecordAsync(stageId, Day, pieces, reasonId, note));
+                s.RecordAsync(stageId, Day, pieces, "", reasonId, note));
 
         private Task<ProductPendingDto?> PendingAsync() =>
             _db.InScopeAsync<PendingWorkService, ProductPendingDto?>(s =>

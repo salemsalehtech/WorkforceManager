@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
 using WorkforceManager.Data;
@@ -310,6 +311,46 @@ namespace WorkforceManager.Tests
         public async Task A_product_with_only_an_actual_output_record_on_one_stage_cannot_be_removed()
         {
             await RecordActualOutputAsync(TestDatabase.RingStage1Id);
+
+            using var scope = _db.CreateScope();
+            Assert.False(await _db.GetService<DeletionScopeService>(scope)
+                .CanRemoveProductAsync(TestDatabase.ProductRingId));
+        }
+
+        // ======================= الرصيد الأولي بيحمي مراحله ومنتجه =======================
+
+        private async Task CreateInitialBalanceWithRangeAsync()
+        {
+            using var scope = _db.CreateScope();
+            await _db.GetService<InitialBalanceService>(scope).CreateAsync(new CreateInitialBalanceRequest
+            {
+                ProductId = TestDatabase.ProductRingId,
+                Name = "رصيد تجريبي",
+                Quantity = 20,
+                OriginalDate = TestDatabase.Today,
+                Ranges = new List<AddInitialBalanceRangeRequest>
+                {
+                    new() { FromStageId = TestDatabase.RingStage1Id, ToStageId = TestDatabase.RingStage2Id, PieceCount = 20 }
+                }
+            });
+        }
+
+        [Fact]
+        public async Task Cannot_remove_stage_referenced_by_an_initial_balance_range()
+        {
+            // مفيش أي إنتاج عمال ولا إنتاج فعلي على المرحلة دي — الفحوصات
+            // التانية كلها هترجع "آمن"، والنطاق هو السبب الوحيد اللي المفروض يمنع الحذف
+            await CreateInitialBalanceWithRangeAsync();
+
+            using var scope = _db.CreateScope();
+            Assert.False(await _db.GetService<DeletionScopeService>(scope)
+                .CanRemoveStageAsync(TestDatabase.RingStage1Id));
+        }
+
+        [Fact]
+        public async Task Cannot_remove_product_with_an_active_initial_balance()
+        {
+            await CreateInitialBalanceWithRangeAsync();
 
             using var scope = _db.CreateScope();
             Assert.False(await _db.GetService<DeletionScopeService>(scope)

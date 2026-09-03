@@ -83,6 +83,10 @@ namespace WorkforceManager.Tests
             services.AddScoped<IGenericRepository<WorkerSkill>, GenericRepository<WorkerSkill>>();
             services.AddScoped<IGenericRepository<AppUser>, GenericRepository<AppUser>>();
             services.AddScoped<IGenericRepository<WorkerPerformanceTitle>, GenericRepository<WorkerPerformanceTitle>>();
+            services.AddScoped<IGenericRepository<InitialBalance>, GenericRepository<InitialBalance>>();
+            services.AddScoped<IGenericRepository<InitialBalanceRange>, GenericRepository<InitialBalanceRange>>();
+            services.AddScoped<IGenericRepository<InitialBalanceUsage>, GenericRepository<InitialBalanceUsage>>();
+            services.AddScoped<IInitialBalanceRepository, InitialBalanceRepository>();
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
             services.AddScoped<WorkerAssignmentGuard>();
@@ -113,6 +117,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<ScrapService>();
             services.AddScoped<ProductionStageOutputService>();
             services.AddScoped<InitialBalanceService>();
+            services.AddScoped<HistoricalPendingMigrationService>();
             services.AddScoped<ProductionReportService>();
             services.AddScoped<WageAdjustmentService>();
             services.AddScoped<ReportBuilderService>();
