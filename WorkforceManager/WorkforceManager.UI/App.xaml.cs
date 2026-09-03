@@ -50,6 +50,10 @@ namespace WorkforceManager.UI
                     services.AddScoped<IGenericRepository<WorkerSkill>, GenericRepository<WorkerSkill>>();
                     services.AddScoped<IGenericRepository<AppUser>, GenericRepository<AppUser>>();
                     services.AddScoped<IGenericRepository<WorkerPerformanceTitle>, GenericRepository<WorkerPerformanceTitle>>();
+                    services.AddScoped<IGenericRepository<InitialBalance>, GenericRepository<InitialBalance>>();
+                    services.AddScoped<IGenericRepository<InitialBalanceRange>, GenericRepository<InitialBalanceRange>>();
+                    services.AddScoped<IGenericRepository<InitialBalanceUsage>, GenericRepository<InitialBalanceUsage>>();
+                    services.AddScoped<IInitialBalanceRepository, InitialBalanceRepository>();
                     // معاملات الكتابة (نفس الـ DbContext بتاع الـ Scope) — للتحقق الذري قبل الحفظ
                     services.AddScoped<IUnitOfWork, EfUnitOfWork>();
 
@@ -71,6 +75,7 @@ namespace WorkforceManager.UI
                     services.AddScoped<ScrapService>();
                     services.AddScoped<ProductionStageOutputService>();
                     services.AddScoped<InitialBalanceService>();
+                    services.AddScoped<HistoricalPendingMigrationService>();
                     services.AddScoped<HourlyWorkdayService>();
                     services.AddScoped<PayrollService>();
                     services.AddScoped<ProductionReportService>();
@@ -220,6 +225,14 @@ namespace WorkforceManager.UI
                     // النماذج المستقبلية تتطبق على قاعدة بيانات العميل الحالية من
                     // غير ما نمسح بياناته
                     await db.Database.MigrateAsync();
+
+                    // ترحيل تلقائي لأي شغل واقف كان موجود قبل فيتشر الرصيد
+                    // الأولي — مرة واحدة بس (حارس idempotency داخلها)، وقبل
+                    // البذر عشان تطبق على بيانات العميل الحقيقية أول ما
+                    // تتوفر. جوه معاملة واحدة فمفيش حالة نص متحوّلة لو فشلت
+                    await scope.ServiceProvider.GetRequiredService<HistoricalPendingMigrationService>()
+                        .RunOnceAsync();
+
                     await DatabaseSeeder.SeedIfEmptyAsync(db);
 
                     // أول تشغيل: إنشاء حساب الدخول الافتراضي لو مفيش مستخدمين
