@@ -1,4 +1,5 @@
 using WorkforceManager.Core.Interfaces;
+using WorkforceManager.Core.Models;
 
 namespace WorkforceManager.Business.Services
 {
@@ -30,6 +31,8 @@ namespace WorkforceManager.Business.Services
         private readonly IWageAdjustmentRepository _adjustments;
         private readonly IProductRepository _products;
         private readonly ProductionStageOutputService _productionOutput;
+        private readonly IGenericRepository<InitialBalance> _initialBalances;
+        private readonly IGenericRepository<InitialBalanceRange> _initialBalanceRanges;
 
         public DeletionScopeService(
             IDailyProductionRepository production,
@@ -37,7 +40,9 @@ namespace WorkforceManager.Business.Services
             IPenaltyRepository penalties,
             IWageAdjustmentRepository adjustments,
             IProductRepository products,
-            ProductionStageOutputService productionOutput)
+            ProductionStageOutputService productionOutput,
+            IGenericRepository<InitialBalance> initialBalances,
+            IGenericRepository<InitialBalanceRange> initialBalanceRanges)
         {
             _production = production;
             _hourly = hourly;
@@ -45,6 +50,8 @@ namespace WorkforceManager.Business.Services
             _adjustments = adjustments;
             _products = products;
             _productionOutput = productionOutput;
+            _initialBalances = initialBalances;
+            _initialBalanceRanges = initialBalanceRanges;
         }
 
         /// <summary>
@@ -62,16 +69,21 @@ namespace WorkforceManager.Business.Services
         /// اتسجّل عليها — الاتنين منفصلين تمامًا (شوف
         /// <see cref="ProductionStageOutputService"/>) فمرحلة ممكن يتشال
         /// إنتاج عمالها بالتصحيح وتفضل ليها رقم إنتاج فعلي محفوظ، أو
-        /// العكس.
+        /// العكس. وطول ما مفيش نطاق رصيد أولي (غير محذوف) بيشاور عليها
+        /// — نطاق زي ده مرتبط بالمرحلة بقيد FK صارم (Restrict)، فحذف
+        /// مرحلة ليها نطاق كان بيفشل برسالة قاعدة بيانات خام من غير
+        /// الفحص ده.
         /// </summary>
         public async Task<bool> CanRemoveStageAsync(int stageId) =>
             !await _production.HasAnyForStageAsync(stageId) &&
-            !await _productionOutput.HasAnyForStageAsync(stageId);
+            !await _productionOutput.HasAnyForStageAsync(stageId) &&
+            (await _initialBalanceRanges.FindAsync(r =>
+                (r.FromStageId == stageId || r.ToStageId == stageId) && !r.InitialBalance.IsDeleted)).Count == 0;
 
         /// <summary>
         /// المنتج يتمسح نهائي طول ما مفيش إنتاج عمال أو إنتاج فعلي على
-        /// أي مرحلة من مراحله. مراحله بتتشال معاه (Cascade) — مرحلة من
-        /// غير منتج مالهاش معنى.
+        /// أي مرحلة من مراحله، ومفيش رصيد أولي (غير محذوف) عليه. مراحله
+        /// بتتشال معاه (Cascade) — مرحلة من غير منتج مالهاش معنى.
         /// </summary>
         public async Task<bool> CanRemoveProductAsync(int productId)
         {
@@ -82,6 +94,9 @@ namespace WorkforceManager.Business.Services
                 if (await _production.HasAnyForStageAsync(stage.Id) ||
                     await _productionOutput.HasAnyForStageAsync(stage.Id))
                     return false;
+
+            if ((await _initialBalances.FindAsync(b => b.ProductId == productId)).Count > 0)
+                return false;
 
             return true;
         }

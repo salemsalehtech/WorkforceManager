@@ -27,6 +27,7 @@ namespace WorkforceManager.Business.Services
         private readonly IHourlyWorkLogRepository _hourlyRepo;
         private readonly ProductionStageOutputService _productionOutput;
         private readonly IWorkerSkillRepository _workerSkillRepo;
+        private readonly IGenericRepository<InitialBalanceUsage> _initialBalanceUsages;
 
         public WorkdayCalculationService(
             IDailyProductionRepository productionRepo,
@@ -42,7 +43,8 @@ namespace WorkforceManager.Business.Services
             IAttendanceRepository attendanceRepo,
             IHourlyWorkLogRepository hourlyRepo,
             ProductionStageOutputService productionOutput,
-            IWorkerSkillRepository workerSkillRepo)
+            IWorkerSkillRepository workerSkillRepo,
+            IGenericRepository<InitialBalanceUsage> initialBalanceUsages)
         {
             _log = log;
             _productionRepo = productionRepo;
@@ -58,6 +60,7 @@ namespace WorkforceManager.Business.Services
             _hourlyRepo = hourlyRepo;
             _productionOutput = productionOutput;
             _workerSkillRepo = workerSkillRepo;
+            _initialBalanceUsages = initialBalanceUsages;
         }
 
         /// <summary>
@@ -424,10 +427,18 @@ namespace WorkforceManager.Business.Services
         /// عليه. الإجابة دي مش محتاجة الصف نفسه يفضل قاعد في الجدول.
         ///
         /// **بيتمسح من الجدول خالص.** مفيش أي مفتاح أجنبي بيشاور على
-        /// سجل الإنتاج، فمفيش حاجة بتتكسر بمسحه — وكان بيتعلّم محذوف
-        /// ويفضل قاعد في الجدول للأبد، كل استعلام بيعدّي عليه وهو
+        /// سجل الإنتاج العادي، فمفيش حاجة بتتكسر بمسحه — وكان بيتعلّم
+        /// محذوف ويفضل قاعد في الجدول للأبد، كل استعلام بيعدّي عليه وهو
         /// مستبعد بفلتر. اللي بيفضل هو حدث السجل: مين مسحه، إمتى،
         /// وليه، وكام قطعة كانت عليه.
+        ///
+        /// **الاستثناء الوحيد**: سجل ناتج من إكمال رصيد أولي
+        /// (<see cref="DailyProduction.IsBalanceCompletion"/>) ليه
+        /// <see cref="InitialBalanceUsage"/> مرتبط بـ FK صارم (Restrict)
+        /// — لازم يتشال هو الأول، وإلا الحذف بيفشل برسالة قاعدة بيانات
+        /// خام (SQLite FK constraint) بدل ما ينفّذ. حذف الاستخدام هنا
+        /// بيرجّع القطع تلقائيًا لرصيدها (RemainingQuantity محسوبة من
+        /// مجموع الاستخدامات).
         /// </summary>
         public async Task<SoftDeleteResult> DeleteProductionAsync(
             int recordId, string operationsPassword, string reason)
@@ -443,6 +454,7 @@ namespace WorkforceManager.Business.Services
             var workerId = record.WorkerId;
             var date = record.Date;
             var stageId = record.ProductionStageId;
+            var linkedUsage = await FindLinkedInitialBalanceUsageAsync(record.Id);
 
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
 
@@ -460,7 +472,11 @@ namespace WorkforceManager.Business.Services
                 operationsPassword,
                 reason,
                 saveChanges: false,
-                removePermanently: () => _productionRepo.Remove(record));
+                removePermanently: () =>
+                {
+                    if (linkedUsage is not null) _initialBalanceUsages.Remove(linkedUsage);
+                    _productionRepo.Remove(record);
+                });
 
             if (!result.IsDeleted) return result; // المعاملة بتتلغي من غير Commit
 
@@ -510,6 +526,10 @@ namespace WorkforceManager.Business.Services
 
             foreach (var record in records)
             {
+                // نفس استثناء DeleteProductionAsync: سجل إكمال رصيد أولي
+                // ليه InitialBalanceUsage مرتبط بـ FK صارم، لازم يتشال قبله
+                var linkedUsage = await FindLinkedInitialBalanceUsageAsync(record.Id);
+
                 var result = await _softDelete.DeleteAsync(
                     record,
                     new DeletionDescriptor
@@ -526,7 +546,11 @@ namespace WorkforceManager.Business.Services
                     reason,
                     // الحفظ مؤجّل لآخر السجل: السجلات كلها بتنزل مع بعض
                     saveChanges: false,
-                    removePermanently: () => _productionRepo.Remove(record));
+                    removePermanently: () =>
+                    {
+                        if (linkedUsage is not null) _initialBalanceUsages.Remove(linkedUsage);
+                        _productionRepo.Remove(record);
+                    });
 
                 // أول رفض بيوقف كل حاجة — المعاملة بتتلغي عند الخروج
                 // من غير Commit، فمفيش سجل واحد اتشال
@@ -557,5 +581,9 @@ namespace WorkforceManager.Business.Services
 
             return SoftDeleteResult.Success(wasNotConfigured);
         }
+
+        /// <summary>سجل إكمال رصيد أولي (لو موجود) لسجل إنتاج معيّن — يُشال قبل السجل نفسه بسبب Restrict FK</summary>
+        private async Task<InitialBalanceUsage?> FindLinkedInitialBalanceUsageAsync(int dailyProductionId) =>
+            (await _initialBalanceUsages.FindAsync(u => u.DailyProductionId == dailyProductionId)).FirstOrDefault();
     }
 }
