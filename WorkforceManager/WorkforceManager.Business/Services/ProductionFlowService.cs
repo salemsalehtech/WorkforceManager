@@ -48,6 +48,7 @@ namespace WorkforceManager.Business.Services
         private readonly ActivityLogService _log;
         private readonly ProductionStageOutputService _productionOutput;
         private readonly HourlyWorkdayService _hourlyWorkdayService;
+        private readonly IInitialBalanceRepository _initialBalances;
 
         public ProductionFlowService(
             IProductRepository productRepo,
@@ -60,7 +61,8 @@ namespace WorkforceManager.Business.Services
             IUnitOfWork unitOfWork,
             ActivityLogService log,
             ProductionStageOutputService productionOutput,
-            HourlyWorkdayService hourlyWorkdayService)
+            HourlyWorkdayService hourlyWorkdayService,
+            IInitialBalanceRepository initialBalances)
         {
             _log = log;
             _productRepo = productRepo;
@@ -73,6 +75,7 @@ namespace WorkforceManager.Business.Services
             _unitOfWork = unitOfWork;
             _productionOutput = productionOutput;
             _hourlyWorkdayService = hourlyWorkdayService;
+            _initialBalances = initialBalances;
         }
 
         /// <summary>
@@ -208,13 +211,21 @@ namespace WorkforceManager.Business.Services
         /// <see cref="AssignmentConfirmationRequiredException"/> **قبل**
         /// أي كتابة، والواجهة بتسأل المستخدم وتعيد النداء بـ true.
         /// </param>
+        /// <param name="postWriteHook">
+        /// بيتنفذ جوه نفس المعاملة (Transaction) **بعد** ما صفوف
+        /// DailyProduction تتحفظ (فـ<see cref="CreatedProductionRowDto.DailyProductionId"/>
+        /// بقت حقيقية) و**قبل** الحفظة النهائية — عشان كود خارجي (مثلًا
+        /// سحب من رصيد أولي) يضيف كتاباته هو (زي InitialBalanceUsage) في
+        /// نفس المعاملة الذرية من غير ما يعيد كتابة منطق رحلة الإنتاج.
+        /// </param>
         public async Task<FlowSaveResultDto> RecordFlowAsync(
             int productId, DateTime date,
             IReadOnlyList<FlowRangeDto> ranges,
             IReadOnlyList<FlowShareDto> shares,
             IReadOnlyList<FlowTaggedWorkerDto>? taggedWorkers = null,
             bool confirmOverride = false,
-            string operationsPassword = "")
+            string operationsPassword = "",
+            Func<IReadOnlyList<CreatedProductionRowDto>, Task>? postWriteHook = null)
         {
             if (ranges.Count == 0)
                 throw new InvalidOperationException("سجّل نطاق إنتاج واحد على الأقل (من مرحلة إلى مرحلة بعدد قطع)");
@@ -249,46 +260,18 @@ namespace WorkforceManager.Business.Services
                 .ToDictionary(x => x.Id, x => x.index);
 
             // ---------- 2) حساب إنتاج كل مرحلة من النطاقات + منع التكرار ----------
-            var piecesPerStage = new int[orderedStages.Count];
-
-            // أنهي نطاق حجز أنهي مرحلة. الرقم ده بيدخل في رسالة الخطأ:
-            // "متسجلة في النطاق رقم 1" أنفع بكتير من "فيه تداخل" لما يكون
-            // المستخدم كاتب 4 نطاقات وبيدوّر على الغلط فيهم
-            var claimedByRange = new int[orderedStages.Count];
-
+            // منطق الترتيب/التداخل مشترك مع InitialBalanceService (شوف StageRangeValidator)
             var rangeList = ranges.ToList();
-            for (var rangeNumber = 0; rangeNumber < rangeList.Count; rangeNumber++)
-            {
-                var range = rangeList[rangeNumber];
+            var piecesPerStage = StageRangeValidator.ValidateAndComputePiecesPerStage(orderedStages, rangeList, out var rangeIndexByStage);
 
-                if (!indexByStageId.TryGetValue(range.FromStageId, out var fromIndex) ||
-                    !indexByStageId.TryGetValue(range.ToStageId, out var toIndex))
-                    throw new InvalidOperationException(
-                        $"النطاق رقم {rangeNumber + 1} بيشاور على مرحلة مش من مراحل المنتج المحدد");
-
-                if (fromIndex > toIndex)
-                    throw new InvalidOperationException(
-                        $"النطاق رقم {rangeNumber + 1} معكوس: \"{orderedStages[fromIndex].StageName}\" بتيجي بعد " +
-                        $"\"{orderedStages[toIndex].StageName}\" في خط الإنتاج — راجع الترتيب");
-
-                if (range.PieceCount <= 0)
-                    throw new InvalidOperationException(
-                        $"عدد القطع في النطاق رقم {rangeNumber + 1} لازم يكون رقمًا موجبًا");
-
-                for (var i = fromIndex; i <= toIndex; i++)
-                {
-                    // نفس المرحلة ميصحش تقع في نطاقين — ده تسجيل مزدوج
-                    // بيضاعف يوميات العمال وأجورهم
-                    if (piecesPerStage[i] != 0)
-                        throw new InvalidOperationException(
-                            $"المرحلة \"{orderedStages[i].StageName}\" متسجلة خلاص في النطاق رقم " +
-                            $"{claimedByRange[i] + 1}، ومش هينفع تتسجل تاني في النطاق رقم {rangeNumber + 1} — " +
-                            $"المرحلة الواحدة بتتحسب مرة واحدة في اليوم");
-
-                    piecesPerStage[i] = range.PieceCount;
-                    claimedByRange[i] = rangeNumber;
-                }
-            }
+            // أي نطاق مُقدَّم مش وصل لآخر مرحلة في الخط = رصيد أولي تلقائي
+            // (بدون سؤال المستخدم) — شوف الكتابة تحت بعد حفظ صفوف الإنتاج.
+            // فهرس النطاق الأصلي محفوظ عشان نربطه بصفوف CreatedRows بعدين
+            var lastStageId = orderedStages[^1].Id;
+            var incompleteRanges = rangeList
+                .Select((r, i) => (RangeIndex: i, Range: r))
+                .Where(x => x.Range.ToStageId != lastStageId)
+                .ToList();
 
             // ---------- 3) التحقق من توزيع العمال على المراحل ----------
             // المؤهلين لكل مراحل المنتج باستعلام واحد (القرار المتفق عليه: المؤهلين بس)
@@ -371,6 +354,7 @@ namespace WorkforceManager.Business.Services
 
             var stageById = orderedStages.ToDictionary(s => s.Id);
             int attendanceMarked;
+            List<CreatedProductionRowDto> createdRows;
 
             // ---------- 4) قاعدة التكليف + الكتابة، الاتنين جوه معاملة واحدة ----------
             // القفل بيتاخد من أول لحظة، فالتحقق بيتم على بيانات مش ممكن
@@ -396,10 +380,11 @@ namespace WorkforceManager.Business.Services
                 WorkerAssignmentGuard.EnsureAllowed(assignmentCheck, confirmOverride);
 
                 // ---------- إنشاء سجلات الإنتاج (Snapshot لليومية زي أي تسجيل) ----------
+                var createdEntities = new List<(DailyProduction Production, FlowShareDto Share)>();
                 foreach (var share in shares)
                 {
                     var stage = stageById[share.ProductionStageId];
-                    await _productionRepo.AddAsync(new DailyProduction
+                    var production = new DailyProduction
                     {
                         WorkerId = share.WorkerId,
                         ProductionStageId = share.ProductionStageId,
@@ -407,8 +392,28 @@ namespace WorkforceManager.Business.Services
                         PieceCount = share.PieceCount,
                         PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday,
                         IsRework = share.IsRework
-                    });
+                    };
+                    await _productionRepo.AddAsync(production);
+                    createdEntities.Add((production, share));
                 }
+
+                // حفظة وسيطة: لازم Id حقيقي لكل صف قبل ما نقدر نبني
+                // CreatedRows (لأي postWriteHook محتاجه) أو نربط رصيد
+                // أولي تلقائي بسجل إنتاج معيّن — لسه جوه نفس المعاملة
+                await _productionRepo.SaveChangesAsync();
+
+                createdRows = createdEntities
+                    .Select(x => new CreatedProductionRowDto
+                    {
+                        DailyProductionId = x.Production.Id,
+                        ProductionStageId = x.Share.ProductionStageId,
+                        WorkerId = x.Share.WorkerId,
+                        PieceCount = x.Share.PieceCount,
+                        SubmittedRangeIndex = indexByStageId.TryGetValue(x.Share.ProductionStageId, out var idx)
+                            ? rangeIndexByStage[idx]
+                            : -1
+                    })
+                    .ToList();
 
                 // ---------- الإنتاج الفعلي لكل مرحلة مغطاة — منفصل تمامًا عن نصيب العمال ----------
                 // نفس رقم النطاق بيروح لكل مرحلة فيه (زي ما كان بيتحقق منه
@@ -448,6 +453,46 @@ namespace WorkforceManager.Business.Services
                         Status = AttendanceStatus.Present
                     });
                     attendanceMarked++;
+                }
+
+                // ---------- هوك اختياري لكود خارجي (سحب من رصيد أولي مثلًا) ----------
+                // جوه نفس المعاملة، بعد ما DailyProductionId بقى حقيقي، وقبل الحفظة النهائية
+                if (postWriteHook is not null)
+                    await postWriteHook(createdRows);
+
+                // ---------- تحويل تلقائي لأي نطاق مش وصل لآخر مرحلة إلى رصيد أولي ----------
+                // بدون سؤال المستخدم — القطع دي فعلًا اتسجلت (يوميات
+                // وأجور العمال محسوبة عادي فوق)، بس المسار الإداري لباقي
+                // الخط بقى رصيد أولي بدل ما يفضل "شغل واقف" غير متتبّع
+                foreach (var (rangeIndex, range) in incompleteRanges)
+                {
+                    var stoppedAtStage = stageById[range.ToStageId];
+                    var representativeRow = createdRows.FirstOrDefault(r => r.SubmittedRangeIndex == rangeIndex);
+
+                    var balance = new InitialBalance
+                    {
+                        ProductId = product.Id,
+                        Name = $"متبقي تلقائيًا - {stoppedAtStage.StageName} - {date:yyyy-MM-dd}",
+                        Quantity = range.PieceCount,
+                        OriginalDate = date.Date,
+                        Source = InitialBalanceSource.DailyProduction,
+                        OriginalDailyProductionId = representativeRow?.DailyProductionId
+                    };
+                    await _initialBalances.AddAsync(balance);
+
+                    // النطاق بيبدأ من **بعد** مرحلة خروج النطاق الناقص، مش
+                    // منها — القطع خرجت من stoppedAtStage خلاص واتسجل
+                    // إنتاجها الفعلي فوق؛ لو النطاق الجديد بدأ من نفس
+                    // المرحلة، سحبه بعدين كان هيسجل إنتاجها تاني (تكرار عد)
+                    var nextStageIndex = indexByStageId[range.ToStageId] + 1;
+                    await _initialBalances.AddRangeAsync(new InitialBalanceRange
+                    {
+                        InitialBalance = balance,
+                        FromStageId = orderedStages[nextStageIndex].Id,
+                        ToStageId = lastStageId,
+                        PieceCount = range.PieceCount,
+                        SortOrder = 0
+                    });
                 }
 
                 // حفظة واحدة لكل حاجة (الريبوهات بتشارك نفس الـ DbContext في نفس الـ Scope)
@@ -490,7 +535,9 @@ namespace WorkforceManager.Business.Services
                 WorkerTotals = workerTotals,
                 // خلص الخط = اتسجل عليه إنتاج على آخر مرحلة نشطة
                 CompletedPieces = piecesPerStage[^1],
-                StartedPieces = piecesPerStage[0]
+                StartedPieces = piecesPerStage[0],
+                CreatedRows = createdRows,
+                IncompleteRanges = incompleteRanges.Select(x => x.Range).ToList()
             };
         }
     }
