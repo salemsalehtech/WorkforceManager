@@ -818,6 +818,7 @@ namespace WorkforceManager.UI.ViewModels
             {
                 Owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsVisible) ?? Application.Current.MainWindow
             };
+            dialog.LoadStages(RangeableStages(product));
 
             if (dialog.ShowDialog() != true) return;
 
@@ -834,7 +835,8 @@ namespace WorkforceManager.UI.ViewModels
                     Notes = dialog.Notes,
                     Quantity = dialog.Quantity,
                     OriginalDate = dialog.OriginalDate,
-                    Source = InitialBalanceSource.Manual
+                    Source = InitialBalanceSource.Manual,
+                    Ranges = dialog.GetRanges()
                 });
 
                 await LoadInitialBalancesAsync();

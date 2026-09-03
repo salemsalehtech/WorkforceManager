@@ -73,7 +73,7 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
-        public async Task FourWorkersFitOnOnePage_AndTheFifthStartsANewOne()
+        public void FourWorkersFitOnOnePage_AndTheFifthStartsANewOne()
         {
             // ورقة A4 بالعرض = 4 قسايم. الخامس بيبدأ ورقة جديدة عشان
             // القص يفضل خطين رأسيين بس على كل ورقة.
