@@ -9,7 +9,19 @@
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         FlowDirection="RightToLeft"
-        FontFamily="{StaticResource AppFont}" FontSize="14">
+        FontFamily="{StaticResource AppFont}" FontSize="14"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType">
+    <!--
+      UseLayoutRounding + TextOptions هنا لأن النمط الضمني TargetType="Window"
+      في App.xaml بيحطهم برضه — بس زي FlowDirection فوقه بالظبط، النمط
+      الضمني ده مبيوصلش لـ MainWindow (كلاس مشتق، شوف تعليق FlowDirection).
+      من غير UseLayoutRounding عناصر الشجرة كلها (كل شاشات الـ Sidebar) بترتّب
+      على إحداثيات كسرية عند أي نسبة تكبير غير 100% — وده بيطلع حدود وزوايا
+      مستديرة باهتة، وبيبان أوضح كل ما البطاقة فيها Border متداخلة أكتر
+      (المنتجات، تسجيل الإنتاج) عن شاشة بسيطة زي سجل العمليات (DataGrid
+      بارتفاع صف ثابت). الخاصية دي بتتوارث لكل الشجرة البصرية تحتها، فحطّها
+      هنا بس بيغطي كل شاشة في الـ Sidebar دفعة واحدة. -->
 
     <Grid>
         <Grid.ColumnDefinitions>
