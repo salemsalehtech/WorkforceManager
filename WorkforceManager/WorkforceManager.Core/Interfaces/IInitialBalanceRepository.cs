@@ -14,5 +14,13 @@ namespace WorkforceManager.Core.Interfaces
         Task AddAsync(InitialBalance balance);
 
         Task AddRangeAsync(InitialBalanceRange range);
+
+        /// <summary>
+        /// كل نطاقات الرصيد الأولي المفتوحة (غير محذوفة) لمنتج معيّن، بالمتبقي
+        /// الفعلي لكل واحد منها (PieceCount ناقص المُستخدم — شوف
+        /// InitialBalanceRangeMath.UsedQuantity). لمزامنة فجوات خط الإنتاج
+        /// بعد كل حفظة (ProductionFlowService) من غير ما تتكرر فجوة اتغطّت خلاص.
+        /// </summary>
+        Task<IReadOnlyList<(int FromStageId, int ToStageId, int Remaining)>> GetOpenRangeRemainingsAsync(int productId);
     }
 }

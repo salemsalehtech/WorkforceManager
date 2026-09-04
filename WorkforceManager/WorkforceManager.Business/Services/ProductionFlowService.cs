@@ -49,6 +49,7 @@ namespace WorkforceManager.Business.Services
         private readonly ProductionStageOutputService _productionOutput;
         private readonly HourlyWorkdayService _hourlyWorkdayService;
         private readonly IInitialBalanceRepository _initialBalances;
+        private readonly ScrapService _scrap;
 
         public ProductionFlowService(
             IProductRepository productRepo,
@@ -62,7 +63,8 @@ namespace WorkforceManager.Business.Services
             ActivityLogService log,
             ProductionStageOutputService productionOutput,
             HourlyWorkdayService hourlyWorkdayService,
-            IInitialBalanceRepository initialBalances)
+            IInitialBalanceRepository initialBalances,
+            ScrapService scrap)
         {
             _log = log;
             _productRepo = productRepo;
@@ -76,6 +78,7 @@ namespace WorkforceManager.Business.Services
             _productionOutput = productionOutput;
             _hourlyWorkdayService = hourlyWorkdayService;
             _initialBalances = initialBalances;
+            _scrap = scrap;
         }
 
         /// <summary>
@@ -264,15 +267,6 @@ namespace WorkforceManager.Business.Services
             var rangeList = ranges.ToList();
             var piecesPerStage = StageRangeValidator.ValidateAndComputePiecesPerStage(orderedStages, rangeList, out var rangeIndexByStage);
 
-            // أي نطاق مُقدَّم مش وصل لآخر مرحلة في الخط = رصيد أولي تلقائي
-            // (بدون سؤال المستخدم) — شوف الكتابة تحت بعد حفظ صفوف الإنتاج.
-            // فهرس النطاق الأصلي محفوظ عشان نربطه بصفوف CreatedRows بعدين
-            var lastStageId = orderedStages[^1].Id;
-            var incompleteRanges = rangeList
-                .Select((r, i) => (RangeIndex: i, Range: r))
-                .Where(x => x.Range.ToStageId != lastStageId)
-                .ToList();
-
             // ---------- 3) التحقق من توزيع العمال على المراحل ----------
             // المؤهلين لكل مراحل المنتج باستعلام واحد (القرار المتفق عليه: المؤهلين بس)
             var productSkills = await _workerRepo.GetSkillsForProductAsync(productId);
@@ -355,6 +349,7 @@ namespace WorkforceManager.Business.Services
             var stageById = orderedStages.ToDictionary(s => s.Id);
             int attendanceMarked;
             List<CreatedProductionRowDto> createdRows;
+            List<FlowRangeDto> createdGapRanges;
 
             // ---------- 4) قاعدة التكليف + الكتابة، الاتنين جوه معاملة واحدة ----------
             // القفل بيتاخد من أول لحظة، فالتحقق بيتم على بيانات مش ممكن
@@ -460,40 +455,13 @@ namespace WorkforceManager.Business.Services
                 if (postWriteHook is not null)
                     await postWriteHook(createdRows);
 
-                // ---------- تحويل تلقائي لأي نطاق مش وصل لآخر مرحلة إلى رصيد أولي ----------
-                // بدون سؤال المستخدم — القطع دي فعلًا اتسجلت (يوميات
-                // وأجور العمال محسوبة عادي فوق)، بس المسار الإداري لباقي
-                // الخط بقى رصيد أولي بدل ما يفضل "شغل واقف" غير متتبّع
-                foreach (var (rangeIndex, range) in incompleteRanges)
-                {
-                    var stoppedAtStage = stageById[range.ToStageId];
-                    var representativeRow = createdRows.FirstOrDefault(r => r.SubmittedRangeIndex == rangeIndex);
+                // حفظة وسيطة تانية: لازم إنتاج المراحل (RecordOutputAsync فوق) يوصل
+                // لقاعدة البيانات فعليًا قبل ما SyncStageGapBalancesAsync يقرا
+                // الإجمالي التراكمي — وإلا هيقرا أرقام النهارده القديمة (قبل الحفظة)
+                await _productionRepo.SaveChangesAsync();
 
-                    var balance = new InitialBalance
-                    {
-                        ProductId = product.Id,
-                        Name = $"متبقي تلقائيًا - {stoppedAtStage.StageName} - {date:yyyy-MM-dd}",
-                        Quantity = range.PieceCount,
-                        OriginalDate = date.Date,
-                        Source = InitialBalanceSource.DailyProduction,
-                        OriginalDailyProductionId = representativeRow?.DailyProductionId
-                    };
-                    await _initialBalances.AddAsync(balance);
-
-                    // النطاق بيبدأ من **بعد** مرحلة خروج النطاق الناقص، مش
-                    // منها — القطع خرجت من stoppedAtStage خلاص واتسجل
-                    // إنتاجها الفعلي فوق؛ لو النطاق الجديد بدأ من نفس
-                    // المرحلة، سحبه بعدين كان هيسجل إنتاجها تاني (تكرار عد)
-                    var nextStageIndex = indexByStageId[range.ToStageId] + 1;
-                    await _initialBalances.AddRangeAsync(new InitialBalanceRange
-                    {
-                        InitialBalance = balance,
-                        FromStageId = orderedStages[nextStageIndex].Id,
-                        ToStageId = lastStageId,
-                        PieceCount = range.PieceCount,
-                        SortOrder = 0
-                    });
-                }
+                // ---------- تحويل تلقائي: فجوات خط الإنتاج التراكمية بقت رصيد أولي ----------
+                createdGapRanges = await SyncStageGapBalancesAsync(product, orderedStages, date);
 
                 // حفظة واحدة لكل حاجة (الريبوهات بتشارك نفس الـ DbContext في نفس الـ Scope)
                 await _productionRepo.SaveChangesAsync();
@@ -537,8 +505,86 @@ namespace WorkforceManager.Business.Services
                 CompletedPieces = piecesPerStage[^1],
                 StartedPieces = piecesPerStage[0],
                 CreatedRows = createdRows,
-                IncompleteRanges = incompleteRanges.Select(x => x.Range).ToList()
+                IncompleteRanges = createdGapRanges
             };
+        }
+
+        /// <summary>
+        /// بيقارن الإجمالي التراكمي (كل الإنتاج المسجّل من أول ما المنتج
+        /// اشتغل، عبر <see cref="ProductionStageOutputService.GetStageTotalsUpToAsync"/>
+        /// و<see cref="ScrapService.GetStageTotalsUpToAsync"/>) عند كل حد فاصل
+        /// بين مرحلتين متتاليتين في خط المنتج — بالظبط نفس حساب
+        /// <see cref="HistoricalPendingMigrationService"/> للترحيل التاريخي،
+        /// بس هنا بيتنفذ بعد **كل حفظة عادية** مش مرة واحدة بس.
+        ///
+        /// أي فرق موجب (before − current) فجوة حقيقية بين المرحلتين. بيتطرح
+        /// منها أي رصيد أولي **مفتوح** بيغطي نفس الحد الفاصل ده خلاص
+        /// (<see cref="IInitialBalanceRepository.GetOpenRangeRemainingsAsync"/>)
+        /// عشان الفجوة متتكررش في رصيد جديد كل حفظة — لو رصيد سابق غطّاها
+        /// بالكامل، مفيش رصيد جديد يتعمل. الفرق ده (مش كمية النطاق المُقدَّم
+        /// كاملة) هو اللي بيتحول رصيد أولي — فحفظة فيها نطاق مبكر (5000) ونطاق
+        /// تاني بيوصل لآخر مرحلة (4000) بتطلع فجوة 1000 بس، مش 5000.
+        ///
+        /// ⚠️ محدودية معروفة: لو رصيد مفتوح بيغطي حد فاصل معيّن، وبعدين
+        /// اتسجّل إنتاج عادي (مش عن طريق شاشة السحب) كمّل المرحلة اللي بعد
+        /// الحد ده، الفجوة الحقيقية بتقل بس الرصيد المفتوح مايتقلّصش تلقائيًا
+        /// (الكمية بتتغيّر بالسحب الصريح بس — شوف InitialBalanceService).
+        /// المسار المقصود هو شاشة السحب دايمًا لإكمال شغل قديم.
+        /// </summary>
+        private async Task<List<FlowRangeDto>> SyncStageGapBalancesAsync(
+            Product product, List<ProductionStage> orderedStages, DateTime date)
+        {
+            var created = new List<FlowRangeDto>();
+            if (orderedStages.Count < 2) return created;
+
+            var totals = await _productionOutput.GetStageTotalsUpToAsync(date);
+            var scrapTotals = await _scrap.GetStageTotalsUpToAsync(date);
+            var openRemainings = await _initialBalances.GetOpenRangeRemainingsAsync(product.Id);
+
+            int Total(int stageId) => totals.TryGetValue(stageId, out var pieces) ? pieces : 0;
+            int Scrap(int stageId) => scrapTotals.TryGetValue(stageId, out var pieces) ? pieces : 0;
+
+            var lastStageId = orderedStages[^1].Id;
+
+            for (var i = 1; i < orderedStages.Count; i++)
+            {
+                var before = Total(orderedStages[i - 1].Id) - Scrap(orderedStages[i - 1].Id);
+                var current = Total(orderedStages[i].Id);
+                var rawGap = before - current;
+
+                // سالب/صفر: مفيش فجوة (سالب غلط إدخال — مش شغل الدالة دي)
+                if (rawGap <= 0) continue;
+
+                var fromStageId = orderedStages[i].Id;
+                var alreadyBalanced = openRemainings
+                    .Where(r => r.FromStageId == fromStageId && r.ToStageId == lastStageId)
+                    .Sum(r => r.Remaining);
+
+                var newGap = rawGap - alreadyBalanced;
+                if (newGap <= 0) continue; // الفجوة دي متغطّية خلاص برصيد قايم
+
+                var balance = new InitialBalance
+                {
+                    ProductId = product.Id,
+                    Name = $"متبقي تلقائيًا - {orderedStages[i].StageName} - {date:yyyy-MM-dd}",
+                    Quantity = newGap,
+                    OriginalDate = date.Date,
+                    Source = InitialBalanceSource.DailyProduction
+                };
+                await _initialBalances.AddAsync(balance);
+                await _initialBalances.AddRangeAsync(new InitialBalanceRange
+                {
+                    InitialBalance = balance,
+                    FromStageId = fromStageId,
+                    ToStageId = lastStageId,
+                    PieceCount = newGap,
+                    SortOrder = 0
+                });
+
+                created.Add(new FlowRangeDto { FromStageId = fromStageId, ToStageId = lastStageId, PieceCount = newGap });
+            }
+
+            return created;
         }
     }
 }
