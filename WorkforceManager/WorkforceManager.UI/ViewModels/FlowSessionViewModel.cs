@@ -246,7 +246,6 @@ namespace WorkforceManager.UI.ViewModels
             }
 
             await LoadInitialBalancesAsync();
-            await LoadPendingWorkAsync();
         }
 
         /// <summary>
@@ -437,101 +436,10 @@ namespace WorkforceManager.UI.ViewModels
                 isTagOnly: true, tagLabel: pick.TagLabel));
         }
 
-        // ======================= الشغل الواقف =======================
-
-        /// <summary>
-        /// المراحل اللي قدامها شغل واقف من أيام فاتت — كل واحدة معاها
-        /// زرار "كمّل من هنا".
-        /// </summary>
-        public ObservableCollection<PendingStageDto> PendingStages { get; } = new();
-
-        /// <summary>غلط إدخال: مرحلة اتسجل عليها أكتر من اللي قبلها</summary>
-        public ObservableCollection<PendingStageDto> PendingErrors { get; } = new();
-
-        [ObservableProperty]
-        private bool _hasPendingWork;
-
-        [ObservableProperty]
-        private bool _hasPendingErrors;
-
-        [ObservableProperty]
-        private string _pendingSummaryText = "";
-
-        /// <summary>
-        /// بيقرا الشغل الواقف على المنتج المختار لحد اليوم المعروض.
-        ///
-        /// الحساب كله في PendingWorkService — الشاشة بتعرض بس.
-        /// </summary>
-        private async Task LoadPendingWorkAsync()
-        {
-            PendingStages.Clear();
-            PendingErrors.Clear();
-            HasPendingWork = false;
-            HasPendingErrors = false;
-            PendingSummaryText = "";
-
-            if (SelectedProduct is not { } product) return;
-
-            using var scope = _scopeFactory.CreateScope();
-            var pending = await scope.ServiceProvider.GetRequiredService<PendingWorkService>()
-                .GetForProductAsync(product.ProductId, _getEntryDate());
-
-            if (pending is null) return;
-
-            foreach (var stage in pending.Resumable) PendingStages.Add(stage);
-            foreach (var error in pending.Stages.Where(s => s.IsDataError)) PendingErrors.Add(error);
-
-            HasPendingWork = PendingStages.Count > 0;
-            HasPendingErrors = PendingErrors.Count > 0;
-
-            PendingSummaryText = HasPendingWork
-                ? $"{pending.TotalPending:N0} قطعة دخلت الخط ولسه ماخرجتش منه"
-                : "";
-        }
-
-        /// <summary>
-        /// بيجهّز نطاق يكمّل الشغل الواقف قدام المرحلة دي لآخر الخط.
-        ///
-        /// **بيملا النطاق بس** — العمال بيتحطوا بإيد المستخدم. الأعداد
-        /// جاهزة لأنها معروفة (الواقف بالظبط)، لكن مين هيشتغل عليها
-        /// قرار بتاعه هو.
-        ///
-        /// النطاق بيوصل لآخر الخط عن قصد: القطع الواقفة قدام المرحلة دي
-        /// هتعدّي على كل المراحل اللي بعدها فعلاً. ولو المستخدم مكمّلش
-        /// كلهم النهارده، الحفظ بيسأله ويحفظ اللي عليه عمال بس بدل ما
-        /// يرفض الرحلة كلها (شوف TrimUnstaffedStages).
-        /// </summary>
-        [RelayCommand]
-        private void ResumePending(PendingStageDto? stage)
-        {
-            if (stage is null || SelectedProduct is not { } product) return;
-
-            var from = product.Stages.FirstOrDefault(s => s.StageId == stage.StageId);
-            var to = product.Stages.LastOrDefault(s => !s.IsRackingStage);
-            if (from is null || to is null) return;
-
-            _suppressCallbacks = true;
-            try
-            {
-                // النطاق الافتراضي الفاضي بيتشال: سيبه معناه نطاقين
-                // متداخلين والحفظ هيترفض
-                foreach (var empty in FlowRanges.Where(r => r.PiecesText.Trim().Length == 0).ToList())
-                    FlowRanges.Remove(empty);
-
-                FlowRanges.Add(new FlowRangeRow(RangeableStages(product), OnStructureEdited, RemoveRange)
-                {
-                    FromStage = from,
-                    ToStage = to,
-                    PiecesText = stage.PendingPieces.ToString()
-                });
-            }
-            finally
-            {
-                _suppressCallbacks = false;
-            }
-
-            RecomputeFlow();
-        }
+        // كارت "الشغل الواقف" (PendingStages/HasPendingWork/ResumePending) اتشال من
+        // الشاشة — أي نطاق ناقص بقى بيتحول رصيد أولي تلقائيًا (ProductionFlowService)،
+        // ومكانه الوحيد دلوقتي تبويب "الرصيد الأولي". PendingWorkService نفسها
+        // لسه موجودة ومستخدمة في HistoricalPendingMigrationService والاختبارات.
 
         /// <summary>
         /// بيشيل من النطاقات أي مرحلة مفيش عليها عمال، بعد ما يسأل المستخدم.
