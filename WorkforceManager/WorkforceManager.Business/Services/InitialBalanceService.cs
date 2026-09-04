@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 using WorkforceManager.Data;
@@ -362,10 +363,7 @@ namespace WorkforceManager.Business.Services
         /// كان هيفلت من الحساب تمامًا ويسمح بسحب أكتر من المتاح الحقيقي.
         /// </summary>
         private static int UsedFromRange(InitialBalance balance, InitialBalanceRange range) =>
-            balance.Usages
-                .Where(u => u.InitialBalanceRangeId == range.Id)
-                .Where(u => u.ProductionScrapId is not null || u.ProductionStageId == range.ToStageId)
-                .Sum(u => u.Quantity);
+            InitialBalanceRangeMath.UsedQuantity(range, balance.Usages);
 
         /// <summary>
         /// يسحب جزء من رصيد أولي ويحوّله لهالك بدل إكمال إنتاج — بنفس
