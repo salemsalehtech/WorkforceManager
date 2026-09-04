@@ -73,6 +73,10 @@
     <Color x:Key="GoldLineColor">#5C4A22</Color>
     <SolidColorBrush x:Key="GoldLineBrush" Color="{DynamicResource GoldLineColor}" />
 
+    <!-- مسار شريط القياس: بيج غامق دافي مختلف عن التعبئة الفاتحة (شوف شرايط الرصيد الأولي) -->
+    <Color x:Key="MeterTrackColor">#4A4238</Color>
+    <SolidColorBrush x:Key="MeterTrackBrush" Color="{DynamicResource MeterTrackColor}" />
+
     <!-- المعدن: الدهبي المصمت بيبان دهان، والتدرج بيبان معدن -->
     <LinearGradientBrush x:Key="GoldGradientBrush" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="#F5E0AA" Offset="0" />

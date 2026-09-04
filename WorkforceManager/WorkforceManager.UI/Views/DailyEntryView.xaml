@@ -300,6 +300,7 @@
                                                             CommandParameter="{Binding SelectedProduct}"
                                                             Cursor="Hand" HorizontalContentAlignment="Stretch"
                                                             Background="Transparent" BorderThickness="0" Padding="0"
+                                                            Foreground="{DynamicResource InkBrush}"
                                                             ToolTip="افتح تفاصيل الرصيد الأولي">
                                                         <Button.Template>
                                                             <ControlTemplate TargetType="Button">
@@ -309,11 +310,12 @@
                                                             </ControlTemplate>
                                                         </Button.Template>
                                                         <StackPanel>
-                                                            <DockPanel Margin="0,0,0,4">
+                                                            <DockPanel Margin="0,0,0,5">
                                                                 <materialDesign:PackIcon DockPanel.Dock="Left" Kind="ChevronLeft"
                                                                                         Width="14" Height="14" VerticalAlignment="Center"
                                                                                         Foreground="{DynamicResource TextMutedBrush}" />
-                                                                <TextBlock Text="الرصيد الأولي" FontWeight="Bold" VerticalAlignment="Center" Margin="4,0,0,0" />
+                                                                <TextBlock Text="الرصيد الأولي" FontWeight="Bold" VerticalAlignment="Center" Margin="4,0,0,0"
+                                                                           Foreground="{DynamicResource InkBrush}" />
                                                                 <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" FontSize="11.5"
                                                                            Foreground="{DynamicResource TextMutedBrush}">
                                                                     <Run Text="{Binding InitialBalanceSummary.RemainingQuantity, Mode=OneWay, StringFormat='متبقي {0:N0}'}" />
@@ -323,9 +325,9 @@
                                                             </DockPanel>
                                                             <ProgressBar Height="8" Minimum="0"
                                                                          Maximum="{Binding InitialBalanceSummary.TotalQuantity, Mode=OneWay}"
-                                                                         Value="{Binding InitialBalanceSummary.UsedQuantity, Mode=OneWay}"
-                                                                         Background="{DynamicResource SoftPanelBorderBrush}"
-                                                                         Foreground="{DynamicResource GoldDeepBrush}" BorderThickness="0" />
+                                                                         Value="{Binding InitialBalanceSummary.RemainingQuantity, Mode=OneWay}"
+                                                                         Background="{DynamicResource MeterTrackBrush}"
+                                                                         Foreground="{DynamicResource InkBrush}" BorderThickness="0" />
                                                         </StackPanel>
                                                     </Button>
 
@@ -942,11 +944,11 @@
                                     <Run Text=" / " />
                                     <Run Text="{Binding InitialBalanceTabSummary.TotalQuantity, Mode=OneWay, StringFormat='{}{0:N0} إجمالي'}" />
                                 </TextBlock>
-                                <ProgressBar Height="8" Margin="0,4,0,0" Minimum="0"
+                                <ProgressBar Height="8" Margin="0,5,0,0" Minimum="0"
                                              Maximum="{Binding InitialBalanceTabSummary.TotalQuantity, Mode=OneWay}"
-                                             Value="{Binding InitialBalanceTabSummary.UsedQuantity, Mode=OneWay}"
-                                             Background="{DynamicResource SoftPanelBorderBrush}"
-                                             Foreground="{DynamicResource GoldDeepBrush}" BorderThickness="0" />
+                                             Value="{Binding InitialBalanceTabSummary.RemainingQuantity, Mode=OneWay}"
+                                             Background="{DynamicResource MeterTrackBrush}"
+                                             Foreground="{DynamicResource InkBrush}" BorderThickness="0" />
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="16,0,16,0"
@@ -992,6 +994,7 @@
                                                             </Button>
                                                         </StackPanel>
                                                         <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14"
+                                                                   Foreground="{DynamicResource InkBrush}"
                                                                    VerticalAlignment="Center" TextWrapping="Wrap" />
                                                     </DockPanel>
 
@@ -1004,11 +1007,11 @@
                                                         <Run Text="{Binding RemainingQuantity, Mode=OneWay, StringFormat='متبقي {0:N0}'}" />
                                                     </TextBlock>
 
-                                                    <ProgressBar Height="7" Margin="0,6,0,8" Minimum="0"
+                                                    <ProgressBar Height="8" Margin="0,6,0,9" Minimum="0"
                                                                  Maximum="{Binding Quantity, Mode=OneWay}"
-                                                                 Value="{Binding UsedQuantity, Mode=OneWay}"
-                                                                 Background="{DynamicResource SoftPanelBorderBrush}"
-                                                                 Foreground="{DynamicResource GoldDeepBrush}" BorderThickness="0" />
+                                                                 Value="{Binding RemainingQuantity, Mode=OneWay}"
+                                                                 Background="{DynamicResource MeterTrackBrush}"
+                                                                 Foreground="{DynamicResource InkBrush}" BorderThickness="0" />
 
                                                     <ItemsControl ItemsSource="{Binding Ranges}">
                                                         <ItemsControl.ItemTemplate>

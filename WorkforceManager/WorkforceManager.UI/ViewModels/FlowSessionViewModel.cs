@@ -249,6 +249,27 @@ namespace WorkforceManager.UI.ViewModels
             await LoadPendingWorkAsync();
         }
 
+        /// <summary>
+        /// بيعيد تحميل عرض الرصيد الأولي بس (شريط الملخّص + InitialBalances)
+        /// من غير ما يلمس المراحل أو التوزيع. بيتنادى من تبويب "الرصيد
+        /// الأولي" بعد أي إنشاء/حذف/سحب هناك، عشان الشريط هنا يتزامن
+        /// معاه فورًا بدل ما يفضل شايل أرقام قديمة لحد ما المستخدم يغيّر
+        /// المنتج أو يرجع للشاشة تاني. لو السحب المُجهّز حاليًا (لو موجود)
+        /// بقى بيشاور على رصيد اتشال، بيتلغي تلقائيًا.
+        /// </summary>
+        public async Task RefreshInitialBalanceDisplayAsync()
+        {
+            if (_pendingWithdrawal is { } pending)
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
+                if (await service.GetByIdAsync(pending.BalanceId) is null)
+                    CancelPendingWithdrawalCommand.Execute(null); // بيعيد تحميل الرحلة كلها ويشيل النطاقات اللي كانت متجهّزة للسحب
+            }
+
+            await LoadInitialBalancesAsync();
+        }
+
         private async Task LoadInitialBalancesAsync()
         {
             InitialBalances.Clear();

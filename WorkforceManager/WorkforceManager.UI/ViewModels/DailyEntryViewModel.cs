@@ -180,8 +180,22 @@ namespace WorkforceManager.UI.ViewModels
             // الرحلة ممكن تكون سجّلت هالك (البرنامج بيسأل عن الفرق بعد الحفظ)
             await LoadScrapAsync();
             await LoadClosureStateAsync();
-            // السحب من رصيد أولي بيغيّر المستهلك/المتبقي — الشريط والتبويب يتحدّثوا
+            // السحب من رصيد أولي بيغيّر المستهلك/المتبقي — الشريط والتبويب يتحدّثوا،
+            // وأي نطاق ماوصلش لآخر مرحلة اتحول رصيد جديد بيلزم كل الرحلات المفتوحة
             await LoadInitialBalanceTabAsync();
+            await RefreshAllFlowSessionsBalancesAsync();
+        }
+
+        /// <summary>
+        /// بيزامن شريط "الرصيد الأولي" وسحبه الجاري في كل رحلة مفتوحة مع
+        /// آخر حالة في قاعدة البيانات — بيتنادى بعد أي إنشاء/حذف/سحب في
+        /// تبويب "الرصيد الأولي" أو حفظ رحلة، عشان الشاشتين يفضلوا متطابقين
+        /// فورًا من غير ما المستخدم يحتاج يغيّر منتج أو يرجع للشاشة تاني.
+        /// </summary>
+        private async Task RefreshAllFlowSessionsBalancesAsync()
+        {
+            foreach (var session in FlowSessions)
+                await session.RefreshInitialBalanceDisplayAsync();
         }
 
         // ======================= إقفال إنتاج اليوم =======================
@@ -444,6 +458,7 @@ namespace WorkforceManager.UI.ViewModels
                 });
 
                 await LoadInitialBalanceTabAsync();
+                await RefreshAllFlowSessionsBalancesAsync();
                 Notify.Info($"تم إنشاء رصيد أولي \"{created.Name}\" بنجاح.", "تم الحفظ");
             }
             catch (Exception ex)
@@ -490,6 +505,7 @@ namespace WorkforceManager.UI.ViewModels
                     .DeleteAsync(balance.Id, deletedBy: null, reason: input.Reason);
 
                 await LoadInitialBalanceTabAsync();
+                await RefreshAllFlowSessionsBalancesAsync();
                 Notify.Info($"اتشال رصيد \"{balance.Name}\".", "تم");
             }
             catch (Exception ex)
