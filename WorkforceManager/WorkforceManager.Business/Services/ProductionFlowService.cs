@@ -586,5 +586,78 @@ namespace WorkforceManager.Business.Services
 
             return created;
         }
+
+        /// <summary>
+        /// بعد أي عملية بترجّع إنتاج منتج/يوم لحالة قبل الحفظ (حذف سجل
+        /// إنتاج أو يوم كامل) — بتعيد فحص فجوات الحدود بين المراحل بنفس
+        /// منطق <see cref="SyncStageGapBalancesAsync"/> بالظبط، وبتصغّر/تشيل
+        /// أي رصيد تلقائي (<see cref="InitialBalanceSource.DailyProduction"/>)
+        /// **بشكله الأصلي كما اتعمل بالظبط** (نطاق واحد يغطي كل كميته) لو
+        /// الفجوة اللي اتعمل عشانها بقت أصغر أو اتلغت خالص — بدون الحذف،
+        /// الرصيد ده كان هيفضل قايم يمثّل فجوة مالهاش وجود حقيقي.
+        ///
+        /// **بيتوقف عند أول جزء مستخدم أو أي تخصيص يدوي**: أي رصيد اتاخد
+        /// منه أي جزء (حتى لو جزئي) ما بيتصغّرش تحت الجزء المستخدم ده أبدًا،
+        /// وأي رصيد اتعدّل يدويًا (نطاقات متعددة، أو نطاق مش بنفس الشكل اللي
+        /// SyncStageGapBalancesAsync بتنتجه) بيتسبّ زي ما هو تمامًا — مش
+        /// من ضمن حساب المُطابقة هنا خالص.
+        /// </summary>
+        public async Task ReconcileAutoBalancesAsync(int productId, DateTime date)
+        {
+            var product = await _productRepo.GetWithStagesAsync(productId);
+            if (product is null) return;
+
+            var orderedStages = ProductionLine.Active(product);
+            if (orderedStages.Count < 2) return;
+
+            var totals = await _productionOutput.GetStageTotalsUpToAsync(date);
+            var scrapTotals = await _scrap.GetStageTotalsUpToAsync(date);
+            var lastStageId = orderedStages[^1].Id;
+
+            int Total(int stageId) => totals.TryGetValue(stageId, out var pieces) ? pieces : 0;
+            int Scrap(int stageId) => scrapTotals.TryGetValue(stageId, out var pieces) ? pieces : 0;
+
+            var autoBalances = await _initialBalances.GetOpenAutoBalancesAsync(productId);
+
+            for (var i = 1; i < orderedStages.Count; i++)
+            {
+                var before = Total(orderedStages[i - 1].Id) - Scrap(orderedStages[i - 1].Id);
+                var current = Total(orderedStages[i].Id);
+                var realGap = Math.Max(0, before - current);
+                var fromStageId = orderedStages[i].Id;
+
+                var candidates = autoBalances
+                    .Where(b => b.Ranges.Count == 1)
+                    .Where(b => b.Ranges.First().FromStageId == fromStageId && b.Ranges.First().ToStageId == lastStageId)
+                    .Where(b => b.Ranges.First().PieceCount == b.Quantity)
+                    .OrderBy(b => b.UsedQuantity)
+                    .ThenByDescending(b => b.CreatedAt)
+                    .ToList();
+
+                var excess = candidates.Sum(b => b.Quantity) - realGap;
+                if (excess <= 0) continue;
+
+                foreach (var balance in candidates)
+                {
+                    if (excess <= 0) break;
+
+                    var reducible = balance.Quantity - balance.UsedQuantity;
+                    if (reducible <= 0) continue;
+
+                    var reduceBy = Math.Min(excess, reducible);
+                    var newQuantity = balance.Quantity - reduceBy;
+
+                    if (newQuantity == 0)
+                        _initialBalances.Remove(balance);
+                    else
+                    {
+                        balance.Quantity = newQuantity;
+                        balance.Ranges.First().PieceCount = newQuantity;
+                    }
+
+                    excess -= reduceBy;
+                }
+            }
+        }
     }
 }

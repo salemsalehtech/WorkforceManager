@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
@@ -31,5 +32,14 @@ namespace WorkforceManager.Data.Repositories
                 .Where(x => x.Remaining > 0)
                 .ToList();
         }
+
+        public async Task<IReadOnlyList<InitialBalance>> GetOpenAutoBalancesAsync(int productId) =>
+            await _context.InitialBalances
+                .Include(b => b.Ranges)
+                .Include(b => b.Usages)
+                .Where(b => b.ProductId == productId && b.Source == InitialBalanceSource.DailyProduction)
+                .ToListAsync();
+
+        public void Remove(InitialBalance balance) => _context.InitialBalances.Remove(balance);
     }
 }

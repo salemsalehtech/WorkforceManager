@@ -205,6 +205,100 @@ namespace WorkforceManager.Tests
             Assert.False(await appDb.DailyProductions.AnyAsync(dp => dp.Date == Day));
         }
 
+        // ======================= إعادة المطابقة بعد حذف الإنتاج (ReconcileAutoBalancesAsync) =======================
+
+        [Fact]
+        public async Task Deleting_the_production_day_that_caused_a_gap_removes_the_now_baseless_auto_balance()
+        {
+            using (var scope = _db.CreateScope())
+            {
+                var flow = _db.GetService<ProductionFlowService>(scope);
+                var ranges = new[] { new FlowRangeDto { FromStageId = TestDatabase.BagStage1Id, ToStageId = TestDatabase.BagStage2Id, PieceCount = 40 } };
+                var shares = new[]
+                {
+                    new FlowShareDto { ProductionStageId = TestDatabase.BagStage1Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 40 },
+                    new FlowShareDto { ProductionStageId = TestDatabase.BagStage2Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 40 }
+                };
+                await flow.RecordFlowAsync(TestDatabase.ProductBagId, Day, ranges, shares, confirmOverride: true);
+            }
+
+            using (var checkScope = _db.CreateScope())
+            {
+                var appDb = _db.GetService<AppDbContext>(checkScope);
+                Assert.True(await appDb.InitialBalances.AnyAsync(b => b.ProductId == TestDatabase.ProductBagId));
+            }
+
+            using (var deleteScope = _db.CreateScope())
+            {
+                var workday = _db.GetService<WorkdayCalculationService>(deleteScope);
+                var result = await workday.DeleteProductionDayAsync(Day, "", "تصحيح");
+                Assert.True(result.IsDeleted);
+            }
+
+            using var finalScope = _db.CreateScope();
+            var finalDb = _db.GetService<AppDbContext>(finalScope);
+            // الفجوة اللي الرصيد ده اتعمل عشانها اتلغت خالص (الإنتاج الأصلي
+            // اللي سبّبها اتحذف) — الرصيد كان مفيش عليه أي استخدام فيتشال نهائي
+            Assert.False(await finalDb.InitialBalances.AnyAsync(b => b.ProductId == TestDatabase.ProductBagId));
+        }
+
+        [Fact]
+        public async Task Deleting_the_original_production_shrinks_but_never_removes_a_partially_withdrawn_auto_balance()
+        {
+            await _db.SignInTestUserAsync();
+            var completionDay = Day.AddDays(2);
+
+            InitialBalanceDto balance;
+            InitialBalanceRangeDto range;
+            using (var scope = _db.CreateScope())
+            {
+                var flow = _db.GetService<ProductionFlowService>(scope);
+                var ranges = new[] { new FlowRangeDto { FromStageId = TestDatabase.BagStage1Id, ToStageId = TestDatabase.BagStage2Id, PieceCount = 40 } };
+                var shares = new[]
+                {
+                    new FlowShareDto { ProductionStageId = TestDatabase.BagStage1Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 40 },
+                    new FlowShareDto { ProductionStageId = TestDatabase.BagStage2Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 40 }
+                };
+                await flow.RecordFlowAsync(TestDatabase.ProductBagId, Day, ranges, shares, confirmOverride: true);
+
+                var initialBalanceService = _db.GetService<InitialBalanceService>(scope);
+                var balances = await initialBalanceService.GetForProductAsync(TestDatabase.ProductBagId);
+                balance = Assert.Single(balances);
+                range = Assert.Single(balance.Ranges);
+            }
+
+            // سحب جزء (10 من 40) يوم مختلف (completionDay) — قبل ما نحذف
+            // الإنتاج الأصلي اللي سبّب الفجوة
+            using (var withdrawScope = _db.CreateScope())
+            {
+                var initialBalanceService = _db.GetService<InitialBalanceService>(withdrawScope);
+                var shares = new[] { new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 10 } };
+                await initialBalanceService.WithdrawAsync(balance.Id,
+                    new[] { new InitialBalanceRangeWithdrawalDto { RangeId = range.Id, PieceCount = 10 } },
+                    shares, completionDay, confirmOverride: true);
+            }
+
+            // احذف الإنتاج الأصلي بس (يوم Day) — يوم السحب (completionDay) متلمسش
+            using (var deleteScope = _db.CreateScope())
+            {
+                var workday = _db.GetService<WorkdayCalculationService>(deleteScope);
+                var result = await workday.DeleteProductionDayAsync(Day, "", "تصحيح");
+                Assert.True(result.IsDeleted);
+            }
+
+            using var finalScope = _db.CreateScope();
+            var finalDb = _db.GetService<AppDbContext>(finalScope);
+            var remainingBalance = await finalDb.InitialBalances
+                .Include(b => b.Ranges)
+                .Include(b => b.Usages)
+                .SingleAsync(b => b.ProductId == TestDatabase.ProductBagId);
+
+            // الفجوة الحقيقية بقت صفر بعد حذف الإنتاج الأصلي، بس الرصيد
+            // متصغّرش تحت الـ10 اللي اتسحبت فعلًا — الجزء المستخدم مايتلمسش
+            Assert.Equal(10, remainingBalance.Quantity);
+            Assert.Equal(10, remainingBalance.UsedQuantity);
+        }
+
         [Fact]
         public async Task CreatedRows_reports_one_entry_per_daily_production_row_written()
         {
