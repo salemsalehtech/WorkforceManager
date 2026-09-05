@@ -20,12 +20,15 @@ namespace WorkforceManager.Business.Services
     /// الفعلي بتاريخ السحب نفسه (مش تاريخ الرصيد الأصلي، بعكس التصميم
     /// القديم). **مفيش تكرار عد** رغم كده، لأن الرحلة الأصلية الناقصة
     /// أصلًا ما سجّلتش إنتاج فعلي على المراحل اللي بعدها — السحب هو أول
-    /// مرة الإنتاج الفعلي بيتسجل عليها. الأجر (<see cref="InitialBalanceUsage"/>)
-    /// بيتسجل مرة واحدة بس لكل صف إنتاج **على مرحلة خروج النطاق**
-    /// (<see cref="InitialBalanceRange.ToStageId"/>) — مراحل النطاق
-    /// الوسيطة بتاخد سجل إنتاج وأجر حقيقي زي أي مرحلة عادية، بس من غير
-    /// InitialBalanceUsage خاص بيها، عشان الكمية المستهلكة من النطاق
-    /// (وبالتبعية InitialBalance.UsedQuantity) متتعدّش وهي بتتجمّع.
+    /// مرة الإنتاج الفعلي بيتسجل عليها. <see cref="InitialBalanceUsage"/>
+    /// بيتسجل **لكل صف إنتاج في السحب، بما فيها مراحل النطاق الوسيطة** —
+    /// عشان شاشة "سجل الرصيد" تعرض كل العمال/المراحل اللي اشتغلت، مش
+    /// مرحلة الخروج بس. ده مايضاعفش "المتاح" من الرصيد: حساب
+    /// <see cref="InitialBalance.UsedQuantity"/> بيفلتر بنفس قاعدة
+    /// <see cref="InitialBalanceRangeMath.UsedQuantity"/> — سحب هالك
+    /// بيتحسب دايمًا، سحب إكمال إنتاج بس لو وصل **مرحلة خروج النطاق**
+    /// (<see cref="InitialBalanceRange.ToStageId"/>) — فصفوف المراحل
+    /// الوسيطة موجودة للعرض/التتبع بس ومش بتدخل في حساب المتبقي.
     /// </summary>
     public class InitialBalanceService
     {
@@ -171,11 +174,23 @@ namespace WorkforceManager.Business.Services
             };
         }
 
-        /// <summary>يشيل نطاقًا من رصيد — الاستخدامات المرتبطة به (لو موجودة) تفضل قايمة، الرابط بس بيروح (SetNull)</summary>
+        /// <summary>
+        /// يشيل نطاقًا من رصيد — **مرفوض لو اتاخد منه أي جزء بالفعل**: النطاق
+        /// هو المرجع اللي <see cref="InitialBalanceUsage.InitialBalanceRangeId"/>
+        /// بيشاور عليه، فحذفه كان هيسيب الاستخدام معلّق بلا مرجع. النطاق اللي
+        /// عليه استخدام يتصغّر بـ <see cref="UpdateRangeAsync"/> لحد أرضية
+        /// المستخدم منه بدل ما يتحذف.
+        /// </summary>
         public async Task RemoveRangeAsync(int rangeId)
         {
-            var range = await _db.InitialBalanceRanges.FindAsync(rangeId)
+            var range = await _db.InitialBalanceRanges
+                .Include(r => r.InitialBalance).ThenInclude(b => b.Usages)
+                .FirstOrDefaultAsync(r => r.Id == rangeId)
                 ?? throw new InvalidOperationException("النطاق غير موجود");
+
+            if (UsedFromRange(range.InitialBalance, range) > 0)
+                throw new InvalidOperationException(
+                    "النطاق ده عليه استخدام، مينفعش يتحذف — قلّل الكمية لحد الأقل الممكن بدل ما تحذفه");
 
             var balanceId = range.InitialBalanceId;
             _db.InitialBalanceRanges.Remove(range);
@@ -184,6 +199,59 @@ namespace WorkforceManager.Business.Services
             await _log.LogAsync(
                 ActivityEventType.InitialBalanceEdited, "InitialBalance", balanceId,
                 details: $"حذف نطاق {range.PieceCount:N0} قطعة");
+        }
+
+        /// <summary>
+        /// يعدّل عدد قطع نطاق قائم — **مايلمسش الامتداد (من/لمرحلة) خالص**،
+        /// وممنوع ينزل تحت أرضية الكمية اللي اتاخدت منه بالفعل (شوف تعليق
+        /// الكلاس فوق: الاستخدام المسجّل تاريخ ميتغيّرش ولا يتصغّر). تغيير
+        /// الامتداد نفسه متاح بس لو مفيش عليه استخدام إطلاقًا، عن طريق
+        /// حذف النطاق (<see cref="RemoveRangeAsync"/>) وإضافة واحد جديد
+        /// (<see cref="AddRangeAsync"/>).
+        /// </summary>
+        public async Task<InitialBalanceRangeDto> UpdateRangeAsync(int rangeId, int newPieceCount)
+        {
+            if (newPieceCount <= 0)
+                throw new ArgumentException("عدد قطع النطاق يجب أن يكون رقمًا موجبًا", nameof(newPieceCount));
+
+            var range = await _db.InitialBalanceRanges
+                .Include(r => r.FromStage)
+                .Include(r => r.ToStage)
+                .Include(r => r.InitialBalance).ThenInclude(b => b.Ranges)
+                .Include(r => r.InitialBalance).ThenInclude(b => b.Usages)
+                .FirstOrDefaultAsync(r => r.Id == rangeId)
+                ?? throw new InvalidOperationException("النطاق غير موجود");
+
+            var balance = range.InitialBalance;
+            var used = UsedFromRange(balance, range);
+            if (newPieceCount < used)
+                throw new InvalidOperationException(
+                    $"عدد القطع الجديد ({newPieceCount:N0}) أقل من الكمية المستخدمة من النطاق ({used:N0})");
+
+            var othersTotal = balance.Ranges.Where(r => r.Id != rangeId).Sum(r => r.PieceCount);
+            if (othersTotal + newPieceCount > balance.Quantity)
+                throw new InvalidOperationException(
+                    $"مجموع كمية النطاقات ({othersTotal + newPieceCount:N0}) أكبر من كمية الرصيد الكلية ({balance.Quantity:N0})");
+
+            range.PieceCount = newPieceCount;
+            await _db.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.InitialBalanceEdited, "InitialBalance", balance.Id,
+                entityName: balance.Name,
+                details: $"تعديل نطاق إلى {newPieceCount:N0} قطعة");
+
+            return new InitialBalanceRangeDto
+            {
+                Id = range.Id,
+                FromStageId = range.FromStageId,
+                FromStageName = range.FromStage.StageName,
+                ToStageId = range.ToStageId,
+                ToStageName = range.ToStage.StageName,
+                PieceCount = range.PieceCount,
+                SortOrder = range.SortOrder,
+                UsedQuantity = used
+            };
         }
 
         // ======================= التعديل والحذف =======================
@@ -214,34 +282,146 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
-        /// حذف ناعم لرصيد أولي — **مرفوض لو استُخدم منه أي قطعة**: الاستخدام
-        /// مرتبط بيومية/أجر عامل حقيقي، وحذف الرصيد وقتها كان هيسيب
-        /// الاستخدام معلّق بلا مصدر (شوف قاعدة "مفيش حذف تسلسلي غير آمن"
-        /// في مواصفات الفيتشر). لازم تراجع/تشيل الاستخدامات الأول.
+        /// تعديل شامل من شاشة "تعديل رصيد أولي": الاسم/الملاحظات + قايمة
+        /// النطاقات الكاملة المطلوب إنها تبقى الحالة النهائية، في حفظة واحدة
+        /// (SaveChangesAsync واحدة بس — أتوماتيكيًا atomic، مفيش داعي
+        /// لمعاملة صريحة زي WithdrawToScrapAsync لأن مفيش أكتر من نداء حفظ).
+        ///
+        /// **قاعدة القفل**: نطاق موجود عليه استخدام (جزئي أو كلي) — امتداده
+        /// (من/لمرحلة) مايتغيّرش خالص (القيم الواردة بتتجاهل)، وعدد قطعه
+        /// مايقلّش عن المستخدم منه. نطاق موجود مش في القايمة الجديدة بيتشال
+        /// بس لو مفيش عليه استخدام، وإلا ترفض العملية كلها.
         /// </summary>
-        public async Task DeleteAsync(int balanceId, string? deletedBy, string? reason)
+        public async Task<InitialBalanceDto> EditAsync(
+            int balanceId, string name, string? notes,
+            IReadOnlyList<InitialBalanceRangeEditItem> rangeEdits)
         {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("اسم الرصيد مطلوب", nameof(name));
+
             var balance = await _db.InitialBalances
+                .Include(b => b.Product).ThenInclude(p => p.Stages)
+                .Include(b => b.Ranges)
                 .Include(b => b.Usages)
                 .FirstOrDefaultAsync(b => b.Id == balanceId)
                 ?? throw new InvalidOperationException("الرصيد الأولي غير موجود");
 
-            if (balance.UsedQuantity > 0)
-                throw new InvalidOperationException(
-                    "الرصيد ده اتاخد منه جزء بالفعل (مرتبط بأجر عامل حقيقي) — راجع الاستخدامات الأول قبل الحذف");
+            var orderedStages = ProductionLine.Active(balance.Product);
+            var existingById = balance.Ranges.ToDictionary(r => r.Id);
+            var keptIds = rangeEdits.Where(e => e.Id.HasValue).Select(e => e.Id!.Value).ToHashSet();
 
-            balance.IsDeleted = true;
-            balance.DeletedAt = DateTime.Now;
-            balance.DeletedBy = deletedBy;
-            balance.DeletionReason = reason;
-            balance.DeletedName = balance.Name;
+            foreach (var range in balance.Ranges.Where(r => !keptIds.Contains(r.Id)).ToList())
+            {
+                if (UsedFromRange(balance, range) > 0)
+                    throw new InvalidOperationException(
+                        $"مينفعش تشيل نطاق رقم {range.Id} — عليه استخدام بالفعل");
+                _db.InitialBalanceRanges.Remove(range);
+            }
+
+            // تحقق الامتداد/التداخل على الحالة النهائية بالكامل (نطاقات
+            // موجودة اتعدّل عددها + نطاقات جديدة) — نفس منطق StageRangeValidator
+            // اللي CreateAsync/AddRangeAsync بيستخدموه
+            var finalFlowRanges = new List<FlowRangeDto>();
+            foreach (var edit in rangeEdits)
+            {
+                if (edit.Id is int existingId)
+                {
+                    var range = existingById.TryGetValue(existingId, out var r)
+                        ? r
+                        : throw new InvalidOperationException("النطاق المحدد لا ينتمي لهذا الرصيد");
+                    finalFlowRanges.Add(new FlowRangeDto { FromStageId = range.FromStageId, ToStageId = range.ToStageId, PieceCount = edit.PieceCount });
+                }
+                else
+                {
+                    finalFlowRanges.Add(new FlowRangeDto { FromStageId = edit.FromStageId, ToStageId = edit.ToStageId, PieceCount = edit.PieceCount });
+                }
+            }
+
+            if (finalFlowRanges.Count > 0)
+                StageRangeValidator.ValidateAndComputePiecesPerStage(orderedStages, finalFlowRanges, out _);
+
+            var total = finalFlowRanges.Sum(r => r.PieceCount);
+            if (total > balance.Quantity)
+                throw new InvalidOperationException(
+                    $"مجموع كمية النطاقات ({total:N0}) أكبر من كمية الرصيد الكلية ({balance.Quantity:N0})");
+
+            foreach (var edit in rangeEdits)
+            {
+                if (edit.Id is int existingId)
+                {
+                    var range = existingById[existingId];
+                    var used = UsedFromRange(balance, range);
+                    if (edit.PieceCount < used)
+                        throw new InvalidOperationException(
+                            $"عدد القطع الجديد ({edit.PieceCount:N0}) أقل من الكمية المستخدمة من النطاق ({used:N0})");
+                    range.PieceCount = edit.PieceCount;
+                }
+                else
+                {
+                    balance.Ranges.Add(new InitialBalanceRange
+                    {
+                        FromStageId = edit.FromStageId,
+                        ToStageId = edit.ToStageId,
+                        PieceCount = edit.PieceCount,
+                        SortOrder = balance.Ranges.Count
+                    });
+                }
+            }
+
+            balance.Name = name.Trim();
+            balance.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+
+            await _db.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.InitialBalanceEdited, "InitialBalance", balanceId,
+                entityName: balance.Name, details: "تعديل بيانات الرصيد والنطاقات");
+
+            return await GetByIdAsync(balanceId)
+                ?? throw new InvalidOperationException("تعذّر تحميل الرصيد بعد التعديل");
+        }
+
+        /// <summary>
+        /// حذف رصيد أولي — نفس قاعدة الحذف العامة في التطبيق
+        /// (<see cref="DeletionScopeService"/>/<see cref="SoftDeleteService"/>):
+        /// **حذف نهائي لو مفيش أي استخدام** (الصف بيختفي خالص، والنطاقات
+        /// بتتشال معاه Cascade)، **حذف ناعم لو فيه استخدام** — الاستخدامات
+        /// والـ DailyProduction/ProductionScrap المرتبطة بيها تفضل زي ما هي
+        /// بالظبط (تاريخ أجر حقيقي، ميتلمسش)، وبس الكارت بيختفي من القوايم
+        /// النشطة عن طريق <c>IsDeleted</c> — الفلتر العام الموجود فعلاً في
+        /// AppDbContext (<c>!b.IsDeleted</c>) بيمنع أي استعلام (بما فيه
+        /// WithdrawAsync/WithdrawToScrapAsync) من الوصول له تاني، من غير
+        /// أي كود إضافي.
+        /// </summary>
+        public async Task DeleteAsync(int balanceId, string? deletedBy, string? reason)
+        {
+            var balance = await _db.InitialBalances
+                .Include(b => b.Ranges)
+                .Include(b => b.Usages)
+                .FirstOrDefaultAsync(b => b.Id == balanceId)
+                ?? throw new InvalidOperationException("الرصيد الأولي غير موجود");
+
+            var wasPermanent = balance.UsedQuantity == 0;
+
+            if (wasPermanent)
+            {
+                _db.InitialBalances.Remove(balance);
+            }
+            else
+            {
+                balance.IsDeleted = true;
+                balance.DeletedAt = DateTime.Now;
+                balance.DeletedBy = deletedBy;
+                balance.DeletionReason = reason;
+                balance.DeletedName = balance.Name;
+            }
 
             await _db.SaveChangesAsync();
 
             await _log.LogAsync(
                 ActivityEventType.InitialBalanceDeleted, "InitialBalance", balanceId,
                 entityName: balance.Name, reason: reason,
-                details: $"{balance.Quantity:N0} قطعة");
+                details: $"{balance.Quantity:N0} قطعة" + (wasPermanent ? "" : $" — {balance.UsedQuantity:N0} منها مستخدم، فضل في السجلات"));
         }
 
         // ======================= السحب/الإكمال =======================
@@ -321,10 +501,15 @@ namespace WorkforceManager.Business.Services
 
         /// <summary>
         /// بيتنفذ جوه معاملة RecordFlowAsync نفسها (postWriteHook) بعد ما
-        /// DailyProductionId بقى حقيقي — بيسجل InitialBalanceUsage واحد
-        /// لكل صف وصل **مرحلة خروج نطاقه** بس (مش كل مرحلة وسيطة)، عشان
-        /// InitialBalance.UsedQuantity (وحساب "المتاح" فوق) ما يتضاعفش
-        /// لما نطاق بيغطي أكتر من مرحلة.
+        /// DailyProductionId بقى حقيقي — بيسجل InitialBalanceUsage
+        /// **لكل صف** في السحب، بما فيها مراحل النطاق الوسيطة، عشان
+        /// شاشة "سجل الرصيد" (InitialBalanceService.GetHistoryAsync)
+        /// تعرض **كل** العمال/المراحل اللي اشتغلت على السحب ده — مش
+        /// مرحلة الخروج بس. **ده مايضاعفش "المتاح" من الرصيد** لأن
+        /// InitialBalance.UsedQuantity بقى بيحسب بنفس قاعدة
+        /// InitialBalanceRangeMath.UsedQuantity (سحب هالك دايمًا، سحب
+        /// إكمال إنتاج بس لو وصل مرحلة الخروج) — صفوف المراحل الوسيطة
+        /// هنا موجودة للعرض/التتبع بس ومش بتدخل في حساب المتبقي.
         /// </summary>
         private async Task WriteUsageRowsAsync(
             int balanceId, DateTime date,
@@ -337,7 +522,6 @@ namespace WorkforceManager.Business.Services
                     continue; // مش من ضمن نطاقات السحب دي (نظريًا مايحصلش، rangeIndex بيتحسب من نفس الـ ranges اللي بعتناها)
 
                 var range = rangesById[rangeIdByFlowIndex[row.SubmittedRangeIndex]];
-                if (row.ProductionStageId != range.ToStageId) continue; // مرحلة وسيطة — إنتاج وأجر حقيقي، بدون تتبع رصيد منفصل
 
                 await _db.InitialBalanceUsages.AddAsync(new InitialBalanceUsage
                 {
@@ -432,8 +616,8 @@ namespace WorkforceManager.Business.Services
 
         // ======================= القراية =======================
 
-        /// <summary>كل الأرصدة الأولية لمنتج معين — لبطاقة الرصيد الأولي في شاشة الإنتاج اليومي</summary>
-        public async Task<IReadOnlyList<InitialBalanceDto>> GetForProductAsync(int productId)
+        /// <summary>كل الأرصدة الأولية (نشطة + مكتملة) لمنتج معين، بدون فلترة على الحالة — أساس GetForProductAsync/GetHistoryForProductAsync/GetProductSummaryAsync</summary>
+        private async Task<List<InitialBalanceDto>> GetAllForProductAsync(int productId)
         {
             var balances = await _db.InitialBalances
                 .AsNoTracking()
@@ -449,9 +633,39 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
-        /// تجميع كل أرصدة منتج في رقم واحد — للكارت المُجمّع (progress bar)
-        /// في شاشة الإنتاج اليومي بدل عرض كل رصيد لوحده. عرض بصري بحت:
-        /// بيبني فوق نفس GetForProductAsync، البيانات الأصلية مش بتتغيّر.
+        /// الأرصدة **النشطة** بس (لسه فيها حاجة متاحة أو لسه محدش استخدم
+        /// منها حاجة) — لبطاقة الرصيد الأولي في شاشة الإنتاج اليومي. رصيد
+        /// كمّل بالسحب الفعلي بيتنقل لـ <see cref="GetHistoryForProductAsync"/>
+        /// تلقائيًا (الحالة محسوبة، مفيش عمود منفصل بيحدد ده — شوف
+        /// InitialBalanceStatus).
+        /// </summary>
+        public async Task<IReadOnlyList<InitialBalanceDto>> GetForProductAsync(int productId) =>
+            (await GetAllForProductAsync(productId))
+                .Where(b => b.Status != InitialBalanceStatus.Completed)
+                .ToList();
+
+        /// <summary>
+        /// الأرصدة اللي **كملت باستخدام حقيقي فقط** (Status == Completed) —
+        /// قسم "History". مشتقة من نفس الحساب، مفيش عمود جديد. رصيد اتحذف
+        /// يدويًا (<see cref="DeleteAsync"/>) مايظهرش هنا أبدًا حتى لو كان
+        /// عليه استخدام جزئي أو كلي وقت الحذف، لأنه IsDeleted والفلتر العام
+        /// في AppDbContext بيستبعده من الأساس — History بس لاستهلاك طبيعي
+        /// عن طريق السحب.
+        /// </summary>
+        public async Task<IReadOnlyList<InitialBalanceDto>> GetHistoryForProductAsync(int productId) =>
+            (await GetAllForProductAsync(productId))
+                .Where(b => b.Status == InitialBalanceStatus.Completed)
+                .ToList();
+
+        /// <summary>
+        /// تجميع أرصدة منتج **النشطة بس** في رقم واحد — للكارت المُجمّع
+        /// (progress bar) في شاشة الإنتاج اليومي بدل عرض كل رصيد لوحده.
+        /// **عن قصد بيستبعد المكتمل** (نفس نطاق GetForProductAsync بالظبط)
+        /// عشان الرقم اللي المستخدم شايفه فوق يبقى دايمًا مطابق لمجموع
+        /// الكروت الظاهرة تحته — تضمين المكتمل هنا كان بيخلي "الإجمالي"
+        /// يشمل أرصدة قديمة كملت واختفت من القايمة، فيبان أكبر من أي حاجة
+        /// المستخدم شايفها فعليًا وبيتلخبط. عرض بصري بحت: البيانات
+        /// الأصلية مش بتتغيّر.
         /// </summary>
         public async Task<InitialBalanceSummaryDto> GetProductSummaryAsync(int productId)
         {
@@ -463,7 +677,7 @@ namespace WorkforceManager.Business.Services
                 TotalQuantity = balances.Sum(b => b.Quantity),
                 UsedQuantity = balances.Sum(b => b.UsedQuantity),
                 RemainingQuantity = balances.Sum(b => b.RemainingQuantity),
-                ActiveBalanceCount = balances.Count(b => b.Status != InitialBalanceStatus.Completed)
+                ActiveBalanceCount = balances.Count
             };
         }
 
@@ -532,7 +746,8 @@ namespace WorkforceManager.Business.Services
                     ToStageId = r.ToStageId,
                     ToStageName = r.ToStage.StageName,
                     PieceCount = r.PieceCount,
-                    SortOrder = r.SortOrder
+                    SortOrder = r.SortOrder,
+                    UsedQuantity = InitialBalanceRangeMath.UsedQuantity(r, b.Usages)
                 })
                 .ToList()
         };

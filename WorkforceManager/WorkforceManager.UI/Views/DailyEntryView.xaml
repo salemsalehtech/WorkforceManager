@@ -845,13 +845,23 @@
 
                     <Border Grid.Row="0" Style="{StaticResource ToolbarCard}" Margin="0,0,0,10">
                         <DockPanel>
-                            <Button DockPanel.Dock="Left" Command="{Binding AddInitialBalanceCommand}"
-                                    Style="{StaticResource PrimaryButton}" Padding="14,8" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="PackageVariantClosedPlus" Width="15" Height="15" VerticalAlignment="Center" />
-                                    <TextBlock Text="رصيد أولي جديد" Margin="6,0,0,0" />
-                                </StackPanel>
-                            </Button>
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                <Button Command="{Binding AddInitialBalanceCommand}"
+                                        Style="{StaticResource PrimaryButton}" Padding="14,8" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="PackageVariantClosedPlus" Width="15" Height="15" VerticalAlignment="Center" />
+                                        <TextBlock Text="رصيد أولي جديد" Margin="6,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <ToggleButton Style="{StaticResource StatusChip}" Margin="10,0,0,0"
+                                              IsChecked="{Binding IsShowingInitialBalanceHistory}"
+                                              ToolTip="الأرصدة اللي كملت باستخدامها بالكامل">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="ArchiveOutline" Width="14" Height="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="السجل" Margin="5,0,0,0" />
+                                    </StackPanel>
+                                </ToggleButton>
+                            </StackPanel>
 
                             <!-- الملخّص المُجمّع لأرصدة المنتج (نفس شريط كارت الرحلة) -->
                             <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" Width="220"
@@ -881,6 +891,8 @@
 
                     <Border Grid.Row="1" Style="{StaticResource Card}" Padding="6">
                         <Grid>
+                            <!-- الأرصدة النشطة -->
+                            <Grid Visibility="{Binding IsShowingInitialBalanceHistory, Converter={StaticResource InverseBoolToVis}}">
                             <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Foreground="{DynamicResource TextMutedBrush}" FontSize="14"
                                        TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center"
@@ -902,6 +914,12 @@
                                                                     Command="{Binding DataContext.ShowInitialBalanceHistoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                     CommandParameter="{Binding}">
                                                                 <materialDesign:PackIcon Kind="History" Width="16" Height="16" />
+                                                            </Button>
+                                                            <Button Style="{StaticResource IconButton}" Padding="5"
+                                                                    ToolTip="تعديل الرصيد"
+                                                                    Command="{Binding DataContext.EditInitialBalanceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding}">
+                                                                <materialDesign:PackIcon Kind="PencilOutline" Width="16" Height="16" />
                                                             </Button>
                                                             <Button Style="{StaticResource IconButton}" Padding="5"
                                                                     Foreground="{DynamicResource DangerBrush}"
@@ -972,6 +990,49 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
+                            </Grid>
+
+                            <!-- السجل: الأرصدة اللي كملت باستخدامها بالكامل — للاطّلاع بس، بدون تعديل/حذف/سحب -->
+                            <Grid Visibility="{Binding IsShowingInitialBalanceHistory, Converter={StaticResource BoolToVis}}">
+                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="14"
+                                           TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center"
+                                           Text="مفيش أرصدة مكتملة لسه للمنتج ده."
+                                           Visibility="{Binding InitialBalanceHistoryIsEmpty, Converter={StaticResource BoolToVis}}" />
+
+                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                              Visibility="{Binding InitialBalanceHistoryIsEmpty, Converter={StaticResource InverseBoolToVis}}">
+                                    <ItemsControl ItemsSource="{Binding InitialBalanceHistoryCards}" Margin="4">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="14,12" Margin="0,0,0,10"
+                                                        BorderBrush="{DynamicResource SoftPanelBorderBrush}" BorderThickness="1" Opacity="0.85">
+                                                    <StackPanel>
+                                                        <DockPanel>
+                                                            <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Padding="5"
+                                                                    ToolTip="سجل الاستخدام"
+                                                                    Command="{Binding DataContext.ShowInitialBalanceHistoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding}">
+                                                                <materialDesign:PackIcon Kind="History" Width="16" Height="16" />
+                                                            </Button>
+                                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14"
+                                                                       Foreground="{DynamicResource InkBrush}"
+                                                                       VerticalAlignment="Center" TextWrapping="Wrap" />
+                                                        </DockPanel>
+
+                                                        <TextBlock FontSize="12" Margin="0,4,0,0"
+                                                                   Foreground="{DynamicResource TextMutedBrush}">
+                                                            <Run Text="{Binding Quantity, Mode=OneWay, StringFormat='إجمالي {0:N0}'}" />
+                                                            <Run Text="  ·  " />
+                                                            <Run Text="اكتمل بالكامل" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
                         </Grid>
                     </Border>
                 </Grid>

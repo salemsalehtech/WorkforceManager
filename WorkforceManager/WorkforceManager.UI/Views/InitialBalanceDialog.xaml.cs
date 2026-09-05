@@ -37,21 +37,42 @@ namespace WorkforceManager.UI.Views
         {
             if (sender is FrameworkElement { DataContext: DialogRangeItem item })
             {
+                // زر الحذف متعطّل أصلاً في الـ XAML على نطاق عليه استخدام
+                // (IsLocked) — الفحص هنا دفاعي بس، مش أول خط دفاع
+                if (item.IsLocked) return;
                 Ranges.Remove(item);
             }
         }
 
-        /// <summary>وضع التعديل — الاسم/الملاحظات بس قابلين للتغيير (شوف InitialBalanceService.UpdateAsync)</summary>
-        public void LoadBalance(string name, string? notes, int quantity, DateTime originalDate)
+        /// <summary>
+        /// وضع التعديل: الاسم/الملاحظات والكمية والتاريخ الأصلي زي ما هو
+        /// (الكمية/التاريخ مقفولين، شوف تعليقات EditAsync). النطاقات بتتحمل
+        /// من الرصيد الحالي — أي نطاق عليه استخدام (<see cref="InitialBalanceRangeDto.UsedQuantity"/> > 0)
+        /// امتداده (من/لمرحلة) وزرار حذفه بيتقفلوا، وعدد قطعه بس قابل
+        /// للتعديل لحد أرضية المستخدم.
+        /// </summary>
+        public void LoadBalance(InitialBalanceDto balance)
         {
             HeaderText.Text = "تعديل رصيد أولي";
-            NameBox.Text = name;
-            NotesBox.Text = notes ?? string.Empty;
-            QuantityBox.Text = quantity.ToString();
+            NameBox.Text = balance.Name;
+            NotesBox.Text = balance.Notes ?? string.Empty;
+            QuantityBox.Text = balance.Quantity.ToString();
             QuantityBox.IsEnabled = false;
-            OriginalDatePicker.SelectedDate = originalDate;
+            OriginalDatePicker.SelectedDate = balance.OriginalDate;
             OriginalDatePicker.IsEnabled = false;
-            RangesSection.Visibility = Visibility.Collapsed;
+
+            Ranges.Clear();
+            foreach (var r in balance.Ranges)
+            {
+                Ranges.Add(new DialogRangeItem(_stages)
+                {
+                    Id = r.Id,
+                    FromStage = _stages.FirstOrDefault(s => s.StageId == r.FromStageId),
+                    ToStage = _stages.FirstOrDefault(s => s.StageId == r.ToStageId),
+                    QuantityText = r.PieceCount.ToString(),
+                    UsedQuantity = r.UsedQuantity
+                });
+            }
         }
 
         public string BalanceName => NameBox.Text.Trim();
@@ -63,6 +84,22 @@ namespace WorkforceManager.UI.Views
         {
             return Ranges.Select(r => new AddInitialBalanceRangeRequest
             {
+                FromStageId = r.FromStage?.StageId ?? 0,
+                ToStageId = r.ToStage?.StageId ?? 0,
+                PieceCount = int.TryParse(r.QuantityText.Trim(), out var q) ? q : 0
+            }).ToList();
+        }
+
+        /// <summary>
+        /// نفس قايمة النطاقات لكن بشكل EditAsync بيفهمه — نطاق قديم بيحمل
+        /// Id (امتداده بيتجاهل في الـ Business layer، القيم هنا للعرض بس)،
+        /// نطاق جديد Id يبقى null.
+        /// </summary>
+        public List<InitialBalanceRangeEditItem> GetRangeEdits()
+        {
+            return Ranges.Select(r => new InitialBalanceRangeEditItem
+            {
+                Id = r.Id,
                 FromStageId = r.FromStage?.StageId ?? 0,
                 ToStageId = r.ToStage?.StageId ?? 0,
                 PieceCount = int.TryParse(r.QuantityText.Trim(), out var q) ? q : 0
@@ -102,6 +139,11 @@ namespace WorkforceManager.UI.Views
                     ErrorText.ShowError("عدد قطع النطاق يجب أن يكون رقمًا أكبر من صفر");
                     return;
                 }
+                if (rq < range.UsedQuantity)
+                {
+                    ErrorText.ShowError($"عدد قطع النطاق مايقلّش عن الكمية المستخدمة منه ({range.UsedQuantity:N0})");
+                    return;
+                }
             }
 
             DialogResult = true;
@@ -120,10 +162,21 @@ namespace WorkforceManager.UI.Views
         {
             Stages = stages;
         }
-        
+
+        /// <summary>null = نطاق جديد لسه ماتحفظش؛ رقم = نطاق موجود من رصيد بيتعدّل</summary>
+        public int? Id { get; set; }
         public IReadOnlyList<BalanceStageChoice> Stages { get; }
         public BalanceStageChoice? FromStage { get; set; }
         public BalanceStageChoice? ToStage { get; set; }
         public string QuantityText { get; set; } = "";
+
+        /// <summary>كام قطعة اتاخدت من النطاق ده بالفعل — 0 لنطاق جديد أو نطاق موجود لسه مالوش استخدام</summary>
+        public int UsedQuantity { get; set; }
+
+        /// <summary>عليه استخدام؟ الامتداد (من/لمرحلة) وزرار الحذف بيتقفلوا لو true — شوف InitialBalanceService.EditAsync</summary>
+        public bool IsLocked => UsedQuantity > 0;
+
+        /// <summary>عكس IsLocked — تسهيلًا للـ Binding على IsEnabled في الـ XAML</summary>
+        public bool IsEditableSpan => !IsLocked;
     }
 }
