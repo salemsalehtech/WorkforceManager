@@ -12,11 +12,30 @@ namespace WorkforceManager.Business.DTOs
         public string ToStageName { get; init; } = string.Empty;
         public int PieceCount { get; init; }
         public int SortOrder { get; init; }
+
+        /// <summary>كام قطعة اتاخدت فعلًا من النطاق ده (شوف InitialBalanceRangeMath.UsedQuantity) — للعرض/التعديل، عشان الشاشة تقفل الامتداد على نطاق عليه استخدام</summary>
+        public int UsedQuantity { get; init; }
     }
 
     /// <summary>طلب إضافة نطاق جديد لرصيد قائم</summary>
     public class AddInitialBalanceRangeRequest
     {
+        public int FromStageId { get; init; }
+        public int ToStageId { get; init; }
+        public int PieceCount { get; init; }
+    }
+
+    /// <summary>
+    /// صف واحد في قايمة نطاقات معدّلة كاملة — لـ <see cref="WorkforceManager.Business.Services.InitialBalanceService.EditAsync"/>.
+    /// <see cref="Id"/> = null معناه نطاق جديد (بيتحقق منه بـ From/To/PieceCount)؛
+    /// <see cref="Id"/> معروف معناه نطاق موجود بيتحدّث عدد قطعه بس —
+    /// From/To بتاعته بتتجاهل تمامًا (الامتداد مقفول بمجرد ما يتاخد منه أي حاجة،
+    /// شوف تعليق EditAsync). أي نطاق موجود مش في القايمة دي بيتشال، بشرط
+    /// مايكونش عليه استخدام.
+    /// </summary>
+    public class InitialBalanceRangeEditItem
+    {
+        public int? Id { get; init; }
         public int FromStageId { get; init; }
         public int ToStageId { get; init; }
         public int PieceCount { get; init; }

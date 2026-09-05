@@ -821,6 +821,93 @@ Core  <----------------------- UI
   queryable. Net workdays = produced − unexcused-absence deduction (**0.5 workday per
   `AbsentWithoutPermission` day**; excused absence costs nothing) − penalty deductions. Best worker of
   the week = highest net, only if they produced and net > 0.
+- **Initial balance editing/deletion/history** (`InitialBalanceService`): a range's **from/to stage locks
+  permanently the moment it has any usage** (`InitialBalanceRangeMath.UsedQuantity(range, usages) > 0`,
+  scrap withdrawals count, mid-range production rows don't — same rule as everywhere else in this
+  feature). Only the still-unused portion of `PieceCount` can move: `UpdateRangeAsync`/`EditAsync` reject
+  shrinking below the used floor, and `RemoveRangeAsync` refuses outright once a range has any usage —
+  the range row is the anchor `InitialBalanceUsage.InitialBalanceRangeId` points at, so deleting it would
+  orphan real wage history. `EditAsync` is the one method the "تعديل" screen calls: it takes the *desired
+  end state* (name, notes, full range list where an existing range carries its `Id` and a new one
+  doesn't) and reconciles adds/resizes/removals in a single `SaveChangesAsync` — one DB round trip is
+  already atomic, so no explicit `IUnitOfWork` transaction is needed here (contrast
+  `WithdrawToScrapAsync`, which needs one because it makes two separate save calls).
+  **Deletion now follows the same hard-vs-soft split as every other entity** (`DeletionScopeService`
+  pattern): zero usage → hard delete (the row and its cascaded ranges disappear); any usage → soft-close
+  via the `IsDeleted` flag `InitialBalance` already carried (`SoftDeletableEntity`) — the existing global
+  query filter (`!b.IsDeleted` in `AppDbContext`) is what makes the card vanish from every list and makes
+  a later withdrawal attempt fail with "not found", with no extra code. This replaced the old rule, which
+  refused deletion entirely once anything had been withdrawn — the opposite of what was needed, since a
+  balance with real wage history attached is exactly the case a manager wants to close out.
+  **History is derived, not stored**: `GetHistoryForProductAsync` filters the same query
+  `GetForProductAsync` uses down to `Status == Completed` (`Status` was already computed from
+  `UsedQuantity` vs `Quantity`, nothing new added), so a balance drained to zero by real withdrawals
+  moves itself out of the active list into History automatically. A balance closed by manual deletion
+  (soft or hard) **never** appears there, deleted-with-usage included — it's `IsDeleted`, and the global
+  filter excludes it before the Completed check ever runs. `GetProductSummaryAsync` sums the **same set**
+  `GetForProductAsync` shows (active only, Completed excluded) **on purpose** — an earlier version summed
+  every balance ever created for the product (active + history) so the total wouldn't "shrink" when one
+  completed, but that made the top progress bar show a bigger number than the sum of the cards actually
+  visible underneath it, which read as a bug (a completed balance's original quantity kept inflating
+  "إجمالي" long after it had moved to History). The summary now always equals what's on screen; a
+  completed balance's lifetime numbers are visible on its own card inside History, not folded into the
+  active total.
+  **The "zero ranges = whole line" shortcut lives in the UI** (`DailyEntryViewModel.AddInitialBalanceAsync`),
+  not in `InitialBalanceService.CreateAsync`. `CreateAsync`'s contract is "creates exactly the ranges it's
+  given" — many existing tests (and the same class of caller `IInitialBalanceRepository` serves for
+  automatic gap-balances from `ProductionFlowService`) rely on being able to create with zero ranges and
+  add specific ones afterward. Auto-filling inside `CreateAsync` broke that contract for every such
+  caller; computing the default (first active stage → last active stage, full quantity) once in the
+  ViewModel right before the request is built keeps the Business-layer method's meaning unchanged and
+  only affects the one screen where "the user typed a count and hit save with nothing else" is an actual
+  user gesture.
+  **"سجل الرصيد" (`GetHistoryAsync`) now records every worker/stage that touched a withdrawal, not just
+  the range's exit stage.** It used to skip intermediate-stage rows entirely (only the exit-stage row got
+  an `InitialBalanceUsage`), so a range spanning multiple stages showed only the last worker in its usage
+  log even though every stage in between has a real, fully-paid `DailyProduction` row — a user-reported
+  confusion ("why does only one worker show when several worked on this"). `WriteUsageRowsAsync` now
+  writes an `InitialBalanceUsage` for **every** row in the withdrawal. This does **not** double-count the
+  balance's remaining quantity: `InitialBalance.UsedQuantity` moved from a flat `Usages.Sum(u =>
+  u.Quantity)` to summing `InitialBalanceRangeMath.UsedQuantity` per range (the same "scrap always counts,
+  production only counts on the range's exit stage" rule the range-level remaining calc already used) —
+  so the extra intermediate-stage rows exist purely for the history view and never affect
+  `RemainingQuantity`/`Status`. **Trap this hit immediately**: `InitialBalance.UsedQuantity` now reads
+  `Ranges`, so any query that loads `Usages` without also loading `Ranges` silently computes 0 used
+  quantity — `DeleteAsync` had exactly this bug (missing `.Include(b => b.Ranges)`) until
+  `DeletionScopeTests`-style coverage caught it turning a soft-close into an attempted hard-delete that
+  crashed on the `Usages` FK. Any new query touching `InitialBalance.UsedQuantity`/`RemainingQuantity`/
+  `Status` must include both `Ranges` and `Usages`, not just one.
+  **"عرض العمال" lives inside "سجل الرصيد" (`InitialBalanceHistoryDialog`) as a view toggle, not a
+  separate button on the card.** The dialog already lists every usage chronologically (one row per
+  withdrawal/worker/stage, per the fix above); the toggle regroups the same rows by `(WorkerName,
+  StageName)` — summed quantity, occurrence count, first→last date — so "who worked on which stage" reads
+  as one line per pairing instead of scrolling every date. Scrap-withdrawal rows (`WorkerName` empty, no
+  worker involved) are excluded from the grouped view on purpose — the question it answers is "who
+  worked here", not "how much went to scrap".
+  **Deleting the production that caused an auto-created gap balance now reconciles it, instead of leaving
+  it orphaned.** `SyncStageGapBalancesAsync` creates a `Source == DailyProduction` balance from a snapshot
+  of cumulative totals at save time, with no FK back to any specific `DailyProduction` row — so deleting
+  the production that produced the "before" side of that gap (one record, or a whole day) used to leave
+  the auto-balance sitting there forever, representing a gap that no longer exists. `ProductionFlowService.
+  ReconcileAutoBalancesAsync(productId, date)` re-runs the exact same boundary-gap computation after the
+  fact and shrinks/removes any matching auto-balance down to the now-real gap. Two invariants keep this
+  safe: it never reduces a balance below its own `UsedQuantity` (a partially-withdrawn auto-balance keeps
+  exactly its used floor, never disappears), and it only touches balances that still have their **original
+  unedited shape** (`Source == DailyProduction`, exactly one range, `PieceCount == Quantity`) — anything a
+  user added a range to or resized via `EditAsync` is left alone, since it's no longer "just" the
+  auto-computed snapshot. Wired into `WorkdayCalculationService.DeleteProductionAsync`/
+  `DeleteProductionDayAsync`, right after `ProductionStageOutputService.RemoveIfNowOrphanedAsync` — **and
+  after an extra `SaveChangesAsync`**, because `RemoveIfNowOrphanedAsync` only marks the ledger row for
+  deletion in the change tracker; `GetStageTotalsUpToAsync` queries the database directly, so without that
+  intermediate save the reconciliation reads the pre-deletion totals and does nothing. `Undo`Edit/Delete
+  paths deliberately don't call this (same as they don't call `RemoveIfNowOrphanedAsync` either) — undo
+  restores a prior state rather than correcting one, so it was never expected to shrink a gap.
+  Needed extending `IInitialBalanceRepository` with `GetOpenAutoBalancesAsync`/`Remove` (Data layer) and
+  injecting `ProductionFlowService` into `WorkdayCalculationService`, rather than injecting
+  `InitialBalanceService` there — `InitialBalanceService` already depends on `ProductionFlowService`, so
+  routing through it would have been circular; the whole reason `IInitialBalanceRepository` exists (see
+  its own doc comment) is to let `ProductionFlowService` touch initial balances without going through
+  `InitialBalanceService`.
 
 ## Environment note
 

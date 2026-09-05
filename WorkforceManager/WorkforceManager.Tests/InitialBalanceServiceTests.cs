@@ -615,6 +615,427 @@ namespace WorkforceManager.Tests
             Assert.Contains("متسجلة خلاص", ex.Message);
         }
 
+        // ======================= تعديل الاسم/الملاحظات (UpdateAsync) =======================
+
+        [Fact]
+        public async Task UpdateAsync_changes_name_and_notes_but_not_quantity()
+        {
+            var balance = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                s.CreateAsync(new CreateInitialBalanceRequest
+                {
+                    ProductId = TestDatabase.ProductBagId,
+                    Name = "Old name",
+                    Quantity = 30,
+                    OriginalDate = Day
+                }));
+
+            var updated = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                s.UpdateAsync(balance.Id, "New name", "ملاحظة جديدة"));
+
+            Assert.Equal("New name", updated.Name);
+            Assert.Equal("ملاحظة جديدة", updated.Notes);
+            Assert.Equal(30, updated.Quantity);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_with_blank_name_is_rejected()
+        {
+            var balance = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                s.CreateAsync(new CreateInitialBalanceRequest
+                {
+                    ProductId = TestDatabase.ProductBagId,
+                    Name = "Old name",
+                    Quantity = 30,
+                    OriginalDate = Day
+                }));
+
+            await Assert.ThrowsAsync<ArgumentException>(() =>
+                _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                    s.UpdateAsync(balance.Id, "   ", null)));
+        }
+
+        // ======================= سجل الرصيد (GetHistoryAsync) بيعرض كل العمال/المراحل =======================
+
+        [Fact]
+        public async Task GetHistoryAsync_shows_every_worker_and_stage_in_a_multi_stage_range_not_just_the_exit_stage()
+        {
+            await _db.SignInTestUserAsync();
+
+            var balance = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                s.CreateAsync(new CreateInitialBalanceRequest
+                {
+                    ProductId = TestDatabase.ProductBagId,
+                    Name = "Multi-worker range",
+                    Quantity = 50,
+                    OriginalDate = Day,
+                }));
+
+            var range = await _db.InScopeAsync<InitialBalanceService, InitialBalanceRangeDto>(s =>
+                s.AddRangeAsync(balance.Id, new AddInitialBalanceRangeRequest
+                {
+                    FromStageId = TestDatabase.BagStage2Id,
+                    ToStageId = TestDatabase.BagStage3Id,
+                    PieceCount = 50
+                }));
+
+            // عاملين مختلفين على المرحلة الوسيطة (BagStage2Id) ومرحلة الخروج (BagStage3Id)
+            var shares = new[]
+            {
+                new FlowShareDto { ProductionStageId = TestDatabase.BagStage2Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 50 },
+                new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerSaidId, PieceCount = 50 }
+            };
+            await _db.InScopeAsync<InitialBalanceService, FlowSaveResultDto>(s =>
+                s.WithdrawAsync(balance.Id,
+                    new[] { new InitialBalanceRangeWithdrawalDto { RangeId = range.Id, PieceCount = 50 } },
+                    shares, CompletionDay, confirmOverride: true));
+
+            var history = await _db.InScopeAsync<InitialBalanceService, System.Collections.Generic.IReadOnlyList<InitialBalanceUsageDto>>(s =>
+                s.GetHistoryAsync(balance.Id));
+
+            // قبل الإصلاح: صف واحد بس (مرحلة الخروج). دلوقتي: صف لكل عامل/مرحلة
+            Assert.Equal(2, history.Count);
+            Assert.Contains(history, h => h.WorkerId == TestDatabase.WorkerAhmedId && h.ProductionStageId == TestDatabase.BagStage2Id);
+            Assert.Contains(history, h => h.WorkerId == TestDatabase.WorkerSaidId && h.ProductionStageId == TestDatabase.BagStage3Id);
+
+            // لكن "المتاح/المستهلك" من الرصيد يفضل محسوب زي الأول بالظبط —
+            // بيتحسب مرة واحدة بس (مش مرتين لمرحلتين)
+            var updated = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto?>(s => s.GetByIdAsync(balance.Id));
+            Assert.NotNull(updated);
+            Assert.Equal(50, updated.UsedQuantity);
+            Assert.Equal(0, updated.RemainingQuantity);
+            Assert.Equal(InitialBalanceStatus.Completed, updated.Status);
+        }
+
+        // ======================= التعديل الشامل (EditAsync) =======================
+
+        [Fact]
+        public async Task EditAsync_can_add_a_new_range_resize_an_untouched_one_and_drop_another()
+        {
+            var balance = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                s.CreateAsync(new CreateInitialBalanceRequest
+                {
+                    ProductId = TestDatabase.ProductBagId,
+                    Name = "Edit target",
+                    Quantity = 100,
+                    OriginalDate = Day,
+                    Ranges = new System.Collections.Generic.List<AddInitialBalanceRangeRequest>
+                    {
+                        new() { FromStageId = TestDatabase.BagStage1Id, ToStageId = TestDatabase.BagStage1Id, PieceCount = 20 },
+                        new() { FromStageId = TestDatabase.BagStage2Id, ToStageId = TestDatabase.BagStage2Id, PieceCount = 30 }
+                    }
+                }));
+
+            var range1 = balance.Ranges.Single(r => r.FromStageId == TestDatabase.BagStage1Id);
+            // range2 (BagStage2Id) بيتشال، range1 بيتصغّر لـ10، ونطاق جديد على BagStage3Id بيتضاف
+            var edited = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                s.EditAsync(balance.Id, "Edited name", "ملاحظة", new System.Collections.Generic.List<InitialBalanceRangeEditItem>
+                {
+                    new() { Id = range1.Id, FromStageId = range1.FromStageId, ToStageId = range1.ToStageId, PieceCount = 10 },
+                    new() { Id = null, FromStageId = TestDatabase.BagStage3Id, ToStageId = TestDatabase.BagStage3Id, PieceCount = 25 }
+                }));
+
+            Assert.Equal("Edited name", edited.Name);
+            Assert.Equal(2, edited.Ranges.Count);
+            Assert.Contains(edited.Ranges, r => r.FromStageId == TestDatabase.BagStage1Id && r.PieceCount == 10);
+            Assert.Contains(edited.Ranges, r => r.FromStageId == TestDatabase.BagStage3Id && r.PieceCount == 25);
+            Assert.DoesNotContain(edited.Ranges, r => r.FromStageId == TestDatabase.BagStage2Id);
+        }
+
+        [Fact]
+        public async Task EditAsync_rejects_dropping_a_range_that_has_usage()
+        {
+            await _db.SignInTestUserAsync();
+            var (balance, range) = await CreateSingleStageBalanceAsync(50, Day);
+
+            var shares = new[] { new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 10 } };
+            await _db.InScopeAsync<InitialBalanceService, FlowSaveResultDto>(s =>
+                s.WithdrawAsync(balance.Id,
+                    new[] { new InitialBalanceRangeWithdrawalDto { RangeId = range.Id, PieceCount = 10 } },
+                    shares, CompletionDay, confirmOverride: true));
+
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                    s.EditAsync(balance.Id, balance.Name, null, new System.Collections.Generic.List<InitialBalanceRangeEditItem>())));
+
+            Assert.Contains("عليه استخدام", ex.Message);
+        }
+
+        [Fact]
+        public async Task EditAsync_rejects_shrinking_a_used_range_below_its_used_quantity()
+        {
+            await _db.SignInTestUserAsync();
+            var (balance, range) = await CreateSingleStageBalanceAsync(50, Day);
+
+            var shares = new[] { new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 20 } };
+            await _db.InScopeAsync<InitialBalanceService, FlowSaveResultDto>(s =>
+                s.WithdrawAsync(balance.Id,
+                    new[] { new InitialBalanceRangeWithdrawalDto { RangeId = range.Id, PieceCount = 20 } },
+                    shares, CompletionDay, confirmOverride: true));
+
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                    s.EditAsync(balance.Id, balance.Name, null, new System.Collections.Generic.List<InitialBalanceRangeEditItem>
+                    {
+                        new() { Id = range.Id, FromStageId = range.FromStageId, ToStageId = range.ToStageId, PieceCount = 19 }
+                    })));
+
+            Assert.Contains("أقل من الكمية المستخدمة", ex.Message);
+        }
+
+        // ======================= تعديل النطاقات (UpdateRangeAsync/RemoveRangeAsync) =======================
+
+        [Fact]
+        public async Task Shrinking_a_range_with_no_usage_to_any_positive_count_succeeds()
+        {
+            var (balance, range) = await CreateSingleStageBalanceAsync(50, Day);
+
+            var updated = await _db.InScopeAsync<InitialBalanceService, InitialBalanceRangeDto>(s =>
+                s.UpdateRangeAsync(range.Id, 10));
+
+            Assert.Equal(10, updated.PieceCount);
+        }
+
+        [Fact]
+        public async Task Shrinking_a_range_below_its_used_quantity_is_rejected()
+        {
+            await _db.SignInTestUserAsync();
+            var (balance, range) = await CreateSingleStageBalanceAsync(50, Day);
+
+            var shares = new[] { new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 20 } };
+            await _db.InScopeAsync<InitialBalanceService, FlowSaveResultDto>(s =>
+                s.WithdrawAsync(balance.Id,
+                    new[] { new InitialBalanceRangeWithdrawalDto { RangeId = range.Id, PieceCount = 20 } },
+                    shares, CompletionDay, confirmOverride: true));
+
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.InScopeAsync<InitialBalanceService, InitialBalanceRangeDto>(s =>
+                    s.UpdateRangeAsync(range.Id, 19)));
+
+            Assert.Contains("أقل من الكمية المستخدمة", ex.Message);
+
+            // بالظبط على الأرضية (19+1؟ لأ، المستخدم=20) - تحديث لنفس المستخدم ينجح
+            var atFloor = await _db.InScopeAsync<InitialBalanceService, InitialBalanceRangeDto>(s =>
+                s.UpdateRangeAsync(range.Id, 20));
+            Assert.Equal(20, atFloor.PieceCount);
+        }
+
+        [Fact]
+        public async Task Growing_a_range_beyond_the_balances_total_quantity_is_rejected()
+        {
+            var balance = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                s.CreateAsync(new CreateInitialBalanceRequest
+                {
+                    ProductId = TestDatabase.ProductBagId,
+                    Name = "Two ranges",
+                    Quantity = 100,
+                    OriginalDate = Day,
+                }));
+
+            var rangeA = await _db.InScopeAsync<InitialBalanceService, InitialBalanceRangeDto>(s =>
+                s.AddRangeAsync(balance.Id, new AddInitialBalanceRangeRequest
+                {
+                    FromStageId = TestDatabase.BagStage1Id,
+                    ToStageId = TestDatabase.BagStage1Id,
+                    PieceCount = 30
+                }));
+            await _db.InScopeAsync<InitialBalanceService, InitialBalanceRangeDto>(s =>
+                s.AddRangeAsync(balance.Id, new AddInitialBalanceRangeRequest
+                {
+                    FromStageId = TestDatabase.BagStage2Id,
+                    ToStageId = TestDatabase.BagStage2Id,
+                    PieceCount = 50
+                }));
+
+            // rangeB وحده 50 — تكبير rangeA لـ 51 يخلي المجموع 101 > 100
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.InScopeAsync<InitialBalanceService, InitialBalanceRangeDto>(s =>
+                    s.UpdateRangeAsync(rangeA.Id, 51)));
+
+            Assert.Contains("أكبر من كمية الرصيد الكلية", ex.Message);
+        }
+
+        [Fact]
+        public async Task Removing_a_range_that_has_any_usage_is_rejected()
+        {
+            await _db.SignInTestUserAsync();
+            var (balance, range) = await CreateSingleStageBalanceAsync(50, Day);
+
+            var shares = new[] { new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 10 } };
+            await _db.InScopeAsync<InitialBalanceService, FlowSaveResultDto>(s =>
+                s.WithdrawAsync(balance.Id,
+                    new[] { new InitialBalanceRangeWithdrawalDto { RangeId = range.Id, PieceCount = 10 } },
+                    shares, CompletionDay, confirmOverride: true));
+
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            {
+                using var scope = _db.CreateScope();
+                await _db.GetService<InitialBalanceService>(scope).RemoveRangeAsync(range.Id);
+            });
+
+            Assert.Contains("عليه استخدام", ex.Message);
+        }
+
+        [Fact]
+        public async Task Removing_a_range_with_no_usage_still_works_as_before()
+        {
+            var (balance, range) = await CreateSingleStageBalanceAsync(50, Day);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<InitialBalanceService>(scope).RemoveRangeAsync(range.Id);
+
+            var updated = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto?>(s => s.GetByIdAsync(balance.Id));
+            Assert.NotNull(updated);
+            Assert.Empty(updated.Ranges);
+        }
+
+        // ======================= الحذف: Hard delete لو صفر استخدام، Soft-close لو فيه استخدام =======================
+
+        [Fact]
+        public async Task Deleting_a_balance_with_zero_usage_removes_the_row_permanently()
+        {
+            var balance = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                s.CreateAsync(new CreateInitialBalanceRequest
+                {
+                    ProductId = TestDatabase.ProductBagId,
+                    Name = "No usage yet",
+                    Quantity = 30,
+                    OriginalDate = Day
+                }));
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<InitialBalanceService>(scope).DeleteAsync(balance.Id, null, "اتضاف بالغلط");
+
+            using var checkScope = _db.CreateScope();
+            var appDb = _db.GetService<WorkforceManager.Data.AppDbContext>(checkScope);
+            Assert.False(await appDb.InitialBalances.IgnoreQueryFilters().AnyAsync(b => b.Id == balance.Id));
+        }
+
+        [Fact]
+        public async Task Deleting_a_balance_with_partial_usage_soft_closes_it_and_keeps_history_untouched()
+        {
+            await _db.SignInTestUserAsync();
+            var (balance, range) = await CreateSingleStageBalanceAsync(50, Day);
+
+            var shares = new[] { new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 20 } };
+            await _db.InScopeAsync<InitialBalanceService, FlowSaveResultDto>(s =>
+                s.WithdrawAsync(balance.Id,
+                    new[] { new InitialBalanceRangeWithdrawalDto { RangeId = range.Id, PieceCount = 20 } },
+                    shares, CompletionDay, confirmOverride: true));
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<InitialBalanceService>(scope).DeleteAsync(balance.Id, null, "اتقفل يدويًا");
+
+            using var checkScope = _db.CreateScope();
+            var appDb = _db.GetService<WorkforceManager.Data.AppDbContext>(checkScope);
+
+            // الصف لسه موجود (Soft delete) بس محذوف
+            var raw = await appDb.InitialBalances.IgnoreQueryFilters().SingleAsync(b => b.Id == balance.Id);
+            Assert.True(raw.IsDeleted);
+
+            // الاستخدام والأجر الحقيقي المرتبط بيه متلمسوش
+            Assert.True(await appDb.InitialBalanceUsages.AnyAsync(u => u.InitialBalanceId == balance.Id));
+            Assert.True(await appDb.DailyProductions.AnyAsync(dp =>
+                dp.WorkerId == TestDatabase.WorkerAhmedId && dp.ProductionStageId == TestDatabase.BagStage3Id && dp.Date == CompletionDay));
+
+            // اختفى من القوايم النشطة والملخّص
+            var active = await _db.InScopeAsync<InitialBalanceService, System.Collections.Generic.IReadOnlyList<InitialBalanceDto>>(s =>
+                s.GetForProductAsync(TestDatabase.ProductBagId));
+            Assert.DoesNotContain(active, b => b.Id == balance.Id);
+        }
+
+        [Fact]
+        public async Task Soft_closed_balance_can_never_be_withdrawn_from_again()
+        {
+            await _db.SignInTestUserAsync();
+            var (balance, range) = await CreateSingleStageBalanceAsync(50, Day);
+
+            var shares = new[] { new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 10 } };
+            await _db.InScopeAsync<InitialBalanceService, FlowSaveResultDto>(s =>
+                s.WithdrawAsync(balance.Id,
+                    new[] { new InitialBalanceRangeWithdrawalDto { RangeId = range.Id, PieceCount = 10 } },
+                    shares, CompletionDay, confirmOverride: true));
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<InitialBalanceService>(scope).DeleteAsync(balance.Id, null, "اتقفل يدويًا");
+
+            var moreShares = new[] { new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 5 } };
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.InScopeAsync<InitialBalanceService, FlowSaveResultDto>(s =>
+                    s.WithdrawAsync(balance.Id,
+                        new[] { new InitialBalanceRangeWithdrawalDto { RangeId = range.Id, PieceCount = 5 } },
+                        moreShares, CompletionDay.AddDays(1), confirmOverride: true)));
+
+            Assert.Contains("الرصيد الأولي غير موجود", ex.Message);
+        }
+
+        // ======================= History (مشتقة من Status == Completed) =======================
+
+        [Fact]
+        public async Task A_balance_fully_withdrawn_moves_out_of_active_and_into_history()
+        {
+            var balance = await CreateBalanceAndCompleteAsync(20, CompletionDay);
+
+            var active = await _db.InScopeAsync<InitialBalanceService, System.Collections.Generic.IReadOnlyList<InitialBalanceDto>>(s =>
+                s.GetForProductAsync(TestDatabase.ProductBagId));
+            Assert.DoesNotContain(active, b => b.Id == balance.Id);
+
+            var history = await _db.InScopeAsync<InitialBalanceService, System.Collections.Generic.IReadOnlyList<InitialBalanceDto>>(s =>
+                s.GetHistoryForProductAsync(TestDatabase.ProductBagId));
+            Assert.Contains(history, b => b.Id == balance.Id);
+        }
+
+        [Fact]
+        public async Task A_manually_deleted_balance_never_appears_in_history_even_with_prior_usage()
+        {
+            await _db.SignInTestUserAsync();
+            var (balance, range) = await CreateSingleStageBalanceAsync(20, Day);
+
+            var shares = new[] { new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 10 } };
+            await _db.InScopeAsync<InitialBalanceService, FlowSaveResultDto>(s =>
+                s.WithdrawAsync(balance.Id,
+                    new[] { new InitialBalanceRangeWithdrawalDto { RangeId = range.Id, PieceCount = 10 } },
+                    shares, CompletionDay, confirmOverride: true));
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<InitialBalanceService>(scope).DeleteAsync(balance.Id, null, "اتقفل يدويًا");
+
+            var history = await _db.InScopeAsync<InitialBalanceService, System.Collections.Generic.IReadOnlyList<InitialBalanceDto>>(s =>
+                s.GetHistoryForProductAsync(TestDatabase.ProductBagId));
+            Assert.DoesNotContain(history, b => b.Id == balance.Id);
+        }
+
+        [Fact]
+        public async Task Product_summary_excludes_completed_balances_so_it_matches_the_visible_active_cards()
+        {
+            // رصيد كمّل بالكامل (20) + رصيد نشط لسه (30) لنفس المنتج
+            await CreateBalanceAndCompleteAsync(20, CompletionDay);
+            await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto>(s =>
+                s.CreateAsync(new CreateInitialBalanceRequest
+                {
+                    ProductId = TestDatabase.ProductBagId,
+                    Name = "Still active",
+                    Quantity = 30,
+                    OriginalDate = Day
+                }));
+
+            var summary = await _db.InScopeAsync<InitialBalanceService, InitialBalanceSummaryDto>(s =>
+                s.GetProductSummaryAsync(TestDatabase.ProductBagId));
+
+            // الملخّص لازم يعكس النشط بس (30)، مش يجمع الرصيد المكتمل (20) فوقه
+            Assert.Equal(30, summary.TotalQuantity);
+            Assert.Equal(0, summary.UsedQuantity);
+            Assert.Equal(30, summary.RemainingQuantity);
+            Assert.Equal(1, summary.ActiveBalanceCount);
+        }
+
+        // ملحوظة: اختصار "صفر نطاقات = الخط كله" اتنفّذ في الـ UI
+        // (DailyEntryViewModel.AddInitialBalanceAsync) مش هنا — CreateAsync
+        // نفسها لازم تفضل "بتنشئ بالظبط اللي اتبعتلها" من غير أي تحويل ضمني،
+        // لأن أنماط كتير من الاختبارات هنا (وقراءات الكود التلقائي زي
+        // ProductionFlowService عن طريق IInitialBalanceRepository) بتعتمد
+        // على إن رصيد بصفر نطاقات معناه "كله Unranged لحد ما حد يحدده لاحقًا"،
+        // مش "الخط كله تلقائيًا".
+
         // ======================= حذف سجل إكمال رصيد =======================
 
         private async Task<InitialBalanceDto> CreateBalanceAndCompleteAsync(int pieces, DateTime usedDate)

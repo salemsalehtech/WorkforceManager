@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Helpers;
 
 namespace WorkforceManager.Core.Models
 {
@@ -77,9 +78,20 @@ namespace WorkforceManager.Core.Models
 
         public virtual ICollection<InitialBalanceUsage> Usages { get; set; } = new List<InitialBalanceUsage>();
 
-        /// <summary>مجموع القطع اللي اتاخدت من الرصيد لحد دلوقتي</summary>
+        /// <summary>
+        /// مجموع القطع اللي اتاخدت من الرصيد لحد دلوقتي. **مش كل صف
+        /// Usages بيتحسب هنا** — نفس قاعدة
+        /// <see cref="InitialBalanceRangeMath.UsedQuantity"/> بالظبط (سحب
+        /// هالك بيتحسب دايمًا، سحب إكمال إنتاج بس لو وصل مرحلة خروج
+        /// نطاقه)، مجمّعة على كل نطاقات الرصيد. عشان كده يفضل صحيح حتى لو
+        /// <see cref="Usages"/> فيها صفوف لمراحل وسيطة (اتضافت لغرض العرض/
+        /// التتبع بس، شوف InitialBalanceService.WriteUsageRowsAsync) —
+        /// من غيرها القطعة كانت هتتحسب مرتين وهي عدّية على أكتر من مرحلة.
+        /// </summary>
         [NotMapped]
-        public int UsedQuantity => Usages.Sum(u => u.Quantity);
+        public int UsedQuantity =>
+            Ranges.Sum(r => InitialBalanceRangeMath.UsedQuantity(r, Usages)) +
+            Usages.Where(u => u.InitialBalanceRangeId == null).Sum(u => u.Quantity);
 
         /// <summary>الكمية اللي لسه متاحة = الإجمالي ناقص المستخدَم</summary>
         [NotMapped]

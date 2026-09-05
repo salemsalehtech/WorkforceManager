@@ -377,23 +377,37 @@ namespace WorkforceManager.UI.ViewModels
             SafeAsync.Run(LoadInitialBalanceTabAsync);
         }
 
-        /// <summary>أرصدة المنتج المختار — كارت لكل رصيد بنطاقاته</summary>
+        /// <summary>أرصدة المنتج المختار النشطة — كارت لكل رصيد بنطاقاته</summary>
         public ObservableCollection<InitialBalanceDto> InitialBalanceCards { get; } = new();
+
+        /// <summary>
+        /// الأرصدة اللي كملت باستخدام حقيقي (Status == Completed) — قسم
+        /// "السجل"، مشتقة من InitialBalanceService.GetHistoryForProductAsync،
+        /// من غير عمود جديد (شوف تعليق الدالة).
+        /// </summary>
+        public ObservableCollection<InitialBalanceDto> InitialBalanceHistoryCards { get; } = new();
+
+        /// <summary>هل تبويب الرصيد الأولي حاليًا بيعرض السجل (المكتمل) بدل الأرصدة النشطة؟</summary>
+        [ObservableProperty]
+        private bool _isShowingInitialBalanceHistory;
 
         /// <summary>الملخّص المُجمّع لأرصدة المنتج (نفس اللي بيتعرض شريطه في كارت الرحلة)</summary>
         [ObservableProperty]
         private InitialBalanceSummaryDto? _initialBalanceTabSummary;
 
         public bool InitialBalanceTabIsEmpty => InitialBalanceCards.Count == 0;
+        public bool InitialBalanceHistoryIsEmpty => InitialBalanceHistoryCards.Count == 0;
 
         private async Task LoadInitialBalanceTabAsync()
         {
             InitialBalanceCards.Clear();
+            InitialBalanceHistoryCards.Clear();
             InitialBalanceTabSummary = null;
 
             if (SelectedInitialBalanceProduct is not { } product)
             {
                 OnPropertyChanged(nameof(InitialBalanceTabIsEmpty));
+                OnPropertyChanged(nameof(InitialBalanceHistoryIsEmpty));
                 return;
             }
 
@@ -403,8 +417,12 @@ namespace WorkforceManager.UI.ViewModels
             foreach (var balance in await service.GetForProductAsync(product.ProductId))
                 InitialBalanceCards.Add(balance);
 
+            foreach (var balance in await service.GetHistoryForProductAsync(product.ProductId))
+                InitialBalanceHistoryCards.Add(balance);
+
             InitialBalanceTabSummary = await service.GetProductSummaryAsync(product.ProductId);
             OnPropertyChanged(nameof(InitialBalanceTabIsEmpty));
+            OnPropertyChanged(nameof(InitialBalanceHistoryIsEmpty));
         }
 
         /// <summary>
@@ -446,6 +464,25 @@ namespace WorkforceManager.UI.ViewModels
                 using var scope = _scopeFactory.CreateScope();
                 var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
 
+                var ranges = dialog.GetRanges();
+                // اختصار: المستخدم كتب الكمية وحفظ من غير ما يعرّف أي نطاق
+                // خالص → نطاق واحد يغطي الخط كله (أول مرحلة نشطة لآخر
+                // واحدة) بكامل الكمية. لو عرّف نطاق واحد على الأقل وسايب
+                // جزء Unranged عن قصد، السلوك القديم يفضل زي ما هو
+                if (ranges.Count == 0 && product.Stages.Where(s => !s.IsRackingStage).ToList() is { Count: > 0 } activeStages)
+                {
+                    var ordered = activeStages.OrderBy(s => s.DisplayOrder).ThenBy(s => s.StageId).ToList();
+                    ranges = new List<AddInitialBalanceRangeRequest>
+                    {
+                        new()
+                        {
+                            FromStageId = ordered.First().StageId,
+                            ToStageId = ordered.Last().StageId,
+                            PieceCount = dialog.Quantity
+                        }
+                    };
+                }
+
                 var created = await service.CreateAsync(new CreateInitialBalanceRequest
                 {
                     ProductId = product.ProductId,
@@ -454,7 +491,7 @@ namespace WorkforceManager.UI.ViewModels
                     Quantity = dialog.Quantity,
                     OriginalDate = dialog.OriginalDate,
                     Source = InitialBalanceSource.Manual,
-                    Ranges = dialog.GetRanges()
+                    Ranges = ranges
                 });
 
                 await LoadInitialBalanceTabAsync();
@@ -464,6 +501,40 @@ namespace WorkforceManager.UI.ViewModels
             catch (Exception ex)
             {
                 Notify.Warn(ex.Message, "خطأ في إنشاء الرصيد");
+            }
+        }
+
+        [RelayCommand]
+        private async Task EditInitialBalanceAsync(InitialBalanceDto? balance)
+        {
+            if (balance is null) return;
+
+            var product = _products.FirstOrDefault(p => p.ProductId == balance.ProductId);
+            var activeStages = product?.Stages.Where(s => !s.IsRackingStage) ?? Enumerable.Empty<StageEntryOption>();
+
+            var dialog = new InitialBalanceDialog
+            {
+                Owner = Application.Current.MainWindow
+            };
+            dialog.LoadStages(activeStages);
+            dialog.LoadBalance(balance);
+
+            if (dialog.ShowDialog() != true) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
+
+                await service.EditAsync(balance.Id, dialog.BalanceName, dialog.Notes, dialog.GetRangeEdits());
+
+                await LoadInitialBalanceTabAsync();
+                await RefreshAllFlowSessionsBalancesAsync();
+                Notify.Info($"اتعدّل رصيد \"{dialog.BalanceName}\" بنجاح.", "تم الحفظ");
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "خطأ في تعديل الرصيد");
             }
         }
 
@@ -489,10 +560,14 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (balance is null) return;
 
+            var message = balance.UsedQuantity > 0
+                ? $"رصيد \"{balance.Name}\" ({balance.RemainingQuantity:N0} قطعة متبقية) هيتشال. الجزء اللي اتاخد فعلاً ({balance.UsedQuantity:N0} قطعة) هيفضل في السجلات، بس الكارت هيختفي من القايمة."
+                : $"رصيد \"{balance.Name}\" ({balance.RemainingQuantity:N0} قطعة متبقية) هيتشال نهائيًا.";
+
             var input = SensitiveActionDialog.Ask(
                 Application.Current.MainWindow,
                 "حذف رصيد أولي",
-                $"رصيد \"{balance.Name}\" ({balance.RemainingQuantity:N0} قطعة متبقية) هيتشال.",
+                message,
                 SensitiveActionKind.Delete,
                 passwordRequired: true);
 

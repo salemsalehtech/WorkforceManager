@@ -28,6 +28,7 @@ namespace WorkforceManager.Business.Services
         private readonly ProductionStageOutputService _productionOutput;
         private readonly IWorkerSkillRepository _workerSkillRepo;
         private readonly IGenericRepository<InitialBalanceUsage> _initialBalanceUsages;
+        private readonly ProductionFlowService _productionFlow;
 
         public WorkdayCalculationService(
             IDailyProductionRepository productionRepo,
@@ -44,7 +45,8 @@ namespace WorkforceManager.Business.Services
             IHourlyWorkLogRepository hourlyRepo,
             ProductionStageOutputService productionOutput,
             IWorkerSkillRepository workerSkillRepo,
-            IGenericRepository<InitialBalanceUsage> initialBalanceUsages)
+            IGenericRepository<InitialBalanceUsage> initialBalanceUsages,
+            ProductionFlowService productionFlow)
         {
             _log = log;
             _productionRepo = productionRepo;
@@ -61,6 +63,7 @@ namespace WorkforceManager.Business.Services
             _productionOutput = productionOutput;
             _workerSkillRepo = workerSkillRepo;
             _initialBalanceUsages = initialBalanceUsages;
+            _productionFlow = productionFlow;
         }
 
         /// <summary>
@@ -489,6 +492,18 @@ namespace WorkforceManager.Business.Services
             // المرتبط بيهم (لو موجود) بقى شبح — يتشال معاه
             await _productionOutput.RemoveIfNowOrphanedAsync(stageId, date);
 
+            // لازم يتحفظ قبل ReconcileAutoBalancesAsync — RemoveIfNowOrphanedAsync
+            // بس بتعلّم الصف للحذف في الـ change tracker، ولسه ماتحفظش؛
+            // استعلام GetStageTotalsUpToAsync بيقرا من قاعدة البيانات
+            // فعليًا، فمن غير الحفظة ده هيرجّع الرقم القديم زي ما هو
+            await _productionRepo.SaveChangesAsync();
+
+            // الحذف ده يقدر يقلّل الفجوة الحقيقية بين مرحلتين (أو يلغيها
+            // خالص) — أي رصيد أولي تلقائي اتعمل عشان الفجوة دي لازم يتصغّر
+            // أو يتشال معاها، وإلا فضل يمثّل شغل ناقص مالوش وجود حقيقي
+            if (stage is not null)
+                await _productionFlow.ReconcileAutoBalancesAsync(stage.ProductId, date);
+
             await CleanupOrphanedAttendanceAsync(workerId, date);
             await _productionRepo.SaveChangesAsync();
 
@@ -569,6 +584,21 @@ namespace WorkforceManager.Business.Services
             // موجود) بقى شبح ويتشال معاه
             foreach (var stageId in affectedStageIds)
                 await _productionOutput.RemoveIfNowOrphanedAsync(stageId, date);
+
+            // لازم يتحفظ قبل ReconcileAutoBalancesAsync لنفس سبب
+            // DeleteProductionAsync — RemoveIfNowOrphanedAsync لسه ماتحفظش
+            await _productionRepo.SaveChangesAsync();
+
+            // نفس منطق DeleteProductionAsync: حذف يوم كامل يقدر يلغي فجوات
+            // كانت اتحسبت بين مراحل أكتر من منتج — نعيد فحصها لكل منتج
+            // اتأثرت مراحله
+            var affectedProductIds = new HashSet<int>();
+            foreach (var stageId in affectedStageIds)
+                if (await _stageRepo.GetByIdAsync(stageId) is { } affectedStage)
+                    affectedProductIds.Add(affectedStage.ProductId);
+
+            foreach (var productId in affectedProductIds)
+                await _productionFlow.ReconcileAutoBalancesAsync(productId, date);
 
             // كل إنتاج اليوم ده اتشال بالكامل — أي عامل من دول بقى
             // مالوش أي إنتاج فيه خالص، فسجل حضوره التلقائي (لو مالوش

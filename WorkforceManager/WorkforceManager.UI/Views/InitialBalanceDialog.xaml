@@ -59,17 +59,24 @@
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" />
-                                            <ComboBox ItemsSource="{Binding Stages}" SelectedItem="{Binding FromStage}" DisplayMemberPath="Name" Width="120" FontSize="12" />
+                                            <ComboBox ItemsSource="{Binding Stages}" SelectedItem="{Binding FromStage}" DisplayMemberPath="Name" Width="120" FontSize="12"
+                                                      IsEnabled="{Binding IsEditableSpan}" />
                                             <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" />
-                                            <ComboBox ItemsSource="{Binding Stages}" SelectedItem="{Binding ToStage}" DisplayMemberPath="Name" Width="120" FontSize="12" />
+                                            <ComboBox ItemsSource="{Binding Stages}" SelectedItem="{Binding ToStage}" DisplayMemberPath="Name" Width="120" FontSize="12"
+                                                      IsEnabled="{Binding IsEditableSpan}" />
                                         </StackPanel>
                                         <DockPanel Margin="0,8,0,0">
                                             <TextBlock DockPanel.Dock="Left" Text="عدد القطع:" VerticalAlignment="Center" FontSize="12" Margin="0,0,6,0" />
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}" Padding="6,4" Click="RemoveRange_Click">
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}" Padding="6,4" Click="RemoveRange_Click"
+                                                    IsEnabled="{Binding IsEditableSpan}"
+                                                    ToolTip="النطاق ده عليه استخدام، مينفعش يتحذف">
                                                 <materialDesign:PackIcon Kind="TrashCanOutline" Width="14" Height="14" />
                                             </Button>
                                             <TextBox Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}" Width="100" HorizontalAlignment="Left" Padding="4,2" FontSize="13" />
                                         </DockPanel>
+                                        <TextBlock Text="{Binding UsedQuantity, StringFormat='مستخدم منه {0:N0} قطعة — عدد القطع مايقلّش عن ده'}"
+                                                   Visibility="{Binding IsLocked, Converter={StaticResource BoolToVis}}"
+                                                   Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>

@@ -28,7 +28,18 @@
             </Border>
 
             <StackPanel Margin="24,20,24,18">
-                <TextBlock x:Name="TitleText" FontWeight="Bold" Margin="0,0,0,6" TextWrapping="Wrap" />
+                <DockPanel Margin="0,0,0,6">
+                    <Button x:Name="ToggleWorkersButton" DockPanel.Dock="Left"
+                            Style="{StaticResource GhostButton}" Padding="12,5" FontSize="12"
+                            ToolTip="يعرض كل عامل اشتغل على أنهي مرحلة فعليًا من الرصيد ده"
+                            Click="ToggleWorkersView_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="AccountGroupOutline" Width="14" Height="14" VerticalAlignment="Center" />
+                            <TextBlock x:Name="ToggleWorkersButtonText" Text="عرض العمال" Margin="5,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock x:Name="TitleText" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                </DockPanel>
                 <TextBlock x:Name="SummaryText" FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,12" />
 
                 <TextBlock x:Name="NoHistoryText" Text="لا يوجد استخدامات مسجلة لهذا الرصيد بعد"
