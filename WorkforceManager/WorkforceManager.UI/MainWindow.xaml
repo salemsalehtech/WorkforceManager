@@ -61,6 +61,26 @@
                             Background="{DynamicResource GoldGradientBrush}" />
                 </StackPanel>
 
+                <!-- توقيع نهاية اليوم — آخر عنصر في القائمة الجانبية
+                     بالكامل (أول عنصر Dock="Bottom" في الترتيب = أبعد
+                     حاجة لتحت في DockPanel)، تحت بطاقة اليوم وكارت
+                     الحساب. البوابة الوحيدة الباقية للأفعال اليومية
+                     المتكررة (Tier B) بعد ما اتشالت منها الباسوردات
+                     الفورية — نفس الزرار ده هو اللي بيفتح لما البرنامج
+                     يرفض يقفل قبل التوقيع. -->
+                <Border DockPanel.Dock="Bottom" Margin="16,0,16,10">
+                    <Button x:Name="FinalSaveButton" Click="FinalSave_Click"
+                            Style="{StaticResource PrimaryButton}" Padding="0,10"
+                            HorizontalContentAlignment="Center"
+                            ToolTip="مراجعة وتوقيع كل حاجة حصلت النهارده"
+                            AutomationProperties.Name="حفظ نهائي">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <materialDesign:PackIcon Kind="CheckCircleOutline" Width="17" Height="17" VerticalAlignment="Center" />
+                            <TextBlock Text="حفظ نهائي" Margin="8,0,0,0" VerticalAlignment="Center" FontWeight="Bold" />
+                        </StackPanel>
+                    </Button>
+                </Border>
+
                 <!-- الحساب الداخل بيه + زرار الخروج: آخر حاجة في القايمة
                      الجانبية (تحت بطاقة اليوم) — ظاهرة في كل الشاشات،
                      عشان أي حد يقدر يبدّل حساب من غير ما يقفل البرنامج
