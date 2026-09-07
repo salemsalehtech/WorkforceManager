@@ -943,13 +943,34 @@ namespace WorkforceManager.UI.ViewModels
 
             if (dialog.ShowDialog() != true) return;
 
+            // باسورد العمليات مطلوب بس لو الأجر اليومي فعلاً بيتغيّر
+            // (Tier A — EditWorkerWage). باقي الحقول بتعدّي من غيره
+            var wageChanged = dialog.DailyWageEgp != Detail.DailyWageEgp;
+            var password = "";
+            if (wageChanged)
+            {
+                using var gateScope = _scopeFactory.CreateScope();
+                var gate = gateScope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+                var input = SensitiveActionDialog.Ask(
+                    Application.Current.MainWindow,
+                    "تعديل الأجر اليومي",
+                    $"أجر {SelectedWorker.FullName} هيتغيّر من {Detail.DailyWageEgp:N0} ج إلى {dialog.DailyWageEgp:N0} ج.",
+                    SensitiveActionKind.Save,
+                    await gate.IsConfiguredAsync(),
+                    reasonRequired: false);
+
+                if (input is null) return;
+                password = input.Password;
+            }
+
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
                 await mgmt.UpdateWorkerAsync(
                     SelectedWorker.WorkerId, dialog.WorkerName,
-                    dialog.PhoneNumber, dialog.HireDate, dialog.HourlyRole, dialog.DailyWageEgp);
+                    dialog.PhoneNumber, dialog.HireDate, dialog.HourlyRole, dialog.DailyWageEgp,
+                    operationsPassword: password);
 
                 // الصورة بتتحفظ بس لو المستخدم غيّرها فعلاً
                 if (dialog.PhotoChanged)

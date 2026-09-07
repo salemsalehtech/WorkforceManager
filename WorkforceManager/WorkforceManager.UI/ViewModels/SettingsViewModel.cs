@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Win32;
 using WorkforceManager.Business.Services;
+using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Models;
 using WorkforceManager.Data;
 using WorkforceManager.UI.Views;
@@ -354,28 +355,78 @@ namespace WorkforceManager.UI.ViewModels
         partial void OnLogFinancialRetentionDaysChanged(int value) =>
             SaveLogRetention(value, isFinancial: true);
 
+        /// <summary>يمنع بوابة الباسورد تحت من إعادة السؤال وقت رجوع القيمة القديمة/المقروبة</summary>
+        private bool _revertingRetention;
+
         /// <summary>
         /// الصفر مسموح ومعناه "بلاش تنظيف خالص". أي رقم تاني بيترد لحد
         /// أدنى — سجل بيتمسح كل أسبوع مش سجل.
+        ///
+        /// **Tier A** (<see cref="SensitiveAction.ChangeSettings"/>) — تقصير
+        /// مدة الاحتفاظ ممكن يمسح الأثر اللي البرنامج كله قايم عليه (شوف
+        /// توقيع نهاية اليوم)، فده الإعداد الوحيد المحمي بباسورد فوري من
+        /// شاشة الإعدادات كلها. باقي الإعدادات (الشعار، مجلد النسخ
+        /// الخارجي، أسباب الهالك) بتتغيّر من غير باسورد زي ما هي.
         /// </summary>
-        private void SaveLogRetention(int value, bool isFinancial)
+        private async void SaveLogRetention(int value, bool isFinancial)
         {
-            if (_loadingSettings) return;
+            if (_loadingSettings || _revertingRetention) return;
 
             var clamped = value <= 0 ? 0 : Math.Max(value, ActivityLogService.MinRetentionDays);
             if (clamped != value)
             {
+                _revertingRetention = true;
                 if (isFinancial) LogFinancialRetentionDays = clamped;
                 else LogRetentionDays = clamped;
+                _revertingRetention = false;
                 return;
             }
 
             var settings = AppSettingsStore.Load();
+            var oldValue = isFinancial ? settings.ActivityLogFinancialRetentionDays : settings.ActivityLogRetentionDays;
+            if (oldValue == clamped) return; // مفيش تغيير فعلي — مفيش سبب يُسأل باسورد
+
+            using var scope = _scopeFactory.CreateScope();
+            var gate = scope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+
+            var input = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                "تغيير مدة الاحتفاظ بسجل العمليات",
+                isFinancial
+                    ? $"مدة الاحتفاظ بأحداث الفلوس هتتغيّر من {oldValue} يوم إلى {clamped} يوم."
+                    : $"مدة الاحتفاظ بأحداث الحذف هتتغيّر من {oldValue} يوم إلى {clamped} يوم.",
+                SensitiveActionKind.Save,
+                await gate.IsConfiguredAsync(),
+                reasonRequired: false);
+
+            if (input is null)
+            {
+                RevertRetention(isFinancial, oldValue);
+                return;
+            }
+
+            var verify = await gate.VerifyAsync(SensitiveAction.ChangeSettings, input.Password);
+            if (!verify.IsAllowed)
+            {
+                Notify.Warn(verify.Message, "مش هينفع");
+                RevertRetention(isFinancial, oldValue);
+                return;
+            }
+
             if (isFinancial) settings.ActivityLogFinancialRetentionDays = clamped;
             else settings.ActivityLogRetentionDays = clamped;
             AppSettingsStore.Save(settings);
 
             OnPropertyChanged(nameof(LogRetentionText));
+        }
+
+        /// <summary>بيرجّع الخانة لقيمتها القديمة من غير ما يفتح البوابة تاني</summary>
+        private void RevertRetention(bool isFinancial, int oldValue)
+        {
+            _revertingRetention = true;
+            if (isFinancial) LogFinancialRetentionDays = oldValue;
+            else LogRetentionDays = oldValue;
+            _revertingRetention = false;
         }
 
         public string LogRetentionText
