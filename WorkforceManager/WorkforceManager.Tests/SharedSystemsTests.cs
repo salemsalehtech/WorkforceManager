@@ -72,22 +72,25 @@ namespace WorkforceManager.Tests
             using (var scope = _db.CreateScope())
                 await _db.GetService<ProductionFlowService>(scope).RecordFlowAsync(
                     TestDatabase.ProductBagId, TestDatabase.Today, new[] { range }, shares,
-                    confirmOverride: true, operationsPassword: OperationsPassword);
+                    confirmOverride: true);
 
             return (await _db.GetProductionAsync()).Single().Id;
         }
 
         // ======================= نظام 1: بوابة كلمة السر =======================
 
+        // نظام 1 (بوابة كلمة السر) بيتاختبر هنا بحذف عامل (Tier A لسه
+        // زي ما هو)، مش حذف سجل إنتاج — ده بقى Tier B ومفيش بوابة عليه
+        // خالص (شوف "نظام 2" تحت لاختبارات حذف السجل نفسه، بدون باسورد)
+
         [Fact]
         public async Task Sensitive_action_is_blocked_without_the_right_password()
         {
             await ConfigurePasswordAsync();
-            var recordId = await RecordProductionAsync();
 
             using var scope = _db.CreateScope();
-            var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionAsync(recordId, WrongPassword, "تجربة");
+            var result = await _db.GetService<WorkerManagementService>(scope)
+                .DeleteWorkerAsync(TestDatabase.WorkerSaidId, WrongPassword, "تجربة");
 
             Assert.False(result.IsDeleted);
             Assert.Contains("غلط", result.Message);
@@ -97,31 +100,29 @@ namespace WorkforceManager.Tests
         public async Task Failed_password_leaves_no_partial_change()
         {
             await ConfigurePasswordAsync();
-            var recordId = await RecordProductionAsync();
 
             using (var scope = _db.CreateScope())
-                await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionAsync(recordId, WrongPassword, "تجربة");
+                await _db.GetService<WorkerManagementService>(scope)
+                    .DeleteWorkerAsync(TestDatabase.WorkerSaidId, WrongPassword, "تجربة");
 
-            // لا السجل اتشال ولا حدث اتكتب — الرفض بيحصل قبل أي كتابة
-            var record = Assert.Single(await _db.GetProductionAsync());
-            Assert.False(record.IsDeleted);
-
+            // لا العامل اتشال ولا حدث اتكتب — الرفض بيحصل قبل أي كتابة
             using var check = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(check);
+            Assert.False((await db.Workers.FindAsync(TestDatabase.WorkerSaidId))!.IsDeleted);
+
             Assert.DoesNotContain(
                 await _db.GetService<ActivityLogService>(check).GetRecentAsync(),
-                e => e.EventType == ActivityEventType.ProductionRecordDeleted);
+                e => e.EventType == ActivityEventType.WorkerDeleted);
         }
 
         [Fact]
         public async Task Correct_password_lets_the_action_through()
         {
             await ConfigurePasswordAsync();
-            var recordId = await RecordProductionAsync();
 
             using var scope = _db.CreateScope();
-            var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionAsync(recordId, OperationsPassword, "اتسجل بالغلط");
+            var result = await _db.GetService<WorkerManagementService>(scope)
+                .DeleteWorkerAsync(TestDatabase.WorkerSaidId, OperationsPassword, "ساب الشغل");
 
             Assert.True(result.IsDeleted);
         }
@@ -149,11 +150,9 @@ namespace WorkforceManager.Tests
         {
             // البرنامج موجود على أجهزة شغّالة من قبل الميزة — قفلها فجأة
             // كان هيوقف المصنع
-            var recordId = await RecordProductionAsync();
-
             using var scope = _db.CreateScope();
-            var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionAsync(recordId, "", "اتسجل بالغلط");
+            var result = await _db.GetService<WorkerManagementService>(scope)
+                .DeleteWorkerAsync(TestDatabase.WorkerSaidId, "", "ساب الشغل");
 
             Assert.True(result.IsDeleted);
             Assert.True(result.PasswordNotConfigured);
@@ -215,7 +214,7 @@ namespace WorkforceManager.Tests
             {
                 _db.GetService<CurrentUserContext>(scope).SignIn("admin", "مدير القسم");
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionAsync(recordId, OperationsPassword, "اتسجل مرتين بالغلط");
+                    .DeleteProductionAsync(recordId, "اتسجل مرتين بالغلط");
             }
 
             using var check = _db.CreateScope();
@@ -241,7 +240,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionAsync(recordId, OperationsPassword, "غلط");
+                    .DeleteProductionAsync(recordId, "غلط");
 
             // الفلتر العام بيشيله من كل استعلام من غير ما حد يكتب شرط
             Assert.Empty(await _db.GetProductionAsync());
@@ -262,7 +261,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionAsync(recordId, OperationsPassword, "اتسجل بالغلط");
+                    .DeleteProductionAsync(recordId, "اتسجل بالغلط");
 
             using var check = _db.CreateScope();
             var checkDb = _db.GetService<AppDbContext>(check);
@@ -285,7 +284,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionAsync(firstId, OperationsPassword, "اتسجل غلط");
+                    .DeleteProductionAsync(firstId, "اتسجل غلط");
 
             using var check = _db.CreateScope();
             var db = _db.GetService<AppDbContext>(check);
@@ -334,7 +333,7 @@ namespace WorkforceManager.Tests
 
             using var scope = _db.CreateScope();
             var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionAsync(recordId, OperationsPassword, "   ");
+                .DeleteProductionAsync(recordId, "   ");
 
             Assert.False(result.IsDeleted);
             Assert.Contains("سبب", result.Message);
@@ -467,7 +466,7 @@ namespace WorkforceManager.Tests
             {
                 _db.GetService<CurrentUserContext>(scope).SignIn("admin", "مدير القسم");
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionAsync(recordId, OperationsPassword, "مكرر");
+                    .DeleteProductionAsync(recordId, "مكرر");
             }
 
             using var check = _db.CreateScope();
@@ -490,7 +489,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionAsync(recordId, OperationsPassword, "غلط");
+                    .DeleteProductionAsync(recordId, "غلط");
 
             using var check = _db.CreateScope();
             var db = _db.GetService<AppDbContext>(check);
@@ -986,7 +985,7 @@ namespace WorkforceManager.Tests
             {
                 _db.GetService<CurrentUserContext>(scope).SignIn("admin", "مدير القسم");
                 var result = await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionAsync(recordId, OperationsPassword, "تصحيح إدخال");
+                    .DeleteProductionAsync(recordId, "تصحيح إدخال");
 
                 Assert.True(result.IsDeleted);            // 1) البوابة عدّت
             }

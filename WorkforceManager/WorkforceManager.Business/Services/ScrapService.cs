@@ -22,41 +22,40 @@ namespace WorkforceManager.Business.Services
     {
         private readonly AppDbContext _db;
         private readonly ActivityLogService _log;
-        private readonly OperationsPasswordService _gate;
         private readonly IProductionDayClosureRepository _closureRepo;
 
         public ScrapService(
-            AppDbContext db, ActivityLogService log,
-            OperationsPasswordService gate, IProductionDayClosureRepository closureRepo)
+            AppDbContext db, ActivityLogService log, IProductionDayClosureRepository closureRepo)
         {
             _db = db;
             _log = log;
-            _gate = gate;
             _closureRepo = closureRepo;
         }
 
         // ======================= التسجيل =======================
 
         /// <summary>
-        /// يسجّل هالك على مرحلة في يوم معين — ببوابة كلمة سر العمليات
-        /// ورفض اليوم المقفول، زي أي عملية بتلمس فلوس تانية (شوف
-        /// <see cref="SensitiveAction.RecordScrap"/>).
+        /// يسجّل هالك على مرحلة في يوم معين — رفض اليوم المقفول زي أي
+        /// عملية بتلمس إنتاج تانية.
+        ///
+        /// **مفيش بوابة باسورد هنا (Tier B)** — تسجيل هالك بقى متغطى
+        /// بتوقيع نهاية اليوم بدل باسورد فوري (شوف DailyOperationsSignOffService).
         /// </summary>
         public async Task<ProductionScrap> RecordAsync(
-            int productionStageId, DateTime date, int pieceCount, string operationsPassword,
+            int productionStageId, DateTime date, int pieceCount,
             int? reasonId = null, string? note = null, string? recordedBy = null)
         {
-            await EnsureAllowedAsync(date, operationsPassword);
+            await EnsureAllowedAsync(date);
             return await RecordCoreAsync(productionStageId, date, pieceCount, reasonId, note, recordedBy);
         }
 
-        /// <summary>البوابة نفسها اللي RecordAsync بتستخدمها — منفصلة عشان WithdrawToScrapAsync (سحب رصيد أولي لهالك) يستخدمها من غير ما يكرر المنطق</summary>
-        public async Task EnsureAllowedAsync(DateTime date, string operationsPassword)
+        /// <summary>
+        /// فحص اليوم المقفول نفسه اللي RecordAsync بيستخدمه — منفصل عشان
+        /// WithdrawToScrapAsync (سحب رصيد أولي لهالك) يستخدمه من غير ما
+        /// يكرر المنطق.
+        /// </summary>
+        public async Task EnsureAllowedAsync(DateTime date)
         {
-            var gate = await _gate.VerifyAsync(SensitiveAction.RecordScrap, operationsPassword);
-            if (!gate.IsAllowed)
-                throw new InvalidOperationException(gate.Message);
-
             if (await _closureRepo.IsClosedAsync(date))
                 throw new InvalidOperationException(DayClosureService.ClosedDayMessage(date));
         }
@@ -145,6 +144,12 @@ namespace WorkforceManager.Business.Services
             var record = await _db.ProductionScraps.FindAsync(scrapId)
                 ?? throw new InvalidOperationException("سجل الهالك مش موجود");
 
+            // اسم المرحلة/المنتج قبل ما الصف يتشال — السجل محتاج يعرف
+            // كان بيتكلم عن إيه حتى بعد الحذف
+            var stage = await _db.ProductionStages
+                .Include(s => s.Product)
+                .FirstOrDefaultAsync(s => s.Id == record.ProductionStageId);
+
             var linkedUsage = await _db.InitialBalanceUsages
                 .FirstOrDefaultAsync(u => u.ProductionScrapId == scrapId);
             if (linkedUsage is not null)
@@ -152,6 +157,14 @@ namespace WorkforceManager.Business.Services
 
             _db.ProductionScraps.Remove(record);
             await _db.SaveChangesAsync();
+
+            // فجوة كانت موجودة: حذف الهالك كان بيحصل من غير أي أثر في
+            // السجل خالص — بقى مهم دلوقتي إن الحذف ده هو الأثر الوحيد
+            // الباقي بعد ما الباسورد الفوري اتشال (Tier B)
+            await _log.LogAsync(
+                ActivityEventType.ScrapDeleted, "ProductionScrap", scrapId,
+                entityName: stage is null ? null : $"{stage.Product.Name} — {stage.StageName}",
+                details: $"{record.PieceCount:N0} قطعة كانت مسجّلة يوم {record.Date:yyyy/MM/dd}");
         }
 
         // ======================= القراية =======================

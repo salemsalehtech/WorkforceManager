@@ -395,7 +395,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionAsync(record.Id, "", "اتسجل بالغلط");
+                    .DeleteProductionAsync(record.Id, "اتسجل بالغلط");
 
             // مفيش أي سجل عامل باقي لنفس المرحلة/اليوم — الإنتاج الفعلي بقى شبح ويتشال
             Assert.Empty(await _db.GetProductionStageOutputsAsync());
@@ -416,7 +416,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionAsync(ahmedRecord.Id, "", "اتسجل بالغلط");
+                    .DeleteProductionAsync(ahmedRecord.Id, "اتسجل بالغلط");
 
             // سعيد لسه له سجل على نفس المرحلة/اليوم — الإنتاج الفعلي (150)
             // ما بيتلمسش خالص، مش بينقص بمقدار قطع أحمد
@@ -432,7 +432,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionDayAsync(Day1, "", "اليوم اتسجل غلط بالكامل");
+                    .DeleteProductionDayAsync(Day1, "اليوم اتسجل غلط بالكامل");
 
             Assert.Empty(await _db.GetProductionStageOutputsAsync());
         }

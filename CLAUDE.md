@@ -85,12 +85,13 @@ Size discipline (the repo was once 741 MB, 99.8% of it regenerable build output)
 - `Microsoft.EntityFrameworkCore.Design` is referenced `Condition="'$(Configuration)' == 'Debug'"` in both
   UI and Data — it drags in Roslyn (~13 MB). `dotnet ef` builds Debug by default so migrations still work.
 
-`WorkforceManager.Tests` (xUnit, `net8.0`, 410 tests) covers the worker-assignment rule, daily output,
+`WorkforceManager.Tests` (xUnit, `net8.0`, 670+ tests) covers the worker-assignment rule, daily output,
 the skill-rating system, worker filtering, product activity, pending work, the worker report,
 activity-log retention + **which operations write to it**, database integrity, deletion scope, the report
 builder, the production chart (day/week/month + scrap), payslip strips, **backup integrity and calendar
-safety**, fresh-install seeding, **the installed-mode data path and the one-time legacy migration**, and
-the removed-field guards — run with `dotnet test`
+safety**, fresh-install seeding, **the installed-mode data path and the one-time legacy migration**,
+**daily operations sign-off** (the unsigned-past-dates gap calculation, the automatic cutover seed, and
+which `SensitiveAction`s still gate immediately), and the removed-field guards — run with `dotnet test`
 from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
@@ -667,7 +668,101 @@ Core  <----------------------- UI
   Nothing is "carried forward" — every day is read from its own rows, so work that wasn't finished
   is simply recorded on the day it does get done. The stored `CompletedPieces`/`StartedPieces` are a
   **snapshot the user approved**, not a cache to recompute. `ReopenAsync` undoes it (data-entry
-  mistakes are normal).
+  mistakes are normal). **This is a completely different concept from daily operations sign-off
+  below** — closure locks one product's production numbers for one date; sign-off is an app-wide
+  "I reviewed everything that happened today" acknowledgement. They don't reference each other and
+  a day can be signed off with some/all of its products still open (or vice versa). `DayClosureService`
+  is slated for removal in a future, separate piece of work — nothing here depends on it staying.
+- **Daily operations sign-off** (`DailyOperationsSignOffService` + `DailyOperationsSignOff`) replaces
+  an instant operations-password prompt on nearly every save/edit/delete with **one password entry at
+  the end of the day** that covers everything. This split every `SensitiveAction` into two tiers:
+  - **Tier A (unchanged, still an instant `SensitiveActionDialog.Ask` prompt)**: `DeleteWorker`,
+    `DeleteProduct`, `DeleteStage` (and department/manager account deletion, which reuses
+    `DeleteWorker`), `EditWorkerWage`, `SaveWageAdjustment` (advances/bonuses — direct EGP movement),
+    `CloseProductionDay` (untouched, see above), and settings — only the activity-log retention days
+    (`SettingsViewModel.SaveLogRetention`, `SensitiveAction.ChangeSettings`) are gated; the rest of the
+    settings screen has no single "save" action to gate (every field auto-persists on change) and
+    gating cosmetic/operational fields (logo, external backup folder, scrap reasons) would fight the
+    whole point of this feature. `EditWorkerWage` and `ChangeSettings` were **real gaps**: the enum
+    value existed but nothing ever called `VerifyAsync` with it before this — editing a worker's wage
+    or shortening the log retention window (which can erase the very audit trail this feature relies
+    on) went through with zero protection. `WorkerManagementService.UpdateWorkerAsync` now gates only
+    when `DailyWageEgp` actually changes (renaming a worker never asks).
+  - **Tier B (no more instant prompt)**: `RecordProduction`, `SaveAttendance`, `SavePenalty`,
+    `RecordScrap`, `EditProductionPieces`, `DeleteProduction` — the routine, many-times-a-day actions
+    that were the actual complaint. Every business method behind these had its `VerifyAsync` call and
+    `operationsPassword` parameter **removed outright** (not left as a dead unused parameter) —
+    `AttendanceService.RecordAttendanceBatchAsync`, `PenaltyService.RecordPenaltyAsync`/
+    `UpdatePenaltyAsync`, `ProductionFlowService.RecordFlowAsync`, `ScrapService.RecordAsync`/
+    `EnsureAllowedAsync`, `WorkdayCalculationService.UpdateProductionAsync`/`DeleteProductionAsync`/
+    `DeleteProductionDayAsync`. The one funnel shared with Tier A deletions, `SoftDeleteService.DeleteAsync`,
+    special-cases `descriptor.Action == SensitiveAction.DeleteProduction` to skip `VerifyAsync` while
+    every other action through that funnel (worker/product/stage) still gates — this was cheaper and
+    less error-prone than threading a second "skip the gate" parameter through the shared method.
+    A few actions were already ungated with no `SensitiveAction` of their own (editing/deleting an
+    initial balance, deleting a penalty) — those just got their `SensitiveActionDialog.Ask` replaced
+    with the new confirm-only variant below for a consistent look; deleting a scrap row was **also**
+    missing from the activity log entirely (no `ActivityEventType` existed for it) — closed with a new
+    `ScrapDeleted` type, since Tier B's only remaining trail is the activity log.
+  - **`SensitiveActionDialog.AskConfirm`** is the Tier B replacement for `Ask`: identical look (title/
+    colour/icon driven by `SensitiveActionKind`, same Cancel = "go back and edit") but hides the
+    password box **and** the "not configured" hint — Tier B was never going to ask for a password, so
+    "no password configured" would be a non-sequitur, unlike genuine Tier A "not configured yet".
+  - **The sign-off row is a global flag per calendar date, not per login account** — `DailyOperationsSignOff`
+    has no `AppUserId`, deliberately, even though `OperationsPasswordService` verifies each account's
+    *own* password. Any signed-in account entering *their* correct operations password signs off the
+    whole day for the whole app; this was a direct decision (asked explicitly, not assumed) because
+    the alternative — one sign-off row per account — would complicate "can the app close" and the
+    startup catch-up below for no real benefit on what is in practice a single-operator-per-day tool.
+  - **A signature only covers what happened *before* it — later activity re-arms the guard.**
+    `IsFullySignedOffAsync(date)` is the real question the close-guard asks, not "does a sign-off row
+    exist": it's signed off **and** nothing was logged after `SignedOffAt`. This was found in testing —
+    the day was signed at 18:37, then a worker was deleted at 18:47 and a whole production day at
+    19:12, and the app closed silently: 16 operations with no signature covering them, because the
+    only signature predated them all. `SignOffAsync` therefore **updates** an existing row's
+    `SignedOffAt` rather than refusing ("already signed off"), keeping one row per date (the unique
+    index stands) carrying the *latest* signature; the full chain of signatures lives in the activity
+    log, which is the audit trail that matters. `AcknowledgeLateAsync` upserts the same way, and
+    `GetUnsignedPastDatesAsync` scans from the last signed date **inclusive** (not `+1`) for the same
+    reason — a past day signed at 18:00 with activity at 20:00 must still surface at startup.
+    **`DaySignedOff` events are excluded from that comparison**, and skipping that exclusion is not a
+    detail: `LogAsync` runs *after* the transaction commits, so the signature's own event is always
+    a few milliseconds *later* than `SignedOffAt` — every signature would instantly invalidate itself
+    and demand another, forever. `GetActivitySinceLastSignOffAsync` feeds the review dialog from the
+    same rule, so the user only ever reviews what they haven't already signed for.
+  - **"Signed off on time" vs "caught up late" is derived, never stored**: compare
+    `SignedOffAt.Date` to `Date` — no separate flag. `SignOffAsync` (today, from the "حفظ نهائي" button
+    or `MainWindow.Closing`) and `AcknowledgeLateAsync` (past unsigned days, from the startup catch-up
+    dialog, one password covering every listed date at once) both just insert the same shape of row.
+  - **`GetUnsignedPastDatesAsync(today)` takes `today` as a parameter, not `DateTime.Today`** — same
+    reason `DayClosureService` takes every date from its caller: a wall-clock read inside a Business
+    method makes it untestable with a fixed date. `App.OnStartup` passes real `DateTime.Today`;
+    `DailyOperationsSignOffServiceTests` passes `TestDatabase.Today`.
+  - **One-time automatic cutover seed**: the very first call to `GetUnsignedPastDatesAsync` on a table
+    that has never had a row (fresh migration on a customer DB with years of pre-feature history)
+    inserts a sign-off row for `today.AddDays(-1)` with no activity-log entry (it's bookkeeping, not a
+    real approval) so the feature's very first day never has to explain away years of unsigned
+    history. Every date strictly after that seed is fair game for the catch-up dialog.
+  - **`MainWindow.Closing` must stay 100% synchronous and always cancel first.** WPF keeps the window
+    in its internal "closing" state until the handler returns, *even when `e.Cancel = true` was set* —
+    so an `await` inside it hands control back to WPF mid-close, and the next `ShowDialog` throws
+    `Cannot set Visibility to Visible or call Show, ShowDialog, Close, or
+    WindowInteropHelper.EnsureHandle while a Window is closing`. That is exactly what shipped first and
+    it silently let the app close with no prompt at all. The handler now cancels synchronously and
+    defers the whole async flow (the "is it covered?" query, the password prompt, the review dialog) to
+    `Dispatcher.BeginInvoke(..., DispatcherPriority.Background)`; on success it sets `_closeConfirmed`
+    and calls `Close()` again, which the guard lets through. **Do not "optimise" this by caching the
+    signed-off state to make the check synchronous** — that was tried, and it goes stale the moment any
+    Tier B action writes to the log, which is precisely when the guard must fire.
+  - **App close is blocked until today is signed off** (`MainWindow.Closing`) and **startup blocks on
+    any unsigned past date** (`App.EnsureLateSignOffsAcknowledgedAsync`, called right after login and
+    — unlike every other startup check around it — **not** wrapped in a swallow-all `try/catch`: this
+    one is a security condition, not cleanup, so a failure here must stop startup, not get logged and
+    ignored). Both dialogs share one code path, `MainWindow.RunFinalSaveFlowAsync`, so the button, the
+    close-guard, and (via `LateSignOffCatchUpDialog`'s own confirm callback) the startup catch-up all
+    ask the same way and write the same kind of row. `LateSignOffCatchUpDialog` has no working close
+    button — `Window_Closing` cancels unconditionally until acknowledgement succeeds — because unlike
+    every other dialog in the app, walking away from this one without answering isn't a valid choice.
 - `WorkdayCalculationService.Update/DeleteProductionAsync` edit rows freely. They used to refuse rows
   belonging to a batch because quantity and line position could desync; with numbers derived from the
   rows themselves, correcting a row corrects every report that depends on it.
@@ -776,7 +871,9 @@ Core  <----------------------- UI
   on purpose. The dialog shipped hard-wired for deletion: a red header and an "أكّد الحذف" button on
   *every* gated operation, so saving a production run asked the user to confirm a **delete**. The kind
   drives the header colour, the button text and style, the reason label, and the error text. A wrong
-  default here is worse than a compile error, which is why there isn't one.
+  default here is worse than a compile error, which is why there isn't one. `AskConfirm` is the sibling
+  entry point for Tier B actions (see daily operations sign-off above) — same window, same `kind`-driven
+  styling, just the password box and "not configured" hint both collapsed.
 - **Excel export runs on a background thread** (`ExcelExport.RunAsync` wraps the write in `Task.Run`).
   Every caller passes a lambda that does its work synchronously and returns `Task.CompletedTask`, so it
   used to execute on the UI thread — a year's report with 14k detail rows froze the window for 3.3
@@ -822,7 +919,10 @@ Core  <----------------------- UI
   a new event type added later can't silently inherit a 90-day life just because someone forgot to list
   it. `ActivityLogRetentionTests` asserts exactly that inversion. Defaults: 90 days for deletions, 365 for
   money + `OperationsPasswordChanged` (it's the gate protecting the money operations, so "who changed it"
-  belongs to the same question). Both are editable in Settings; **0 means off, never "delete everything"**,
+  belongs to the same question). `ScrapDeleted` (28) landed long-lived to match `ScrapRecorded`, not with
+  the other administrative deletions — it wasn't in the original six, it never had *any* writer before
+  daily operations sign-off closed the gap. `DaySignedOff` (29) is long-lived for the same reason as
+  `OperationsPasswordChanged`: it's an audit record of who vouched for a day, not routine noise. Both are editable in Settings; **0 means off, never "delete everything"**,
   and anything else is raised to `MinRetentionDays` (30). Deleting is a bulk `ExecuteDeleteAsync` on the
   indexed `OccurredAt` — the rows never load into memory. `ActivityLogViewModel.RetentionNote` prints the
   live policy on the log screen: a log that shrinks on its own must say so, or the first person who can't

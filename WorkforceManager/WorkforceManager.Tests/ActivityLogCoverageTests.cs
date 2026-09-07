@@ -95,8 +95,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<PenaltyService>(scope).RecordPenaltyAsync(
-                    TestDatabase.WorkerAhmedId, Day, "اتأخر", PenaltyDeduction.HalfDay,
-                    operationsPassword: Password);
+                    TestDatabase.WorkerAhmedId, Day, "اتأخر", PenaltyDeduction.HalfDay);
 
             // الجزاء التلقائي انعكاس لحالة الحضور اللي اتسجّلت خلاص —
             // تسجيله بيبقى نفس الحدث مرتين
@@ -122,7 +121,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .UpdateProductionAsync(recordId, 150, Password);
+                    .UpdateProductionAsync(recordId, 150);
 
             var logged = Assert.Single(await EventsOfAsync(ActivityEventType.ProductionPiecesEdited));
             Assert.Contains("100", logged.Details);
@@ -146,11 +145,28 @@ namespace WorkforceManager.Tests
         {
             using (var scope = _db.CreateScope())
                 await _db.GetService<ScrapService>(scope).RecordAsync(
-                    TestDatabase.BagStage1Id, Day, 300, "", note: "عيب خامة");
+                    TestDatabase.BagStage1Id, Day, 300, note: "عيب خامة");
 
             var logged = Assert.Single(await EventsOfAsync(ActivityEventType.ScrapRecorded));
             Assert.Contains("300", logged.Details);
             Assert.Equal("عيب خامة", logged.Reason);
+        }
+
+        [Fact]
+        public async Task DeletingScrap_IsLogged()
+        {
+            // فجوة كانت موجودة: حذف الهالك كان بيحصل من غير أي أثر في
+            // السجل خالص — بقى مهم دلوقتي (Tier B، مفيش باسورد فوري)
+            int scrapId;
+            using (var scope = _db.CreateScope())
+                scrapId = (await _db.GetService<ScrapService>(scope).RecordAsync(
+                    TestDatabase.BagStage1Id, Day, 300)).Id;
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<ScrapService>(scope).RemoveAsync(scrapId);
+
+            var logged = Assert.Single(await EventsOfAsync(ActivityEventType.ScrapDeleted));
+            Assert.Contains("300", logged.Details);
         }
 
         [Fact]

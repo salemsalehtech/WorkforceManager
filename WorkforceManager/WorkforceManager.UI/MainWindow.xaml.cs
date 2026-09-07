@@ -1,6 +1,11 @@
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.Services;
+using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Models;
 using WorkforceManager.UI.Views;
 
 namespace WorkforceManager.UI
@@ -43,6 +48,9 @@ namespace WorkforceManager.UI
 
             // الشاشة الافتراضية عند فتح البرنامج: شاشة العمال
             MainContent.Content = App.AppHost.Services.GetRequiredService<WorkersView>();
+
+            // مايتقفلش من غير توقيع نهاية اليوم — شوف MainWindow_Closing
+            Closing += MainWindow_Closing;
         }
 
         /// <summary>
@@ -195,6 +203,140 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
             MainContent.Content = App.AppHost.Services.GetRequiredService<DepartmentAccountsView>();
             RefreshActivityBadge();
+        }
+
+        // ======================= توقيع نهاية اليوم =======================
+
+        private async void FinalSave_Click(object sender, RoutedEventArgs e) =>
+            await RunFinalSaveFlowAsync();
+
+        /// <summary>
+        /// اتحقّقت اليوم فعلًا واتقفل من غير سؤال — <see cref="MainWindow_Closing"/>
+        /// بينادي Close() تاني بعد نجاح التوقيع، وده بيرجّعه هنا؛ من غير
+        /// العلم ده كان هيدخل في حلقة (Closing → RunFinalSaveFlowAsync
+        /// → Close → Closing تاني).
+        /// </summary>
+        private bool _closeConfirmed;
+
+        /// <summary>يمنع تراكم أكتر من محاولة توقيع لو المستخدم دبس X كذا مرة بسرعة</summary>
+        private bool _closeFlowRunning;
+
+
+        /// <summary>
+        /// مايسمحش بإغلاق البرنامج قبل ما اليوم يتوقّع — نفس فلو زرار
+        /// "حفظ نهائي" بالظبط، غير إنه بيتنادى تلقائي عند محاولة الإغلاق.
+        ///
+        /// **لازم تفضل sync بالكامل، مفيش await هنا خالص.** WPF بيسيب
+        /// الـ Window في حالة "بيتقفل" داخليًا (`_isClosing`) لحد ما
+        /// المعالج يرجع تمامًا، حتى لو `e.Cancel = true` اتحطت قبل كده —
+        /// أي `await` جوّه المعالج ده (زي ما كان هنا قبل الإصلاح ده)
+        /// بيرجّع التحكم لـ WPF قبل ما الحالة دي تتصفّر، فأي محاولة تفتح
+        /// ديالوج بعدها (حتى لو الحدث نفسه أكّد الإلغاء) بترمي
+        /// "Cannot ... call ... ShowDialog ... while a Window is closing" —
+        /// وده بالظبط اللي كان بيخلي البرنامج يقفل من غير ما يطلب التوقيع.
+        /// الحل: نلغي فورًا وبشكل متزامن، ونأجّل الفلو الحقيقي (اللي فيه
+        /// async وديالوجات) لدورة Dispatcher تالية بـ BeginInvoke، بعد ما
+        /// WPF يخلّص إلغاء الإغلاق ده تمامًا ويصفّر حالته.
+        /// </summary>
+        private void MainWindow_Closing(object? sender, CancelEventArgs e)
+        {
+            if (_closeConfirmed) return; // إغلاق حقيقي بعد توقيع ناجح — سيبه يكمل
+
+            // **بنلغي دايمًا الأول**: السؤال "اليوم مغطّى بتوقيع؟" محتاج
+            // قراءة من قاعدة البيانات (فيه نشاط بعد آخر توقيع؟)، وده async —
+            // وممنوع نعمل await هنا. فبنلغي، وبنسأل في دورة Dispatcher
+            // تالية؛ لو طلع مغطّى فعلاً بنقفل فورًا من غير ما يحس المستخدم.
+            e.Cancel = true;
+            if (_closeFlowRunning) return; // فلو شغال بالفعل من محاولة إغلاق سابقة
+
+            _closeFlowRunning = true;
+
+            Dispatcher.BeginInvoke(new Action(async () =>
+            {
+                try
+                {
+                    if (await RunFinalSaveFlowAsync(fromCloseAttempt: true))
+                    {
+                        _closeConfirmed = true;
+                        Close();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // من غير الـ catch ده الاستثناء بيروح لمعالج
+                    // DispatcherUnhandledException العام وبيتبلع كتوست
+                    // عام مالوش علاقة بالتوقيع — والمستخدم مايعرفش إن
+                    // فلو الإغلاق نفسه هو اللي وقع
+                    Notify.Error($"حصل خطأ أثناء الحفظ النهائي:\n\n{ex.Message}", "خطأ");
+                }
+                finally
+                {
+                    _closeFlowRunning = false;
+                }
+            }), System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        /// <summary>
+        /// فلو "حفظ نهائي" الكامل: باسورد → مراجعة كل حاجة حصلت النهارده
+        /// → توقيع. مشترك بين زرار القائمة الجانبية ومعالج الإغلاق عشان
+        /// الاتنين يمشوا بنفس المسار بالظبط ونفس الرسايل.
+        /// </summary>
+        /// <param name="fromCloseAttempt">
+        /// جاي من محاولة إغلاق مش من الزرار — بيخلي البرنامج يوضّح
+        /// للمستخدم ليه النافذة ما اتقفلتش، بدل ما ديالوج يظهر فجأة.
+        /// </param>
+        /// <returns>النهارده بقى مغطّى بتوقيع (سواء دلوقتي أو من قبل)؟</returns>
+        private async Task<bool> RunFinalSaveFlowAsync(bool fromCloseAttempt = false)
+        {
+            var today = DateTime.Today;
+
+            List<ActivityEvent> pending;
+            using (var checkScope = App.AppHost.Services.CreateScope())
+            {
+                var signOff = checkScope.ServiceProvider.GetRequiredService<DailyOperationsSignOffService>();
+
+                // "مغطّى" = فيه توقيع ومفيش أي شغل بعده. لو المستخدم وقّع
+                // الساعة 6 وحذف إنتاج الساعة 8، اليوم بيرجع محتاج توقيع
+                if (await signOff.IsFullySignedOffAsync(today))
+                    return true; // مفيش حاجة لسه محتاجة إمضاء — اقفل عادي
+
+                pending = (await signOff.GetActivitySinceLastSignOffAsync(today)).ToList();
+            }
+
+            if (fromCloseAttempt)
+                Notify.Warn(
+                    "فيه شغل النهارده لسه ما اتوقّعش عليه. لازم \"حفظ نهائي\" الأول قبل ما تقفل البرنامج.",
+                    "مش هينفع تقفل");
+
+            using var gateScope = App.AppHost.Services.CreateScope();
+            var gate = gateScope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+
+            var input = SensitiveActionDialog.Ask(
+                this, "حفظ نهائي",
+                "توقيع نهاية اليوم — بيغطي كل حاجة حصلت في البرنامج النهارده بدل ما تتأكّد من كل عملية لوحدها.",
+                SensitiveActionKind.Save, await gate.IsConfiguredAsync(), reasonRequired: false);
+
+            if (input is null) return false;
+
+            // الملخص بيعرض اللي لسه محتاج توقيع بس — عرض عمليات موقّعة
+            // خلاص كان هيخلي المستخدم يمضي على نفس الحاجة مرتين
+            var summary = new DailySignOffSummaryDialog(today, pending) { Owner = this };
+            if (summary.ShowDialog() != true) return false;
+
+            try
+            {
+                using var signScope = App.AppHost.Services.CreateScope();
+                await signScope.ServiceProvider.GetRequiredService<DailyOperationsSignOffService>()
+                    .SignOffAsync(today, input.Password);
+
+                Notify.Info($"اتوقّع يوم {today:yyyy/MM/dd} بنجاح.", "تم الحفظ النهائي");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "مش هينفع");
+                return false;
+            }
         }
     }
 }

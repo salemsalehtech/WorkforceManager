@@ -413,7 +413,7 @@ namespace WorkforceManager.Tests
             var (balance, range) = await CreateSingleStageBalanceAsync(20, Day);
 
             var scrap = await _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
-                s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay, 20, null, "رفض جودة", ""));
+                s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay, 20, null, "رفض جودة"));
 
             Assert.Equal(20, scrap.PieceCount);
 
@@ -430,22 +430,6 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
-        public async Task Withdrawing_to_scrap_without_the_operations_password_is_rejected()
-        {
-            await _db.SignInTestUserAsync();
-            using (var scope = _db.CreateScope())
-                await _db.GetService<OperationsPasswordService>(scope).SetPasswordAsync(null, "1234");
-
-            var (balance, range) = await CreateSingleStageBalanceAsync(20, Day);
-
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
-                    s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay, 20, null, null, "غلط")));
-
-            Assert.DoesNotContain("مقفول", ex.Message);
-        }
-
-        [Fact]
         public async Task Withdrawing_to_scrap_on_a_closed_day_is_rejected()
         {
             await _db.SignInTestUserAsync();
@@ -456,7 +440,7 @@ namespace WorkforceManager.Tests
 
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
-                    s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay, 20, null, null, "")));
+                    s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay, 20, null, null)));
 
             Assert.Contains("مقفول", ex.Message);
         }
@@ -469,7 +453,7 @@ namespace WorkforceManager.Tests
 
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
-                    s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage2Id, CompletionDay, 20, null, null, "")));
+                    s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage2Id, CompletionDay, 20, null, null)));
 
             Assert.Contains("المرحلة اللي الرصيد واقف فيها", ex.Message);
         }
@@ -502,7 +486,7 @@ namespace WorkforceManager.Tests
 
             // سحب 20 هالك من BagStage2Id (مرحلة بداية النطاق)
             await _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
-                s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage2Id, CompletionDay, 20, null, null, ""));
+                s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage2Id, CompletionDay, 20, null, null));
 
             // محاولة سحب الـ50 كاملة (بدل الـ30 الباقية فقط) لازم تترفض
             var shares = new[]
@@ -541,7 +525,7 @@ namespace WorkforceManager.Tests
 
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
-                    s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay, 30, null, null, "")));
+                    s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay, 30, null, null)));
 
             Assert.Contains("أكبر من المتاح", ex.Message);
         }
@@ -561,7 +545,7 @@ namespace WorkforceManager.Tests
 
             // تحويل الباقي (30) لهالك — مش الـ50 الأصلية كاملة
             var scrap = await _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
-                s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay.AddDays(1), 30, null, null, ""));
+                s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay.AddDays(1), 30, null, null));
 
             Assert.Equal(30, scrap.PieceCount);
 
@@ -577,7 +561,7 @@ namespace WorkforceManager.Tests
             var (balance, range) = await CreateSingleStageBalanceAsync(20, Day);
 
             var scrap = await _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
-                s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay, 20, null, null, ""));
+                s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay, 20, null, null));
 
             using var scope = _db.CreateScope();
             // من غير الإصلاح: ده كان بيرمي DbUpdateException/SQLite Error 19
@@ -1030,7 +1014,7 @@ namespace WorkforceManager.Tests
 
             var (scrappedBalance, scrappedRange) = await CreateSingleStageBalanceAsync(15, Day);
             await _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
-                s.WithdrawToScrapAsync(scrappedBalance.Id, scrappedRange.Id, TestDatabase.BagStage3Id, CompletionDay, 15, null, null, ""));
+                s.WithdrawToScrapAsync(scrappedBalance.Id, scrappedRange.Id, TestDatabase.BagStage3Id, CompletionDay, 15, null, null));
 
             var history = await _db.InScopeAsync<InitialBalanceService, System.Collections.Generic.IReadOnlyList<InitialBalanceDto>>(s =>
                 s.GetHistoryForProductAsync(TestDatabase.ProductBagId));
@@ -1144,7 +1128,7 @@ namespace WorkforceManager.Tests
                 dp.WorkerId == TestDatabase.WorkerAhmedId && dp.ProductionStageId == TestDatabase.BagStage3Id && dp.Date == CompletionDay);
 
             var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionAsync(wage.Id, "", "تصحيح");
+                .DeleteProductionAsync(wage.Id, "تصحيح");
 
             Assert.True(result.IsDeleted);
 
@@ -1166,7 +1150,7 @@ namespace WorkforceManager.Tests
             var record = await appDb.DailyProductions.FirstAsync(dp => dp.WorkerId == TestDatabase.WorkerAhmedId);
 
             var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionAsync(record.Id, "", "تصحيح");
+                .DeleteProductionAsync(record.Id, "تصحيح");
 
             Assert.True(result.IsDeleted);
         }
@@ -1178,7 +1162,7 @@ namespace WorkforceManager.Tests
 
             using var scope = _db.CreateScope();
             var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionDayAsync(CompletionDay, "", "تصحيح");
+                .DeleteProductionDayAsync(CompletionDay, "تصحيح");
 
             Assert.True(result.IsDeleted);
 

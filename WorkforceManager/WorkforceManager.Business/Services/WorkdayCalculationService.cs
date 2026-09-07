@@ -19,7 +19,6 @@ namespace WorkforceManager.Business.Services
         private readonly IProductRepository _productRepo;
         private readonly WorkerAssignmentGuard _assignmentGuard;
         private readonly SoftDeleteService _softDelete;
-        private readonly OperationsPasswordService _gate;
         private readonly IProductionDayClosureRepository _closureRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ActivityLogService _log;
@@ -37,7 +36,6 @@ namespace WorkforceManager.Business.Services
             IProductRepository productRepo,
             WorkerAssignmentGuard assignmentGuard,
             SoftDeleteService softDelete,
-            OperationsPasswordService gate,
             IProductionDayClosureRepository closureRepo,
             IUnitOfWork unitOfWork,
             ActivityLogService log,
@@ -55,7 +53,6 @@ namespace WorkforceManager.Business.Services
             _productRepo = productRepo;
             _assignmentGuard = assignmentGuard;
             _softDelete = softDelete;
-            _gate = gate;
             _closureRepo = closureRepo;
             _unitOfWork = unitOfWork;
             _attendanceRepo = attendanceRepo;
@@ -193,21 +190,17 @@ namespace WorkforceManager.Business.Services
         /// نفس اليوم — بتتفحص بس لما العامل فعلاً بيتغيّر.
         /// </param>
         /// <param name="reason">سبب اختياري لتغيير العامل، بيتسجل في سجل العمليات</param>
+        /// <remarks>
+        /// **مفيش بوابة باسورد هنا (Tier B)** — تصحيح قطع سجل إنتاج بقى
+        /// متغطى بتوقيع نهاية اليوم بدل باسورد فوري (شوف
+        /// DailyOperationsSignOffService).
+        /// </remarks>
         public async Task<DailyProduction> UpdateProductionAsync(
-            int recordId, int newPieceCount, string operationsPassword = "",
+            int recordId, int newPieceCount,
             int? newWorkerId = null, bool confirmOverride = false, string? reason = null)
         {
             if (newPieceCount <= 0)
                 throw new ArgumentException("عدد القطع يجب أن يكون أكبر من صفر", nameof(newPieceCount));
-
-            // تصحيح القطع (أو تحويل السجل لعامل تاني) بيعيد حساب
-            // اليومية، واليومية هي الأجر. النوع ده كان معرّف في
-            // SensitiveAction من زمان (EditProductionPieces) ومحدش
-            // استخدمه — فتعديل رقم إنتاج محفوظ كان بيعدّي من غير كلمة
-            // سر بينما حذفه بيتطلبها
-            var gate = await _gate.VerifyAsync(SensitiveAction.EditProductionPieces, operationsPassword);
-            if (!gate.IsAllowed)
-                throw new InvalidOperationException(gate.Message);
 
             var record = await _productionRepo.GetByIdAsync(recordId)
                 ?? throw new InvalidOperationException("سجل الإنتاج غير موجود");
@@ -443,8 +436,13 @@ namespace WorkforceManager.Business.Services
         /// بيرجّع القطع تلقائيًا لرصيدها (RemainingQuantity محسوبة من
         /// مجموع الاستخدامات).
         /// </summary>
-        public async Task<SoftDeleteResult> DeleteProductionAsync(
-            int recordId, string operationsPassword, string reason)
+        /// <remarks>
+        /// **مفيش بوابة باسورد هنا (Tier B)** — بقى متغطى بتوقيع نهاية
+        /// اليوم بدل باسورد فوري. السبب لسه إجباري (شوف
+        /// <see cref="SoftDeleteService.DeleteAsync{TEntity}"/>) — الحذف
+        /// من غير سبب مالوش قيمة في السجل مهما كانت البوابة.
+        /// </remarks>
+        public async Task<SoftDeleteResult> DeleteProductionAsync(int recordId, string reason)
         {
             var record = await _productionRepo.GetByIdAsync(recordId)
                 ?? throw new InvalidOperationException("سجل الإنتاج غير موجود");
@@ -472,7 +470,7 @@ namespace WorkforceManager.Business.Services
                     EntityName = label,
                     Details = $"يوم {record.Date:yyyy/MM/dd} — {record.PieceCount} قطعة"
                 },
-                operationsPassword,
+                password: "", // Tier B — SoftDeleteService بيتخطى التحقق لـ DeleteProduction
                 reason,
                 saveChanges: false,
                 removePermanently: () =>
@@ -524,9 +522,11 @@ namespace WorkforceManager.Business.Services
         ///
         /// اليوم المقفول بيتشال عادي: القفل بيمنع **تسجيل** جديد، والحذف
         /// بكلمة سر وسبب هو الطريق المقصود لتصحيح يوم اتقفل بالغلط.
+        ///
+        /// **مفيش بوابة باسورد هنا (Tier B)** — بقى متغطى بتوقيع نهاية
+        /// اليوم بدل باسورد فوري. السبب لسه إجباري لكل سجل.
         /// </summary>
-        public async Task<SoftDeleteResult> DeleteProductionDayAsync(
-            DateTime date, string operationsPassword, string reason)
+        public async Task<SoftDeleteResult> DeleteProductionDayAsync(DateTime date, string reason)
         {
             var records = await _productionRepo.GetByDateAsync(date);
             if (records.Count == 0)
@@ -557,7 +557,7 @@ namespace WorkforceManager.Business.Services
                         Details = $"ضمن حذف يوم {date:yyyy/MM/dd} كامل " +
                                   $"({records.Count} سجل، {totalPieces} قطعة)"
                     },
-                    operationsPassword,
+                    password: "", // Tier B — SoftDeleteService بيتخطى التحقق لـ DeleteProduction
                     reason,
                     // الحفظ مؤجّل لآخر السجل: السجلات كلها بتنزل مع بعض
                     saveChanges: false,

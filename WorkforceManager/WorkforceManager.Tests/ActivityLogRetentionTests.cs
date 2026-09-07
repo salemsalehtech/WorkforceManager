@@ -162,6 +162,12 @@ namespace WorkforceManager.Tests
             Assert.Contains(ActivityEventType.PenaltyDeleted, longLived);
             Assert.Contains(ActivityEventType.WageAdjustmentSaved, longLived);
             Assert.Contains(ActivityEventType.OperationsPasswordChanged, longLived);
+
+            // نفس منطق ScrapRecorded (long-lived) — ScrapDeleted بيسأل عنه
+            // متأخر زي ما بيتسأل ليه اتسجّل. DaySignedOff بوابة زي
+            // OperationsPasswordChanged بالظبط
+            Assert.Contains(ActivityEventType.ScrapDeleted, longLived);
+            Assert.Contains(ActivityEventType.DaySignedOff, longLived);
         }
     }
 }

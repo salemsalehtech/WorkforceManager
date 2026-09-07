@@ -43,6 +43,7 @@ namespace WorkforceManager.UI
                     services.AddScoped<IHourlyWorkLogRepository, HourlyWorkLogRepository>();
                     services.AddScoped<IWageAdjustmentRepository, WageAdjustmentRepository>();
                     services.AddScoped<IProductionDayClosureRepository, ProductionDayClosureRepository>();
+                    services.AddScoped<IDailyOperationsSignOffRepository, DailyOperationsSignOffRepository>();
                     services.AddScoped<IActivityEventRepository, ActivityEventRepository>();
                     services.AddScoped<IWorkerSkillRepository, WorkerSkillRepository>();
                     services.AddScoped<IGenericRepository<OperationsCredential>, GenericRepository<OperationsCredential>>();
@@ -68,6 +69,7 @@ namespace WorkforceManager.UI
                     services.AddScoped<ProductManagementService>();
                     services.AddScoped<ProductionFlowService>();
                     services.AddScoped<DayClosureService>();
+                    services.AddScoped<DailyOperationsSignOffService>();
                     services.AddScoped<DailyProductionReportService>();
                     services.AddScoped<ProductionChartService>();
                     services.AddScoped<ProductActivityService>();
@@ -254,6 +256,13 @@ namespace WorkforceManager.UI
                     return;
                 }
 
+                // لحاق أيام ما اتوقّعتش (البرنامج قفل فجأة قبل ما توقّع
+                // نهاية يومها — كرش، إغلاق قسري، انقطاع كهرباء). شرط أمان
+                // مش تنظيف: **عن قصد مش جوه try/catch** زي فحوصات بدء
+                // التشغيل التانية تحت — فشله لازم يوقف البرنامج بدل ما
+                // يعدّي بصمت ويسيب أيام بلا أثر إقرار
+                await EnsureLateSignOffsAcknowledgedAsync();
+
                 // تنظيف سجل العمليات من اللي عدّى مدة الاحتفاظ.
                 //
                 // بعد النسخة الاحتياطية عن قصد (اللي فوق): أي حدث بيتمسح
@@ -338,6 +347,36 @@ namespace WorkforceManager.UI
 
                 Shutdown(-1);
             }
+        }
+
+        /// <summary>
+        /// لحاق أيام ما اتوقّعتش عند بدء التشغيل — بيفتح ديالوج حاجز
+        /// (<see cref="Views.LateSignOffCatchUpDialog"/>) لو فيه أي يوم
+        /// فايت عليه نشاط ومحدش وقّعه، ومايرجعش لحد ما المستخدم يقرّ
+        /// بباسورد عملياته. مفيش حاجة تحصل لو مفيش أيام معلّقة (الحالة
+        /// العادية كل مرة البرنامج بيتقفل بشكل طبيعي عن طريق زرار "حفظ
+        /// نهائي" أو منع الإغلاق في MainWindow).
+        /// </summary>
+        private static async Task EnsureLateSignOffsAcknowledgedAsync()
+        {
+            using var scope = AppHost.Services.CreateScope();
+            var signOff = scope.ServiceProvider.GetRequiredService<DailyOperationsSignOffService>();
+
+            var dates = await signOff.GetUnsignedPastDatesAsync(DateTime.Today);
+            if (dates.Count == 0) return;
+
+            var gate = scope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+            var passwordRequired = await gate.IsConfiguredAsync();
+
+            var dialog = new Views.LateSignOffCatchUpDialog(dates, passwordRequired, async password =>
+            {
+                using var ackScope = AppHost.Services.CreateScope();
+                await ackScope.ServiceProvider
+                    .GetRequiredService<DailyOperationsSignOffService>()
+                    .AcknowledgeLateAsync(dates, password);
+            });
+
+            dialog.ShowDialog();
         }
 
         /// <summary>

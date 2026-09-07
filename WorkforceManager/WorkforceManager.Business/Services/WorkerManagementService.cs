@@ -16,6 +16,7 @@ namespace WorkforceManager.Business.Services
         private readonly IGenericRepository<WorkerSkill> _skillRepo;
         private readonly SoftDeleteService _softDelete;
         private readonly DeletionScopeService _scope;
+        private readonly OperationsPasswordService _gate;
 
         private readonly ActivityLogService _log;
 
@@ -24,12 +25,14 @@ namespace WorkforceManager.Business.Services
             IGenericRepository<WorkerSkill> skillRepo,
             SoftDeleteService softDelete,
             DeletionScopeService scope,
+            OperationsPasswordService gate,
             ActivityLogService log)
         {
             _workerRepo = workerRepo;
             _skillRepo = skillRepo;
             _softDelete = softDelete;
             _scope = scope;
+            _gate = gate;
             _log = log;
         }
 
@@ -87,11 +90,18 @@ namespace WorkforceManager.Business.Services
         /// لأي عامل هيصفّر ملاحظاته — واللي
         /// <c>DatabaseSeeder.SeedHourlyRolesAsync</c> بيقرا منها، والبحث
         /// بيدوّر جواها. فالقاعدة: مفيش حد بيكتب فيه، واللي متكتب فاضل.
+        ///
+        /// **باسورد العمليات مطلوب بس لو الأجر فعلاً بيتغيّر** —
+        /// <see cref="SensitiveAction.EditWorkerWage"/> (Tier A). تعديل
+        /// الاسم/الهاتف/تاريخ التعيين من غير لمس الأجر بيعدّي من غير
+        /// باسورد زي أي تعديل تاني. الفحص بعد التحميل عن قصد: لازم نعرف
+        /// الأجر القديم الأول عشان نقارنه بالجديد.
         /// </summary>
         public async Task<Worker> UpdateWorkerAsync(
             int workerId, string fullName,
             string? phoneNumber = null, DateTime? hireDate = null,
-            HourlyRole? hourlyRole = null, decimal dailyWageEgp = 0)
+            HourlyRole? hourlyRole = null, decimal dailyWageEgp = 0,
+            string operationsPassword = "")
         {
             if (string.IsNullOrWhiteSpace(fullName))
                 throw new ArgumentException("اسم العامل مطلوب", nameof(fullName));
@@ -104,6 +114,13 @@ namespace WorkforceManager.Business.Services
             // السعر ده بيضرب في يوميات كل الفترات — القديمة كمان، لأنه
             // مش لقطة وقت التسجيل. فتغييره حركة فلوس بمعنى الكلمة
             var oldWage = worker.DailyWageEgp;
+
+            if (oldWage != dailyWageEgp)
+            {
+                var gate = await _gate.VerifyAsync(SensitiveAction.EditWorkerWage, operationsPassword);
+                if (!gate.IsAllowed)
+                    throw new InvalidOperationException(gate.Message);
+            }
 
             worker.FullName = fullName.Trim();
             worker.PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
