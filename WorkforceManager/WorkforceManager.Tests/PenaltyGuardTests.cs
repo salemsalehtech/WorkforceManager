@@ -7,12 +7,14 @@ using Xunit;
 namespace WorkforceManager.Tests
 {
     /// <summary>
-    /// الجزاءات: بوابة كلمة السر، والتعديل، وحماية الجزاء التلقائي.
+    /// الجزاءات: التعديل، وحماية الجزاء التلقائي.
     ///
-    /// الجزاء بيخصم من أجر عامل حقيقي، فهو عملية بتلمس فلوس. وأخطر حاجة
-    /// هنا هي **التفرقة بين اليدوي والتلقائي**: الجزاء التلقائي انعكاس
-    /// لحالة الحضور، فأي تعديل يدوي عليه بيختفي لوحده أول حفظ للحضور —
-    /// وتعديل بيختفي من غير ما حد ياخد باله أسوأ من تعديل ممنوع.
+    /// **مفيش بوابة باسورد على تسجيل/تعديل جزاء (Tier B)** — بقى متغطى
+    /// بتوقيع نهاية اليوم بدل باسورد فوري (شوف DailyOperationsSignOffServiceTests
+    /// لاختبارات البوابة نفسها). أخطر حاجة هنا هي **التفرقة بين اليدوي
+    /// والتلقائي**: الجزاء التلقائي انعكاس لحالة الحضور، فأي تعديل يدوي
+    /// عليه بيختفي لوحده أول حفظ للحضور — وتعديل بيختفي من غير ما حد
+    /// ياخد باله أسوأ من تعديل ممنوع.
     /// </summary>
     public class PenaltyGuardTests : IDisposable
     {
@@ -20,25 +22,14 @@ namespace WorkforceManager.Tests
 
         public void Dispose() => _db.Dispose();
 
-        private const string Password = "5555";
-
         private static DateTime Today => TestDatabase.Today;
-
-        private async Task SetPasswordAsync()
-        {
-            await _db.SignInTestUserAsync();
-
-            using var scope = _db.CreateScope();
-            await _db.GetService<OperationsPasswordService>(scope).SetPasswordAsync(null, Password);
-        }
 
         /// <summary>بيسجّل جزاء يدوي ويرجّع رقمه</summary>
         private async Task<int> AddManualAsync(string reason = "شرب سجاير في الورشة")
         {
             using var scope = _db.CreateScope();
             var penalty = await _db.GetService<PenaltyService>(scope).RecordPenaltyAsync(
-                TestDatabase.WorkerAhmedId, Today, reason, PenaltyDeduction.HalfDay,
-                operationsPassword: Password);
+                TestDatabase.WorkerAhmedId, Today, reason, PenaltyDeduction.HalfDay);
 
             return penalty.Id;
         }
@@ -52,58 +43,11 @@ namespace WorkforceManager.Tests
             using var scope = _db.CreateScope();
             await _db.GetService<AttendanceService>(scope).RecordAttendanceBatchAsync(
                 Today,
-                new[] { (TestDatabase.WorkerAhmedId, AttendanceStatus.AbsentWithoutPermission) },
-                Password);
+                new[] { (TestDatabase.WorkerAhmedId, AttendanceStatus.AbsentWithoutPermission) });
 
             var db = _db.GetService<AppDbContext>(scope);
             var auto = await db.Penalties.SingleAsync(p => p.Source == PenaltySource.AutoAbsence);
             return auto.Id;
-        }
-
-        // ======================= بوابة كلمة السر =======================
-
-        [Fact]
-        public async Task Recording_a_manual_penalty_needs_the_password()
-        {
-            await SetPasswordAsync();
-
-            using var scope = _db.CreateScope();
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                _db.GetService<PenaltyService>(scope).RecordPenaltyAsync(
-                    TestDatabase.WorkerAhmedId, Today, "سبب", PenaltyDeduction.OneDay,
-                    operationsPassword: "غلط"));
-
-            var db = _db.GetService<AppDbContext>(scope);
-            Assert.Empty(await db.Penalties.ToListAsync());
-        }
-
-        [Fact]
-        public async Task An_auto_penalty_does_not_ask_for_the_password_again()
-        {
-            // بيتولّد جوه حفظ الحضور اللي عدّى على البوابة خلاص — سؤالها
-            // تاني كان هيبقى سؤالين على نفس العملية
-            await SetPasswordAsync();
-
-            var autoId = await AddAutoAsync();
-            Assert.True(autoId > 0);
-        }
-
-        [Fact]
-        public async Task Editing_a_penalty_needs_the_password()
-        {
-            await SetPasswordAsync();
-            var id = await AddManualAsync();
-
-            using var scope = _db.CreateScope();
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                _db.GetService<PenaltyService>(scope).UpdatePenaltyAsync(
-                    id, "سبب جديد", PenaltyDeduction.OneWeek, operationsPassword: "غلط"));
-
-            // الجزاء زي ما هو
-            var db = _db.GetService<AppDbContext>(scope);
-            var penalty = await db.Penalties.SingleAsync(p => p.Id == id);
-            Assert.Equal("شرب سجاير في الورشة", penalty.Reason);
-            Assert.Equal(PenaltyDeduction.HalfDay, penalty.Deduction);
         }
 
         // ======================= التعديل =======================
@@ -111,12 +55,11 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task Editing_a_manual_penalty_updates_reason_and_deduction()
         {
-            await SetPasswordAsync();
             var id = await AddManualAsync();
 
             using var scope = _db.CreateScope();
             await _db.GetService<PenaltyService>(scope).UpdatePenaltyAsync(
-                id, "تأخير متكرر", PenaltyDeduction.OneDay, operationsPassword: Password);
+                id, "تأخير متكرر", PenaltyDeduction.OneDay);
 
             var db = _db.GetService<AppDbContext>(scope);
             var penalty = await db.Penalties.SingleAsync(p => p.Id == id);
@@ -130,12 +73,11 @@ namespace WorkforceManager.Tests
         {
             // لو التعديل غيّر المصدر، الجزاء اليدوي ممكن يتحوّل لتلقائي
             // (فيتشال لوحده) أو العكس — والتفرقة في سجل المراجعة بتضيع
-            await SetPasswordAsync();
             var id = await AddManualAsync();
 
             using var scope = _db.CreateScope();
             await _db.GetService<PenaltyService>(scope).UpdatePenaltyAsync(
-                id, "سبب تاني", PenaltyDeduction.ThreeDays, operationsPassword: Password);
+                id, "سبب تاني", PenaltyDeduction.ThreeDays);
 
             var db = _db.GetService<AppDbContext>(scope);
             var penalty = await db.Penalties.SingleAsync(p => p.Id == id);
@@ -146,13 +88,12 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task An_empty_reason_is_refused()
         {
-            await SetPasswordAsync();
             var id = await AddManualAsync();
 
             using var scope = _db.CreateScope();
             await Assert.ThrowsAsync<ArgumentException>(() =>
                 _db.GetService<PenaltyService>(scope).UpdatePenaltyAsync(
-                    id, "   ", PenaltyDeduction.OneDay, operationsPassword: Password));
+                    id, "   ", PenaltyDeduction.OneDay));
         }
 
         // ======================= حماية الجزاء التلقائي =======================
@@ -160,13 +101,12 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task An_auto_penalty_cannot_be_edited_by_hand()
         {
-            await SetPasswordAsync();
             var autoId = await AddAutoAsync();
 
             using var scope = _db.CreateScope();
             var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 _db.GetService<PenaltyService>(scope).UpdatePenaltyAsync(
-                    autoId, "سبب بالإيد", PenaltyDeduction.OneWeek, operationsPassword: Password));
+                    autoId, "سبب بالإيد", PenaltyDeduction.OneWeek));
 
             // الرسالة لازم تقول للمستخدم يعمل إيه بدل ما يفضل يجرّب
             Assert.Contains("الحضور والغياب", ex.Message);
@@ -175,7 +115,6 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task An_auto_penalty_cannot_be_deleted_by_hand()
         {
-            await SetPasswordAsync();
             var autoId = await AddAutoAsync();
 
             using var scope = _db.CreateScope();
@@ -186,7 +125,6 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task Manual_and_auto_penalties_live_side_by_side_without_mixing()
         {
-            await SetPasswordAsync();
             await AddAutoAsync();
             await AddManualAsync("لبس هاندفري");
 

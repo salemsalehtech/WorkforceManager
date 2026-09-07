@@ -13,14 +13,11 @@ namespace WorkforceManager.Business.Services
     public class PenaltyService
     {
         private readonly IPenaltyRepository _penaltyRepo;
-        private readonly OperationsPasswordService _gate;
         private readonly ActivityLogService _log;
 
-        public PenaltyService(
-            IPenaltyRepository penaltyRepo, OperationsPasswordService gate, ActivityLogService log)
+        public PenaltyService(IPenaltyRepository penaltyRepo, ActivityLogService log)
         {
             _penaltyRepo = penaltyRepo;
-            _gate = gate;
             _log = log;
         }
 
@@ -28,6 +25,9 @@ namespace WorkforceManager.Business.Services
         /// يسجل جزاء جديد على عامل في تاريخ معين بسبب وخصم محددين.
         /// ده المسار الوحيد لإنشاء أي جزاء — سواء المستخدم كتبه بإيده أو
         /// النظام ولّده تلقائيًا (بيفرّق بينهم بـ <paramref name="source"/>).
+        ///
+        /// **مفيش بوابة باسورد هنا (Tier B)** — تسجيل جزاء بقى متغطى
+        /// بتوقيع نهاية اليوم بدل باسورد فوري (شوف DailyOperationsSignOffService).
         /// </summary>
         /// <param name="source">
         /// مصدر الجزاء. الافتراضي "يدوي" فكل النداءات القديمة شغالة زي ما هي.
@@ -36,21 +36,13 @@ namespace WorkforceManager.Business.Services
         /// اعمل حفظ فورًا؟ بيتحط false لما الجزاء يكون جزء من عملية أكبر
         /// (زي حفظ الحضور) عشان كل حاجة تتحفظ في معاملة واحدة.
         /// </param>
-        /// <param name="operationsPassword">
-        /// كلمة سر العمليات — مطلوبة للجزاءات **اليدوية** بس. الجزاء
-        /// التلقائي بيتولّد جوه حفظ الحضور اللي عدّى على البوابة خلاص،
-        /// وطلبها تاني كان هيبقى سؤالين على نفس العملية.
-        /// </param>
         public async Task<Penalty> RecordPenaltyAsync(
             int workerId, DateTime date, string reason, PenaltyDeduction deduction,
             PenaltySource source = PenaltySource.Manual,
-            bool saveChanges = true,
-            string operationsPassword = "")
+            bool saveChanges = true)
         {
             if (string.IsNullOrWhiteSpace(reason))
                 throw new ArgumentException("سبب الجزاء مطلوب", nameof(reason));
-
-            if (source == PenaltySource.Manual) await EnsureAllowedAsync(operationsPassword);
 
             var penalty = new Penalty
             {
@@ -86,8 +78,7 @@ namespace WorkforceManager.Business.Services
         /// اليدوي بيفضل يدوي، فالتفرقة في سجل المراجعة بتفضل صحيحة.
         /// </summary>
         public async Task<Penalty> UpdatePenaltyAsync(
-            int penaltyId, string reason, PenaltyDeduction deduction,
-            string operationsPassword = "")
+            int penaltyId, string reason, PenaltyDeduction deduction)
         {
             if (string.IsNullOrWhiteSpace(reason))
                 throw new ArgumentException("سبب الجزاء مطلوب", nameof(reason));
@@ -99,8 +90,6 @@ namespace WorkforceManager.Business.Services
                 throw new InvalidOperationException(
                     "ده جزاء تلقائي بسبب غياب بدون إذن — مش بيتعدّل بالإيد. " +
                     "غيّر حالة حضور العامل من تبويب \"الحضور والغياب\" وهو هيتظبط لوحده.");
-
-            await EnsureAllowedAsync(operationsPassword);
 
             penalty.Reason = reason.Trim();
             penalty.Deduction = deduction;
@@ -114,16 +103,6 @@ namespace WorkforceManager.Business.Services
                 details: $"تعديل — خصم {deduction.ToArabicName()} يوم {penalty.Date:yyyy/MM/dd}");
 
             return penalty;
-        }
-
-        /// <summary>
-        /// بوابة كلمة السر — نداء واحد في مكان واحد بدل ما كل دالة
-        /// تكرر نفس السطرين.
-        /// </summary>
-        private async Task EnsureAllowedAsync(string operationsPassword)
-        {
-            var gate = await _gate.VerifyAsync(SensitiveAction.SavePenalty, operationsPassword);
-            if (!gate.IsAllowed) throw new InvalidOperationException(gate.Message);
         }
 
         /// <summary>

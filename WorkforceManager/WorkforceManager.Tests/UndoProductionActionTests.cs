@@ -95,7 +95,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope).UpdateProductionAsync(
-                    recordId, 150, "1234", newWorkerId: null, confirmOverride: true);
+                    recordId, 150, newWorkerId: null, confirmOverride: true);
 
             // مفيش كلمة سر متبعتة هنا خالص، ومفيش استثناء
             using (var scope = _db.CreateScope())
@@ -179,7 +179,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope).DeleteProductionAsync(
-                    recordId, "", "اتسجل بالغلط");
+                    recordId, "اتسجل بالغلط");
 
             Assert.Empty(await _db.GetProductionAsync());
 
@@ -201,7 +201,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope).DeleteProductionAsync(
-                    recordId, "", "اتسجل بالغلط");
+                    recordId, "اتسجل بالغلط");
 
             using (var scope = _db.CreateScope())
             {

@@ -231,7 +231,7 @@ namespace WorkforceManager.Tests
             using (var deleteScope = _db.CreateScope())
             {
                 var workday = _db.GetService<WorkdayCalculationService>(deleteScope);
-                var result = await workday.DeleteProductionDayAsync(Day, "", "تصحيح");
+                var result = await workday.DeleteProductionDayAsync(Day, "تصحيح");
                 Assert.True(result.IsDeleted);
             }
 
@@ -282,7 +282,7 @@ namespace WorkforceManager.Tests
             using (var deleteScope = _db.CreateScope())
             {
                 var workday = _db.GetService<WorkdayCalculationService>(deleteScope);
-                var result = await workday.DeleteProductionDayAsync(Day, "", "تصحيح");
+                var result = await workday.DeleteProductionDayAsync(Day, "تصحيح");
                 Assert.True(result.IsDeleted);
             }
 

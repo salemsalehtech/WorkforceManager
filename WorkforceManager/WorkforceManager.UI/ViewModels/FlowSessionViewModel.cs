@@ -1074,20 +1074,17 @@ namespace WorkforceManager.UI.ViewModels
                     }))
                 .ToList();
 
-            // الإنتاج هو اللي اليوميات بتتحسب منه، واليوميات هي الأجر —
-            // فالتسجيل عملية بتلمس فلوس. كلمة سر واحدة للرحلة كلها مش
-            // لكل عامل، زي حفظ الحضور بالظبط.
+            // تسجيل إنتاج بقى Tier B — بدون باسورد فوري، متغطى بتوقيع
+            // نهاية اليوم بدل كده. ديالوج تأكيد بسيط بدل بوابة الباسورد.
             var totalPieces = shares.Sum(s => s.PieceCount);
             var workerCount = shares.Select(s => s.WorkerId).Distinct().Count();
 
-            var gate = SensitiveActionDialog.Ask(
+            var gate = SensitiveActionDialog.AskConfirm(
                 Application.Current.MainWindow,
                 _pendingWithdrawal is not null ? "سحب من رصيد أولي" : "حفظ رحلة الإنتاج",
                 $"رحلة \"{SelectedProduct.Name}\" بتاريخ {entryDate:yyyy/MM/dd}: " +
                 $"{totalPieces:N0} قطعة على {workerCount} عامل.",
-                SensitiveActionKind.Save,
-                passwordRequired: true,
-                reasonRequired: false);
+                SensitiveActionKind.Save);
 
             if (gate is null) return;
 
@@ -1181,7 +1178,7 @@ namespace WorkforceManager.UI.ViewModels
                     var balanceService = scope.ServiceProvider.GetRequiredService<InitialBalanceService>();
                     return await balanceService.WithdrawAsync(
                         withdrawal.BalanceId, withdrawal.Ranges, shares, entryDate,
-                        confirmOverride: confirmOverride, operationsPassword: gate.Password);
+                        confirmOverride: confirmOverride);
                 }
 
                 var flowService = scope.ServiceProvider.GetRequiredService<ProductionFlowService>();
@@ -1189,7 +1186,7 @@ namespace WorkforceManager.UI.ViewModels
                 return await flowService.RecordFlowAsync(
                     SelectedProduct!.ProductId, entryDate, ranges, shares,
                     taggedWorkers: taggedWorkers,
-                    confirmOverride: confirmOverride, operationsPassword: gate.Password);
+                    confirmOverride: confirmOverride);
             }
         }
     }

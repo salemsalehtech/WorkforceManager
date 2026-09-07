@@ -129,33 +129,17 @@ namespace WorkforceManager.Tests
 
         // ======================= حذف يوم كامل =======================
 
-        [Fact]
-        public async Task Deleting_a_whole_day_needs_the_operations_password()
-        {
-            await SetPasswordAsync();
-            await RecordAsync(TestDatabase.BagStage1Id, 100, Day1, TestDatabase.WorkerAhmedId);
-
-            using var scope = _db.CreateScope();
-            var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionDayAsync(Day1, "كلمة غلط", "تجربة");
-
-            Assert.False(result.IsDeleted);
-
-            // ولا سجل اتشال
-            var db = _db.GetService<AppDbContext>(scope);
-            Assert.Empty(await db.DailyProductions.IgnoreQueryFilters()
-                .Where(p => p.IsDeleted).ToListAsync());
-        }
+        // حذف يوم كامل بقى Tier B (بدون باسورد فوري، متغطى بتوقيع نهاية
+        // اليوم) — اختبار "محتاج باسورد صح" اتشال، والسبب لسه إجباري
 
         [Fact]
         public async Task Deleting_a_whole_day_needs_a_written_reason()
         {
-            await SetPasswordAsync();
             await RecordAsync(TestDatabase.BagStage1Id, 100, Day1, TestDatabase.WorkerAhmedId);
 
             using var scope = _db.CreateScope();
             var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionDayAsync(Day1, Password, "   ");
+                .DeleteProductionDayAsync(Day1, "   ");
 
             Assert.False(result.IsDeleted);
         }
@@ -163,11 +147,9 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task Deleting_an_empty_day_says_so_instead_of_pretending_to_work()
         {
-            await SetPasswordAsync();
-
             using var scope = _db.CreateScope();
             var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionDayAsync(Day1, Password, "تنضيف");
+                .DeleteProductionDayAsync(Day1, "تنضيف");
 
             Assert.False(result.IsDeleted);
             Assert.Contains("مفيش أي إنتاج", result.Message);
@@ -182,7 +164,7 @@ namespace WorkforceManager.Tests
 
             using var scope = _db.CreateScope();
             var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionDayAsync(Day1, Password, "اليوم اتسجل على تاريخ غلط");
+                .DeleteProductionDayAsync(Day1, "اليوم اتسجل على تاريخ غلط");
 
             Assert.True(result.IsDeleted);
 
@@ -211,7 +193,7 @@ namespace WorkforceManager.Tests
 
             using var scope = _db.CreateScope();
             await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionDayAsync(Day1, Password, "غلط");
+                .DeleteProductionDayAsync(Day1, "غلط");
 
             var db = _db.GetService<AppDbContext>(scope);
             var survivor = Assert.Single(await db.DailyProductions.ToListAsync());
@@ -234,12 +216,11 @@ namespace WorkforceManager.Tests
                     {
                         (TestDatabase.WorkerAhmedId, AttendanceStatus.Present),
                         (TestDatabase.WorkerSaidId, AttendanceStatus.Present)
-                    },
-                    Password);
+                    });
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionDayAsync(Day1, Password, "اليوم اتسجل على تاريخ غلط");
+                    .DeleteProductionDayAsync(Day1, "اليوم اتسجل على تاريخ غلط");
 
             using var check = _db.CreateScope();
             var checkDb = _db.GetService<AppDbContext>(check);
@@ -259,11 +240,11 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<AttendanceService>(scope).RecordAttendanceBatchAsync(
-                    Day2, new[] { (TestDatabase.WorkerAhmedId, AttendanceStatus.Present) }, Password);
+                    Day2, new[] { (TestDatabase.WorkerAhmedId, AttendanceStatus.Present) });
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionDayAsync(Day1, Password, "غلط");
+                    .DeleteProductionDayAsync(Day1, "غلط");
 
             using var check = _db.CreateScope();
             var checkDb = _db.GetService<AppDbContext>(check);
@@ -405,7 +386,7 @@ namespace WorkforceManager.Tests
             await _db.GetService<DayClosureService>(scope).CloseAsync(Day1, Password);
 
             var result = await _db.GetService<WorkdayCalculationService>(scope)
-                .DeleteProductionDayAsync(Day1, Password, "اليوم اتقفل بالغلط");
+                .DeleteProductionDayAsync(Day1, "اليوم اتقفل بالغلط");
 
             Assert.True(result.IsDeleted);
         }

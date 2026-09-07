@@ -18,7 +18,6 @@ namespace WorkforceManager.Business.Services
         private readonly IAttendanceRepository _attendanceRepo;
         private readonly IDailyProductionRepository _productionRepo;
         private readonly AttendanceAutomationService _automation;
-        private readonly OperationsPasswordService _gate;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ActivityLogService _log;
 
@@ -26,7 +25,6 @@ namespace WorkforceManager.Business.Services
             IAttendanceRepository attendanceRepo,
             IDailyProductionRepository productionRepo,
             AttendanceAutomationService automation,
-            OperationsPasswordService gate,
             IUnitOfWork unitOfWork,
             ActivityLogService log)
         {
@@ -34,7 +32,6 @@ namespace WorkforceManager.Business.Services
             _attendanceRepo = attendanceRepo;
             _productionRepo = productionRepo;
             _automation = automation;
-            _gate = gate;
             _unitOfWork = unitOfWork;
         }
 
@@ -46,25 +43,19 @@ namespace WorkforceManager.Business.Services
         /// حفظة واحدة. لو فيه أي عامل متعلم "غياب" وله إنتاج في نفس اليوم،
         /// الدفعة كلها بتترفض برسالة بتسمّي العمال — يا كله سليم يا مفيش.
         /// بيرجع عدد العمال اللي اتسجلوا/اتحدّثوا.
+        ///
+        /// **مفيش بوابة باسورد هنا (Tier B)** — الحضور شغل يومي متكرر،
+        /// بقى متغطى بتوقيع نهاية اليوم بدل باسورد فوري على كل حفظة
+        /// (شوف DailyOperationsSignOffService). المستخدم لسه بيتأكّد قبل
+        /// الحفظ من الشاشة (ديالوج تأكيد بدون باسورد).
         /// </summary>
-        /// <param name="operationsPassword">
-        /// كلمة سر العمليات. الحفظ ده بيولّد جزاءات غياب تلقائية بتنقص من
-        /// أجور العمال، فهو عملية بتلمس فلوس. البوابة هنا في الخدمة مش في
-        /// الشاشة عشان مفيش مسار يعدّي من غيرها.
-        /// </param>
         public async Task<AttendanceSaveResultDto> RecordAttendanceBatchAsync(
             DateTime date,
-            IEnumerable<(int WorkerId, AttendanceStatus Status)> entries,
-            string operationsPassword = "")
+            IEnumerable<(int WorkerId, AttendanceStatus Status)> entries)
         {
             var entryList = entries.ToList();
             if (entryList.Count == 0)
                 return new AttendanceSaveResultDto();
-
-            // كلمة سر واحدة للدفعة كلها — مش واحدة لكل عامل
-            var gate = await _gate.VerifyAsync(SensitiveAction.SaveAttendance, operationsPassword);
-            if (!gate.IsAllowed)
-                throw new InvalidOperationException(gate.Message);
 
             // قاعدة الحماية: مفيش غياب لعامل له شغل مسجل في نفس اليوم.
             // "له شغل" بيتحدد من مكان واحد (AttendanceAutomationService) عشان

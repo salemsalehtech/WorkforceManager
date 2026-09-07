@@ -8,7 +8,10 @@ namespace WorkforceManager.Business.Services
     /// الحذف — المكان الوحيد اللي بيشيل أي حاجة في البرنامج.
     ///
     /// كل عملية حذف بتمر من هنا بتعمل تلات حاجات **في معاملة واحدة**:
-    ///   1. تتحقق من كلمة سر العمليات (نظام 1)
+    ///   1. تتحقق من كلمة سر العمليات (نظام 1) — **إلا حذف سجل/يوم إنتاج
+    ///      (SensitiveAction.DeleteProduction)**، اللي بقى Tier B ومتغطى
+    ///      بتوقيع نهاية اليوم بدل كده؛ باقي أنواع الحذف من الفنل ده لسه
+    ///      Tier A زي ما هي
     ///   2. تشيل الكيان (نظام 2)
     ///   3. تكتب الحدث في سجل العمليات (نظام 3)
     ///
@@ -88,7 +91,13 @@ namespace WorkforceManager.Business.Services
             if (entity.IsDeleted)
                 return SoftDeleteResult.Fail("الحاجة دي متشالة بالفعل");
 
-            var gate = await _gate.VerifyAsync(descriptor.Action, password);
+            // حذف سجل/يوم إنتاج (Tier B) بقى متغطى بتوقيع نهاية اليوم
+            // بدل باسورد فوري — الاستثناء الوحيد هنا لأن باقي الحذوفات
+            // اللي بتعدّي من الفنل ده (عامل/منتج/مرحلة) لسه Tier A ولازم
+            // تتحقق من الباسورد زي ما هي
+            var gate = descriptor.Action == SensitiveAction.DeleteProduction
+                ? OperationsGateResult.Success()
+                : await _gate.VerifyAsync(descriptor.Action, password);
             if (!gate.IsAllowed)
                 return SoftDeleteResult.Fail(gate.Message);
 

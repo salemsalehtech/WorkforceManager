@@ -346,7 +346,7 @@ namespace WorkforceManager.Tests
                 var range = Assert.Single(balance.Ranges);
 
                 var scrap = await service.WithdrawToScrapAsync(
-                    balance.Id, range.Id, TestDatabase.BagStage3Id, Day2, 25, null, "رفض جودة", "");
+                    balance.Id, range.Id, TestDatabase.BagStage3Id, Day2, 25, null, "رفض جودة");
                 Assert.Equal(25, scrap.PieceCount);
             }
 

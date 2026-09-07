@@ -269,23 +269,24 @@ namespace WorkforceManager.UI.ViewModels
         }
 
         /// <summary>
-        /// يشيل كل إنتاج اليوم — حذف ناعم بكلمة سر وسبب مكتوب.
+        /// يشيل كل إنتاج اليوم — حذف ناعم بسبب مكتوب.
         ///
-        /// عملية واحدة مش حلقة على السجلات: كلمة السر بتتسأل مرة، وكل
-        /// السجلات بتتشال في معاملة واحدة. البوابة والحذف الناعم والإشعار
-        /// كلهم من الأنظمة المشتركة — مفيش نسخة تانية منهم هنا.
+        /// عملية واحدة مش حلقة على السجلات: السبب بيتسأل مرة، وكل
+        /// السجلات بتتشال في معاملة واحدة. الحذف الناعم والإشعار كلهم من
+        /// الأنظمة المشتركة — مفيش نسخة تانية منهم هنا. **Tier B**: بدون
+        /// باسورد فوري، بقى متغطى بتوقيع نهاية اليوم.
         /// </summary>
         [RelayCommand]
         private async Task DeleteDayAsync()
         {
-            var input = SensitiveActionDialog.Ask(
+            var input = SensitiveActionDialog.AskConfirm(
                 Application.Current.MainWindow,
                 "حذف إنتاج اليوم كله",
                 $"كل سجلات إنتاج يوم {EntryDate:yyyy/MM/dd} هتتشال.\n" +
                 "السجلات مش بتتمسح فعليًا — بتفضل محفوظة بسببها ومين شالها، " +
                 "بس بتختفي من كل الحسابات والأجور.",
                 SensitiveActionKind.Delete,
-                passwordRequired: true);
+                reasonRequired: true);
 
             if (input is null) return;
 
@@ -293,7 +294,7 @@ namespace WorkforceManager.UI.ViewModels
             {
                 using var scope = _scopeFactory.CreateScope();
                 var result = await scope.ServiceProvider.GetRequiredService<WorkdayCalculationService>()
-                    .DeleteProductionDayAsync(EntryDate, input.Password, input.Reason);
+                    .DeleteProductionDayAsync(EntryDate, input.Reason);
 
                 if (!result.IsDeleted)
                 {
@@ -564,12 +565,12 @@ namespace WorkforceManager.UI.ViewModels
                 ? $"رصيد \"{balance.Name}\" ({balance.RemainingQuantity:N0} قطعة متبقية) هيتشال. الجزء اللي اتاخد فعلاً ({balance.UsedQuantity:N0} قطعة) هيفضل في السجلات، بس الكارت هيختفي من القايمة."
                 : $"رصيد \"{balance.Name}\" ({balance.RemainingQuantity:N0} قطعة متبقية) هيتشال نهائيًا.";
 
-            var input = SensitiveActionDialog.Ask(
+            var input = SensitiveActionDialog.AskConfirm(
                 Application.Current.MainWindow,
                 "حذف رصيد أولي",
                 message,
                 SensitiveActionKind.Delete,
-                passwordRequired: true);
+                reasonRequired: true);
 
             if (input is null) return;
 
@@ -642,13 +643,11 @@ namespace WorkforceManager.UI.ViewModels
             };
             if (dialog.ShowDialog() != true) return;
 
-            var gate = SensitiveActionDialog.Ask(
+            var gate = SensitiveActionDialog.AskConfirm(
                 Application.Current.MainWindow,
                 "تحويل رصيد لهالك",
                 $"{dialog.Quantity:N0} قطعة من \"{balance.Name}\" هتتحوّل لهالك يوم {dialog.Date:yyyy/MM/dd}.",
-                SensitiveActionKind.Save,
-                passwordRequired: true,
-                reasonRequired: false);
+                SensitiveActionKind.Save);
 
             if (gate is null) return;
 
@@ -656,7 +655,7 @@ namespace WorkforceManager.UI.ViewModels
             {
                 using var scope = _scopeFactory.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<InitialBalanceService>().WithdrawToScrapAsync(
-                    balance.Id, range.Id, range.FromStageId, dialog.Date, dialog.Quantity, dialog.ReasonId, dialog.Note, gate.Password);
+                    balance.Id, range.Id, range.FromStageId, dialog.Date, dialog.Quantity, dialog.ReasonId, dialog.Note);
 
                 await LoadInitialBalanceTabAsync();
                 await RefreshAllFlowSessionsBalancesAsync();
@@ -979,10 +978,10 @@ namespace WorkforceManager.UI.ViewModels
             var piecesChanged = dialog.NewPieceCount != row.PieceCount;
             if (!workerChanged && !piecesChanged) return; // مفيش أي تغيير فعلي
 
-            // تصحيح القطع (أو نقل السجل لعامل تاني) بيعيد حساب اليومية،
-            // واليومية هي الأجر — نفس بوابة حذف السجل بالظبط. السبب هنا
-            // اختياري: تغيير العامل مفيد يتوثّق بس مش لازم يوقّف العملية
-            var gate = SensitiveActionDialog.Ask(
+            // تصحيح القطع (أو نقل السجل لعامل تاني) بيعيد حساب اليومية —
+            // Tier B، بدون باسورد فوري. السبب هنا اختياري: تغيير العامل
+            // مفيد يتوثّق بس مش لازم يوقّف العملية
+            var gate = SensitiveActionDialog.AskConfirm(
                 Application.Current.MainWindow,
                 workerChanged ? "نقل سجل إنتاج إلى عامل جديد" : "تصحيح عدد القطع",
                 workerChanged
@@ -992,8 +991,6 @@ namespace WorkforceManager.UI.ViewModels
                     : $"{row.WorkerName} — {row.StageDisplay}\n" +
                       $"من {row.PieceCount:N0} قطعة إلى {dialog.NewPieceCount:N0}.",
                 SensitiveActionKind.Save,
-                passwordRequired: true,
-                reasonRequired: false,
                 reasonOptionalVisible: workerChanged);
 
             if (gate is null) return;
@@ -1007,7 +1004,7 @@ namespace WorkforceManager.UI.ViewModels
                 try
                 {
                     await workdayService.UpdateProductionAsync(
-                        row.RecordId, dialog.NewPieceCount, gate.Password,
+                        row.RecordId, dialog.NewPieceCount,
                         newWorkerId: workerChanged ? dialog.SelectedWorker.WorkerId : null,
                         confirmOverride: false, reason: reason);
                 }
@@ -1025,7 +1022,7 @@ namespace WorkforceManager.UI.ViewModels
                             .GetRequiredService<WorkdayCalculationService>();
 
                         await retryService.UpdateProductionAsync(
-                            row.RecordId, dialog.NewPieceCount, gate.Password,
+                            row.RecordId, dialog.NewPieceCount,
                             newWorkerId: dialog.SelectedWorker.WorkerId,
                             confirmOverride: true, reason: reason);
                     }
@@ -1064,22 +1061,19 @@ namespace WorkforceManager.UI.ViewModels
             try
             {
                 using var scope = _scopeFactory.CreateScope();
-                var gate = scope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
 
-                // النافذة المشتركة بتجمع كلمة السر والسبب — والتحقق نفسه
-                // في الخدمة، فمفيش شاشة بتقارن كلمة سر بنفسها
-                var input = SensitiveActionDialog.Ask(
+                // Tier B — بدون باسورد فوري، بس السبب لسه إجباري
+                var input = SensitiveActionDialog.AskConfirm(
                     Application.Current.MainWindow,
                     "حذف سجل إنتاج",
                     $"{row.WorkerName} — {row.StageDisplay} ({row.PieceCount} قطعة). يومياته هتتخصم من حسابه.",
                     SensitiveActionKind.Delete,
-                    await gate.IsConfiguredAsync());
+                    reasonRequired: true);
 
                 if (input is null) return;
 
                 var workdayService = scope.ServiceProvider.GetRequiredService<WorkdayCalculationService>();
-                var result = await workdayService.DeleteProductionAsync(
-                    row.RecordId, input.Password, input.Reason);
+                var result = await workdayService.DeleteProductionAsync(row.RecordId, input.Reason);
 
                 if (!result.IsDeleted)
                 {
@@ -1473,15 +1467,12 @@ namespace WorkforceManager.UI.ViewModels
                 ? "\n" + string.Join("\n", rowsToSave.Select(r => $"  • {r.FullName}"))
                 : "";
 
-            var gateInput = SensitiveActionDialog.Ask(
+            var gateInput = SensitiveActionDialog.AskConfirm(
                 Application.Current.MainWindow,
                 "حفظ تعديلات الحضور",
                 $"هيتحفظ تعديل على {rowsToSave.Count} عامل ليوم {EntryDate:yyyy/MM/dd}."
                     + whoChanged + gateNote,
-                SensitiveActionKind.Save,
-                passwordRequired: true,
-                // مفيش سبب مكتوب: ده حفظ يومي مش حذف
-                reasonRequired: false);
+                SensitiveActionKind.Save);
 
             if (gateInput is null) return;
 
@@ -1501,8 +1492,7 @@ namespace WorkforceManager.UI.ViewModels
                     var entries = rowsToSave.Select(r => (r.WorkerId, Status: r.SelectedStatus!.Value));
 
                     // حفظ جماعي + مصالحة جزاءات الغياب في معاملة واحدة
-                    result = await attendanceService.RecordAttendanceBatchAsync(
-                        EntryDate, entries, gateInput.Password);
+                    result = await attendanceService.RecordAttendanceBatchAsync(EntryDate, entries);
                 }
 
                 var penaltyLines = "";
@@ -1575,15 +1565,13 @@ namespace WorkforceManager.UI.ViewModels
             }
             if (SelectedDeduction is null) return;
 
-            // الجزاء بيخصم من أجر عامل حقيقي — عملية بتلمس فلوس
-            var gate = SensitiveActionDialog.Ask(
+            // Tier B — بدون باسورد فوري، بس المستخدم لسه بيتأكّد قبل الحفظ
+            var gate = SensitiveActionDialog.AskConfirm(
                 Application.Current.MainWindow,
                 "تسجيل جزاء",
                 $"جزاء \"{PenaltyReason}\" على {PenaltyWorker.FullName} " +
                 $"بخصم {SelectedDeduction.Display} يوم {EntryDate:yyyy/MM/dd}.",
-                SensitiveActionKind.Save,
-                passwordRequired: true,
-                reasonRequired: false);
+                SensitiveActionKind.Save);
 
             if (gate is null) return;
 
@@ -1592,8 +1580,7 @@ namespace WorkforceManager.UI.ViewModels
                 using var scope = _scopeFactory.CreateScope();
                 var penaltyService = scope.ServiceProvider.GetRequiredService<PenaltyService>();
                 await penaltyService.RecordPenaltyAsync(
-                    PenaltyWorker.WorkerId, EntryDate, PenaltyReason, SelectedDeduction.Value,
-                    operationsPassword: gate.Password);
+                    PenaltyWorker.WorkerId, EntryDate, PenaltyReason, SelectedDeduction.Value);
             }
             catch (InvalidOperationException ex)
             {
@@ -1622,13 +1609,11 @@ namespace WorkforceManager.UI.ViewModels
             };
             if (dialog.ShowDialog() != true) return;
 
-            var gate = SensitiveActionDialog.Ask(
+            var gate = SensitiveActionDialog.AskConfirm(
                 Application.Current.MainWindow,
                 "تعديل جزاء",
                 $"تعديل جزاء {row.WorkerName} ليوم {EntryDate:yyyy/MM/dd}.",
-                SensitiveActionKind.Save,
-                passwordRequired: true,
-                reasonRequired: false);
+                SensitiveActionKind.Save);
 
             if (gate is null) return;
 
@@ -1636,9 +1621,7 @@ namespace WorkforceManager.UI.ViewModels
             {
                 using var scope = _scopeFactory.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<PenaltyService>()
-                    .UpdatePenaltyAsync(
-                        row.PenaltyId, dialog.PenaltyReason, dialog.Deduction,
-                        operationsPassword: gate.Password);
+                    .UpdatePenaltyAsync(row.PenaltyId, dialog.PenaltyReason, dialog.Deduction);
 
                 await LoadPenaltiesAsync();
             }
@@ -1653,8 +1636,13 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (row is null) return;
 
-            if (!Notify.Ask($"حذف جزاء \"{row.Reason}\" عن {row.WorkerName}؟", "تأكيد"))
-                return;
+            var gate = SensitiveActionDialog.AskConfirm(
+                Application.Current.MainWindow,
+                "حذف جزاء",
+                $"جزاء \"{row.Reason}\" عن {row.WorkerName}.",
+                SensitiveActionKind.Delete);
+
+            if (gate is null) return;
 
             try
             {
@@ -1837,13 +1825,12 @@ namespace WorkforceManager.UI.ViewModels
             var dialog = ScrapDialog.ForStage(Application.Current.MainWindow, products, reasons);
             if (dialog.ShowDialog() != true) return;
 
-            var gate = SensitiveActionDialog.Ask(
+            // Tier B — بدون باسورد فوري
+            var gate = SensitiveActionDialog.AskConfirm(
                 Application.Current.MainWindow,
                 "تسجيل هالك",
                 $"{dialog.PieceCount:N0} قطعة هالك يوم {EntryDate:yyyy/MM/dd}.",
-                SensitiveActionKind.Save,
-                passwordRequired: true,
-                reasonRequired: false);
+                SensitiveActionKind.Save);
 
             if (gate is null) return;
 
@@ -1851,7 +1838,7 @@ namespace WorkforceManager.UI.ViewModels
             {
                 using var scope = _scopeFactory.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<ScrapService>().RecordAsync(
-                    dialog.StageId, EntryDate, dialog.PieceCount, gate.Password,
+                    dialog.StageId, EntryDate, dialog.PieceCount,
                     dialog.ReasonId, dialog.Note,
                     scope.ServiceProvider.GetRequiredService<CurrentUserContext>().ActorName);
             }
@@ -1870,10 +1857,14 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (row is null) return;
 
-            if (!Notify.Ask(
-                    $"حذف {row.PieceCount:N0} قطعة هالك على \"{row.StageDisplay}\"؟\n" +
-                    "القطع هترجع تتحسب في الشغل الواقف أو الإنتاج التام.", "تأكيد"))
-                return;
+            var gate = SensitiveActionDialog.AskConfirm(
+                Application.Current.MainWindow,
+                "حذف هالك",
+                $"{row.PieceCount:N0} قطعة هالك على \"{row.StageDisplay}\".\n" +
+                "القطع هترجع تتحسب في الشغل الواقف أو الإنتاج التام.",
+                SensitiveActionKind.Delete);
+
+            if (gate is null) return;
 
             using (var scope = _scopeFactory.CreateScope())
                 await scope.ServiceProvider.GetRequiredService<ScrapService>().RemoveAsync(row.Id);

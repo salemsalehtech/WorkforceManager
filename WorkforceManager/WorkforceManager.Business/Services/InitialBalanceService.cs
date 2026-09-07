@@ -441,8 +441,7 @@ namespace WorkforceManager.Business.Services
             IReadOnlyList<InitialBalanceRangeWithdrawalDto> rangeWithdrawals,
             IReadOnlyList<FlowShareDto> shares,
             DateTime date,
-            bool confirmOverride = false,
-            string operationsPassword = "")
+            bool confirmOverride = false)
         {
             if (rangeWithdrawals.Count == 0)
                 throw new InvalidOperationException("اختار نطاق واحد على الأقل للسحب منه");
@@ -488,7 +487,6 @@ namespace WorkforceManager.Business.Services
             var result = await _productionFlow.RecordFlowAsync(
                 balance.ProductId, date, flowRanges, shares,
                 confirmOverride: confirmOverride,
-                operationsPassword: operationsPassword,
                 postWriteHook: rows => WriteUsageRowsAsync(balanceId, date, rangesById, rangeIdByFlowIndex, rows));
 
             await _log.LogAsync(
@@ -552,14 +550,14 @@ namespace WorkforceManager.Business.Services
         /// <summary>
         /// يحوّل جزء (أو كل) المتبقي من نطاق رصيد أولي لهالك بدل إكمال
         /// إنتاج — بنفس كيان الهالك الموجود (<see cref="ProductionScrap"/>)،
-        /// مش كيان جديد. بيستخدم بوابة أمان الهالك نفسها (كلمة سر + رفض
-        /// يوم مقفول) اللي ScrapService.RecordAsync بتستخدمها، من غير ما
-        /// يكررها. <paramref name="pieceCount"/> ممكن يكون أقل من المتبقي
+        /// مش كيان جديد. بيستخدم فحص اليوم المقفول نفسه اللي
+        /// ScrapService.RecordAsync بيستخدمه، من غير ما يكرره — Tier B،
+        /// مفيش بوابة باسورد. <paramref name="pieceCount"/> ممكن يكون أقل من المتبقي
         /// — الباقي يفضل مفتوح لإكمال إنتاج عادي أو تحويل تاني لهالك بعدين.
         /// </summary>
         public async Task<ProductionScrap> WithdrawToScrapAsync(
             int balanceId, int rangeId, int stageId, DateTime date, int pieceCount,
-            int? scrapReasonId, string? note, string operationsPassword)
+            int? scrapReasonId, string? note)
         {
             if (pieceCount <= 0)
                 throw new ArgumentException("عدد القطع المحوّلة لهالك يجب أن يكون رقمًا موجبًا", nameof(pieceCount));
@@ -587,7 +585,7 @@ namespace WorkforceManager.Business.Services
                 throw new InvalidOperationException(
                     $"الكمية المطلوب تحويلها لهالك ({pieceCount:N0}) أكبر من المتاح في النطاق ({remaining:N0})");
 
-            await _scrap.EnsureAllowedAsync(date, operationsPassword);
+            await _scrap.EnsureAllowedAsync(date);
 
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
 

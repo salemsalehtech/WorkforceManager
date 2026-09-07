@@ -43,7 +43,6 @@ namespace WorkforceManager.Business.Services
         private readonly IAttendanceRepository _attendanceRepo;
         private readonly IProductionDayClosureRepository _closureRepo;
         private readonly WorkerAssignmentGuard _assignmentGuard;
-        private readonly OperationsPasswordService _gate;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ActivityLogService _log;
         private readonly ProductionStageOutputService _productionOutput;
@@ -58,7 +57,6 @@ namespace WorkforceManager.Business.Services
             IAttendanceRepository attendanceRepo,
             IProductionDayClosureRepository closureRepo,
             WorkerAssignmentGuard assignmentGuard,
-            OperationsPasswordService gate,
             IUnitOfWork unitOfWork,
             ActivityLogService log,
             ProductionStageOutputService productionOutput,
@@ -73,7 +71,6 @@ namespace WorkforceManager.Business.Services
             _attendanceRepo = attendanceRepo;
             _closureRepo = closureRepo;
             _assignmentGuard = assignmentGuard;
-            _gate = gate;
             _unitOfWork = unitOfWork;
             _productionOutput = productionOutput;
             _hourlyWorkdayService = hourlyWorkdayService;
@@ -221,23 +218,20 @@ namespace WorkforceManager.Business.Services
         /// سحب من رصيد أولي) يضيف كتاباته هو (زي InitialBalanceUsage) في
         /// نفس المعاملة الذرية من غير ما يعيد كتابة منطق رحلة الإنتاج.
         /// </param>
+        /// <summary>
+        /// **مفيش بوابة باسورد هنا (Tier B)** — تسجيل إنتاج بقى متغطى
+        /// بتوقيع نهاية اليوم بدل باسورد فوري (شوف DailyOperationsSignOffService).
+        /// </summary>
         public async Task<FlowSaveResultDto> RecordFlowAsync(
             int productId, DateTime date,
             IReadOnlyList<FlowRangeDto> ranges,
             IReadOnlyList<FlowShareDto> shares,
             IReadOnlyList<FlowTaggedWorkerDto>? taggedWorkers = null,
             bool confirmOverride = false,
-            string operationsPassword = "",
             Func<IReadOnlyList<CreatedProductionRowDto>, Task>? postWriteHook = null)
         {
             if (ranges.Count == 0)
                 throw new InvalidOperationException("سجّل نطاق إنتاج واحد على الأقل (من مرحلة إلى مرحلة بعدد قطع)");
-
-            // الإنتاج هو اللي اليوميات بتتحسب منه، واليوميات هي الأجر —
-            // فالتسجيل عملية بتلمس فلوس زي أي واحدة تانية في القايمة
-            var gate = await _gate.VerifyAsync(SensitiveAction.RecordProduction, operationsPassword);
-            if (!gate.IsAllowed)
-                throw new InvalidOperationException(gate.Message);
             if (shares.Count == 0)
                 throw new InvalidOperationException("وزّع العمال على المراحل الأول قبل الحفظ");
 

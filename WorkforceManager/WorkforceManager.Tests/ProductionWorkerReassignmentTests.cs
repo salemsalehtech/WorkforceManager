@@ -142,26 +142,8 @@ namespace WorkforceManager.Tests
             Assert.Empty(await EventsOfAsync(ActivityEventType.ProductionWorkerReassigned));
         }
 
-        // ---------------- بوابة كلمة السر ----------------
-
-        [Fact]
-        public async Task ReassigningWithAWrongPassword_IsRefused_AndNothingChanges()
-        {
-            var recordId = await RecordAhmedOnChainAsync(100);
-            await SetPasswordAsync();
-
-            using (var scope = _db.CreateScope())
-            {
-                var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                    _db.GetService<WorkdayCalculationService>(scope).UpdateProductionAsync(
-                        recordId, 100, "غلط", newWorkerId: TestDatabase.WorkerSaidId, confirmOverride: true));
-
-                Assert.NotEmpty(ex.Message);
-            }
-
-            var record = Assert.Single(await _db.GetProductionAsync());
-            Assert.Equal(TestDatabase.WorkerAhmedId, record.WorkerId);
-        }
+        // نقل عامل بقى Tier B (زي أي EditProductionPieces تاني) — مفيش
+        // بوابة باسورد فوري عليه خالص، فاختبار "باسورد غلط بيترفض" اتشال
 
         // ---------------- تأهيل العامل الجديد ----------------
 

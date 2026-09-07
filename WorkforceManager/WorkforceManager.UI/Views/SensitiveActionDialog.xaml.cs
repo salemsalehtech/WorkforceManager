@@ -40,7 +40,7 @@ namespace WorkforceManager.UI.Views
 
         private SensitiveActionDialog(
             string title, string subtitle, SensitiveActionKind kind,
-            bool passwordRequired, bool reasonRequired, bool reasonOptionalVisible)
+            bool passwordRequired, bool reasonRequired, bool reasonOptionalVisible, bool confirmOnly = false)
         {
             InitializeComponent();
 
@@ -51,10 +51,22 @@ namespace WorkforceManager.UI.Views
 
             ApplyKind(kind);
 
-            // مفيش كلمة سر متسجّلة: بنخفي الخانة وبنوضّح السبب بدل ما
-            // نطلب من المستخدم حاجة مش موجودة أصلاً
-            PasswordSection.Visibility = passwordRequired ? Visibility.Visible : Visibility.Collapsed;
-            NotConfiguredBox.Visibility = passwordRequired ? Visibility.Collapsed : Visibility.Visible;
+            // العملية دي مش من اللي بتاخد باسورد أصلاً (Tier B — بتتغطى
+            // بتوقيع نهاية اليوم بدل كده) — الفرق عن passwordRequired:false
+            // العادي إن مفيش تحذير "مفيش كلمة سر متسجّلة" هنا، لأن السؤال
+            // مختلف تمامًا (مش إن المستخدم نسي يحطّ كلمة سر)
+            if (confirmOnly)
+            {
+                PasswordSection.Visibility = Visibility.Collapsed;
+                NotConfiguredBox.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                // مفيش كلمة سر متسجّلة: بنخفي الخانة وبنوضّح السبب بدل ما
+                // نطلب من المستخدم حاجة مش موجودة أصلاً
+                PasswordSection.Visibility = passwordRequired ? Visibility.Visible : Visibility.Collapsed;
+                NotConfiguredBox.Visibility = passwordRequired ? Visibility.Collapsed : Visibility.Visible;
+            }
 
             // العمليات المتكررة (حفظ الحضور) بتاخد كلمة سر بس: "اكتب سبب"
             // على شغل يومي بيتحوّل لخانة المستخدم بيكتب فيها نقطة.
@@ -122,6 +134,31 @@ namespace WorkforceManager.UI.Views
         {
             var dialog = new SensitiveActionDialog(
                 title, subtitle, kind, passwordRequired, reasonRequired, reasonOptionalVisible);
+            if (owner is not null) dialog.Owner = owner;
+
+            return dialog.ShowDialog() == true
+                ? new SensitiveActionInput(dialog.EnteredPassword, dialog.EnteredReason)
+                : null;
+        }
+
+        /// <summary>
+        /// نفس نافذة <see cref="Ask"/> بالظبط (اللون، النص، الأيقونة حسب
+        /// <paramref name="kind"/>) بس **من غير خانة باسورد خالص** ومن غير
+        /// تحذير "مفيش كلمة سر متسجّلة" — للأفعال اللي بقت متغطاة بتوقيع
+        /// نهاية اليوم بدل باسورد فوري (Tier B). زرار "إلغاء" الموجود هو
+        /// "ارجع للتعديل"، فمفيش داعي زرار تالت.
+        /// </summary>
+        /// <param name="reasonRequired">
+        /// false غالبًا هنا — الأفعال دي بقت روتينية ومحدش بيتفرض عليه
+        /// يكتب سبب لحفظ إنتاج أو حضور عادي.
+        /// </param>
+        public static SensitiveActionInput? AskConfirm(
+            Window? owner, string title, string subtitle, SensitiveActionKind kind,
+            bool reasonRequired = false, bool reasonOptionalVisible = false)
+        {
+            var dialog = new SensitiveActionDialog(
+                title, subtitle, kind, passwordRequired: false, reasonRequired, reasonOptionalVisible,
+                confirmOnly: true);
             if (owner is not null) dialog.Owner = owner;
 
             return dialog.ShowDialog() == true

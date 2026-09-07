@@ -86,7 +86,7 @@ namespace WorkforceManager.Tests
             using (var scope = _db.CreateScope())
             {
                 var result = await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionAsync(recordId, "", Reason);
+                    .DeleteProductionAsync(recordId, Reason);
 
                 Assert.True(result.IsDeleted);
                 Assert.True(result.WasPermanent);
@@ -104,7 +104,7 @@ namespace WorkforceManager.Tests
 
             using (var scope = _db.CreateScope())
                 Assert.True((await _db.GetService<WorkdayCalculationService>(scope)
-                    .DeleteProductionDayAsync(TestDatabase.Today, "", Reason)).IsDeleted);
+                    .DeleteProductionDayAsync(TestDatabase.Today, Reason)).IsDeleted);
 
             Assert.Equal(0, await CountAsync(db => db.DailyProductions));
         }
