@@ -611,6 +611,63 @@ namespace WorkforceManager.UI.ViewModels
                 balance, new List<(InitialBalanceRangeDto, int)> { (range, dialog.Quantity) });
         }
 
+        /// <summary>
+        /// يحوّل جزء (أو كل) نطاق رصيد لهالك بدل إكمال إنتاج — حوار مخصص
+        /// صغير (كمية/سبب/ملاحظة/تاريخ) بدل ScrapDialog العام، لأن
+        /// المنتج/المرحلة هنا محددين بالفعل من النطاق.
+        /// </summary>
+        [RelayCommand]
+        private async Task ScrapBalanceRangeAsync(InitialBalanceRangeDto? range)
+        {
+            if (range is null) return;
+
+            var balance = InitialBalanceCards.FirstOrDefault(b => b.Ranges.Any(r => r.Id == range.Id));
+            if (balance is null) return;
+
+            var remaining = range.PieceCount - range.UsedQuantity;
+            if (remaining <= 0)
+            {
+                Notify.Info("النطاق ده مالوش أي متبقي يتحوّل لهالك.", "تنبيه");
+                return;
+            }
+
+            List<ScrapReason> reasons;
+            using (var scope = _scopeFactory.CreateScope())
+                reasons = await scope.ServiceProvider.GetRequiredService<ScrapService>().GetActiveReasonsAsync();
+
+            var dialog = new ScrapBalanceRangeDialog(
+                balance.Name, $"{range.FromStageName} ← {range.ToStageName}", remaining, reasons, EntryDate)
+            {
+                Owner = Application.Current.MainWindow
+            };
+            if (dialog.ShowDialog() != true) return;
+
+            var gate = SensitiveActionDialog.Ask(
+                Application.Current.MainWindow,
+                "تحويل رصيد لهالك",
+                $"{dialog.Quantity:N0} قطعة من \"{balance.Name}\" هتتحوّل لهالك يوم {dialog.Date:yyyy/MM/dd}.",
+                SensitiveActionKind.Save,
+                passwordRequired: true,
+                reasonRequired: false);
+
+            if (gate is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<InitialBalanceService>().WithdrawToScrapAsync(
+                    balance.Id, range.Id, range.FromStageId, dialog.Date, dialog.Quantity, dialog.ReasonId, dialog.Note, gate.Password);
+
+                await LoadInitialBalanceTabAsync();
+                await RefreshAllFlowSessionsBalancesAsync();
+                Notify.Info($"اتحوّل {dialog.Quantity:N0} قطعة لهالك.", "تم");
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "مش هينفع");
+            }
+        }
+
         [RelayCommand]
         private async Task WithdrawWholeBalanceAsync(InitialBalanceDto? balance)
         {

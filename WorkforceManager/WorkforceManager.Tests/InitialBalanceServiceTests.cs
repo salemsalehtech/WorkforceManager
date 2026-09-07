@@ -534,6 +534,43 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task Scrapping_more_than_a_ranges_remaining_quantity_is_rejected()
+        {
+            await _db.SignInTestUserAsync();
+            var (balance, range) = await CreateSingleStageBalanceAsync(20, Day);
+
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
+                    s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay, 30, null, null, "")));
+
+            Assert.Contains("أكبر من المتاح", ex.Message);
+        }
+
+        [Fact]
+        public async Task Scrapping_a_range_with_a_prior_partial_production_withdrawal_only_allows_the_remaining_part()
+        {
+            await _db.SignInTestUserAsync();
+            var (balance, range) = await CreateSingleStageBalanceAsync(50, Day);
+
+            // سحب إنتاج عادي جزئي (20 من 50) الأول
+            var shares = new[] { new FlowShareDto { ProductionStageId = TestDatabase.BagStage3Id, WorkerId = TestDatabase.WorkerAhmedId, PieceCount = 20 } };
+            await _db.InScopeAsync<InitialBalanceService, FlowSaveResultDto>(s =>
+                s.WithdrawAsync(balance.Id,
+                    new[] { new InitialBalanceRangeWithdrawalDto { RangeId = range.Id, PieceCount = 20 } },
+                    shares, CompletionDay, confirmOverride: true));
+
+            // تحويل الباقي (30) لهالك — مش الـ50 الأصلية كاملة
+            var scrap = await _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
+                s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay.AddDays(1), 30, null, null, ""));
+
+            Assert.Equal(30, scrap.PieceCount);
+
+            var updated = await _db.InScopeAsync<InitialBalanceService, InitialBalanceDto?>(s => s.GetByIdAsync(balance.Id));
+            Assert.NotNull(updated);
+            Assert.Equal(InitialBalanceStatus.Completed, updated.Status);
+        }
+
+        [Fact]
         public async Task Deleting_a_scrap_row_linked_to_an_initial_balance_usage_frees_the_usage_and_restores_remaining_quantity()
         {
             await _db.SignInTestUserAsync();
@@ -982,6 +1019,24 @@ namespace WorkforceManager.Tests
             var history = await _db.InScopeAsync<InitialBalanceService, System.Collections.Generic.IReadOnlyList<InitialBalanceDto>>(s =>
                 s.GetHistoryForProductAsync(TestDatabase.ProductBagId));
             Assert.Contains(history, b => b.Id == balance.Id);
+        }
+
+        [Fact]
+        public async Task HasScrapUsage_is_true_only_for_a_balance_completed_via_scrap_not_via_production()
+        {
+            await _db.SignInTestUserAsync();
+
+            var producedBalance = await CreateBalanceAndCompleteAsync(20, CompletionDay);
+
+            var (scrappedBalance, scrappedRange) = await CreateSingleStageBalanceAsync(15, Day);
+            await _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
+                s.WithdrawToScrapAsync(scrappedBalance.Id, scrappedRange.Id, TestDatabase.BagStage3Id, CompletionDay, 15, null, null, ""));
+
+            var history = await _db.InScopeAsync<InitialBalanceService, System.Collections.Generic.IReadOnlyList<InitialBalanceDto>>(s =>
+                s.GetHistoryForProductAsync(TestDatabase.ProductBagId));
+
+            Assert.False(history.Single(b => b.Id == producedBalance.Id).HasScrapUsage);
+            Assert.True(history.Single(b => b.Id == scrappedBalance.Id).HasScrapUsage);
         }
 
         [Fact]

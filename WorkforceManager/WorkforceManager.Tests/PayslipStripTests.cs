@@ -73,15 +73,15 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
-        public void FourWorkersFitOnOnePage_AndTheFifthStartsANewOne()
+        public void EightWorkersFitOnOnePage_AndTheNinthStartsANewOne()
         {
-            // ورقة A4 بالعرض = 4 قسايم. الخامس بيبدأ ورقة جديدة عشان
-            // القص يفضل خطين رأسيين بس على كل ورقة.
+            // ورقة A4 بالعرض = 8 قسايم (صفين × 4 أعمدة). التاسع بيبدأ
+            // ورقة جديدة.
             var payroll = new PeriodPayrollDto
             {
                 From = Day,
                 To = Day,
-                Workers = Enumerable.Range(1, 5)
+                Workers = Enumerable.Range(1, 9)
                     .Select(i => new WorkerPayrollDto
                     {
                         WorkerId = i,
@@ -96,6 +96,52 @@ namespace WorkforceManager.Tests
 
             using var workbook = new XLWorkbook(path);
             Assert.Equal(2, workbook.Worksheets.Count);
+        }
+
+        [Fact]
+        public void EightWorkers_AreArrangedAsTwoRowsOfFour_WithAHorizontalCutLine()
+        {
+            var payroll = new PeriodPayrollDto
+            {
+                From = Day,
+                To = Day,
+                Workers = Enumerable.Range(1, 8)
+                    .Select(i => new WorkerPayrollDto
+                    {
+                        WorkerId = i,
+                        WorkerName = $"عامل {i}",
+                        DailyWageEgp = 200,
+                        ProducedWorkdays = 5
+                    })
+                    .ToList()
+            };
+
+            var path = Export(payroll);
+
+            using var workbook = new XLWorkbook(path);
+            var sheet = workbook.Worksheets.First();
+
+            // عمود 1 (تسمية أول قسيمة فوق وأول قسيمة تحت مع بعض) لازم
+            // يحمل "الصافي المستحق" مرتين — مرة للصف العلوي ومرة للسفلي،
+            // في سطرين مختلفين، لأن الصفين بيستخدموا نفس الأعمدة (1/4/7/10)
+            // بس بارتفاعات مختلفة
+            var netRows = sheet.Column(1).CellsUsed(c => c.GetString() == "الصافي المستحق")
+                .Select(c => c.Address.RowNumber)
+                .OrderBy(r => r)
+                .ToList();
+
+            Assert.Equal(2, netRows.Count);
+            Assert.True(netRows[1] > netRows[0]);
+
+            // نفس المنطق على باقي أعمدة القسايم الأربعة
+            foreach (var col in new[] { 4, 7, 10 })
+            {
+                var rows = sheet.Column(col).CellsUsed(c => c.GetString() == "الصافي المستحق")
+                    .Select(c => c.Address.RowNumber)
+                    .OrderBy(r => r)
+                    .ToList();
+                Assert.Equal(netRows, rows);
+            }
         }
 
         [Fact]
