@@ -23,6 +23,7 @@ namespace WorkforceManager.Data
         public DbSet<HourlyWorkLog> HourlyWorkLogs => Set<HourlyWorkLog>();
         public DbSet<WageAdjustment> WageAdjustments => Set<WageAdjustment>();
         public DbSet<ProductionDayClosure> ProductionDayClosures => Set<ProductionDayClosure>();
+        public DbSet<DailyOperationsSignOff> DailyOperationsSignOffs => Set<DailyOperationsSignOff>();
         public DbSet<ActivityEvent> ActivityEvents => Set<ActivityEvent>();
         public DbSet<OperationsCredential> OperationsCredentials => Set<OperationsCredential>();
         public DbSet<ProductionScrap> ProductionScraps => Set<ProductionScrap>();

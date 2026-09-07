@@ -103,7 +103,20 @@ namespace WorkforceManager.Core.Enums
         /// بيحصل مرة واحدة بس (أول تشغيل للنسخة الجديدة)، شوف
         /// HistoricalPendingMigrationService
         /// </summary>
-        InitialBalanceMigrated = 27
+        InitialBalanceMigrated = 27,
+
+        /// <summary>
+        /// سجل هالك اتشال. كانت دي فجوة حقيقية — الحذف ده كان بيحصل
+        /// من غير باسورد ومن غير أي أثر في السجل خالص قبل توقيع نهاية
+        /// اليوم (شوف SensitiveAction.RecordScrap و DailyOperationsSignOff)
+        /// </summary>
+        ScrapDeleted = 28,
+
+        /// <summary>
+        /// توقيع نهاية اليوم — المستخدم راجع كل حاجة حصلت في البرنامج
+        /// اليوم ده ووافق عليها بباسورد عملياته. شوف DailyOperationsSignOff.
+        /// </summary>
+        DaySignedOff = 29
 
         // مفيش نوع لاسترجاع النسخة الاحتياطية عن قصد: الاسترجاع بيستبدل
         // ملف قاعدة البيانات كله وبيعيد تشغيل البرنامج، فالحدث اللي
