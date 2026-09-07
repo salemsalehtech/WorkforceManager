@@ -176,7 +176,8 @@ namespace WorkforceManager.UI.ViewModels
                 or ActivityEventType.ProductDeleted
                 or ActivityEventType.StageDeleted
                 or ActivityEventType.PenaltyDeleted
-                or ActivityEventType.WageAdjustmentDeleted,
+                or ActivityEventType.WageAdjustmentDeleted
+                or ActivityEventType.ScrapDeleted,
 
             EventGroup.Production => type
                 is ActivityEventType.ProductionRecorded
@@ -189,7 +190,8 @@ namespace WorkforceManager.UI.ViewModels
                 is ActivityEventType.WorkerCreated
                 or ActivityEventType.ProductCreated
                 or ActivityEventType.StageCreated
-                or ActivityEventType.OperationsPasswordChanged,
+                or ActivityEventType.OperationsPasswordChanged
+                or ActivityEventType.DaySignedOff,
 
             _ => true
         };
@@ -254,6 +256,8 @@ namespace WorkforceManager.UI.ViewModels
             ActivityEventType.WorkerCreated => "إضافة عامل",
             ActivityEventType.ProductCreated => "إضافة منتج",
             ActivityEventType.StageCreated => "إضافة مرحلة",
+            ActivityEventType.ScrapDeleted => "حذف هالك",
+            ActivityEventType.DaySignedOff => "توقيع نهاية اليوم",
             _ => _event.EventType.ToString()
         };
 
@@ -280,6 +284,8 @@ namespace WorkforceManager.UI.ViewModels
             ActivityEventType.WorkerCreated => PackIconKind.AccountPlusOutline,
             ActivityEventType.ProductCreated => PackIconKind.PackageVariantPlus,
             ActivityEventType.StageCreated => PackIconKind.PlusBoxOutline,
+            ActivityEventType.ScrapDeleted => PackIconKind.DeleteOutline,
+            ActivityEventType.DaySignedOff => PackIconKind.CheckCircleOutline,
             _ => PackIconKind.InformationOutline
         };
 
@@ -291,7 +297,8 @@ namespace WorkforceManager.UI.ViewModels
             or ActivityEventType.ProductDeleted
             or ActivityEventType.StageDeleted
             or ActivityEventType.PenaltyDeleted
-            or ActivityEventType.WageAdjustmentDeleted;
+            or ActivityEventType.WageAdjustmentDeleted
+            or ActivityEventType.ScrapDeleted;
 
         /// <summary>
         /// حركة فلوس — بتتلوّن دهبي. المراجع بيدوّر على الاتنين دول:
