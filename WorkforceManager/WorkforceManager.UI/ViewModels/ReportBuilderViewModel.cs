@@ -1033,7 +1033,7 @@ namespace WorkforceManager.UI.ViewModels
             Notify.Info(
                 $"{payroll.Workers.Count} قسيمة على {pages} ورقة " +
                 $"({PayslipStripExcelService.SlipsPerPage} في الورقة).\n" +
-                "اطبع بالعرض (Landscape) وقص على الخطوط الرأسية.",
+                "اطبع بالعرض (Landscape) وقص على الخطوط المنقّطة (رأسية وأفقية).",
                 "القسايم جاهزة");
         }
 

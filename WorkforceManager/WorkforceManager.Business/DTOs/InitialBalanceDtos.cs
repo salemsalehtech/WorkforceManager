@@ -69,6 +69,14 @@ namespace WorkforceManager.Business.DTOs
         public int UsedQuantity { get; init; }
         public int RemainingQuantity { get; init; }
         public InitialBalanceStatus Status { get; init; }
+
+        /// <summary>
+        /// اتقفل (كليًا أو جزئيًا) بتحويل لهالك، مش بإكمال إنتاج بس —
+        /// للعرض في تبويب "السجل" فقط (تمييز بصري)، مش بتغيّر مين بيظهر
+        /// فيه: نفس تعريف <see cref="Status"/> == Completed هو اللي بيحدد ده.
+        /// </summary>
+        public bool HasScrapUsage { get; init; }
+
         public DateTime OriginalDate { get; init; }
         public InitialBalanceSource Source { get; init; }
         public int? OriginalDailyProductionId { get; init; }

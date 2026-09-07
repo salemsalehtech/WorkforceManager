@@ -25,17 +25,20 @@ namespace WorkforceManager.Business.Services
     }
 
     /// <summary>
-    /// قسايم أجر الأسبوع: ورقة تتطبع وتتقص بالطول، كل شريط قسيمة عامل.
+    /// قسايم أجر الأسبوع: ورقة تتطبع وتتقص لشرايط، شريط قسيمة عامل.
     ///
     /// **متصمّمة للطباعة أبيض وأسود.** الورقة دي بتتطبع على طابعة القسم
     /// مش بتتبعت بالإيميل، فأي لون بيتحوّل لدرجة رمادي: الدهبي بيبقى
     /// رمادي فاتح مبيتشافش، والرمادي الفاتح بيختفي خالص. عشان كده كل
     /// النص **أسود**، والتمييز بالخط العريض والحجم والإطارات — مش باللون.
     ///
-    /// **الورقة بالعرض (Landscape) و4 عمال فيها.** عرض A4 بالعرض 29.7 سم،
-    /// والأعمدة متظبوطة عشان الأربعة يدخلوا **بمقاس 100%**. الحتة دي
-    /// مهمة: FitToPages بيصغّر المطبوع لو المحتوى أعرض من الورقة، فكل
-    /// تكبير في الخط من غير ضبط العرض بيتلغي عند الطباعة.
+    /// **الورقة بالعرض (Landscape) و8 قسايم فيها: صفين × 4 أعمدة.**
+    /// اتغيّرت من 4 لـ8 (صف واحد) بناءً على طلب المستخدم لتوفير الورق —
+    /// نفس عرض العمود القديم اتحافظ عليه (بمقاس 100% أفقيًا)، بس ارتفاع
+    /// القسيمة الواحدة اتقلّل (خطوط/فجوات/عدد سطور مراحل أقل) عشان صفين
+    /// يدخلوا في ارتفاع الورقة. FitToPages(1,1) هو خط الدفاع الأخير لو
+    /// المحتوى لسه أطول من المتاح — بيصغّر الكل بنفس النسبة، فالعمود
+    /// يفضل مصطف حتى لو التصغير حصل.
     ///
     /// **الأرقام بتتكتب أرقام مش نصوص**، والوحدة ("ج") جاية من تنسيق
     /// الخلية. كده الأرقام بتصطف تحت بعضها في عمود مستقيم — النص
@@ -52,21 +55,39 @@ namespace WorkforceManager.Business.Services
     /// </summary>
     public class PayslipStripExcelService
     {
-        /// <summary>عدد القسايم في الورقة — القص خطين رأسيين بس</summary>
-        public const int SlipsPerPage = 4;
+        /// <summary>عدد القسايم في الورقة — صفين × 4 أعمدة</summary>
+        public const int SlipsPerPage = 8;
+
+        /// <summary>عدد القسايم في الصف الواحد — القص الرأسي بينهم</summary>
+        private const int SlipsPerRow = 4;
 
         /// <summary>
         /// أقصى عدد مراحل بتتكتب في القسيمة. اللي بيزيد بيتلمّ في سطر
-        /// "ومراحل تانية" — عامل اشتغل على 12 مرحلة قسيمته هتبقى عمود
-        /// أرقام مش ورقة يقراها.
+        /// "ومراحل تانية" — عامل اشتغل على مراحل كتير قسيمته هتبقى عمود
+        /// أرقام مش ورقة يقراها. اتقلّلت من 6 لـ3 عشان صفين قسايم يدخلوا
+        /// في ارتفاع الورقة (شوف تعليق الكلاس).
         /// </summary>
-        private const int MaxBreakdownLines = 6;
+        private const int MaxBreakdownLines = 3;
 
         // العرض متحسوب عشان 4 قسايم يدخلوا A4 بالعرض بمقاس 100%:
         // (23 + 14) × 4 + 3 فواصل ≈ 151 وحدة ≈ 28 سم من أصل 28.7 متاحة
         private const double LabelWidth = 23;
         private const double ValueWidth = 14;
         private const double GapWidth = 1;
+
+        // ارتفاعات مقلّلة عن نسخة الصف الواحد (كانت 16/32/20/6/20/19/34)
+        // عشان صفين قسايم يدخلوا في ارتفاع A4 بالعرض من غير ما FitToPages
+        // يصغّر بنسبة كبيرة قوي. القيم هنا بتتلاقى في RowHeights تحت.
+        private const double TitleRowHeight = 13;
+        private const double NameRowHeight = 24;
+        private const double PeriodRowHeight = 15;
+        private const double GapRowHeight = 4;
+        private const double SectionRowHeight = 15;
+        private const double LineRowHeight = 14;
+        private const double NetRowHeight = 26;
+
+        /// <summary>صف فاصل واحد بين صف القسايم العلوي والسفلي — بيبقى خط القص الأفقي</summary>
+        private const int RowGap = 1;
 
         // أبيض وأسود: أسود صريح للنص، ورمادي فاتح للتظليل اللي بيفضل
         // يتشاف بعد الطباعة
@@ -140,13 +161,13 @@ namespace WorkforceManager.Business.Services
             sheet.RightToLeft = true;
             sheet.Style.Font.SetFontName("Arial").Font.SetFontColor(Ink);
 
-            for (var slot = 0; slot < SlipsPerPage; slot++)
+            for (var slot = 0; slot < SlipsPerRow; slot++)
             {
                 var first = SlotFirstColumn(slot);
                 sheet.Column(first).Width = LabelWidth;
                 sheet.Column(first + 1).Width = ValueWidth;
 
-                if (slot < SlipsPerPage - 1)
+                if (slot < SlipsPerRow - 1)
                     sheet.Column(first + 2).Width = GapWidth;
             }
 
@@ -156,30 +177,64 @@ namespace WorkforceManager.Business.Services
             // بيقفوا عند "الحساب" وسايبين أجر اليوميات والحوافز والسلف
             // و**الصافي المستحق** برّه الإطار. أي سطر يتزوّد في القسيمة
             // كان هيكسّرها تاني، فالمعادلة اتشالت من أصلها.
-            var lastRow = 0;
+            //
+            // **صفين قسايم فوق بعض**: كل قسايم نفس الصف بتاخد نفس عدد
+            // السطور بالظبط (breakdownLines مشتركة على مستوى الملف كله،
+            // مش الصفحة)، فطول الصف العلوي (topHeight) بيبقى واحد سواء
+            // كتبنا فيه 1 أو 4 قسايم — وده اللي بيسمح للصف السفلي يبدأ
+            // من نفس النقطة (topHeight + RowGap) لأي عدد عمال.
+            var topWorkers = workers.Take(SlipsPerRow).ToList();
+            var bottomWorkers = workers.Skip(SlipsPerRow).ToList();
 
-            for (var slot = 0; slot < workers.Count; slot++)
+            var topHeight = 0;
+            for (var slot = 0; slot < topWorkers.Count; slot++)
+                topHeight = Math.Max(
+                    topHeight,
+                    WriteSlip(sheet, topWorkers[slot], payroll, options, slot, 0, breakdownLines, fields));
+
+            if (bottomWorkers.Count > 0)
+                sheet.Row(topHeight + 1).Height = GapRowHeight;
+
+            var bottomOffset = topHeight + RowGap;
+            var lastRow = topHeight;
+            for (var slot = 0; slot < bottomWorkers.Count; slot++)
                 lastRow = Math.Max(
                     lastRow,
-                    WriteSlip(sheet, workers[slot], payroll, options, slot, breakdownLines, fields));
+                    WriteSlip(sheet, bottomWorkers[slot], payroll, options, slot, bottomOffset, breakdownLines, fields));
 
             // إطار كل قسيمة — حدود الورقة اللي هتتقص
-            for (var slot = 0; slot < workers.Count; slot++)
+            for (var slot = 0; slot < topWorkers.Count; slot++)
             {
                 var col = SlotFirstColumn(slot);
-                sheet.Range(1, col, lastRow, col + 1).Style
+                sheet.Range(1, col, topHeight, col + 1).Style
+                    .Border.SetOutsideBorder(XLBorderStyleValues.Medium)
+                    .Border.SetOutsideBorderColor(Ink);
+            }
+            for (var slot = 0; slot < bottomWorkers.Count; slot++)
+            {
+                var col = SlotFirstColumn(slot);
+                sheet.Range(bottomOffset + 1, col, lastRow, col + 1).Style
                     .Border.SetOutsideBorder(XLBorderStyleValues.Medium)
                     .Border.SetOutsideBorderColor(Ink);
             }
 
-            // الفاصل بين القسايم = خط القص. منقّط عشان يبان إنه خط قص
-            // مش حد جدول، وأسود عشان يفضل يتشاف بعد الطباعة
-            for (var slot = 0; slot < SlipsPerPage - 1; slot++)
+            // الفاصل الرأسي بين القسايم = خط قص. منقّط عشان يبان إنه خط
+            // قص مش حد جدول، وأسود عشان يفضل يتشاف بعد الطباعة
+            for (var slot = 0; slot < SlipsPerRow - 1; slot++)
             {
                 var gap = SlotFirstColumn(slot) + 2;
                 sheet.Range(1, gap, lastRow, gap).Style
                     .Border.SetLeftBorder(XLBorderStyleValues.Dashed)
                     .Border.SetLeftBorderColor(Ink);
+            }
+
+            // الفاصل الأفقي بين الصفين = خط قص تاني — بس لو فيه صف تاني فعلاً
+            if (bottomWorkers.Count > 0)
+            {
+                var lastCol = SlotFirstColumn(SlipsPerRow - 1) + 1;
+                sheet.Range(topHeight + 1, 1, topHeight + 1, lastCol).Style
+                    .Border.SetTopBorder(XLBorderStyleValues.Dashed)
+                    .Border.SetTopBorderColor(Ink);
             }
 
             sheet.PageSetup.PageOrientation = XLPageOrientation.Landscape;
@@ -207,20 +262,21 @@ namespace WorkforceManager.Business.Services
             PeriodPayrollDto payroll,
             ReportExportOptions options,
             int slot,
+            int rowOffset,
             int breakdownLines,
             IReadOnlySet<PayslipStripField> fields)
         {
             var col = SlotFirstColumn(slot);
             var value = col + 1;
-            var row = 1;
+            var row = 1 + rowOffset;
 
             // ---------- اسم المصنع ----------
             sheet.Range(row, col, row, value).Merge();
             sheet.Cell(row, col).Value = options.FactoryName ?? "";
             sheet.Cell(row, col).Style
-                .Font.SetBold().Font.SetFontSize(10)
+                .Font.SetBold().Font.SetFontSize(8)
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-            sheet.Row(row).Height = 16;
+            sheet.Row(row).Height = TitleRowHeight;
             row++;
 
             // ---------- اسم العامل: أسود مصمت بنص أبيض ----------
@@ -229,11 +285,11 @@ namespace WorkforceManager.Business.Services
             sheet.Range(row, col, row, value).Merge();
             sheet.Cell(row, col).Value = worker.WorkerName;
             sheet.Cell(row, col).Style
-                .Font.SetBold().Font.SetFontSize(15).Font.SetFontColor(XLColor.White)
+                .Font.SetBold().Font.SetFontSize(11).Font.SetFontColor(XLColor.White)
                 .Fill.SetBackgroundColor(HeaderFill)
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
                 .Alignment.SetVertical(XLAlignmentVerticalValues.Center);
-            sheet.Row(row).Height = 32;
+            sheet.Row(row).Height = NameRowHeight;
             row++;
 
             // ---------- الفترة والنوع ----------
@@ -241,11 +297,11 @@ namespace WorkforceManager.Business.Services
             sheet.Cell(row, col).Value =
                 $"{payroll.From:yyyy/MM/dd}  إلى  {payroll.To:yyyy/MM/dd}";
             sheet.Cell(row, col).Style
-                .Font.SetBold().Font.SetFontSize(10)
+                .Font.SetBold().Font.SetFontSize(8)
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
                 .Border.SetBottomBorder(XLBorderStyleValues.Medium)
                 .Border.SetBottomBorderColor(Ink);
-            sheet.Row(row).Height = 20;
+            sheet.Row(row).Height = PeriodRowHeight;
             row = Gap(sheet, row + 1);
 
             // ---------- الشغل ----------
@@ -310,12 +366,12 @@ namespace WorkforceManager.Business.Services
             // ---------- الصافي المستحق ----------
             sheet.Cell(row, col).Value = "الصافي المستحق";
             sheet.Cell(row, col).Style
-                .Font.SetBold().Font.SetFontSize(14)
+                .Font.SetBold().Font.SetFontSize(11)
                 .Alignment.SetVertical(XLAlignmentVerticalValues.Center);
 
             sheet.Cell(row, value).Value = worker.NetWageEgp;
             sheet.Cell(row, value).Style
-                .Font.SetBold().Font.SetFontSize(16)
+                .Font.SetBold().Font.SetFontSize(13)
                 .NumberFormat.SetFormat(MoneyFormat);
             sheet.Cell(row, value).Style
                 .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right)
@@ -327,18 +383,18 @@ namespace WorkforceManager.Business.Services
                 .Border.SetBottomBorder(XLBorderStyleValues.Thick)
                 .Border.SetTopBorderColor(Ink)
                 .Border.SetBottomBorderColor(Ink);
-            sheet.Row(row).Height = 34;
+            sheet.Row(row).Height = NetRowHeight;
 
             return row;
         }
 
         /// <summary>
         /// سطر فاصل بين الأقسام. رفيع مقصود: بالارتفاع العادي القسيمة
-        /// بتبقى مفكّكة وأربع فجوات بتاكل ٦٠ نقطة من طول الورقة.
+        /// بتبقى مفكّكة وأربع فجوات بتاكل مساحة كبيرة من طول الورقة.
         /// </summary>
         private static int Gap(IXLWorksheet sheet, int row)
         {
-            sheet.Row(row).Height = 6;
+            sheet.Row(row).Height = GapRowHeight;
             return row + 1;
         }
 
@@ -351,14 +407,14 @@ namespace WorkforceManager.Business.Services
             sheet.Range(row, col, row, valueCol).Merge();
             sheet.Cell(row, col).Value = title;
             sheet.Cell(row, col).Style
-                .Font.SetBold().Font.SetFontSize(11)
+                .Font.SetBold().Font.SetFontSize(9)
                 .Fill.SetBackgroundColor(SectionFill)
                 .Alignment.SetVertical(XLAlignmentVerticalValues.Center)
                 .Border.SetTopBorder(XLBorderStyleValues.Thin)
                 .Border.SetBottomBorder(XLBorderStyleValues.Thin)
                 .Border.SetTopBorderColor(Ink)
                 .Border.SetBottomBorderColor(Ink);
-            sheet.Row(row).Height = 20;
+            sheet.Row(row).Height = SectionRowHeight;
             return row + 1;
         }
 
@@ -405,7 +461,7 @@ namespace WorkforceManager.Business.Services
 
         private static void StyleLine(IXLWorksheet sheet, int col, int valueCol, int row, bool strong)
         {
-            var size = strong ? 12 : 11;
+            var size = strong ? 10 : 9;
 
             sheet.Cell(row, col).Style
                 .Font.SetFontSize(size).Font.SetBold(strong)
@@ -420,7 +476,7 @@ namespace WorkforceManager.Business.Services
                 .Border.SetBottomBorder(XLBorderStyleValues.Hair)
                 .Border.SetBottomBorderColor(XLColor.FromHtml("#808080"));
 
-            sheet.Row(row).Height = 19;
+            sheet.Row(row).Height = LineRowHeight;
         }
 
         /// <summary>

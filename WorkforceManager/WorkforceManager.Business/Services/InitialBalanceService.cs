@@ -550,11 +550,12 @@ namespace WorkforceManager.Business.Services
             InitialBalanceRangeMath.UsedQuantity(range, balance.Usages);
 
         /// <summary>
-        /// يسحب جزء من رصيد أولي ويحوّله لهالك بدل إكمال إنتاج — بنفس
-        /// كيان الهالك الموجود (<see cref="ProductionScrap"/>)، مش كيان
-        /// جديد. بيستخدم بوابة أمان الهالك نفسها (كلمة سر + رفض يوم
-        /// مقفول) اللي ScrapService.RecordAsync بتستخدمها، من غير ما
-        /// يكررها.
+        /// يحوّل جزء (أو كل) المتبقي من نطاق رصيد أولي لهالك بدل إكمال
+        /// إنتاج — بنفس كيان الهالك الموجود (<see cref="ProductionScrap"/>)،
+        /// مش كيان جديد. بيستخدم بوابة أمان الهالك نفسها (كلمة سر + رفض
+        /// يوم مقفول) اللي ScrapService.RecordAsync بتستخدمها، من غير ما
+        /// يكررها. <paramref name="pieceCount"/> ممكن يكون أقل من المتبقي
+        /// — الباقي يفضل مفتوح لإكمال إنتاج عادي أو تحويل تاني لهالك بعدين.
         /// </summary>
         public async Task<ProductionScrap> WithdrawToScrapAsync(
             int balanceId, int rangeId, int stageId, DateTime date, int pieceCount,
@@ -731,6 +732,7 @@ namespace WorkforceManager.Business.Services
             UsedQuantity = b.UsedQuantity,
             RemainingQuantity = b.RemainingQuantity,
             Status = b.Status,
+            HasScrapUsage = b.Usages.Any(u => u.ProductionScrapId != null),
             OriginalDate = b.OriginalDate,
             Source = b.Source,
             OriginalDailyProductionId = b.OriginalDailyProductionId,

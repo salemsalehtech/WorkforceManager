@@ -472,11 +472,23 @@ Core  <----------------------- UI
   mistake it for a bug. `UsesPeriod` hides the date controls for Skills, which is a state, not a movement.
 - **Templates store a period *kind*, not two dates** — a template called "أجور الشهر" must mean the current
   month every time, not the month it was saved in.
-- **`PayslipStripExcelService` prints the whole team's payslips on one sheet**, 4 workers per A4 landscape
-  page, cut apart along the vertical lines — it reads `PayrollService.GetPeriodPayrollAsync` directly, so
-  the numbers on paper always match the wage report on screen. **Every slip must have exactly the same
-  line count**, even when workers worked different numbers of stages, or the cut line stops being straight;
-  `WriteBreakdown`'s zero-padding is what keeps them equal. Which lines print is now **user-selectable**
+- **`PayslipStripExcelService` prints the whole team's payslips on one sheet**, **8 workers per A4 landscape
+  page as a 2-row × 4-column grid** (raised from a single row of 4, at the user's request, to cut paper
+  usage in half), cut apart along both the vertical *and* horizontal dashed lines — it reads
+  `PayrollService.GetPeriodPayrollAsync` directly, so the numbers on paper always match the wage report on
+  screen. `SlipsPerRow` (4) is the horizontal count and stays the same as before — only a second row was
+  added underneath, reusing the exact same `SlotFirstColumn` columns (1/4/7/10) at a vertical `rowOffset`,
+  since `WriteSlip` already took a `slot` for its column position and only needed a row-offset parameter to
+  stack a second copy of the same layout beneath the first. `MaxBreakdownLines` dropped from 6 to 3 and
+  every row height/font size was scaled down (title/name/period/section/line/net rows and their fonts) so
+  two stacked slips have a realistic chance of fitting one page's height without `FitToPages(1,1)` shrinking
+  them into illegibility — some shrink is still expected and acceptable (a full 6-line-breakdown, all-fields
+  slip is still taller than half a landscape page), unlike the original 4-per-row design which was tuned to
+  need **zero** shrink. **Every slip must have exactly the same line count**, even when workers worked
+  different numbers of stages, or the cut line stops being straight; `WriteBreakdown`'s zero-padding is what
+  keeps them equal — this now also keeps the *horizontal* cut between the two rows straight, since the top
+  row's shared height (`topHeight`) is what the bottom row's `rowOffset` is computed from. Which lines print
+  is now **user-selectable**
   (`PayslipStripField`: daily rate, produced workdays, days worked, stage breakdown, total pieces, absence/
   penalty deductions, net workdays, workdays wage, bonus, advance — factory/worker/period/net-amount are
   always on and aren't part of the list). Hiding a whole section is done by gating the section header too,
@@ -908,6 +920,29 @@ Core  <----------------------- UI
   routing through it would have been circular; the whole reason `IInitialBalanceRepository` exists (see
   its own doc comment) is to let `ProductionFlowService` touch initial balances without going through
   `InitialBalanceService`.
+  **Sending an initial-balance range to scrap (`WithdrawToScrapAsync`) supports a user-chosen quantity, up
+  to the range's remaining amount — same as `WithdrawAsync`.** This was a pre-existing method (found during
+  a "search before assuming greenfield" check, not built from scratch) that already took an explicit
+  `pieceCount`; an initial pass toward this feature briefly forced it to always consume the whole remaining
+  amount, but the user reverted that after seeing it in practice — they specifically want to control how
+  much goes to scrap in one entry, e.g. scrap 20 now and leave the rest open for either production or a
+  later scrap entry. So the parameter stayed, validated the same way it always was (`> 0`, `<= remaining`).
+  Everything else about the method was already correct by construction and needed no changing:
+  `ProductionScrap` carries no worker column at all (verified in the model itself), so zero wage impact was
+  never a risk; its `Date` was already a free field, not pinned to today; and the stage-attachment /
+  no-double-count logic (`stageId` must equal `range.FromStageId`) was already covered by its own tests and
+  stayed untouched.
+  **A balance that reaches zero remaining via scrap (fully or through several scrap entries) lands in
+  History exactly like one closed by production** — same `Status == Completed` rule, no separate bucket —
+  but carries `InitialBalanceDto.HasScrapUsage` (derived: `Usages.Any(u => u.ProductionScrapId != null)`, no
+  new column) purely so the card can show a "اتقفل بهالك" tag; it does not change who appears in History.
+  **The UI entry point is a small dedicated confirmation dialog (`ScrapBalanceRangeDialog`: quantity +
+  reason + note + date, defaulting the quantity field to the full remaining), not the general `ScrapDialog`**
+  used for normal daily-flow scrap. `ScrapDialog` exists to let the user freely pick a product/stage/quantity;
+  here the product/stage are already pinned by the range the user clicked "تحويل لهالك" on, so reusing that
+  picker would just be two redundant, disabled-feeling fields — only the quantity genuinely needs to stay an
+  open input. Both paths still end up at the same `ScrapService.RecordCoreAsync`/`ProductionScrap` — only the
+  front door differs.
 
 ## Environment note
 

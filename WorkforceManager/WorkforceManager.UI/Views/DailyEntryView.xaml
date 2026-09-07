@@ -960,6 +960,12 @@
                                                                                 ToolTip="يجهّز النطاق ده في رحلة المنتج وينقلك لتبويب تسجيل الإنتاج"
                                                                                 Command="{Binding DataContext.WithdrawBalanceRangeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                                 CommandParameter="{Binding}" />
+                                                                        <Button DockPanel.Dock="Left" Content="تحويل لهالك" Margin="6,0,0,0"
+                                                                                Style="{StaticResource GhostButton}" Padding="12,3" FontSize="11.5"
+                                                                                Foreground="{DynamicResource DangerBrush}"
+                                                                                ToolTip="يحوّل جزء أو كل المتبقي من النطاق ده لهالك"
+                                                                                Command="{Binding DataContext.ScrapBalanceRangeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                CommandParameter="{Binding}" />
                                                                         <TextBlock VerticalAlignment="Center" FontSize="12" Margin="8,0,0,0"
                                                                                    TextWrapping="Wrap"
                                                                                    Foreground="{DynamicResource TextPrimaryBrush}">
@@ -1024,8 +1030,14 @@
                                                                    Foreground="{DynamicResource TextMutedBrush}">
                                                             <Run Text="{Binding Quantity, Mode=OneWay, StringFormat='إجمالي {0:N0}'}" />
                                                             <Run Text="  ·  " />
-                                                            <Run Text="اكتمل بالكامل" />
+                                                            <Run Text="اكتمل بالكامل"
+                                                                 Foreground="{DynamicResource TextMutedBrush}" />
                                                         </TextBlock>
+                                                        <Border Background="{DynamicResource DangerTintBrush}" CornerRadius="6"
+                                                                Padding="6,2" Margin="0,4,0,0" HorizontalAlignment="Left"
+                                                                Visibility="{Binding HasScrapUsage, Converter={StaticResource BoolToVis}}">
+                                                            <TextBlock Text="اتقفل بهالك" FontSize="11" Foreground="{DynamicResource DangerBrush}" />
+                                                        </Border>
                                                     </StackPanel>
                                                 </Border>
                                             </DataTemplate>
