@@ -550,9 +550,8 @@ namespace WorkforceManager.Business.Services
         /// <summary>
         /// يحوّل جزء (أو كل) المتبقي من نطاق رصيد أولي لهالك بدل إكمال
         /// إنتاج — بنفس كيان الهالك الموجود (<see cref="ProductionScrap"/>)،
-        /// مش كيان جديد. بيستخدم فحص اليوم المقفول نفسه اللي
-        /// ScrapService.RecordAsync بيستخدمه، من غير ما يكرره — Tier B،
-        /// مفيش بوابة باسورد. <paramref name="pieceCount"/> ممكن يكون أقل من المتبقي
+        /// مش كيان جديد. Tier B، مفيش بوابة باسورد.
+        /// <paramref name="pieceCount"/> ممكن يكون أقل من المتبقي
         /// — الباقي يفضل مفتوح لإكمال إنتاج عادي أو تحويل تاني لهالك بعدين.
         /// </summary>
         public async Task<ProductionScrap> WithdrawToScrapAsync(
@@ -584,8 +583,6 @@ namespace WorkforceManager.Business.Services
             if (pieceCount > remaining)
                 throw new InvalidOperationException(
                     $"الكمية المطلوب تحويلها لهالك ({pieceCount:N0}) أكبر من المتاح في النطاق ({remaining:N0})");
-
-            await _scrap.EnsureAllowedAsync(date);
 
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
 

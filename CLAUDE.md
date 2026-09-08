@@ -261,8 +261,8 @@ Core  <----------------------- UI
   already standing.
 
   **Scrap is counted two ways on purpose** (`ProductionChartService`): what is *subtracted* from completed
-  output is last-stage scrap only — the same rule the daily summary and day closure use, so every screen
-  says one number — while what is *displayed* as scrap is every stage's scrap, because "how much did we
+  output is last-stage scrap only — the same rule the daily summary uses, so every screen says one
+  number — while what is *displayed* as scrap is every stage's scrap, because "how much did we
   lose?" includes the piece thrown away at stage one. Subtracting the early scrap too would double-count
   it: it never reached the last stage, so it was never in that number.
   `ReportBuilderView` (nav: "التقارير") is the document factory — see the report engine below.
@@ -531,9 +531,10 @@ Core  <----------------------- UI
   asserts the column type so a new decimal can't quietly land as text.
 - **Deleted as dead, don't reintroduce**: `Attendance.CheckInTime` / `CheckOutTime` (the only write path
   set them to `null` explicitly; hourly work is tracked in `HourlyWorkLog`, which has a real end hour),
-  and the `Notes` column on `Attendance` / `DailyProduction` / `Penalty` / `HourlyWorkLog` /
-  `ProductionDayClosure` — no caller ever passed a value, so the optional `notes` service parameters went
-  with them. Also `IX_ActivityEvents_EventType`: no query filters on it, and 11 distinct values would
+  and the `Notes` column on `Attendance` / `DailyProduction` / `Penalty` / `HourlyWorkLog` — no caller
+  ever passed a value, so the optional `notes` service parameters went with them (the `ProductionDayClosure`
+  table this column also lived on is gone entirely now — see Day closure above). Also
+  `IX_ActivityEvents_EventType`: no query filters on it, and 11 distinct values would
   make it useless if one did. `Worker.EmployeeCode` went too — see below for what had to change first.
   Contrast `Worker.SkillsNotes`, which looks equally dead and is load-bearing for the seeder.
 - **`Worker.EmployeeCode` is gone from the database.** It survived earlier rounds only because
@@ -663,23 +664,30 @@ Core  <----------------------- UI
   Ranges still may not overlap (a stage in two ranges is double-entry) and each covered stage still
   needs worker shares summing exactly to its pieces. A range may start anywhere in the line — starting
   mid-line needs no justification, because the pieces it consumes are implied by the arithmetic.
-- **Day closure** (`DayClosureService`): `PreviewAsync` shows completed + started per product,
-  `CloseAsync` writes a `ProductionDayClosure` row and `RecordFlowAsync` then refuses that date.
-  Nothing is "carried forward" — every day is read from its own rows, so work that wasn't finished
-  is simply recorded on the day it does get done. The stored `CompletedPieces`/`StartedPieces` are a
-  **snapshot the user approved**, not a cache to recompute. `ReopenAsync` undoes it (data-entry
-  mistakes are normal). **This is a completely different concept from daily operations sign-off
-  below** — closure locks one product's production numbers for one date; sign-off is an app-wide
-  "I reviewed everything that happened today" acknowledgement. They don't reference each other and
-  a day can be signed off with some/all of its products still open (or vice versa). `DayClosureService`
-  is slated for removal in a future, separate piece of work — nothing here depends on it staying.
+- **Day closure was removed outright** (`DayClosureService`, `ProductionDayClosure`, the lock/reopen
+  button on Daily Entry, the "اليوم مقفول" badge on the Reports screen — all deleted, not deprecated).
+  It used to let the user lock one date's production numbers against further edits after reviewing
+  them; nothing replaces that specific behaviour, since every day is free to edit at any time now,
+  including one that used to be closed. **This is a completely different concept from daily
+  operations sign-off below**, which survives — closure locked numbers per date; sign-off is an
+  app-wide "I reviewed everything that happened today" acknowledgement with no locking effect on
+  editability at all. `ProductionDayClosures` was dropped via a real migration
+  (`RemoveProductionDayClosure`) — the table carried only a point-in-time snapshot
+  (`ClosedAt`/`CompletedPieces`/`StartedPieces`) with no foreign key pointing at it from anywhere, so
+  the drop is lossless from every other table's perspective. `ActivityEventType.ProductionDayClosed`/
+  `ProductionDayReopened` (14/15) and `DailyProductionReportDto.IsClosed`/`ClosedAt` are two different
+  stories on removal: the enum values **stay** (real historical rows already reference them, same
+  reasoning as `InitialBalanceMigrated` — nothing writes them anymore, but old activity-log entries
+  must still render as Arabic text instead of a bare number), while `SensitiveAction.CloseProductionDay`
+  was **deleted outright** (never persisted anywhere — it only ever flowed as a runtime parameter into
+  `VerifyAsync` — so there's no historical row whose meaning depends on that number staying reserved).
 - **Daily operations sign-off** (`DailyOperationsSignOffService` + `DailyOperationsSignOff`) replaces
   an instant operations-password prompt on nearly every save/edit/delete with **one password entry at
   the end of the day** that covers everything. This split every `SensitiveAction` into two tiers:
   - **Tier A (unchanged, still an instant `SensitiveActionDialog.Ask` prompt)**: `DeleteWorker`,
     `DeleteProduct`, `DeleteStage` (and department/manager account deletion, which reuses
     `DeleteWorker`), `EditWorkerWage`, `SaveWageAdjustment` (advances/bonuses — direct EGP movement),
-    `CloseProductionDay` (untouched, see above), and settings — only the activity-log retention days
+    and settings — only the activity-log retention days
     (`SettingsViewModel.SaveLogRetention`, `SensitiveAction.ChangeSettings`) are gated; the rest of the
     settings screen has no single "save" action to gate (every field auto-persists on change) and
     gating cosmetic/operational fields (logo, external backup folder, scrap reasons) would fight the
@@ -734,9 +742,9 @@ Core  <----------------------- UI
     `SignedOffAt.Date` to `Date` — no separate flag. `SignOffAsync` (today, from the "حفظ نهائي" button
     or `MainWindow.Closing`) and `AcknowledgeLateAsync` (past unsigned days, from the startup catch-up
     dialog, one password covering every listed date at once) both just insert the same shape of row.
-  - **`GetUnsignedPastDatesAsync(today)` takes `today` as a parameter, not `DateTime.Today`** — same
-    reason `DayClosureService` takes every date from its caller: a wall-clock read inside a Business
-    method makes it untestable with a fixed date. `App.OnStartup` passes real `DateTime.Today`;
+  - **`GetUnsignedPastDatesAsync(today)` takes `today` as a parameter, not `DateTime.Today`** — a
+    wall-clock read inside a Business method makes it untestable with a fixed date. `App.OnStartup`
+    passes real `DateTime.Today`;
     `DailyOperationsSignOffServiceTests` passes `TestDatabase.Today`.
   - **One-time automatic cutover seed**: the very first call to `GetUnsignedPastDatesAsync` on a table
     that has never had a row (fresh migration on a customer DB with years of pre-feature history)

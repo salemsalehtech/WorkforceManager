@@ -24,18 +24,15 @@ namespace WorkforceManager.Business.Services
     /// </summary>
     public class DailyProductionReportService
     {
-        private readonly IProductionDayClosureRepository _closureRepo;
         private readonly IProductRepository _productRepo;
         private readonly ScrapService _scrap;
         private readonly ProductionStageOutputService _productionOutput;
 
         public DailyProductionReportService(
-            IProductionDayClosureRepository closureRepo,
             IProductRepository productRepo,
             ScrapService scrap,
             ProductionStageOutputService productionOutput)
         {
-            _closureRepo = closureRepo;
             _productRepo = productRepo;
             _scrap = scrap;
             _productionOutput = productionOutput;
@@ -47,7 +44,6 @@ namespace WorkforceManager.Business.Services
 
             var today = await _productionOutput.GetStageTotalsOnAsync(day);
             var scrapToday = await _scrap.GetStageTotalsOnAsync(day);
-            var closure = await _closureRepo.GetByDateAsync(day);
             var products = await _productRepo.GetAllWithStagesAsync();
 
             var rows = products
@@ -60,8 +56,6 @@ namespace WorkforceManager.Business.Services
             return new DailyProductionReportDto
             {
                 Date = day,
-                IsClosed = closure is not null,
-                ClosedAt = closure?.ClosedAt,
                 Products = rows
             };
         }
@@ -69,8 +63,7 @@ namespace WorkforceManager.Business.Services
         /// <summary>
         /// نفس تقرير GetAsync بالظبط، بس مجموع على مدى أيام (أسبوع/شهر)
         /// بدل يوم واحد — كل يوم في المدى بياخد نفس صيغة "تام/داخل/هالك"
-        /// المستخدمة في GetAsync، والنتيجة مجموع الأيام. الإقفال مفهوم
-        /// يوم واحد بس، فبيرجع IsClosed=false دايمًا هنا.
+        /// المستخدمة في GetAsync، والنتيجة مجموع الأيام.
         /// </summary>
         public async Task<DailyProductionReportDto> GetForRangeAsync(DateTime from, DateTime to)
         {
@@ -120,8 +113,6 @@ namespace WorkforceManager.Business.Services
             return new DailyProductionReportDto
             {
                 Date = fromDay,
-                IsClosed = false,
-                ClosedAt = null,
                 Products = rows
             };
         }

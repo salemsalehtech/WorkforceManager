@@ -53,10 +53,18 @@ namespace WorkforceManager.Core.Enums
         /// <summary>حضور يوم اتحفظ</summary>
         AttendanceSaved = 13,
 
-        /// <summary>يوم إنتاج اتقفل — بعده مفيش تسجيل جديد</summary>
+        /// <summary>
+        /// يوم إنتاج اتقفل — بعده مفيش تسجيل جديد.
+        ///
+        /// **مالهاش كاتب دلوقتي**: ميزة قفل إنتاج اليوم (`DayClosureService`)
+        /// اتلغت بالكامل. القيمة دي فضلت زي ما هي (نفس نمط
+        /// `InitialBalanceMigrated`) لأن صفوف حقيقية في سجل العمليات
+        /// بتشاور عليها فعلاً — حذفها كان هيخلي شاشة السجل تعرض رقم خام
+        /// بدل النص العربي لأي صف قديم من النوع ده.
+        /// </summary>
         ProductionDayClosed = 14,
 
-        /// <summary>يوم مقفول اترجع يفتح</summary>
+        /// <summary>يوم مقفول اترجع يفتح — نفس ملحوظة `ProductionDayClosed`: مالهاش كاتب دلوقتي</summary>
         ProductionDayReopened = 15,
 
         /// <summary>هالك اتسجل — قطع خرجت من الخط ومش هتكمّل</summary>

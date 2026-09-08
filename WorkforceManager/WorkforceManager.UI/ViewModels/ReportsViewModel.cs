@@ -97,9 +97,6 @@ namespace WorkforceManager.UI.ViewModels
         private bool _outputHasScrap;
 
         [ObservableProperty]
-        private bool _outputIsClosed;
-
-        [ObservableProperty]
         private bool _outputIsEmpty = true;
 
         /// <summary>عمال إنتاجهم اليوم ده قلّ بشكل ملحوظ عن متوسط آخر أيام شغلهم (ProductionTrendService)</summary>
@@ -160,7 +157,6 @@ namespace WorkforceManager.UI.ViewModels
 
             OutputCompletedText = report.TotalCompletedPieces.ToString("N0");
             OutputStartedText = report.TotalStartedPieces.ToString("N0");
-            OutputIsClosed = report.IsClosed;
             OutputIsEmpty = report.Products.Count == 0;
 
             var scrapTotal = scrap.Sum(s => s.PieceCount);

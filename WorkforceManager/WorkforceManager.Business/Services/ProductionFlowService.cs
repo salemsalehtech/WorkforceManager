@@ -41,7 +41,6 @@ namespace WorkforceManager.Business.Services
         private readonly IWorkerRepository _workerRepo;
         private readonly IDailyProductionRepository _productionRepo;
         private readonly IAttendanceRepository _attendanceRepo;
-        private readonly IProductionDayClosureRepository _closureRepo;
         private readonly WorkerAssignmentGuard _assignmentGuard;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ActivityLogService _log;
@@ -55,7 +54,6 @@ namespace WorkforceManager.Business.Services
             IWorkerRepository workerRepo,
             IDailyProductionRepository productionRepo,
             IAttendanceRepository attendanceRepo,
-            IProductionDayClosureRepository closureRepo,
             WorkerAssignmentGuard assignmentGuard,
             IUnitOfWork unitOfWork,
             ActivityLogService log,
@@ -69,7 +67,6 @@ namespace WorkforceManager.Business.Services
             _workerRepo = workerRepo;
             _productionRepo = productionRepo;
             _attendanceRepo = attendanceRepo;
-            _closureRepo = closureRepo;
             _assignmentGuard = assignmentGuard;
             _unitOfWork = unitOfWork;
             _productionOutput = productionOutput;
@@ -234,11 +231,6 @@ namespace WorkforceManager.Business.Services
                 throw new InvalidOperationException("سجّل نطاق إنتاج واحد على الأقل (من مرحلة إلى مرحلة بعدد قطع)");
             if (shares.Count == 0)
                 throw new InvalidOperationException("وزّع العمال على المراحل الأول قبل الحفظ");
-
-            // يوم مقفول = المستخدم راجع أرقامه ووافق عليها. فتح الباب
-            // لتسجيل جديد بعد كده بيخلي تقرير مطبوع يكدب
-            if (await _closureRepo.IsClosedAsync(date))
-                throw new InvalidOperationException(DayClosureService.ClosedDayMessage(date));
 
             // ---------- 1) تحميل المنتج ومراحله النشطة بترتيب خط الإنتاج ----------
             var product = await _productRepo.GetWithStagesAsync(productId)

@@ -137,7 +137,6 @@ namespace WorkforceManager.UI.ViewModels
             await LoadPenaltiesAsync();
             await LoadAdjustmentsAsync();
             await LoadScrapAsync();
-            await LoadClosureStateAsync();
             await LoadInitialBalanceTabAsync();
         }
 
@@ -153,7 +152,6 @@ namespace WorkforceManager.UI.ViewModels
             await LoadPenaltiesAsync();
             await LoadAdjustmentsAsync();
             await LoadScrapAsync();
-            await LoadClosureStateAsync();
             await LoadInitialBalanceTabAsync();
         }
 
@@ -179,7 +177,6 @@ namespace WorkforceManager.UI.ViewModels
             await LoadRecordsTabAsync();
             // الرحلة ممكن تكون سجّلت هالك (البرنامج بيسأل عن الفرق بعد الحفظ)
             await LoadScrapAsync();
-            await LoadClosureStateAsync();
             // السحب من رصيد أولي بيغيّر المستهلك/المتبقي — الشريط والتبويب يتحدّثوا،
             // وأي نطاق ماوصلش لآخر مرحلة اتحول رصيد جديد بيلزم كل الرحلات المفتوحة
             await LoadInitialBalanceTabAsync();
@@ -196,76 +193,6 @@ namespace WorkforceManager.UI.ViewModels
         {
             foreach (var session in FlowSessions)
                 await session.RefreshInitialBalanceDisplayAsync();
-        }
-
-        // ======================= إقفال إنتاج اليوم =======================
-
-        /// <summary>اليوم ده مقفول؟ (بيقفل التسجيل ويقلب الزرار لـ "فتح اليوم")</summary>
-        [ObservableProperty]
-        private bool _isDayClosed;
-
-        private async Task LoadClosureStateAsync()
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var closure = scope.ServiceProvider.GetRequiredService<DayClosureService>();
-
-            IsDayClosed = await closure.IsClosedAsync(EntryDate);
-        }
-
-        /// <summary>
-        /// يقفل اليوم بعد مراجعة أرقامه، أو يفتحه تاني لو كان مقفول.
-        /// </summary>
-        [RelayCommand]
-        private async Task ToggleDayClosureAsync()
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<DayClosureService>();
-
-            try
-            {
-                if (IsDayClosed)
-                {
-                    var reopenGate = SensitiveActionDialog.Ask(
-                        Application.Current.MainWindow,
-                        "فتح إنتاج اليوم تاني",
-                        $"هيرجع ينفع يتسجل إنتاج على يوم {EntryDate:yyyy/MM/dd} ويتعدّل.",
-                        SensitiveActionKind.Save,
-                        passwordRequired: true,
-                        reasonRequired: false);
-
-                    if (reopenGate is null) return;
-
-                    await service.ReopenAsync(EntryDate, reopenGate.Password);
-                    await LoadClosureStateAsync();
-                    return;
-                }
-
-                var preview = await service.PreviewAsync(EntryDate);
-                var dialog = new DayClosureDialog(preview) { Owner = Application.Current.MainWindow };
-                if (dialog.ShowDialog() != true) return;
-
-                // القفل بيوقف تسجيل اليوم كله — بوابة زي باقي العمليات
-                // اللي بتغيّر حالة القسم
-                var closeGate = SensitiveActionDialog.Ask(
-                    Application.Current.MainWindow,
-                    "قفل إنتاج اليوم",
-                    $"بعد القفل مش هينفع يتسجل إنتاج جديد على يوم {EntryDate:yyyy/MM/dd}.",
-                    SensitiveActionKind.Save,
-                    passwordRequired: true,
-                    reasonRequired: false);
-
-                if (closeGate is null) return;
-
-                await service.CloseAsync(EntryDate, closeGate.Password);
-                await LoadClosureStateAsync();
-
-                Notify.Info($"اتقفل إنتاج يوم {EntryDate:yyyy/MM/dd}.\n" +
-                    $"{preview.CompletedPieces:N0} قطعة خلصت الخط، و{preview.StartedPieces:N0} دخلته.", "تم القفل");
-            }
-            catch (InvalidOperationException ex)
-            {
-                Notify.Warn(ex.Message, "مش هينفع");
-            }
         }
 
         /// <summary>
@@ -304,7 +231,6 @@ namespace WorkforceManager.UI.ViewModels
 
                 await LoadDaySummaryAsync();
                 await LoadRecordsTabAsync();
-                await LoadClosureStateAsync();
 
                 var note = result.PasswordNotConfigured
                     ? "\n\nملحوظة: مفيش كلمة سر عمليات متسجّلة — اتنفّذ من غير تحقق. اتظبطها من الإعدادات."

@@ -49,19 +49,6 @@
                         <TextBlock DockPanel.Dock="Right" Text="{Binding OutputPeriodLabel}" FontSize="12.5"
                                    VerticalAlignment="Center" Margin="10,0,0,0"
                                    Foreground="{DynamicResource TextMutedBrush}" />
-
-                        <Border Background="{DynamicResource SuccessBgBrush}" CornerRadius="6" Padding="9,4"
-                                Margin="14,0,0,0" VerticalAlignment="Center"
-                                Visibility="{Binding OutputIsClosed, Converter={StaticResource BoolToVis}}">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="LockCheck" Width="13" Height="13"
-                                                        VerticalAlignment="Center"
-                                                        Foreground="{DynamicResource SuccessBrush}" />
-                                <TextBlock Text="اليوم مقفول — الأرقام دي نهائية" FontSize="11.5" Margin="4,0,0,0"
-                                           VerticalAlignment="Center"
-                                           Foreground="{DynamicResource SuccessBrush}" />
-                            </StackPanel>
-                        </Border>
                     </DockPanel>
                 </Border>
 

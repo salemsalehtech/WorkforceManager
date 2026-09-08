@@ -131,30 +131,6 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
-        public async Task UndoEdit_OnAClosedDay_IsRefused()
-        {
-            var recordId = await RecordAhmedOnChainAsync(100);
-
-            using (var scope = _db.CreateScope())
-                await _db.GetService<WorkdayCalculationService>(scope).UpdateProductionAsync(
-                    recordId, 150, newWorkerId: null, confirmOverride: true);
-
-            using (var scope = _db.CreateScope())
-                await _db.GetService<DayClosureService>(scope).CloseAsync(Today);
-
-            using (var scope = _db.CreateScope())
-            {
-                var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                    _db.GetService<WorkdayCalculationService>(scope).UndoEditAsync(
-                        recordId, TestDatabase.WorkerAhmedId, 100));
-                Assert.NotEmpty(ex.Message);
-            }
-
-            var record = Assert.Single(await _db.GetProductionAsync());
-            Assert.Equal(150, record.PieceCount); // لسه على القيمة بعد التعديل، مفيش تراجع حصل
-        }
-
-        [Fact]
         public async Task UndoEdit_IsLoggedWithADistinctEventType()
         {
             var recordId = await RecordAhmedOnChainAsync(100);

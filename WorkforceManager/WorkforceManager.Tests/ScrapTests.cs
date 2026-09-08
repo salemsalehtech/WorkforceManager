@@ -202,10 +202,9 @@ namespace WorkforceManager.Tests
         /// <summary>
         /// نفس رقم "التام" لازم يطلع من كل الشاشات.
         ///
-        /// أربع خدمات بتحسب التام (ملخص اليوم، قفل اليوم، التقرير العام،
-        /// شاشة المنتجات، ومُنشئ التقارير) — ولو واحدة منهم نسيت تطرح
-        /// الهالك، المستخدم هيشوف رقمين لنفس اليوم ومش هيعرف يصدّق أنهي
-        /// واحد.
+        /// أربع خدمات بتحسب التام (ملخص اليوم، التقرير العام، شاشة
+        /// المنتجات، ومُنشئ التقارير) — ولو واحدة منهم نسيت تطرح الهالك،
+        /// المستخدم هيشوف رقمين لنفس اليوم ومش هيعرف يصدّق أنهي واحد.
         /// </summary>
         [Fact]
         public async Task EveryScreenReportsTheSameCompletedNumber()
@@ -220,10 +219,6 @@ namespace WorkforceManager.Tests
             var daily = await DailyAsync();
             Assert.Equal(expected,
                 daily.Products.Single(p => p.ProductId == TestDatabase.ProductBagId).CompletedPieces);
-
-            var closure = await _db.InScopeAsync<DayClosureService, DayClosurePreviewDto>(
-                s => s.PreviewAsync(Day));
-            Assert.Equal(expected, closure.CompletedPieces);
 
             var general = await _db.InScopeAsync<ProductionReportService, GeneralProductionReportDto>(
                 s => s.GetGeneralReportAsync(Day, Day));
@@ -245,13 +240,11 @@ namespace WorkforceManager.Tests
             Assert.Equal(expected, table.Rows.Single(r => r.Label == "شنطة").Values[pieces]);
         }
 
-        // ---------------- في ملخص اليوم وقفل اليوم ----------------
+        // ---------------- في ملخص اليوم ----------------
 
         [Fact]
-        public async Task TheDayClosurePreview_ShowsTheScrapBeforeYouLockTheDay()
+        public async Task TheDailyReport_ShowsScrapAlongsideCompletedPieces()
         {
-            // بيتعرض قبل القفل عشان المستخدم يراجعه وهو لسه يقدر يعدّله —
-            // بعد القفل مش هينفع يتسجّل على اليوم
             await RecordAsync(TestDatabase.BagStage1Id, 1000);
             await RecordAsync(TestDatabase.BagStage2Id, 900);
             await RecordAsync(TestDatabase.BagStage3Id, 900);
@@ -259,29 +252,24 @@ namespace WorkforceManager.Tests
             await ScrapAsync(TestDatabase.BagStage1Id, 100);
             await ScrapAsync(TestDatabase.BagStage3Id, 50);
 
-            var preview = await _db.InScopeAsync<DayClosureService, DayClosurePreviewDto>(
-                s => s.PreviewAsync(Day));
+            var daily = await DailyAsync();
 
-            Assert.True(preview.HasScrap);
-            Assert.Equal(150, preview.ScrapPieces);
+            Assert.Equal(150, daily.TotalScrapPieces);
 
-            // والتام في نفس الملخص ناقص هالك آخر مرحلة
-            Assert.Equal(850, preview.CompletedPieces);
-
-            var bag = preview.ByProduct.Single(p => p.ProductName == "شنطة");
+            // والتام في نفس التقرير ناقص هالك آخر مرحلة
+            var bag = daily.Products.Single(p => p.ProductName == "شنطة");
+            Assert.Equal(850, bag.CompletedPieces);
             Assert.Equal(150, bag.ScrapPieces);
         }
 
         [Fact]
-        public async Task ADayWithNoScrap_SaysSoInsteadOfShowingZero()
+        public async Task ADayWithNoScrap_ReportsZero()
         {
             await RecordAsync(TestDatabase.BagStage1Id, 100);
 
-            var preview = await _db.InScopeAsync<DayClosureService, DayClosurePreviewDto>(
-                s => s.PreviewAsync(Day));
+            var daily = await DailyAsync();
 
-            Assert.False(preview.HasScrap);
-            Assert.Equal(0, preview.ScrapPieces);
+            Assert.Equal(0, daily.TotalScrapPieces);
         }
 
         // ---------------- في التقارير ----------------
