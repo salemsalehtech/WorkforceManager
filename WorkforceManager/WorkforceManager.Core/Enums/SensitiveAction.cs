@@ -54,10 +54,12 @@ namespace WorkforceManager.Core.Enums
         /// </summary>
         RecordProduction = 10,
 
-        /// <summary>
-        /// قفل إنتاج اليوم — بيمنع أي تسجيل جديد على اليوم ده.
-        /// </summary>
-        CloseProductionDay = 11,
+        // 11 (CloseProductionDay) اتشالت خالص لما ميزة قفل إنتاج اليوم
+        // (DayClosureService) اتلغت بالكامل — القيمة دي عمرها ما كانت
+        // متخزّنة في أي صف قاعدة بيانات (بتتبعت كباراميتر وقت التشغيل بس
+        // لـ VerifyAsync)، فمفيش قيد تاريخي يمنع حذفها خالص، على عكس
+        // ActivityEventType.ProductionDayClosed/Reopened اللي **متخزّنين**
+        // في صفوف سجل عمليات حقيقية وفضلوا في enum بتاعهم عن قصد.
 
         /// <summary>
         /// تسجيل هالك — نفس منطق RecordProduction: الهالك بيتخصم من
@@ -67,8 +69,10 @@ namespace WorkforceManager.Core.Enums
         /// **ملحوظة (توقيع نهاية اليوم)**: من 10, 6, 7, 9, 4 و12 اتشالوا
         /// من هنا فعليًا (Tier B) — الشغل اليومي المتكرر بقى بدون باسورد
         /// فوري، وبيتغطى بتوقيع نهاية اليوم بدل كده. القيم فضلت في الـ enum
-        /// عشان صفوف سجل العمليات القديمة تفضل قابلة للقراءة، بس مفيش
-        /// نداء VerifyAsync ليهم في الكود دلوقتي. شوف DailyOperationsSignOff.
+        /// لمجرد إن مفيش داعي نعيد ترقيم أي حاجة (مش لأنها متخزّنة — القيمة
+        /// دي زي CloseProductionDay مش بتتخزّن في أي صف، بس مفيش سبب حقيقي
+        /// يستاهل حذفها كمان). مفيش نداء VerifyAsync ليها في الكود دلوقتي.
+        /// شوف DailyOperationsSignOffService.
         /// </summary>
         RecordScrap = 12,
 
