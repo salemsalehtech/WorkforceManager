@@ -19,7 +19,6 @@ namespace WorkforceManager.Business.Services
         private readonly IProductRepository _productRepo;
         private readonly WorkerAssignmentGuard _assignmentGuard;
         private readonly SoftDeleteService _softDelete;
-        private readonly IProductionDayClosureRepository _closureRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ActivityLogService _log;
         private readonly IAttendanceRepository _attendanceRepo;
@@ -36,7 +35,6 @@ namespace WorkforceManager.Business.Services
             IProductRepository productRepo,
             WorkerAssignmentGuard assignmentGuard,
             SoftDeleteService softDelete,
-            IProductionDayClosureRepository closureRepo,
             IUnitOfWork unitOfWork,
             ActivityLogService log,
             IAttendanceRepository attendanceRepo,
@@ -53,7 +51,6 @@ namespace WorkforceManager.Business.Services
             _productRepo = productRepo;
             _assignmentGuard = assignmentGuard;
             _softDelete = softDelete;
-            _closureRepo = closureRepo;
             _unitOfWork = unitOfWork;
             _attendanceRepo = attendanceRepo;
             _hourlyRepo = hourlyRepo;
@@ -83,22 +80,6 @@ namespace WorkforceManager.Business.Services
             if (attendance is not null) _attendanceRepo.Remove(attendance);
         }
 
-        /// <summary>
-        /// يرفض الكتابة على يوم مقفول.
-        ///
-        /// كان الفحص ده في <see cref="ProductionFlowService"/> بس، يعني
-        /// القفل كان بيتلفّ حواليه من المسار ده: تسجيل سجل واحد أو تعديل
-        /// عدد قطع سجل محفوظ كانوا بيعدّوا على يوم مقفول عادي — والمستخدم
-        /// يكون شاف الأرقام ووافق عليها وطبع تقرير، والأرقام تتغيّر بعديها.
-        ///
-        /// الحذف **مستثنى** عن قصد: حذف بكلمة سر وسبب مكتوب هو الطريق
-        /// المقصود لتصحيح يوم اتقفل بالغلط.
-        /// </summary>
-        private async Task EnsureDayIsOpenAsync(DateTime date)
-        {
-            if (await _closureRepo.IsClosedAsync(date))
-                throw new InvalidOperationException(DayClosureService.ClosedDayMessage(date));
-        }
 
         /// <summary>
         /// يبني وصف التكليف اللي القاعدة المشتركة بتشتغل عليه. الأسماء
@@ -150,13 +131,8 @@ namespace WorkforceManager.Business.Services
                 PiecesPerWorkdayAtEntry = stage.PiecesPerWorkday // Snapshot اليومية وقت التسجيل
             };
 
-            // نفس قاعدة رحلة الإنتاج بالظبط: تحقق وكتابة جوه معاملة واحدة.
-            // فحص القفل جوه المعاملة عشان يقرا تحت نفس قفل الكتابة اللي
-            // الإدخال بيتم تحته — من برّا كان ممكن يوم يتقفل بين الفحص
-            // والكتابة فيعدّي سجل على يوم مقفول
+            // نفس قاعدة رحلة الإنتاج بالظبط: تحقق وكتابة جوه معاملة واحدة
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
-
-            await EnsureDayIsOpenAsync(date);
 
             var check = await _assignmentGuard.CheckAsync(
                 date, new[] { await BuildAssignmentAsync(workerId, stage) });
@@ -205,10 +181,6 @@ namespace WorkforceManager.Business.Services
             var record = await _productionRepo.GetByIdAsync(recordId)
                 ?? throw new InvalidOperationException("سجل الإنتاج غير موجود");
 
-            // تعديل رقم/عامل على يوم مقفول = تغيير أرقام المستخدم شافها
-            // ووافق عليها وممكن يكون طبعها
-            await EnsureDayIsOpenAsync(record.Date);
-
             var oldPieceCount = record.PieceCount;
             var oldWorkerId = record.WorkerId;
             var isWorkerChanged = newWorkerId is not null && newWorkerId.Value != oldWorkerId;
@@ -248,10 +220,6 @@ namespace WorkforceManager.Business.Services
             var product = await _productRepo.GetByIdAsync(stage.ProductId);
 
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
-
-            // إعادة فحص القفل جوه المعاملة — نفس مبدأ RecordProductionAsync:
-            // القرار لازم ياخد على بيانات محمية بقفل الكتابة
-            await EnsureDayIsOpenAsync(record.Date);
 
             // حالة النقل الفعلي لسجل موجود بين العمال/المراحل: التعارضات
             // بتتجاهلها لأنها جزء من العملية نفسها، لأن الهدف هو "نقل شغل
@@ -314,14 +282,11 @@ namespace WorkforceManager.Business.Services
             var record = await _productionRepo.GetByIdAsync(recordId)
                 ?? throw new InvalidOperationException("سجل الإنتاج مش موجود دلوقتي — يمكن اتحذف بعد كده");
 
-            await EnsureDayIsOpenAsync(record.Date);
-
             var currentWorkerId = record.WorkerId;
             var currentPieceCount = record.PieceCount;
             var workerIsChanging = previousWorkerId != currentWorkerId;
 
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
-            await EnsureDayIsOpenAsync(record.Date);
 
             record.WorkerId = previousWorkerId;
             record.PieceCount = previousPieceCount;
@@ -375,10 +340,7 @@ namespace WorkforceManager.Business.Services
             var stage = await _stageRepo.GetByIdAsync(productionStageId)
                 ?? throw new InvalidOperationException("المرحلة اتحذفت — مش هينفع يترجع السجل");
 
-            await EnsureDayIsOpenAsync(date);
-
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
-            await EnsureDayIsOpenAsync(date);
 
             var record = new DailyProduction
             {

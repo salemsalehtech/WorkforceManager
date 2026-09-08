@@ -22,50 +22,33 @@ namespace WorkforceManager.Business.Services
     {
         private readonly AppDbContext _db;
         private readonly ActivityLogService _log;
-        private readonly IProductionDayClosureRepository _closureRepo;
 
-        public ScrapService(
-            AppDbContext db, ActivityLogService log, IProductionDayClosureRepository closureRepo)
+        public ScrapService(AppDbContext db, ActivityLogService log)
         {
             _db = db;
             _log = log;
-            _closureRepo = closureRepo;
         }
 
         // ======================= التسجيل =======================
 
         /// <summary>
-        /// يسجّل هالك على مرحلة في يوم معين — رفض اليوم المقفول زي أي
-        /// عملية بتلمس إنتاج تانية.
+        /// يسجّل هالك على مرحلة في يوم معين.
         ///
         /// **مفيش بوابة باسورد هنا (Tier B)** — تسجيل هالك بقى متغطى
         /// بتوقيع نهاية اليوم بدل باسورد فوري (شوف DailyOperationsSignOffService).
         /// </summary>
-        public async Task<ProductionScrap> RecordAsync(
+        public Task<ProductionScrap> RecordAsync(
             int productionStageId, DateTime date, int pieceCount,
-            int? reasonId = null, string? note = null, string? recordedBy = null)
-        {
-            await EnsureAllowedAsync(date);
-            return await RecordCoreAsync(productionStageId, date, pieceCount, reasonId, note, recordedBy);
-        }
+            int? reasonId = null, string? note = null, string? recordedBy = null) =>
+            RecordCoreAsync(productionStageId, date, pieceCount, reasonId, note, recordedBy);
 
         /// <summary>
-        /// فحص اليوم المقفول نفسه اللي RecordAsync بيستخدمه — منفصل عشان
-        /// WithdrawToScrapAsync (سحب رصيد أولي لهالك) يستخدمه من غير ما
-        /// يكرر المنطق.
-        /// </summary>
-        public async Task EnsureAllowedAsync(DateTime date)
-        {
-            if (await _closureRepo.IsClosedAsync(date))
-                throw new InvalidOperationException(DayClosureService.ClosedDayMessage(date));
-        }
-
-        /// <summary>
-        /// الكتابة الفعلية بدون بوابة — لكود بيعمل التحقق بنفسه جوه
-        /// معاملته الخاصة (WithdrawToScrapAsync)، عشان EnsureAllowedAsync
-        /// ماتتكررش. **بيتجمّع مع اللي قبله في نفس اليوم/المرحلة/السبب**
-        /// بدل ما يعمل سجل جديد كل مرة: المستخدم اللي سجّل 300 ونسي 200
-        /// عايز يشوف 500 في الآخر، مش سطرين لازم يجمعهم بنفسه.
+        /// الكتابة الفعلية — نفسها اللي RecordAsync بيستخدمها، ومنفصلة
+        /// عشان WithdrawToScrapAsync (سحب رصيد أولي لهالك) يستخدمها جوه
+        /// معاملته الخاصة من غير ما يكرر المنطق. **بيتجمّع مع اللي قبله
+        /// في نفس اليوم/المرحلة/السبب** بدل ما يعمل سجل جديد كل مرة:
+        /// المستخدم اللي سجّل 300 ونسي 200 عايز يشوف 500 في الآخر، مش
+        /// سطرين لازم يجمعهم بنفسه.
         /// </summary>
         public async Task<ProductionScrap> RecordCoreAsync(
             int productionStageId, DateTime date, int pieceCount,
