@@ -9,7 +9,7 @@
         FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
 
     <!-- آخر خطوة قبل توقيع اليوم — المستخدم بيراجع كل حاجة حصلت
-         النهارده قبل ما يوافق، بنفس فلسفة DayClosureDialog -->
+         النهارده قبل ما يوافق -->
     <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
         <Border.Effect>
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />

@@ -17,49 +17,9 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- اختيار اليوم (مشترك لكل التبويبات) + قفل إنتاج اليوم -->
+        <!-- اختيار اليوم (مشترك لكل التبويبات) -->
         <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
             <DockPanel>
-                <!-- زرار القفل: بيقلب لـ "فتح اليوم" لما اليوم يبقى مقفول -->
-                <Button DockPanel.Dock="Left" Padding="14,7"
-                        Command="{Binding ToggleDayClosureCommand}">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsDayClosed}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource WarnBrush}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Width="16" Height="16" VerticalAlignment="Center">
-                            <materialDesign:PackIcon.Style>
-                                <Style TargetType="materialDesign:PackIcon">
-                                    <Setter Property="Kind" Value="LockOutline" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsDayClosed}" Value="True">
-                                            <Setter Property="Kind" Value="LockOpenVariantOutline" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </materialDesign:PackIcon.Style>
-                        </materialDesign:PackIcon>
-                        <TextBlock Margin="6,0,0,0" FontSize="13">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Text" Value="قفل إنتاج اليوم" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsDayClosed}" Value="True">
-                                            <Setter Property="Text" Value="فتح اليوم تاني" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </StackPanel>
-                </Button>
-
                 <!-- حذف إنتاج اليوم كله: كلمة سر + سبب مكتوب + حذف ناعم + إشعار،
                      كلهم في معاملة واحدة من الأنظمة المشتركة -->
                 <Button DockPanel.Dock="Left" Padding="12,7" Margin="8,0,0,0"
@@ -82,20 +42,6 @@
                                              Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                     <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
                     <DatePicker SelectedDate="{Binding EntryDate}" Width="160" VerticalAlignment="Center" />
-
-                    <!-- اليوم مقفول: التسجيل موقوف -->
-                    <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="6" Padding="9,4"
-                            Margin="10,0,0,0" VerticalAlignment="Center"
-                            Visibility="{Binding IsDayClosed, Converter={StaticResource BoolToVis}}">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="LockOutline" Width="13" Height="13"
-                                                    VerticalAlignment="Center"
-                                                    Foreground="{DynamicResource DangerBrush}" />
-                            <TextBlock Text="اليوم مقفول — مفيش تسجيل إنتاج جديد" FontSize="11.5" Margin="4,0,0,0"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource DangerBrush}" />
-                        </StackPanel>
-                    </Border>
                 </StackPanel>
             </DockPanel>
         </Border>

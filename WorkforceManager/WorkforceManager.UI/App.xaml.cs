@@ -42,7 +42,6 @@ namespace WorkforceManager.UI
                     services.AddScoped<IPenaltyRepository, PenaltyRepository>();
                     services.AddScoped<IHourlyWorkLogRepository, HourlyWorkLogRepository>();
                     services.AddScoped<IWageAdjustmentRepository, WageAdjustmentRepository>();
-                    services.AddScoped<IProductionDayClosureRepository, ProductionDayClosureRepository>();
                     services.AddScoped<IDailyOperationsSignOffRepository, DailyOperationsSignOffRepository>();
                     services.AddScoped<IActivityEventRepository, ActivityEventRepository>();
                     services.AddScoped<IWorkerSkillRepository, WorkerSkillRepository>();
@@ -68,7 +67,6 @@ namespace WorkforceManager.UI
                     services.AddScoped<WorkerManagementService>();
                     services.AddScoped<ProductManagementService>();
                     services.AddScoped<ProductionFlowService>();
-                    services.AddScoped<DayClosureService>();
                     services.AddScoped<DailyOperationsSignOffService>();
                     services.AddScoped<DailyProductionReportService>();
                     services.AddScoped<ProductionChartService>();
