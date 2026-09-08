@@ -198,7 +198,7 @@ namespace WorkforceManager.Tests
             foreach (var type in new[]
                      {
                          typeof(DailyProduction), typeof(Penalty),
-                         typeof(HourlyWorkLog), typeof(ProductionDayClosure)
+                         typeof(HourlyWorkLog)
                      })
             {
                 Assert.DoesNotContain("Notes",

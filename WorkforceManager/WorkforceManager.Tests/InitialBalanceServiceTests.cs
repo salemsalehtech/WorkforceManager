@@ -429,21 +429,6 @@ namespace WorkforceManager.Tests
             Assert.Equal(InitialBalanceStatus.Completed, updated.Status);
         }
 
-        [Fact]
-        public async Task Withdrawing_to_scrap_on_a_closed_day_is_rejected()
-        {
-            await _db.SignInTestUserAsync();
-            var (balance, range) = await CreateSingleStageBalanceAsync(20, Day);
-
-            using (var scope = _db.CreateScope())
-                await _db.GetService<DayClosureService>(scope).CloseAsync(CompletionDay);
-
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                _db.InScopeAsync<InitialBalanceService, Core.Models.ProductionScrap>(s =>
-                    s.WithdrawToScrapAsync(balance.Id, range.Id, TestDatabase.BagStage3Id, CompletionDay, 20, null, null)));
-
-            Assert.Contains("مقفول", ex.Message);
-        }
 
         [Fact]
         public async Task Scrapping_from_a_stage_that_isnt_the_ranges_current_position_is_rejected()

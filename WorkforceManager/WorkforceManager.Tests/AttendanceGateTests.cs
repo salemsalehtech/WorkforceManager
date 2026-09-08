@@ -8,12 +8,14 @@ using Xunit;
 namespace WorkforceManager.Tests
 {
     /// <summary>
-    /// بوابة كلمة السر على الأفعال اللي لسه Tier A (سلفة/حافز، قفل يوم
-    /// إنتاج)، وتأكيد إن حفظ الحضور بقى يشتغل بدون باسورد خالص (Tier B —
-    /// شوف DailyOperationsSignOffServiceTests لاختبارات البوابة الجديدة).
+    /// بوابة كلمة السر على سلفة/حافز (لسه Tier A)، وتأكيد إن حفظ الحضور
+    /// بقى يشتغل بدون باسورد خالص (Tier B — شوف DailyOperationsSignOffServiceTests
+    /// لاختبارات البوابة الجديدة).
     ///
     /// تسجيل إنتاج، تصحيح قطعة محفوظة، وحفظ الحضور **مبقاش عليهم بوابة
     /// باسورد فوري خالص** — كانوا هنا قبل كده واتشالوا عن قصد، مش نسيان.
+    /// قفل/فتح إنتاج اليوم (DayClosureService) اتلغى بالكامل كميزة —
+    /// اختباراته اتشالت من هنا مش لأنها بقت Tier B زي الباقي.
     /// </summary>
     public class AttendanceGateTests : IDisposable
     {
@@ -56,20 +58,7 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
-        public async Task Closing_the_day_with_a_wrong_password_is_refused()
-        {
-            await SetPasswordAsync();
-
-            using var scope = _db.CreateScope();
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                _db.GetService<DayClosureService>(scope).CloseAsync(Today, "غلط"));
-
-            Assert.NotEmpty(ex.Message);
-            Assert.False(await _db.GetService<DayClosureService>(scope).IsClosedAsync(Today));
-        }
-
-        [Fact]
-        public async Task The_right_password_lets_both_through()
+        public async Task The_right_password_lets_it_through()
         {
             await SetPasswordAsync();
 
@@ -79,11 +68,8 @@ namespace WorkforceManager.Tests
                 TestDatabase.WorkerAhmedId, Today, WageAdjustmentType.Bonus, 200m,
                 note: null, operationsPassword: Password);
 
-            await _db.GetService<DayClosureService>(scope).CloseAsync(Today, Password);
-
             var db = _db.GetService<AppDbContext>(scope);
             Assert.Single(await db.WageAdjustments.ToListAsync());
-            Assert.True(await _db.GetService<DayClosureService>(scope).IsClosedAsync(Today));
         }
 
         // ---------------- الحضور بقى Tier B ----------------

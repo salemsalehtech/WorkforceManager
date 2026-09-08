@@ -170,21 +170,6 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
-        public async Task ClosingAndReopeningTheDay_AreBothLogged()
-        {
-            await SetPasswordAsync();
-
-            using (var scope = _db.CreateScope())
-                await _db.GetService<DayClosureService>(scope).CloseAsync(Day, Password);
-
-            using (var scope = _db.CreateScope())
-                await _db.GetService<DayClosureService>(scope).ReopenAsync(Day, Password);
-
-            Assert.Single(await EventsOfAsync(ActivityEventType.ProductionDayClosed));
-            Assert.Single(await EventsOfAsync(ActivityEventType.ProductionDayReopened));
-        }
-
-        [Fact]
         public async Task AddingAWorkerOrAProduct_IsLogged()
         {
             using (var scope = _db.CreateScope())
