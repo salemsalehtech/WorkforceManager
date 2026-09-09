@@ -39,6 +39,52 @@ namespace WorkforceManager.Business.Services
                 .ToList();
 
         /// <summary>
+        /// ترتيب مراحل مخصص لجلسة واحدة (خطة ذاكرة) — **الاستثناء
+        /// الوحيد في البرنامج لقاعدة "ترتيب الخط هو SortOrder"**.
+        ///
+        /// بتتبني من <paramref name="activeLine"/> نفسها مش من قاعدة
+        /// البيانات: يعني مرحلة موقوفة أو مرحلة رص **مستحيل** تدخل
+        /// الترتيب المخصص حتى لو الخطة بتشاور عليها — نفس الحماية
+        /// اللي <see cref="Active"/> بتديها للمسار العادي بالظبط.
+        ///
+        /// **الترتيب ممكن يشيل مراحل** (قرار مؤكد مع المستخدم): الخطة
+        /// ممكن تتخطى مراحل عن قصد. اللي ممنوع هو التكرار (مرحلة مرتين
+        /// في نفس الخط معناها تسجيل مزدوج) والمعرّف اللي مش من الخط.
+        ///
+        /// النتيجة بتتمرر لـ StageRangeValidator بدل الخط الحقيقي —
+        /// وبس. حساب فجوات الخط والتقارير وكل حاجة تانية بتفضل على
+        /// <see cref="Active"/>.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">الترتيب فاضي، أو فيه تكرار، أو بيشاور على مرحلة مش في الخط النشط</exception>
+        public static List<ProductionStage> CustomOrder(
+            List<ProductionStage> activeLine, IReadOnlyList<int> stageIds)
+        {
+            if (stageIds.Count == 0)
+                throw new InvalidOperationException("الترتيب المخصص لازم يحتوي مرحلة واحدة على الأقل");
+
+            var byId = activeLine.ToDictionary(s => s.Id);
+            var seen = new HashSet<int>();
+            var ordered = new List<ProductionStage>(stageIds.Count);
+
+            foreach (var stageId in stageIds)
+            {
+                if (!byId.TryGetValue(stageId, out var stage))
+                    throw new InvalidOperationException(
+                        "الترتيب المخصص بيشاور على مرحلة مش من مراحل المنتج النشطة — " +
+                        "يمكن اتوقفت أو اتشالت بعد ما الخطة اتكتبت");
+
+                if (!seen.Add(stageId))
+                    throw new InvalidOperationException(
+                        $"المرحلة \"{stage.StageName}\" مكررة في الترتيب المخصص — " +
+                        "المرحلة الواحدة بتتحسب مرة واحدة");
+
+                ordered.Add(stage);
+            }
+
+            return ordered;
+        }
+
+        /// <summary>
         /// آخر مرحلة في الخط لأغراض **التقارير التاريخية** — أو null لو
         /// المنتج مالوش مراحل خالص.
         ///
