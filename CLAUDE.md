@@ -685,6 +685,47 @@ Core  <----------------------- UI
   Ranges still may not overlap (a stage in two ranges is double-entry) and each covered stage still
   needs worker shares summing exactly to its pieces. A range may start anywhere in the line — starting
   mid-line needs no justification, because the pieces it consumes are implied by the arithmetic.
+- **Production memories are the one and only exception to "line order is `SortOrder`".** A memory
+  (`ProductionMemory` + `ProductionMemoryStage`, the "الذاكرة" screen) is a deferred plan: a product, a
+  custom ordering of its stages, notes, and a reminder date. Pressing "ابدأ الآن" on a due reminder opens
+  Daily Entry with that product and **validates that session's ranges against the planned sequence
+  instead of the product's real line**, so a range the real line would reject as reversed is accepted.
+  This was confirmed with the user as deliberate, with no extra guard or confirmation.
+  **The exception is exactly one call.** `RecordFlowAsync` takes an optional `customStageOrder` and hands
+  it to `StageRangeValidator.ValidateAndComputePiecesPerStage`, which already took the sequence as an
+  explicit parameter — so there is **one rule evaluated against two orderings, never a second copy**
+  (`FlowRangeTrimmer.Trim` was already parameterised the same way and needed no change either). The
+  sequence is resolved by `ProductionLine.CustomOrder(activeLine, ids)`, built **from the real active
+  line**, so a stopped stage or the racking stage can never enter it, and a duplicate is still rejected —
+  one stage twice is double-counted wages whatever the ordering.
+  **What deliberately does NOT get the custom order** is the part that matters most:
+  `SyncStageGapBalancesAsync` used to share the same `orderedStages` variable but means something
+  entirely different — it measures cumulative all-time gaps between stages that are *physically adjacent
+  on the real line* and writes permanent `InitialBalance` rows from them. Fed a custom order it would
+  compare stages that are not adjacent at all and mint balances that outlive the session, which
+  `ReconcileAutoBalancesAsync` (always on the real line) would then disagree with forever. It now takes
+  `realLine` explicitly. Everything else inside the method is per-stage and order-neutral. Outside it,
+  nothing changes at all: reports, `PendingWorkService`, the Products screen and an ordinary session for
+  the same product all keep reading `ProductionLine.Active`. `CustomStageOrderTests` exists to guard the
+  boundary rather than the feature — it asserts gap balances still land on the stage the *real* line says
+  work is stuck at, the daily report still counts the real last stage as completed, and the next ordinary
+  session rejects exactly what it rejected before.
+  **A plan may omit stages** (confirmed with the user), not just reorder them. The consequence is
+  accepted, not overlooked: a skipped stage stays at zero output, so the gap calculation correctly raises
+  an initial balance at that boundary — the pieces really did pass it by. Omitted stages are hidden from
+  the session's cards entirely rather than shown greyed out, because a worker assigned to one would only
+  be refused at save time with a confusing "stage not in this session" message.
+  **The stale-plan hazard is real, not theoretical**: `DailyEntryViewModel`/`DailyEntryView` are
+  **singletons**, so a plan's order left on a session would silently govern the next ordinary session.
+  `FlowSessionViewModel._memoryStageOrder` is cleared in `OnSelectedProductChanged` (a different product
+  means a different plan) and dies with `FlowSessions.Clear()` in `ResetForNewSession`; `StartFromMemoryAsync`
+  always adds a **fresh** session rather than reusing the first one, so an unsaved distribution already on
+  screen is never overwritten by a reminder.
+  A memory moves to the "منجزة" list the moment the screen opens — **not** when production is saved
+  (confirmed): the reminder's job is to remind, and it finished it. A plan whose product was since
+  deactivated or deleted, or whose stages left the line, still shows its reminder with "ابدأ الآن"
+  disabled and the reason spelled out; `BlockedReason` is derived at read time, never stored, because the
+  product can change at any point after the plan was written.
 - **Day closure was removed outright** (`DayClosureService`, `ProductionDayClosure`, the lock/reopen
   button on Daily Entry, the "اليوم مقفول" badge on the Reports screen — all deleted, not deprecated).
   It used to let the user lock one date's production numbers against further edits after reviewing
