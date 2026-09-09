@@ -51,6 +51,55 @@ namespace WorkforceManager.UI
 
             // مايتقفلش من غير توقيع نهاية اليوم — شوف MainWindow_Closing
             Closing += MainWindow_Closing;
+
+            // التخطيط بيتصغّر لو الشاشة أضيق من مساحة التصميم — شوف ApplyUiScale
+            SizeChanged += (_, _) => ApplyUiScale();
+            ClampRestoreSizeToScreen();
+        }
+
+        // مساحة التصميم اللي كل الشاشات مبنية عليها: الشريط الجانبي 248
+        // وأعرض شاشة (المنتجات) محتاجة ~914 جوّه. الأرقام دي هي المرجع
+        // اللي المقياس بيتحسب منه — مش مقاس شاشة جهاز بعينه.
+        private const double DesignWidth = 1200;
+        private const double DesignHeight = 700;
+
+        /// <summary>
+        /// بيصغّر التخطيط كله لو النافذة أضيق أو أقصر من مساحة التصميم.
+        ///
+        /// **بيتقفل عند 1 فمفيش تكبير**: على شاشة كبيرة المساحة الزيادة
+        /// المفروض تروح للأعمدة النسبية (*) عشان يبان محتوى أكتر، مش إن
+        /// كل حاجة تتنفخ.
+        ///
+        /// بيقيس على الأصغر في البعدين: تصغير عرضي بس على شاشة قصيرة
+        /// كان هيسيب المحتوى مقصوص من تحت.
+        /// </summary>
+        private void ApplyUiScale()
+        {
+            if (UiScale is null || ActualWidth <= 0 || ActualHeight <= 0) return;
+
+            var scale = Math.Min(1.0, Math.Min(ActualWidth / DesignWidth, ActualHeight / DesignHeight));
+
+            UiScale.ScaleX = scale;
+            UiScale.ScaleY = scale;
+        }
+
+        /// <summary>
+        /// بيقصّ المقاس المستعاد (اللي بيرجعله لما يخرج من التكبير) على
+        /// مساحة شاشة الجهاز.
+        ///
+        /// من غير ده النافذة بتفتح بـ1200×720 المكتوبة في الـ XAML حتى لو
+        /// الشاشة أصغر من كده — فأول ما المستخدم يخرج من وضع التكبير
+        /// تلاقي نص النافذة برّه الشاشة وشريط العنوان مش موجود يسحب بيه.
+        /// SystemParameters بترجّع مساحة الشغل (من غير شريط المهام) بالـ DIP،
+        /// وهي نفس وحدة Width/Height بتوع النافذة.
+        /// </summary>
+        private void ClampRestoreSizeToScreen()
+        {
+            var maxWidth = SystemParameters.WorkArea.Width;
+            var maxHeight = SystemParameters.WorkArea.Height;
+
+            if (Width > maxWidth) Width = Math.Max(MinWidth, maxWidth);
+            if (Height > maxHeight) Height = Math.Max(MinHeight, maxHeight);
         }
 
         /// <summary>

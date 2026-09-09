@@ -427,6 +427,35 @@ Core  <----------------------- UI
   `TargetType="Window"` style in App.xaml does NOT hit `MainWindow` — set `FlowDirection="RightToLeft"`
   explicitly on each window. **The same derived-type rule bites text inputs**: the implicit
   `TargetType="TextBox"` style does not reach `DatePickerTextBox`, which needs its own style.
+- **The window layout scales to the screen; it is not sized to one machine.** Every screen is built
+  against a fixed design area — `MainWindow.DesignWidth/DesignHeight` (1200×700) — because the sidebar is
+  248 wide and the widest screen (Products) needs ~918 inside it. A 1366×768 laptop at the **125% scaling
+  Windows picks by default** offers only 1093×614 DIPs, which is less, so content was simply **clipped
+  with no warning** — the same failure as the Products button row, one level up. `MainWindow`'s root grid
+  now carries a `ScaleTransform` on its **`LayoutTransform`**, set to
+  `min(1, ActualWidth/1200, ActualHeight/700)` on every `SizeChanged`.
+  **`LayoutTransform`, not `Viewbox`, and not `RenderTransform`**: a `Viewbox` measures its child at the
+  child's own desired size and scales the drawn result, which defeats `*` columns and softens text.
+  `LayoutTransform` hands the child the available space **divided by the scale**, so layout genuinely runs
+  at 1200 and is then drawn smaller — proportional columns still work and glyphs are still rasterised
+  vector-sharp at their real device size. The scale is **clamped at 1** on purpose: extra room on a big
+  monitor belongs to the `*` columns as more visible content, not to inflating everything.
+  `MinWidth`/`MinHeight` (900×560) stop the window shrinking below what stays legible, and
+  `ClampRestoreSizeToScreen` trims the XAML's 1200×720 restore size to `SystemParameters.WorkArea` —
+  without it, un-maximising on a small laptop left half the window (and its title bar) off-screen.
+  Fixed split columns that used to pin a panel at one pixel width (Products 500, Memory 420) are now
+  proportional with a `MinWidth` floor, so a wide monitor actually gets used.
+- **Sharp rendering is applied to every window from `CrispWindows`, not per-window.** `UseLayoutRounding`
+  plus `TextOptions.TextFormattingMode="Ideal"`/`TextRenderingMode="ClearType"` were set only in
+  `MainWindow.xaml`; the **other 30 windows — every dialog — had none of them**, and there is no implicit
+  `TargetType="Window"` style to catch them (there never was one, and it would not have worked anyway:
+  they are all derived classes, the same trap documented above for `MainWindow` and `DatePickerTextBox`).
+  Dialogs are where it shows most — every one is `CornerRadius="18"` with a `DropShadowEffect` and hairline
+  borders, and all of those land on fractional device pixels at any scaling other than 100%.
+  `CrispWindows.Enable()` runs once in `OnStartup` and uses **`EventManager.RegisterClassHandler` on
+  `typeof(Window)`**, which fires for derived types — so no existing dialog can miss it and no future one
+  can either. It only sets a property whose local value is unset, leaving `MainWindow`'s explicit XAML
+  values as the visible source of truth.
 - **A card action row goes in a `WrapPanel`, never a horizontal `StackPanel`.** A horizontal
   `StackPanel` neither wraps nor compresses: when its children exceed the available width it just
   keeps laying them out past the edge, and the card's `Border` clips whatever hangs over — **silently,

@@ -176,6 +176,10 @@ namespace WorkforceManager.UI
 
         protected override async void OnStartup(StartupEventArgs e)
         {
+            // قبل أي نافذة تتعمل: كل نوافذ البرنامج ترسم حادّة على
+            // الشاشات المكبّرة، مش MainWindow لوحدها (شوف CrispWindows)
+            CrispWindows.Enable();
+
             // منع تشغيل نسخة تانية من البرنامج (النسخة الأولى بتفضل هي الشغالة)
             _singleInstanceMutex = new Mutex(true, @"Local\WorkforceManager_SingleInstance", out var isFirstInstance);
             if (!isFirstInstance)
@@ -335,7 +339,11 @@ namespace WorkforceManager.UI
                 // بياخدها Owner (وOwner على نافذة لسه ماتعرضتش بيرمي)،
                 // وكمان المستخدم لازم يشوف البرنامج ورا التذكير مش
                 // نافذة معلّقة في الفراغ
-                mainWindow.Dispatcher.BeginInvoke(
+                // التجاهل هنا لـ DispatcherOperation مش لـ Task، فمش
+                // بيخالف قاعدة "متستخدمش ‎_ = SomeAsync()": الشغل غير
+                // المتزامن نفسه جوّه SafeAsync.Run، فأي فشل بيظهر
+                // للمستخدم مش بيضيع في صمت
+                _ = mainWindow.Dispatcher.BeginInvoke(
                     new Action(() => ViewModels.SafeAsync.Run(() => ShowDueMemoryRemindersAsync(mainWindow))),
                     System.Windows.Threading.DispatcherPriority.Background);
 

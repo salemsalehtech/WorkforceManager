@@ -6,6 +6,7 @@
         Title="نظام إدارة إنتاجية وأجور العمال"
         Icon="Assets/app.ico"
         Height="720" Width="1200"
+        MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         FlowDirection="RightToLeft"
@@ -23,7 +24,24 @@
       بارتفاع صف ثابت). الخاصية دي بتتوارث لكل الشجرة البصرية تحتها، فحطّها
       هنا بس بيغطي كل شاشة في الـ Sidebar دفعة واحدة. -->
 
+    <!--
+      التخطيط كله مبني على مساحة تصميم ثابتة (DesignWidth/DesignHeight في
+      الكود): الشريط الجانبي 248، وأعرض شاشة (المنتجات) محتاجة ~914 جوّه،
+      يعني ~1162 على الأقل. على لابتوب 1366×768 بتكبير 125% المتاح 1093
+      DIP بس — أقل من كده، فالمحتوى كان **بيتقص** من غير أي علامة.
+
+      ScaleTransform على LayoutTransform مش Viewbox عن قصد: الـ Viewbox
+      بيقيس الابن على مقاسه المرغوب ويكبّر/يصغّر الناتج، أما LayoutTransform
+      بيدّي الابن المساحة **مقسومة على المقياس** فالتخطيط بيتنفّذ فعليًا على
+      1200 ويترسم مصغّر — الأعمدة النسبية (*) بتشتغل صح، والنص بيترسم
+      شعاعيًا فبيفضل حاد بدل ما يتغبّش. المقياس بيتحسب في MainWindow.xaml.cs
+      وبيتقفل عند 1 فمفيش تكبير على الشاشات الكبيرة، المساحة الزيادة بتروح
+      للأعمدة النسبية زي ما هي المفروض.
+    -->
     <Grid>
+        <Grid.LayoutTransform>
+            <ScaleTransform x:Name="UiScale" ScaleX="1" ScaleY="1" />
+        </Grid.LayoutTransform>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="248" />
             <ColumnDefinition Width="*" />
