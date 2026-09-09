@@ -2,7 +2,6 @@ using System.Collections;
 using System.IO;
 using System.Reflection;
 using System.Resources;
-using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Markup;
 using Xunit;
@@ -26,12 +25,13 @@ namespace WorkforceManager.UiTests
     /// جوه المجمّع نفسه، فأي ملف XAML جديد بيتغطى تلقائيًا من غير ما حد
     /// يفتكر يضيفه هنا.
     /// </summary>
+    [Collection("WPF")]
     public class XamlLoadTests
     {
         [Fact]
         public void كل_ملفات_XAML_بتتحمل_من_غير_أخطاء()
         {
-            var failures = RunOnStaThread(LoadEveryXamlFile);
+            var failures = WpfThread.Run(LoadEveryXamlFile);
 
             Assert.True(failures.Count == 0,
                 "ملفات XAML دي مبتتحملش:\n" + string.Join("\n", failures));
@@ -40,13 +40,6 @@ namespace WorkforceManager.UiTests
         private static List<string> LoadEveryXamlFile()
         {
             var assembly = typeof(UI.App).Assembly;
-
-            // بناء الـ App بيدمج قواميس الموارد (Themes + App.xaml) زي
-            // التشغيل العادي — من غير كده كل StaticResource هيفشل بالغلط.
-            // الـ Constructor بيسجّل الاعتماديات بس؛ اللي بيفتح قاعدة
-            // البيانات هو OnStartup ومبيتنداش غير مع Run.
-            var app = new UI.App();
-            app.InitializeComponent();
 
             var failures = new List<string>();
 
@@ -138,27 +131,5 @@ namespace WorkforceManager.UiTests
             }
         }
 
-        /// <summary>
-        /// WPF بيتطلب خيط STA، وxUnit بيشغّل على MTA — فبنعمل الخيط بنفسنا
-        /// بدل ما نضيف حزمة كاملة عشان سمة واحدة.
-        /// </summary>
-        private static T RunOnStaThread<T>(Func<T> work)
-        {
-            T result = default!;
-            ExceptionDispatchInfo? failure = null;
-
-            var thread = new Thread(() =>
-            {
-                try { result = work(); }
-                catch (Exception ex) { failure = ExceptionDispatchInfo.Capture(ex); }
-            });
-
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.Start();
-            thread.Join();
-
-            failure?.Throw();
-            return result;
-        }
     }
 }
