@@ -419,6 +419,19 @@ Core  <----------------------- UI
   `TargetType="Window"` style in App.xaml does NOT hit `MainWindow` — set `FlowDirection="RightToLeft"`
   explicitly on each window. **The same derived-type rule bites text inputs**: the implicit
   `TargetType="TextBox"` style does not reach `DatePickerTextBox`, which needs its own style.
+- **A card action row goes in a `WrapPanel`, never a horizontal `StackPanel`.** A horizontal
+  `StackPanel` neither wraps nor compresses: when its children exceed the available width it just
+  keeps laying them out past the edge, and the card's `Border` clips whatever hangs over — **silently,
+  with no build error, no test failure, and no visual cue that a button is missing**. The Products
+  screen hit this: its detail column is a fixed `Width="500"` (`ProductsView.xaml`), leaving
+  500 − 10 margin − 28 `Card` padding = **462px**, while the five action buttons measure **565px** the
+  moment "إضافة مرحلة الرص" is visible (it only shows while `HasRackingStage` is false, which is why
+  the bug looked intermittent — with four buttons the row is 411px and fits). The gold "إضافة مرحلة"
+  button was being sliced down to a sliver against the card edge. `WrapPanel` is the existing pattern
+  for this everywhere else (`ActivityLogView`, `ReportBuilderView`, `ReportsView`). When converting one,
+  give every child a **bottom** margin too (`0,0,6,6`) — a `StackPanel`'s children only ever needed a
+  trailing margin, and without the bottom one the two rows touch after wrapping; subtract that 6 from
+  the panel's own bottom margin so the spacing below the row stays what it was.
 - **Text selection colours are set once, in `App.xaml`'s implicit `TextBox`/`PasswordBox`/
   `DatePickerTextBox` styles** — never per screen. They use `TextSelectionBrush` (#2C7BE5) with an
   explicit `SelectionOpacity`, deliberately **separate** from `SelectionBgBrush` (#E3EDFB). The latter
