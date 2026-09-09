@@ -176,6 +176,10 @@ namespace WorkforceManager.UI
 
         protected override async void OnStartup(StartupEventArgs e)
         {
+            // قبل أي نافذة تتعمل: كل نوافذ البرنامج ترسم حادّة على
+            // الشاشات المكبّرة، مش MainWindow لوحدها (شوف CrispWindows)
+            CrispWindows.Enable();
+
             // منع تشغيل نسخة تانية من البرنامج (النسخة الأولى بتفضل هي الشغالة)
             _singleInstanceMutex = new Mutex(true, @"Local\WorkforceManager_SingleInstance", out var isFirstInstance);
             if (!isFirstInstance)
