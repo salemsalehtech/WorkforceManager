@@ -681,6 +681,10 @@ Core  <----------------------- UI
   must still render as Arabic text instead of a bare number), while `SensitiveAction.CloseProductionDay`
   was **deleted outright** (never persisted anywhere — it only ever flowed as a runtime parameter into
   `VerifyAsync` — so there's no historical row whose meaning depends on that number staying reserved).
+  For the same reason the two surviving enum values stay listed in `ActivityEventRetention.ShortLived`
+  even though nothing writes them: dropping them from that list wouldn't delete anything, it would
+  quietly promote every old closure row to the 365-day default (retention is long-by-default), so a
+  feature that no longer exists would start keeping its log entries *four times longer* than when it did.
 - **Daily operations sign-off** (`DailyOperationsSignOffService` + `DailyOperationsSignOff`) replaces
   an instant operations-password prompt on nearly every save/edit/delete with **one password entry at
   the end of the day** that covers everything. This split every `SensitiveAction` into two tiers:
@@ -922,7 +926,7 @@ Core  <----------------------- UI
   the screen promised more. Every type now has exactly one place that writes it (`ActivityLogCoverageTests`
   is what keeps that true).
   `ActivityEventRetention` (Core) lists only the **short-lived** types — administrative deletions plus the
-  routine daily saves (production / attendance / day closure / creations) — and everything else gets the
+  routine daily saves (production / attendance / creations) — and everything else gets the
   long window **by default**, so
   a new event type added later can't silently inherit a 90-day life just because someone forgot to list
   it. `ActivityLogRetentionTests` asserts exactly that inversion. Defaults: 90 days for deletions, 365 for
