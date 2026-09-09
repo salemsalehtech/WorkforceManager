@@ -1,0 +1,227 @@
+<UserControl x:Class="WorkforceManager.UI.Views.MemoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             FlowDirection="RightToLeft" FontFamily="{StaticResource AppFont}"
+             d:DesignWidth="1100" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">
+
+    <Grid Margin="14">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="420" />
+            <ColumnDefinition Width="*" MinWidth="380" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ==================== نموذج الخطة ==================== -->
+        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,10,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="19" Height="19"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="{DynamicResource GoldBrush}" />
+                        <TextBlock Text="خطة جديدة" FontSize="15.5" FontWeight="Bold" Margin="8,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </StackPanel>
+
+                    <TextBlock TextWrapping="Wrap" FontSize="12" Margin="0,0,0,14"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               Text="اكتب المنتج اللي ناوي تعمله وترتيب مراحله، والبرنامج هيفكّرك في اليوم اللي تحدده." />
+
+                    <TextBlock Text="المنتج" FontWeight="Bold" FontSize="12.5" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding Products}"
+                              SelectedItem="{Binding SelectedProduct}"
+                              DisplayMemberPath="ProductName"
+                              FontSize="13.5" Padding="8,6"
+                              materialDesign:HintAssist.Hint="اختار المنتج" />
+
+                    <TextBlock Text="ترتيب المراحل" FontWeight="Bold" FontSize="12.5" Margin="0,14,0,4" />
+                    <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="9" Padding="12,10">
+                        <StackPanel>
+                            <TextBlock Text="{Binding StageOrderSummary}" TextWrapping="Wrap" FontSize="12.5"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <Button HorizontalAlignment="Left" Margin="0,10,0,0"
+                                    Style="{StaticResource GhostButton}" Padding="12,6"
+                                    Click="ReorderStages_Click"
+                                    IsEnabled="{Binding HasSelectedProduct}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="SortVariant" Width="14" Height="14"
+                                                             VerticalAlignment="Center" />
+                                    <TextBlock Text="غيّر الترتيب" Margin="5,0,0,0" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="فكّرني يوم" FontWeight="Bold" FontSize="12.5" Margin="0,14,0,4" />
+                    <DatePicker SelectedDate="{Binding RemindOn}" FontSize="13.5" />
+
+                    <TextBlock Text="ملاحظات" FontWeight="Bold" FontSize="12.5" Margin="0,14,0,4" />
+                    <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                             AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90"
+                             VerticalScrollBarVisibility="Auto" Padding="8,6" FontSize="13"
+                             materialDesign:HintAssist.Hint="أي حاجة تفتكرها وقت التنفيذ" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <Button Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButton}"
+                                Padding="16,8" Content="{Binding SaveButtonText}" />
+                        <Button Command="{Binding CancelEditCommand}" Style="{StaticResource GhostButton}"
+                                Padding="16,8" Margin="8,0,0,0" Content="إلغاء التعديل"
+                                Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ==================== القوايم ==================== -->
+        <Border Grid.Column="1" Style="{StaticResource Card}">
+            <TabControl Background="Transparent" BorderThickness="0">
+                <TabItem Header="نشطة">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="مفيش خطط نشطة دلوقتي" Margin="4,14,0,0" FontSize="13"
+                                       Foreground="{DynamicResource TextMutedBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Active.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <ItemsControl ItemsSource="{Binding Active}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="10"
+                                                Padding="14,11" Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <DockPanel>
+                                                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                                        <Button Style="{StaticResource IconButton}" Padding="5"
+                                                                ToolTip="تعديل"
+                                                                Command="{Binding DataContext.EditCommand,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                CommandParameter="{Binding}">
+                                                            <materialDesign:PackIcon Kind="PencilOutline" Width="15" Height="15" />
+                                                        </Button>
+                                                        <Button Style="{StaticResource IconButton}" Padding="5" Margin="3,0,0,0"
+                                                                ToolTip="حذف"
+                                                                Foreground="{DynamicResource DangerBrush}"
+                                                                Command="{Binding DataContext.DeleteCommand,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                CommandParameter="{Binding}">
+                                                            <materialDesign:PackIcon Kind="DeleteOutline" Width="15" Height="15" />
+                                                        </Button>
+                                                    </StackPanel>
+
+                                                    <TextBlock Text="{Binding ProductName}" FontSize="14" FontWeight="Bold"
+                                                               VerticalAlignment="Center" TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                </DockPanel>
+
+                                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                                    <materialDesign:PackIcon Kind="CalendarClock" Width="14" Height="14"
+                                                                             VerticalAlignment="Center"
+                                                                             Foreground="{DynamicResource TextMutedBrush}" />
+                                                    <TextBlock Text="{Binding RemindOn, StringFormat=yyyy-MM-dd}"
+                                                               FontSize="12" Margin="5,0,0,0" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                                </StackPanel>
+
+                                                <ItemsControl ItemsSource="{Binding Stages}" Margin="0,8,0,0">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Background="{DynamicResource ChipBgBrush}" CornerRadius="8"
+                                                                    Padding="8,4" Margin="0,0,6,6">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="{Binding Position}" FontSize="10.5"
+                                                                               FontWeight="Bold" VerticalAlignment="Center"
+                                                                               Foreground="{DynamicResource GoldDeepBrush}" />
+                                                                    <TextBlock Text="{Binding StageName}" FontSize="11.5"
+                                                                               Margin="5,0,0,0" VerticalAlignment="Center"
+                                                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <TextBlock Text="{Binding Notes}" FontSize="12" TextWrapping="Wrap"
+                                                           Margin="0,4,0,0"
+                                                           Foreground="{DynamicResource TextMutedBrush}" />
+
+                                                <!-- خطة منتجها اتوقف أو اتشال: بتفضل ظاهرة والسبب مكتوب -->
+                                                <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="7"
+                                                        Padding="9,6" Margin="0,8,0,0"
+                                                        Visibility="{Binding IsBlocked, Converter={StaticResource BoolToVis}}">
+                                                    <TextBlock Text="{Binding BlockedReason}" FontSize="11.5"
+                                                               TextWrapping="Wrap"
+                                                               Foreground="{DynamicResource WarnBrush}" />
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="منجزة">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="لسه مفيش خطط اتنفّذت" Margin="4,14,0,0" FontSize="13"
+                                       Foreground="{DynamicResource TextMutedBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Completed.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <!-- للقراءة بس: اللي اتنفّذ بيفضل للمرجع، مفيش تعديل عليه -->
+                            <ItemsControl ItemsSource="{Binding Completed}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="10"
+                                                Padding="14,11" Margin="0,0,0,8" Opacity="0.85">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding ProductName}" FontSize="13.5" FontWeight="Bold"
+                                                           TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                                    <materialDesign:PackIcon Kind="CheckCircleOutline" Width="14" Height="14"
+                                                                             VerticalAlignment="Center"
+                                                                             Foreground="{DynamicResource GoodBrush}" />
+                                                    <TextBlock Text="{Binding CompletedAt, StringFormat='اتبدأت yyyy-MM-dd'}"
+                                                               FontSize="11.5" Margin="5,0,0,0" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Notes}" FontSize="11.5" TextWrapping="Wrap"
+                                                           Margin="0,5,0,0"
+                                                           Foreground="{DynamicResource TextMutedBrush}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
+        </Border>
+    </Grid>
+</UserControl>

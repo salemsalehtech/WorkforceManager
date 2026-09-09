@@ -30,6 +30,9 @@ namespace WorkforceManager.Business.DTOs
         public string? BlockedReason { get; init; }
 
         public bool CanStart => BlockedReason is null;
+
+        /// <summary>عكس <see cref="CanStart"/> — عشان الواجهة تعرض سبب المنع من غير محوّل</summary>
+        public bool IsBlocked => BlockedReason is not null;
     }
 
     /// <summary>مرحلة واحدة في خطة، بموقعها المخطط</summary>
