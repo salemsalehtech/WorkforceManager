@@ -1,0 +1,108 @@
+<Window x:Class="WorkforceManager.UI.Views.MemoryReminderDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="تذكير" Width="520" SizeToContent="Height"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
+
+    <!-- تذكير خطة الذاكرة عند بدء التشغيل. بيتعرض واحد ورا التاني لو
+         فيه أكتر من خطة مستحقة — مش مكوّمين فوق بعض. -->
+    <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
+        </Border.Effect>
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="{DynamicResource GoldTintBrush}"
+                    CornerRadius="18,18,0,0" Padding="20,16" MouseLeftButtonDown="Window_Drag">
+                <DockPanel>
+                    <materialDesign:PackIcon DockPanel.Dock="Right" Kind="BookmarkMultipleOutline"
+                                             Width="26" Height="26" Margin="0,0,12,0"
+                                             VerticalAlignment="Center"
+                                             Foreground="{DynamicResource GoldDeepBrush}" />
+                    <StackPanel>
+                        <TextBlock Text="فاكر الخطة دي؟" FontSize="17" FontWeight="Bold"
+                                   Foreground="{DynamicResource GoldDeepBrush}" />
+                        <TextBlock x:Name="DueText" FontSize="12" Margin="0,3,0,0"
+                                   Foreground="{DynamicResource GoldDeepBrush}" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <Border DockPanel.Dock="Bottom" Background="{DynamicResource SubtleBgBrush}"
+                    CornerRadius="0,0,18,18" Padding="20,14">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Style="{StaticResource GhostButton}" Padding="16,9"
+                            IsCancel="True" Content="سيبها دلوقتي"
+                            ToolTip="التذكير هيفضل مستني وهيظهر تاني أول ما تفتح البرنامج" />
+                    <Button Style="{StaticResource GhostButton}" Padding="16,9" Margin="8,0,0,0"
+                            Click="Postpone_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="CalendarArrowRight" Width="15" Height="15"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="أجّل التذكير" Margin="5,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="StartButton" Style="{StaticResource PrimaryButton}"
+                            Padding="18,9" Margin="8,0,0,0" IsDefault="True" Click="Start_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="PlayCircleOutline" Width="16" Height="16"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="ابدأ الآن" Margin="5,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Margin="20,18,20,16">
+                <TextBlock x:Name="ProductText" FontSize="19" FontWeight="Bold" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                <TextBlock Text="ترتيب المراحل في الخطة دي" FontWeight="Bold" FontSize="12"
+                           Margin="0,14,0,6" Foreground="{DynamicResource TextMutedBrush}" />
+
+                <ItemsControl x:Name="StagesList">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{DynamicResource ChipBgBrush}" CornerRadius="8"
+                                    Padding="9,5" Margin="0,0,7,7">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Position}" FontSize="11" FontWeight="Bold"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource GoldDeepBrush}" />
+                                    <TextBlock Text="{Binding StageName}" FontSize="12.5" Margin="6,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border x:Name="NotesBox" Background="{DynamicResource SubtleBgBrush}" CornerRadius="9"
+                        Padding="13,11" Margin="0,8,0,0">
+                    <TextBlock x:Name="NotesText" TextWrapping="Wrap" FontSize="13" LineHeight="21"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                </Border>
+
+                <!-- الخطة اللي منتجها اتوقف/اتشال: بتتعرض زي أي تذكير،
+                     بس "ابدأ الآن" متعطّل والسبب مكتوب بدل ما الشاشة
+                     تتفتح مكسورة -->
+                <Border x:Name="BlockedBox" Background="{DynamicResource WarnBgBrush}" CornerRadius="9"
+                        Padding="13,10" Margin="0,10,0,0" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="AlertOutline" Width="17" Height="17"
+                                                 VerticalAlignment="Top" Margin="0,1,0,0"
+                                                 Foreground="{DynamicResource WarnBrush}" />
+                        <TextBlock x:Name="BlockedText" TextWrapping="Wrap" FontSize="12.5" Margin="8,0,0,0"
+                                   Foreground="{DynamicResource WarnBrush}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </DockPanel>
+    </Border>
+</Window>

@@ -4,6 +4,7 @@ using MaterialDesignThemes.Wpf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
@@ -118,6 +119,8 @@ namespace WorkforceManager.UI
                     services.AddTransient<ViewModels.ReportBuilderViewModel>();
                     services.AddTransient<Views.ProductsView>();
                     services.AddTransient<ViewModels.ProductsViewModel>();
+                    services.AddTransient<Views.MemoryView>();
+                    services.AddTransient<ViewModels.MemoryViewModel>();
                     services.AddTransient<Views.ActivityLogView>();
                     services.AddTransient<ViewModels.ActivityLogViewModel>();
                     services.AddTransient<Views.SettingsView>();
@@ -328,6 +331,14 @@ namespace WorkforceManager.UI
                 ShutdownMode = ShutdownMode.OnMainWindowClose;
                 mainWindow.Show();
 
+                // تذكيرات الذاكرة بعد ما النافذة تبان فعلاً: التذكير
+                // بياخدها Owner (وOwner على نافذة لسه ماتعرضتش بيرمي)،
+                // وكمان المستخدم لازم يشوف البرنامج ورا التذكير مش
+                // نافذة معلّقة في الفراغ
+                mainWindow.Dispatcher.BeginInvoke(
+                    new Action(() => ViewModels.SafeAsync.Run(() => ShowDueMemoryRemindersAsync(mainWindow))),
+                    System.Windows.Threading.DispatcherPriority.Background);
+
                 base.OnStartup(e);
             }
             catch (Exception ex)
@@ -357,6 +368,78 @@ namespace WorkforceManager.UI
         /// العادية كل مرة البرنامج بيتقفل بشكل طبيعي عن طريق زرار "حفظ
         /// نهائي" أو منع الإغلاق في MainWindow).
         /// </summary>
+        /// <summary>
+        /// تذكيرات خطط الذاكرة المستحقة عند بدء التشغيل — كل خطة نشطة
+        /// تاريخ تذكيرها النهارده أو قبله.
+        ///
+        /// **واحد ورا التاني مش مكوّمين** (قرار مؤكد): نوافذ فوق بعض
+        /// بتخلي المستخدم يقفلهم كلهم من غير ما يقرا ولا واحدة.
+        ///
+        /// القايمة بتتقرا مرة واحدة في الأول: لو المستخدم دوس "ابدأ الآن"
+        /// على أول خطة، إحنا بنسيب الباقي لأن الشاشة اتفتحت خلاص على شغل
+        /// تاني — التذكيرات المتبقية هتظهر تاني أول تشغيل جاي زي أي
+        /// تذكير متأخر.
+        /// </summary>
+        private static async Task ShowDueMemoryRemindersAsync(Window owner)
+        {
+            List<ProductionMemoryDto> due;
+
+            using (var scope = AppHost.Services.CreateScope())
+                due = (await scope.ServiceProvider.GetRequiredService<ProductionMemoryService>()
+                    .GetDueAsync(DateTime.Today)).ToList();
+
+            foreach (var memory in due)
+            {
+                var dialog = Views.MemoryReminderDialog.Show(owner, memory);
+
+                if (dialog.Choice == Views.MemoryReminderChoice.Postpone)
+                {
+                    using var scope = AppHost.Services.CreateScope();
+                    await scope.ServiceProvider.GetRequiredService<ProductionMemoryService>()
+                        .PostponeAsync(memory.Id, dialog.NewRemindOn);
+                    continue;
+                }
+
+                if (dialog.Choice != Views.MemoryReminderChoice.Start) continue;
+
+                await StartMemorySessionAsync(memory);
+                return; // الشاشة اتفتحت — باقي التذكيرات لبكرة
+            }
+        }
+
+        /// <summary>
+        /// بيفتح شاشة الإنتاج اليومي على خطة، وبينقلها لقايمة المنجزة.
+        ///
+        /// **الترتيب مقصود**: بنجيب ترتيب المراحل الأول (وده بيرمي لو
+        /// الخطة بقت مش صالحة)، وبعدين بنعلّمها منجزة، وبعدين بنفتح
+        /// الشاشة — عشان خطة باتت متتعلّمش منجزة ومتفتحش جلسة مكسورة.
+        /// </summary>
+        private static async Task StartMemorySessionAsync(ProductionMemoryDto memory)
+        {
+            IReadOnlyList<int> stageOrder;
+
+            try
+            {
+                using var scope = AppHost.Services.CreateScope();
+                var service = scope.ServiceProvider.GetRequiredService<ProductionMemoryService>();
+
+                stageOrder = await service.GetStageOrderForSessionAsync(memory.Id);
+
+                // بمجرد فتح الشاشة الخطة بتبقى منجزة، حتى لو المستخدم
+                // ماحفظش أي إنتاج بعد كده (قرار مؤكد): التذكير خلّص شغله
+                await service.MarkStartedAsync(memory.Id);
+            }
+            catch (InvalidOperationException ex)
+            {
+                Notify.Warn(ex.Message);
+                return;
+            }
+
+            if (Current?.MainWindow is not MainWindow main) return;
+
+            await main.OpenDailyEntryForMemoryAsync(memory.ProductId, stageOrder);
+        }
+
         private static async Task EnsureLateSignOffsAcknowledgedAsync()
         {
             using var scope = AppHost.Services.CreateScope();

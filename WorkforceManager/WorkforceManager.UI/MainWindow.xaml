@@ -139,12 +139,23 @@
                         </StackPanel>
                     </RadioButton>
 
-                    <RadioButton Style="{StaticResource NavItem}"
+                    <RadioButton x:Name="NavDailyEntryItem" Style="{StaticResource NavItem}"
                                  Checked="NavDailyEntry_Checked" Click="NavDailyEntry_Checked"
                                  AutomationProperties.Name="تسجيل الإنتاج اليومي">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ClipboardEditOutline" Width="18" Height="18" VerticalAlignment="Center" />
                             <TextBlock Text="تسجيل الإنتاج اليومي" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <!-- جنب التسجيل اليومي عن قصد: الذاكرة هي اللي بتوصّل
+                         للتسجيل ("ابدأ الآن")، فمكانها الطبيعي جنبه -->
+                    <RadioButton x:Name="NavMemoryItem" Style="{StaticResource NavItem}"
+                                 Checked="NavMemory_Checked" Click="NavMemory_Checked"
+                                 AutomationProperties.Name="الذاكرة">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                            <TextBlock Text="الذاكرة" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
 

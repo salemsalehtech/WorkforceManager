@@ -164,9 +164,39 @@ namespace WorkforceManager.UI.ViewModels
         /// </summary>
         public void ResetForNewSession()
         {
+            // مسح الرحلات بيشيل معاه أي ترتيب خطة كان مسلّح عليها
+            // (شوف FlowSessionViewModel._memoryStageOrder)
             FlowSessions.Clear();
             _initialized = false;
             EntryDate = DateTime.Today;
+        }
+
+        /// <summary>
+        /// بيفتح الشاشة على منتج خطة ذاكرة بترتيب مراحلها.
+        /// بينادى من تذكير بدء التشغيل بعد ما المستخدم يدوس "ابدأ الآن".
+        ///
+        /// **رحلة جديدة نظيفة دايمًا** مش إعادة استخدام أول رحلة: الشاشة
+        /// Singleton وممكن يكون فيها توزيع لسه مش محفوظ من قبل التذكير،
+        /// والدوس على ترتيب خطة فوقه كان هيضيّعه من غير ما المستخدم يطلب.
+        /// </summary>
+        public async Task StartFromMemoryAsync(int productId, IReadOnlyList<int> stageOrder)
+        {
+            await InitializeAsync();
+
+            var product = _products.FirstOrDefault(p => p.ProductId == productId);
+            if (product is null)
+            {
+                // المنتج اتوقف أو اتشال بين عرض التذكير والضغط عليه
+                Notify.Warn("المنتج بتاع الخطة دي مابقاش متاح للتسجيل");
+                return;
+            }
+
+            var session = CreateSession();
+            session.SelectedProduct = product;
+            FlowSessions.Add(session);
+
+            // بعد تحديد المنتج: تحديده بيصفّر أي ترتيب خطة سابق
+            await session.ArmMemoryOrderAsync(stageOrder);
         }
 
         /// <summary>بعد حفظ أي رحلة: الحضور التلقائي وسجلات اليوم بيظهروا فورًا</summary>
