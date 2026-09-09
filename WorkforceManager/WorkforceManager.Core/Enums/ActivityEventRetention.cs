@@ -36,6 +36,11 @@ namespace WorkforceManager.Core.Enums
             // الروتيني: بيتكرر كل يوم
             ActivityEventType.ProductionRecorded,
             ActivityEventType.AttendanceSaved,
+
+            // ميزة قفل إنتاج اليوم اتلغت، فمفيش حاجة بتكتب النوعين دول
+            // تاني. بيفضلوا مكتوبين هنا عشان الصفوف القديمة اللي لسه في
+            // السجل تفضل بتتمسح بنفس المدة القصيرة زي ما كانت — لو اتشالوا
+            // من القايمة هيورّثوا سنة كاملة بالغلط لمجرد إن الميزة راحت
             ActivityEventType.ProductionDayClosed,
             ActivityEventType.ProductionDayReopened,
 
