@@ -96,8 +96,8 @@ from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test 
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
 
-`WorkforceManager.UiTests` (xUnit, `net8.0-windows`, `UseWPF`) is a **separate** project for one test:
-`XamlLoadTests` loads **every** compiled XAML file for real. It exists because a whole class of XAML errors
+`WorkforceManager.UiTests` (xUnit, `net8.0-windows`, `UseWPF`) is a **separate** project for tests that need
+real WPF: `XamlLoadTests` loads **every** compiled XAML file for real. It exists because a whole class of XAML errors
 is invisible to both the compiler and every other test, and only shows up when the screen opens on the
 user's machine — a bad `PackIconKind` name, a missing `StaticResource` key, a duplicate `x:Name`, a
 `TargetName` outside its namescope, or **`BasedOn="{DynamicResource ...}"`** (`BasedOn` is a plain CLR
@@ -106,7 +106,15 @@ and made the app refuse to open at all, because `MainWindow`'s constructor build
 error in the default screen kills the whole window. The test enumerates the assembly's **BAML resource
 table**, not file paths, so a new `.xaml` is covered without anyone remembering to add it; screens are
 constructed with `null` for their DI arguments (every view calls `InitializeComponent()` first, so the XAML
-still loads) and it runs on a manually created STA thread rather than pulling in an extra xUnit package.
+still loads). **Every WPF test runs on the one STA thread owned by `WpfThread`**, which builds the single
+`Application` and keeps a `Dispatcher` running on it. Both halves matter: WPF allows only one `Application`
+per process, and resources that aren't frozen (any brush holding a `DynamicResource`) belong to the thread
+that created them — a second STA thread building a window throws "The calling thread cannot access this
+object". The live `Dispatcher` is what lets `ShowDialog` run its nested message loop, so a test can show a
+dialog, click a button and read the result. Test classes touching WPF share the `"WPF"` xUnit collection so
+they never overlap. Note that a **programmatic click must go through `ButtonAutomationPeer`**, not
+`RaiseEvent(ClickEvent)`: `IsCancel`/`IsDefault` are handled inside `Button.OnClick`, which `RaiseEvent`
+skips, so a cancel button tested that way silently never sets `DialogResult`.
 Two failure shapes are deliberately ignored: anything that is **not** a `XamlParseException` (the XAML
 loaded; the constructor just wanted a real ViewModel) and "Cannot locate resource" (`Application.ResourceAssembly`
 is pinned to the test host, so window icons by relative URI can't resolve there).
@@ -899,6 +907,30 @@ Core  <----------------------- UI
   default here is worse than a compile error, which is why there isn't one. `AskConfirm` is the sibling
   entry point for Tier B actions (see daily operations sign-off above) — same window, same `kind`-driven
   styling, just the password box and "not configured" hint both collapsed.
+- **`MessageBox.Show` is banned — every message goes through `Notify`, which renders `MessageDialog`.**
+  The plain Win32 box was a white rectangle with a system question-mark icon and English "Yes"/"No"
+  buttons in an app that is otherwise fully Arabic, RTL and gold-themed. `Notify` was already the only
+  caller of `MessageBox` in the whole codebase, so the swap touched one file and **no call site**, which
+  is also why none of them could drift semantically. `MessageDialog` is deliberately *not* a fourth mode
+  of `SensitiveActionDialog`: that window's whole body is the password and reason inputs, it returns
+  `SensitiveActionInput?`, and its buttons say "أكّد الحذف"/"أكّد واحفظ" — a Yes/No question would hide
+  every part of it and reinterpret `null` as "No". They share the chrome (radius, shadow, draggable
+  header), not the code. To add a call site, call `Notify.Ask` / `AskDangerous` / `Error` — never
+  construct a dialog. `MessageKind` has no default for the same reason `SensitiveActionKind` doesn't.
+  Two things the swap had to get right that a pure restyle would have missed: `MessageBox.Show` works
+  from **any thread** while a custom `Window` does not (`Notify.Error` is called from `catch` blocks in
+  background work, so `ShowCore` marshals through `Application.Current.Dispatcher`), and `Owner` throws
+  if the main window has not been shown yet — messages like "the program is already running" fire before
+  that, so the dialog falls back to `CenterScreen`.
+- **A coloured dialog header uses the tint/ink *pair*, never the solid severity colour.** `DangerBrush`
+  is `#A0342A` (dark) in the light theme and `#E08A6E` (light) in the dark one — the severity colours
+  **invert**, while `SidebarInkBrush` stays light in both. So a solid `DangerBrush` header with
+  `SidebarInkBrush` text is light-on-light in dark mode. `MessageDialog` pairs `DangerBgBrush`+
+  `DangerBrush`, `WarnBgBrush`+`WarnBrush`, `InfoTintBrush`+`InfoBrush`, `GoldTintBrush`+`GoldDeepBrush`
+  — each pair inverts together, so contrast holds in both themes. `MessageAppearance` returns **resource
+  key strings** (same as `ToastHost`) so `SetResourceReference` keeps the binding live across a theme
+  swap, and so the mapping is unit-testable without WPF. Note `SensitiveActionDialog` still uses the
+  solid-colour header and has the same dark-mode weakness — left alone deliberately, not overlooked.
 - **Excel export runs on a background thread** (`ExcelExport.RunAsync` wraps the write in `Task.Run`).
   Every caller passes a lambda that does its work synchronously and returns `Task.CompletedTask`, so it
   used to execute on the UI thread — a year's report with 14k detail rows froze the window for 3.3
