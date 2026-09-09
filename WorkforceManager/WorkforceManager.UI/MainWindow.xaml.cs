@@ -182,6 +182,32 @@ namespace WorkforceManager.UI
             RefreshActivityBadge();
         }
 
+        /// <summary>
+        /// بيفتح شاشة الإنتاج اليومي على خطة ذاكرة بترتيب مراحلها.
+        ///
+        /// بيعلّم عنصر التنقل كمان — من غير كده الشاشة بتتغيّر والشريط
+        /// الجانبي فاضل مأشّر على مكان تاني، فالمستخدم مش عارف هو فين.
+        /// </summary>
+        public async Task OpenDailyEntryForMemoryAsync(int productId, IReadOnlyList<int> stageOrder)
+        {
+            if (MainContent is null) return;
+
+            var view = App.AppHost.Services.GetRequiredService<DailyEntryView>();
+            MainContent.Content = view;
+            NavDailyEntryItem.IsChecked = true;
+            RefreshActivityBadge();
+
+            await App.AppHost.Services.GetRequiredService<ViewModels.DailyEntryViewModel>()
+                .StartFromMemoryAsync(productId, stageOrder);
+        }
+
+        private void NavMemory_Checked(object sender, RoutedEventArgs e)
+        {
+            if (MainContent is null) return;
+            MainContent.Content = App.AppHost.Services.GetRequiredService<MemoryView>();
+            RefreshActivityBadge();
+        }
+
         private void NavActivityLog_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;

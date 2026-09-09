@@ -101,11 +101,68 @@ namespace WorkforceManager.UI.ViewModels
         /// </summary>
         private bool _suppressProductReload;
 
+        /// <summary>
+        /// ترتيب مراحل خطة الذاكرة اللي الجلسة دي اتفتحت منها — null
+        /// معناها جلسة عادية بترتيب المنتج الحقيقي (الحالة الغالبة).
+        ///
+        /// **الشاشة Singleton**، فسيبان القيمة دي معناها إن جلسة عادية
+        /// بعد كده تلاقي ترتيب خطة قديمة وتتحقق بيه. عشان كده بتتصفّر في
+        /// <see cref="OnSelectedProductChanged"/> وفي
+        /// <see cref="DailyEntryViewModel.ResetForNewSession"/>، ومحدش
+        /// بيعتمد على إنها هتتنسى لوحدها.
+        /// </summary>
+        private IReadOnlyList<int>? _memoryStageOrder;
+
+        /// <summary>هل الجلسة دي ماشية بترتيب خطة؟ (الواجهة بتوضّحه للمستخدم)</summary>
+        public bool IsFromMemoryPlan => _memoryStageOrder is not null;
+
+        /// <summary>
+        /// بيسلّح الجلسة بترتيب خطة. لازم يتنادى **بعد** ما المنتج
+        /// يتحدّد، لأن تحديد المنتج بيصفّر الترتيب.
+        /// </summary>
+        public async Task ArmMemoryOrderAsync(IReadOnlyList<int> stageOrder)
+        {
+            _memoryStageOrder = stageOrder;
+            OnPropertyChanged(nameof(IsFromMemoryPlan));
+
+            await ReloadAsync();
+        }
+
         partial void OnSelectedProductChanged(ProductOption? value)
         {
+            // منتج تاني = خطة تانية. ترتيب الخطة القديمة بيشاور على مراحل
+            // منتج مختلف، فسيبانه كان هيرمي عند الحفظ في أحسن الأحوال
+            _memoryStageOrder = null;
+            OnPropertyChanged(nameof(IsFromMemoryPlan));
+
             if (_suppressProductReload) return;
             // تغيير المنتج بيعيد بناء بطاقات المراحل (وأي خطأ بيظهر مش بيضيع بصمت)
             SafeAsync.Run(ReloadAsync);
+        }
+
+        /// <summary>
+        /// بطاقات المراحل بترتيب الجلسة: ترتيب المنتج عادةً، وترتيب خطة
+        /// الذاكرة لو الجلسة اتفتحت من تذكير.
+        ///
+        /// المرحلة اللي الخطة شالتها بتختفي من الشاشة خالص مش بتتعرض
+        /// باهتة: لو فضلت ظاهرة المستخدم هيوزّع عليها عمال والخدمة هترفض
+        /// الحفظ برسالة عن مرحلة مش من مراحل الجلسة — رفض متأخر ومحيّر.
+        ///
+        /// مرحلة الرص استثناء: مالهاش نطاق قطع أصلاً (مستبعدة من
+        /// ProductionLine.Active)، فبتفضل آخر الكروت زي أي يوم عادي.
+        /// </summary>
+        private List<StageEntryOption> StagesInSessionOrder(ProductOption product)
+        {
+            if (_memoryStageOrder is null) return product.Stages.ToList();
+
+            var position = _memoryStageOrder
+                .Select((stageId, index) => (stageId, index))
+                .ToDictionary(x => x.stageId, x => x.index);
+
+            return product.Stages
+                .Where(s => s.IsRackingStage || position.ContainsKey(s.StageId))
+                .OrderBy(s => s.IsRackingStage ? int.MaxValue : position[s.StageId])
+                .ToList();
         }
 
         /// <summary>مراحل المنتج المختار — بطاقة لكل مرحلة بعمالها المؤهلين</summary>
@@ -193,14 +250,20 @@ namespace WorkforceManager.UI.ViewModels
                     .GroupBy(r => r.ProductionStageId)
                     .ToDictionary(g => g.Key, g => g.Sum(r => r.PieceCount));
 
-                foreach (var stage in product.Stages)
+                var sessionStages = StagesInSessionOrder(product);
+
+                for (var cardIndex = 0; cardIndex < sessionStages.Count; cardIndex++)
                 {
+                    var stage = sessionStages[cardIndex];
                     alreadyByStage.TryGetValue(stage.StageId, out var already);
 
                     var row = new FlowStageRow(AddWorkerToStageAsync, DescribeAssignedElsewhere)
                     {
                         StageId = stage.StageId,
-                        DisplayOrder = stage.DisplayOrder,
+                        // الرقم من ترتيب الجلسة مش من ترتيب المنتج: في جلسة
+                        // خطة الكروت مرتبة بترتيب تاني، ورقم مخالف لمكانه
+                        // على الشاشة بيبقى أسوأ من مفيش رقم
+                        DisplayOrder = cardIndex + 1,
                         StageName = stage.StageName,
                         Quota = stage.PiecesPerWorkday,
                         IsRackingStage = stage.IsRackingStage,
@@ -1186,7 +1249,10 @@ namespace WorkforceManager.UI.ViewModels
                 return await flowService.RecordFlowAsync(
                     SelectedProduct!.ProductId, entryDate, ranges, shares,
                     taggedWorkers: taggedWorkers,
-                    confirmOverride: confirmOverride);
+                    confirmOverride: confirmOverride,
+                    // null في الجلسة العادية — الخدمة ساعتها بتمشي على
+                    // ترتيب المنتج الحقيقي زي ما كانت بالظبط
+                    customStageOrder: _memoryStageOrder);
             }
         }
     }

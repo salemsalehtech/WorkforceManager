@@ -77,6 +77,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<IWageAdjustmentRepository, WageAdjustmentRepository>();
             services.AddScoped<IGenericRepository<ProductionStage>, GenericRepository<ProductionStage>>();
             services.AddScoped<IDailyOperationsSignOffRepository, DailyOperationsSignOffRepository>();
+            services.AddScoped<IProductionMemoryRepository, ProductionMemoryRepository>();
             services.AddScoped<IActivityEventRepository, ActivityEventRepository>();
             services.AddScoped<IWorkerSkillRepository, WorkerSkillRepository>();
             services.AddScoped<IGenericRepository<OperationsCredential>, GenericRepository<OperationsCredential>>();
@@ -92,6 +93,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<WorkerAssignmentGuard>();
             services.AddScoped<ProductionFlowService>();
             services.AddScoped<DailyOperationsSignOffService>();
+            services.AddScoped<ProductionMemoryService>();
             services.AddScoped<DailyProductionReportService>();
             services.AddScoped<WorkdayCalculationService>();
             services.AddScoped<PenaltyService>();

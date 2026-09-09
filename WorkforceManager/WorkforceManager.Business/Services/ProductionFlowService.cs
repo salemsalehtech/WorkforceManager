@@ -225,7 +225,8 @@ namespace WorkforceManager.Business.Services
             IReadOnlyList<FlowShareDto> shares,
             IReadOnlyList<FlowTaggedWorkerDto>? taggedWorkers = null,
             bool confirmOverride = false,
-            Func<IReadOnlyList<CreatedProductionRowDto>, Task>? postWriteHook = null)
+            Func<IReadOnlyList<CreatedProductionRowDto>, Task>? postWriteHook = null,
+            IReadOnlyList<int>? customStageOrder = null)
         {
             if (ranges.Count == 0)
                 throw new InvalidOperationException("سجّل نطاق إنتاج واحد على الأقل (من مرحلة إلى مرحلة بعدد قطع)");
@@ -239,9 +240,24 @@ namespace WorkforceManager.Business.Services
             // ProductionLine.Active بيستبعد مرحلة الرص — فمرحلة الرص مستحيل
             // تدخل نطاق أو تتحقق كأنها مرحلة إنتاج عادية، حتى لو حصل خطأ
             // في الواجهة وحاولت تبعتها
-            var orderedStages = ProductionLine.Active(product);
-            if (orderedStages.Count == 0)
+            var realLine = ProductionLine.Active(product);
+            if (realLine.Count == 0)
                 throw new InvalidOperationException($"المنتج \"{product.Name}\" ليس له مراحل نشطة");
+
+            // ---------- الترتيب المخصص: الاستثناء الوحيد، وحدوده بالظبط ----------
+            // جلسة جاية من خطة ذاكرة بتمشي بترتيب المستخدم بدل ترتيب المنتج
+            // الحقيقي — بس **في التحقق من النطاقات وبس**. مبني على realLine
+            // نفسها، فالمرحلة الموقوفة ومرحلة الرص مستحيل يدخلوا.
+            //
+            // ⚠️ SyncStageGapBalancesAsync تحت بتاخد realLine مش ده، وده مقصود
+            // ومهم: هي بتقيس فجوات تراكمية بين مراحل **متجاورة في الخط
+            // الحقيقي** وبتنشئ صفوف رصيد أولي دائمة منها. لو مشيت على ترتيب
+            // مخصص كانت هتقارن مراحل مش متجاورة أصلاً وتولّد أرصدة وهمية
+            // تفضل في القاعدة بعد ما الجلسة تخلص — و ReconcileAutoBalancesAsync
+            // (اللي بتمشي على الخط الحقيقي دايمًا) هتختلف معاها بعد كده.
+            var orderedStages = customStageOrder is null
+                ? realLine
+                : ProductionLine.CustomOrder(realLine, customStageOrder);
 
             // فهرس كل مرحلة في الترتيب (بنعتمد على موقعها في القائمة المرتبة، مش على قيمة SortOrder نفسها)
             var indexByStageId = orderedStages
@@ -447,7 +463,8 @@ namespace WorkforceManager.Business.Services
                 await _productionRepo.SaveChangesAsync();
 
                 // ---------- تحويل تلقائي: فجوات خط الإنتاج التراكمية بقت رصيد أولي ----------
-                createdGapRanges = await SyncStageGapBalancesAsync(product, orderedStages, date);
+                // realLine مش orderedStages — شوف التعليق فوق عند الترتيب المخصص
+                createdGapRanges = await SyncStageGapBalancesAsync(product, realLine, date);
 
                 // حفظة واحدة لكل حاجة (الريبوهات بتشارك نفس الـ DbContext في نفس الـ Scope)
                 await _productionRepo.SaveChangesAsync();

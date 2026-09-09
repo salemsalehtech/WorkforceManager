@@ -96,8 +96,8 @@ from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test 
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
 
-`WorkforceManager.UiTests` (xUnit, `net8.0-windows`, `UseWPF`) is a **separate** project for one test:
-`XamlLoadTests` loads **every** compiled XAML file for real. It exists because a whole class of XAML errors
+`WorkforceManager.UiTests` (xUnit, `net8.0-windows`, `UseWPF`) is a **separate** project for tests that need
+real WPF: `XamlLoadTests` loads **every** compiled XAML file for real. It exists because a whole class of XAML errors
 is invisible to both the compiler and every other test, and only shows up when the screen opens on the
 user's machine — a bad `PackIconKind` name, a missing `StaticResource` key, a duplicate `x:Name`, a
 `TargetName` outside its namescope, or **`BasedOn="{DynamicResource ...}"`** (`BasedOn` is a plain CLR
@@ -106,7 +106,15 @@ and made the app refuse to open at all, because `MainWindow`'s constructor build
 error in the default screen kills the whole window. The test enumerates the assembly's **BAML resource
 table**, not file paths, so a new `.xaml` is covered without anyone remembering to add it; screens are
 constructed with `null` for their DI arguments (every view calls `InitializeComponent()` first, so the XAML
-still loads) and it runs on a manually created STA thread rather than pulling in an extra xUnit package.
+still loads). **Every WPF test runs on the one STA thread owned by `WpfThread`**, which builds the single
+`Application` and keeps a `Dispatcher` running on it. Both halves matter: WPF allows only one `Application`
+per process, and resources that aren't frozen (any brush holding a `DynamicResource`) belong to the thread
+that created them — a second STA thread building a window throws "The calling thread cannot access this
+object". The live `Dispatcher` is what lets `ShowDialog` run its nested message loop, so a test can show a
+dialog, click a button and read the result. Test classes touching WPF share the `"WPF"` xUnit collection so
+they never overlap. Note that a **programmatic click must go through `ButtonAutomationPeer`**, not
+`RaiseEvent(ClickEvent)`: `IsCancel`/`IsDefault` are handled inside `Button.OnClick`, which `RaiseEvent`
+skips, so a cancel button tested that way silently never sets `DialogResult`.
 Two failure shapes are deliberately ignored: anything that is **not** a `XamlParseException` (the XAML
 loaded; the constructor just wanted a real ViewModel) and "Cannot locate resource" (`Application.ResourceAssembly`
 is pinned to the test host, so window icons by relative URI can't resolve there).
@@ -677,6 +685,47 @@ Core  <----------------------- UI
   Ranges still may not overlap (a stage in two ranges is double-entry) and each covered stage still
   needs worker shares summing exactly to its pieces. A range may start anywhere in the line — starting
   mid-line needs no justification, because the pieces it consumes are implied by the arithmetic.
+- **Production memories are the one and only exception to "line order is `SortOrder`".** A memory
+  (`ProductionMemory` + `ProductionMemoryStage`, the "الذاكرة" screen) is a deferred plan: a product, a
+  custom ordering of its stages, notes, and a reminder date. Pressing "ابدأ الآن" on a due reminder opens
+  Daily Entry with that product and **validates that session's ranges against the planned sequence
+  instead of the product's real line**, so a range the real line would reject as reversed is accepted.
+  This was confirmed with the user as deliberate, with no extra guard or confirmation.
+  **The exception is exactly one call.** `RecordFlowAsync` takes an optional `customStageOrder` and hands
+  it to `StageRangeValidator.ValidateAndComputePiecesPerStage`, which already took the sequence as an
+  explicit parameter — so there is **one rule evaluated against two orderings, never a second copy**
+  (`FlowRangeTrimmer.Trim` was already parameterised the same way and needed no change either). The
+  sequence is resolved by `ProductionLine.CustomOrder(activeLine, ids)`, built **from the real active
+  line**, so a stopped stage or the racking stage can never enter it, and a duplicate is still rejected —
+  one stage twice is double-counted wages whatever the ordering.
+  **What deliberately does NOT get the custom order** is the part that matters most:
+  `SyncStageGapBalancesAsync` used to share the same `orderedStages` variable but means something
+  entirely different — it measures cumulative all-time gaps between stages that are *physically adjacent
+  on the real line* and writes permanent `InitialBalance` rows from them. Fed a custom order it would
+  compare stages that are not adjacent at all and mint balances that outlive the session, which
+  `ReconcileAutoBalancesAsync` (always on the real line) would then disagree with forever. It now takes
+  `realLine` explicitly. Everything else inside the method is per-stage and order-neutral. Outside it,
+  nothing changes at all: reports, `PendingWorkService`, the Products screen and an ordinary session for
+  the same product all keep reading `ProductionLine.Active`. `CustomStageOrderTests` exists to guard the
+  boundary rather than the feature — it asserts gap balances still land on the stage the *real* line says
+  work is stuck at, the daily report still counts the real last stage as completed, and the next ordinary
+  session rejects exactly what it rejected before.
+  **A plan may omit stages** (confirmed with the user), not just reorder them. The consequence is
+  accepted, not overlooked: a skipped stage stays at zero output, so the gap calculation correctly raises
+  an initial balance at that boundary — the pieces really did pass it by. Omitted stages are hidden from
+  the session's cards entirely rather than shown greyed out, because a worker assigned to one would only
+  be refused at save time with a confusing "stage not in this session" message.
+  **The stale-plan hazard is real, not theoretical**: `DailyEntryViewModel`/`DailyEntryView` are
+  **singletons**, so a plan's order left on a session would silently govern the next ordinary session.
+  `FlowSessionViewModel._memoryStageOrder` is cleared in `OnSelectedProductChanged` (a different product
+  means a different plan) and dies with `FlowSessions.Clear()` in `ResetForNewSession`; `StartFromMemoryAsync`
+  always adds a **fresh** session rather than reusing the first one, so an unsaved distribution already on
+  screen is never overwritten by a reminder.
+  A memory moves to the "منجزة" list the moment the screen opens — **not** when production is saved
+  (confirmed): the reminder's job is to remind, and it finished it. A plan whose product was since
+  deactivated or deleted, or whose stages left the line, still shows its reminder with "ابدأ الآن"
+  disabled and the reason spelled out; `BlockedReason` is derived at read time, never stored, because the
+  product can change at any point after the plan was written.
 - **Day closure was removed outright** (`DayClosureService`, `ProductionDayClosure`, the lock/reopen
   button on Daily Entry, the "اليوم مقفول" badge on the Reports screen — all deleted, not deprecated).
   It used to let the user lock one date's production numbers against further edits after reviewing
@@ -899,6 +948,30 @@ Core  <----------------------- UI
   default here is worse than a compile error, which is why there isn't one. `AskConfirm` is the sibling
   entry point for Tier B actions (see daily operations sign-off above) — same window, same `kind`-driven
   styling, just the password box and "not configured" hint both collapsed.
+- **`MessageBox.Show` is banned — every message goes through `Notify`, which renders `MessageDialog`.**
+  The plain Win32 box was a white rectangle with a system question-mark icon and English "Yes"/"No"
+  buttons in an app that is otherwise fully Arabic, RTL and gold-themed. `Notify` was already the only
+  caller of `MessageBox` in the whole codebase, so the swap touched one file and **no call site**, which
+  is also why none of them could drift semantically. `MessageDialog` is deliberately *not* a fourth mode
+  of `SensitiveActionDialog`: that window's whole body is the password and reason inputs, it returns
+  `SensitiveActionInput?`, and its buttons say "أكّد الحذف"/"أكّد واحفظ" — a Yes/No question would hide
+  every part of it and reinterpret `null` as "No". They share the chrome (radius, shadow, draggable
+  header), not the code. To add a call site, call `Notify.Ask` / `AskDangerous` / `Error` — never
+  construct a dialog. `MessageKind` has no default for the same reason `SensitiveActionKind` doesn't.
+  Two things the swap had to get right that a pure restyle would have missed: `MessageBox.Show` works
+  from **any thread** while a custom `Window` does not (`Notify.Error` is called from `catch` blocks in
+  background work, so `ShowCore` marshals through `Application.Current.Dispatcher`), and `Owner` throws
+  if the main window has not been shown yet — messages like "the program is already running" fire before
+  that, so the dialog falls back to `CenterScreen`.
+- **A coloured dialog header uses the tint/ink *pair*, never the solid severity colour.** `DangerBrush`
+  is `#A0342A` (dark) in the light theme and `#E08A6E` (light) in the dark one — the severity colours
+  **invert**, while `SidebarInkBrush` stays light in both. So a solid `DangerBrush` header with
+  `SidebarInkBrush` text is light-on-light in dark mode. `MessageDialog` pairs `DangerBgBrush`+
+  `DangerBrush`, `WarnBgBrush`+`WarnBrush`, `InfoTintBrush`+`InfoBrush`, `GoldTintBrush`+`GoldDeepBrush`
+  — each pair inverts together, so contrast holds in both themes. `MessageAppearance` returns **resource
+  key strings** (same as `ToastHost`) so `SetResourceReference` keeps the binding live across a theme
+  swap, and so the mapping is unit-testable without WPF. Note `SensitiveActionDialog` still uses the
+  solid-colour header and has the same dark-mode weakness — left alone deliberately, not overlooked.
 - **Excel export runs on a background thread** (`ExcelExport.RunAsync` wraps the write in `Task.Run`).
   Every caller passes a lambda that does its work synchronously and returns `Task.CompletedTask`, so it
   used to execute on the UI thread — a year's report with 14k detail rows froze the window for 3.3

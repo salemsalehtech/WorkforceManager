@@ -1,4 +1,3 @@
-using System.Windows;
 using WorkforceManager.UI.Views;
 
 namespace WorkforceManager.UI
@@ -43,20 +42,18 @@ namespace WorkforceManager.UI
         /// ميصحّش تعدّي من غير ما حد ياخد باله.
         /// </summary>
         public static void Error(string message, string title = "حصل خطأ") =>
-            MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageDialog.Show(message, title, MessageKind.Error);
 
         /// <summary>سؤال عادي — الافتراضي "أيوه"</summary>
         public static bool Ask(string message, string title = "تأكيد") =>
-            MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question)
-                == MessageBoxResult.Yes;
+            MessageDialog.Ask(message, title, MessageKind.Question, defaultIsNo: false);
 
         /// <summary>
         /// سؤال على حاجة مش بترجع (حذف، استبدال). الافتراضي **"لأ"**
         /// عن قصد: ضغطة Enter بالغلط مالهاش حق تمسح شغل.
         /// </summary>
         public static bool AskDangerous(string message, string title = "تأكيد") =>
-            MessageBox.Show(message, title, MessageBoxButton.YesNo,
-                MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes;
+            MessageDialog.Ask(message, title, MessageKind.Warning, defaultIsNo: true);
 
         /// <summary>
         /// بيوصّل الإشعار للحاوية. لو الحاوية لسه ماتسجّلتش (رسالة قبل
@@ -69,8 +66,7 @@ namespace WorkforceManager.UI
 
             if (host is null)
             {
-                MessageBox.Show(message, title ?? "تنبيه",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageDialog.Show(message, title ?? "تنبيه", MessageKind.Info);
                 return;
             }
 

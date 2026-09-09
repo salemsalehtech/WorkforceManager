@@ -23,6 +23,8 @@ namespace WorkforceManager.Data
         public DbSet<HourlyWorkLog> HourlyWorkLogs => Set<HourlyWorkLog>();
         public DbSet<WageAdjustment> WageAdjustments => Set<WageAdjustment>();
         public DbSet<DailyOperationsSignOff> DailyOperationsSignOffs => Set<DailyOperationsSignOff>();
+        public DbSet<ProductionMemory> ProductionMemories => Set<ProductionMemory>();
+        public DbSet<ProductionMemoryStage> ProductionMemoryStages => Set<ProductionMemoryStage>();
         public DbSet<ActivityEvent> ActivityEvents => Set<ActivityEvent>();
         public DbSet<OperationsCredential> OperationsCredentials => Set<OperationsCredential>();
         public DbSet<ProductionScrap> ProductionScraps => Set<ProductionScrap>();
@@ -63,6 +65,29 @@ namespace WorkforceManager.Data
                 .WithMany(p => p.Stages)
                 .HasForeignKey(s => s.ProductId)
                 .OnDelete(DeleteBehavior.Cascade); // حذف منتج يحذف مراحله (منطقي، مفيش مرحلة من غير منتج)
+
+            // ---------- ProductionMemory: خطة إنتاج متأجّلة بترتيب مراحل خاص ----------
+            modelBuilder.Entity<ProductionMemory>()
+                .HasOne(m => m.Product)
+                .WithMany()
+                .HasForeignKey(m => m.ProductId)
+                .OnDelete(DeleteBehavior.Cascade); // الخطة مالهاش معنى من غير منتجها
+
+            modelBuilder.Entity<ProductionMemoryStage>()
+                .HasOne(ms => ms.ProductionMemory)
+                .WithMany(m => m.Stages)
+                .HasForeignKey(ms => ms.ProductionMemoryId)
+                .OnDelete(DeleteBehavior.Cascade); // صفوف الترتيب تابعة للخطة
+
+            // Restrict مش Cascade عن قصد: المراحل بتتشال حذف ناعم في
+            // البرنامج، فالمسار ده عمره ما بيضرب عمليًا — ولو حد حذف
+            // مرحلة حذف صلب يومًا ما، الأحسن إنه يقف بدل ما يقصّ ترتيب
+            // خطة في صمت. وكمان بيمنع مسارَي Cascade على نفس الجدول
+            modelBuilder.Entity<ProductionMemoryStage>()
+                .HasOne(ms => ms.ProductionStage)
+                .WithMany()
+                .HasForeignKey(ms => ms.ProductionStageId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // ---------- WorkerSkill: Worker <-> ProductionStage (many-to-many عبر جدول ربط) ----------
             modelBuilder.Entity<WorkerSkill>()
