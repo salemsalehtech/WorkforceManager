@@ -462,10 +462,16 @@
         </Grid>
 
         <Grid Grid.Row="2">
+            <!-- نسبي مش ثابت: العمود ده كان Width="500" مسمّرة، فعلى شاشة
+                 عريضة كان بيسيب المساحة الزيادة كلها لقايمة المنتجات وهو
+                 قافل على 500 مهما كبرت الشاشة. النسبة 5:4 بتدّيه نفس الـ500
+                 تقريبًا عند مساحة التصميم وبتوسّعه بعد كده. الحد الأدنى هو
+                 اللي بيمنعه ينكمش تحت عرض صف الأزرار جوّاه (462 + الحشو). -->
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"
+                <ColumnDefinition Width="5*"
                         MinWidth="380"/>
-                <ColumnDefinition Width="500"/>
+                <ColumnDefinition Width="4*"
+                        MinWidth="500"/>
             </Grid.ColumnDefinitions>
 
             <!-- قائمة المنتجات: بطاقة لكل منتج -->

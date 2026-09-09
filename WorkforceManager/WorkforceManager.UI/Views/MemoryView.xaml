@@ -7,9 +7,11 @@
              mc:Ignorable="d" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">
 
     <Grid Margin="14">
+        <!-- نسبي مش ثابت — نفس سبب شاشة المنتجات: نموذج الخطة مايفضلش
+             قافل على 420 لما الشاشة تبقى عريضة -->
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="420" />
-            <ColumnDefinition Width="*" MinWidth="380" />
+            <ColumnDefinition Width="2*" MinWidth="420" />
+            <ColumnDefinition Width="3*" MinWidth="380" />
         </Grid.ColumnDefinitions>
 
         <!-- ==================== نموذج الخطة ==================== -->
