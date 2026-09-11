@@ -474,6 +474,18 @@ Core  <----------------------- UI
   margins 12+12, item padding 16+16, icon 18 plus its 10 gap) = 203, with the selected item's SemiBold
   measuring the same to a tenth. Re-measure before lowering it, and re-measure if a longer nav label is
   ever added.
+- **Dialogs take their scale from `MainWindow.CurrentScale`, because they are outside its visual tree.**
+  The `LayoutTransform` above lives on `MainWindow`'s root grid, so it reaches every screen but **no
+  dialog** — each is its own top-level `Window`. Scaling up therefore left dialogs at their authored size
+  on top of a magnified app: 30% smaller than their surroundings on a 1080 screen, 65% on 4K.
+  `CrispWindows.ApplyScale` gives each dialog the same `ScaleTransform` on its content, and — this is the
+  part that is easy to miss — also multiplies the **`Width`/`Height` set on the `Window` itself**, since
+  those sit outside the content being transformed and would otherwise crop the scaled content inside a
+  frame still at its old size. `NaN` means `SizeToContent` governs that axis and resizes itself. The
+  dialog is then re-centred on its owner, because changing size after a window is shown leaves it visibly
+  off-centre. `MainWindow` is excluded — it already scales internally, and scaling it here would square
+  the factor. The default of 1.0 matters: messages such as "the program is already running" appear
+  **before** `MainWindow` exists, so there is no scale to copy yet.
 - **Sharp rendering is applied to every window from `CrispWindows`, not per-window.** `UseLayoutRounding`
   plus `TextOptions.TextFormattingMode="Ideal"`/`TextRenderingMode="ClearType"` were set only in
   `MainWindow.xaml`; the **other 30 windows — every dialog — had none of them**, and there is no implicit
