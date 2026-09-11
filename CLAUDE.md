@@ -445,6 +445,16 @@ Core  <----------------------- UI
   without it, un-maximising on a small laptop left half the window (and its title bar) off-screen.
   Fixed split columns that used to pin a panel at one pixel width (Products 500, Memory 420) are now
   proportional with a `MinWidth` floor, so a wide monitor actually gets used.
+  **The sidebar is a ratio, not a number.** At a fixed 248 it took 18% of a 1362-wide window and 13% of a
+  1917-wide one — the same strip, reading wide on one machine and thin on the other, because what changes
+  is the screen around it. It is now `clamp(210, 0.15 × logicalWidth, 320)`, which holds ~15% across the
+  range people actually use and sends the rest to content. Note it is computed against the **logical**
+  width (`ActualWidth / scale`), not the raw window width, or the ratio would be wrong whenever the
+  scale-down above is active. The 210 floor is **measured, not guessed**: the longest item
+  ("تسجيل الإنتاج اليومي") is 118.7 DIP in Tajawal at 14, and the fixed chrome around it is 84 (container
+  margins 12+12, item padding 16+16, icon 18 plus its 10 gap) = 203, with the selected item's SemiBold
+  measuring the same to a tenth. Re-measure before lowering it, and re-measure if a longer nav label is
+  ever added.
 - **Sharp rendering is applied to every window from `CrispWindows`, not per-window.** `UseLayoutRounding`
   plus `TextOptions.TextFormattingMode="Ideal"`/`TextRenderingMode="ClearType"` were set only in
   `MainWindow.xaml`; the **other 30 windows — every dialog — had none of them**, and there is no implicit

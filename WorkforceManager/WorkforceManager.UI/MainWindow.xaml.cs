@@ -81,6 +81,33 @@ namespace WorkforceManager.UI
 
             UiScale.ScaleX = scale;
             UiScale.ScaleY = scale;
+
+            // العرض اللي التخطيط نفسه شايفه — بعد التصغير، مش عرض النافذة
+            // الخام. على الشاشات العادية المقياس = 1 فالاتنين واحد.
+            ApplySidebarWidth(ActualWidth / scale);
+        }
+
+        // الشريط نسبة من عرض النافذة مش رقم ثابت. الرقم الثابت (248) كان
+        // بياخد 18% من نافذة 1362 و13% من نافذة 1917 — نفس الشريط بالظبط
+        // بس بيبان عريض على الصغيرة ورفيع على الكبيرة، لأن اللي بيتغيّر
+        // هو الشاشة حواليه.
+        private const double SidebarRatio = 0.15;
+
+        // الحد الأدنى مقيس مش متخمّن: أطول بند ("تسجيل الإنتاج اليومي")
+        // عرضه 119 بخط Tajawal عند 14، والثابت حواليه 84 (هوامش الحاوية
+        // 12+12، حشو البند 16+16، الأيقونة 18 ومسافتها 10) = 203. والبند
+        // المختار بيبقى SemiBold فبيتمدد شوية — 210 بتغطيه.
+        private const double SidebarMin = 210;
+
+        // فوق كده الشريط بيبقى مساحة ضايعة مش قايمة تنقل
+        private const double SidebarMax = 320;
+
+        private void ApplySidebarWidth(double logicalWidth)
+        {
+            if (SidebarColumn is null) return;
+
+            SidebarColumn.Width = new GridLength(
+                Math.Clamp(logicalWidth * SidebarRatio, SidebarMin, SidebarMax));
         }
 
         /// <summary>

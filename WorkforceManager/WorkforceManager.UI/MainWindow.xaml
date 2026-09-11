@@ -42,8 +42,12 @@
         <Grid.LayoutTransform>
             <ScaleTransform x:Name="UiScale" ScaleX="1" ScaleY="1" />
         </Grid.LayoutTransform>
+        <!-- عرض الشريط بيتحسب في الكود (SidebarRatio) — كان 248 ثابتة،
+             فكان بياخد 18% من شاشة 1362 و13% من شاشة 1917، يعني بيبان
+             عريض على دي ورفيع على دي. النسبة بتخليه متسق، والمساحة
+             الزيادة على الشاشة الكبيرة بتروح للمحتوى مش للشريط. -->
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="248" />
+            <ColumnDefinition x:Name="SidebarColumn" Width="248" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
