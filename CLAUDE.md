@@ -444,7 +444,15 @@ Core  <----------------------- UI
   differ only in physical size. The accepted trade-off is that a large monitor shows the same number of
   rows more comfortably rather than more rows. There is deliberately **no upper cap**: the ratio is tied
   to the real screen so it is self-limiting, and an artificial ceiling would just create a cliff at one
-  resolution. Content still fits everywhere — the widest screen needs 1128 against 1244 available.
+  resolution. Content still fits everywhere — the widest screen needs 1128 against 1351 available.
+  **`DesignHeight` is measured, not chosen, and the sidebar is what sets it.** The sidebar is the only
+  thing that must render complete without scrolling, and it measures **706** (nine nav items plus the day
+  card, account card and final-save button). It was originally guessed at 700, which clipped the last nav
+  item — "الحسابات الإدارية" vanished entirely on large screens, because scaling up *reduces* the logical
+  height (1020 ÷ 1.457 = 700) and the nav `StackPanel` is the fill element that absorbs the shortfall.
+  It is now 760, leaving roughly one extra nav item of headroom. **Re-measure it if a nav item is added** —
+  the nav list is wrapped in a `ScrollViewer` so a future overflow scrolls instead of disappearing
+  silently, but scrolling a nine-item nav is the fallback, not the intent.
   **`LayoutTransform`, not `Viewbox`, and not `RenderTransform`**: a `Viewbox` measures its child at the
   child's own desired size and scales the drawn result, which defeats `*` columns and softens text.
   `LayoutTransform` hands the child the available space **divided by the scale**, so layout genuinely runs
