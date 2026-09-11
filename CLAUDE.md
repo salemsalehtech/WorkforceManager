@@ -433,7 +433,18 @@ Core  <----------------------- UI
   Windows picks by default** offers only 1093×614 DIPs, which is less, so content was simply **clipped
   with no warning** — the same failure as the Products button row, one level up. `MainWindow`'s root grid
   now carries a `ScaleTransform` on its **`LayoutTransform`**, set to
-  `min(1, ActualWidth/1200, ActualHeight/700)` on every `SizeChanged`.
+  `min(ActualWidth/1200, ActualHeight/700)` on every `SizeChanged` — it scales **up as well as down**.
+  The scale was originally clamped at 1 on the reasoning that spare room on a big monitor should become
+  more content, not bigger chrome. **That was wrong for this app and the user rejected it after seeing a
+  render**: with the clamp, a wide screen only widened the columns while font sizes and icons stayed
+  fixed, so the sidebar grew to 288 while its 14pt labels did not, leaving small text stranded in an empty
+  panel — while the identical markup at 1362 looked comfortable. That is what "big on one screen, small on
+  another" meant. Uncapped, **every 16:9 screen converges on the same ~1244 logical width** (the height
+  term binds at any aspect wider than 1.71:1), so 1366, 1920 and 4K draw a literally identical layout and
+  differ only in physical size. The accepted trade-off is that a large monitor shows the same number of
+  rows more comfortably rather than more rows. There is deliberately **no upper cap**: the ratio is tied
+  to the real screen so it is self-limiting, and an artificial ceiling would just create a cliff at one
+  resolution. Content still fits everywhere — the widest screen needs 1128 against 1244 available.
   **`LayoutTransform`, not `Viewbox`, and not `RenderTransform`**: a `Viewbox` measures its child at the
   child's own desired size and scales the drawn result, which defeats `*` columns and softens text.
   `LayoutTransform` hands the child the available space **divided by the scale**, so layout genuinely runs
