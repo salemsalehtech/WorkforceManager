@@ -817,6 +817,30 @@ Core  <----------------------- UI
   even though nothing writes them: dropping them from that list wouldn't delete anything, it would
   quietly promote every old closure row to the 365-day default (retention is long-by-default), so a
   feature that no longer exists would start keeping its log entries *four times longer* than when it did.
+- **A login is a DI scope, and logging out disposes it.** `MainWindow`, `DailyEntryView` and
+  `DailyEntryViewModel` are **`Scoped`**, and `App.StartSession` creates one scope per login and resolves
+  the window from it; `MainWindow` is handed that scope as `IServiceProvider` and resolves every screen
+  from it rather than from the root. Logout (`App.SignOutAndRestartSession`) genuinely closes the window
+  and disposes the scope, so the next account gets fresh objects. Before this, all three were `Singleton`
+  and Logout never closed anything — it opened `LoginWindow.ShowDialog()` **on top of the still-open main
+  window**, leaving the previous user's data sitting behind it, then reused the same window and undid the
+  previous session by hand (`ResetForNewSession`, now deleted). That hand-cleanup was the only thing
+  preventing leakage between accounts, and it silently fell behind every time a screen gained new state.
+  Within a session `Scoped` behaves exactly like `Singleton`, so the documented reason `DailyEntryView`
+  must outlive navigation — an unsaved production flow surviving a trip to another screen — is unchanged.
+  **Order matters in the logout path**: `ShutdownMode` flips to `OnExplicitShutdown` *before* the window
+  closes, because closing the main window while it is still `OnMainWindowClose` shuts the whole app down
+  instead of reaching the login screen; `StartSession` puts it back. `ToastHost.Current` is a static, so
+  the host now `Unregister()`s on `Closed` — otherwise it kept a dead window's entire visual tree alive
+  and any toast raised while the login dialog was up would have gone to an unshown window and vanished.
+  `SessionLifetimeTests` guards the lifetimes: flip one back to `Singleton` and it fails.
+- **The sign-off gate is one method with three triggers.** `RunFinalSaveFlowAsync(SignOffTrigger)` is
+  called by the "حفظ نهائي" button, by `MainWindow_Closing`, and by Logout. Logout is gated for the same
+  reason closing is: it hands the machine to another account, so an unsigned day loses its owner either
+  way. Only the **refusal message** varies by trigger — the button needs none (the user asked for the
+  flow, the dialog is the answer), while the other two must say why the thing they asked for stopped.
+  A second copy of the check for Logout is exactly what this project's "one rule per concern" forbids;
+  it would have drifted on the first edit to either copy.
 - **Daily operations sign-off** (`DailyOperationsSignOffService` + `DailyOperationsSignOff`) replaces
   an instant operations-password prompt on nearly every save/edit/delete with **one password entry at
   the end of the day** that covers everything. This split every `SensitiveAction` into two tiers:
