@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -59,6 +60,49 @@ namespace WorkforceManager.UI.ViewModels
                 return "الإصدار " +
                        (informational ?? assembly?.GetName().Version?.ToString(3) ?? "؟");
             }
+        }
+
+        /// <summary>
+        /// سطر نسبة البرنامج لصاحبه — بيتعرض تحت الإصدار في آخر شاشة
+        /// الإعدادات.
+        ///
+        /// الاسم والتواريخ في مكان واحد (هنا + Directory.Build.props) مش
+        /// متناثرين في الـ XAML، عشان أي تعديل عليهم يبقى في نقطة واحدة.
+        /// </summary>
+        public static string AppCreditText => "تصميم وتطوير: مهندس سالم صالح";
+
+        /// <summary>
+        /// تواريخ أول إصدار وآخر واحد. بتتقرا من بيانات التجميعة اللي
+        /// اتحفرت وقت البناء (شوف Directory.Build.props) — مش من تاريخ
+        /// الملف، لأن النشر بوضع SingleFile بيخلي Assembly.Location فاضي.
+        /// </summary>
+        public static string AppReleaseDatesText
+        {
+            get
+            {
+                var first = ReleaseDate("FirstReleaseDate");
+                var latest = ReleaseDate("LatestReleaseDate");
+
+                // لو البيانات مش موجودة (بناء قديم أو تجميعة متعدّلة)
+                // بنخفي السطر بدل ما نعرض تاريخ فاضي أو علامة استفهام
+                if (first is null || latest is null) return string.Empty;
+
+                return $"أول إصدار {first} — آخر إصدار {latest}";
+            }
+        }
+
+        private static string? ReleaseDate(string key)
+        {
+            var raw = Assembly.GetEntryAssembly()
+                ?.GetCustomAttributes<AssemblyMetadataAttribute>()
+                .FirstOrDefault(a => a.Key == key)?.Value;
+
+            // التخزين بصيغة ISO عشان تفضل واضحة في ملف البناء؛ العرض
+            // بصيغة عربية مقروءة
+            return DateTime.TryParse(raw, CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var date)
+                ? date.ToString("d MMMM yyyy", new CultureInfo("ar-EG"))
+                : null;
         }
 
         /// <summary>

@@ -479,6 +479,15 @@
                      بالإنجليزي، وعرضه في اتجاه عربي بيبعتر الشرطات. -->
                 <StackPanel Margin="6,2,6,0">
                     <TextBlock Style="{StaticResource HintText}" Text="{Binding AppVersionText}" />
+
+                    <!-- نسبة البرنامج لصاحبه: جنب الإصدار لأن الاتنين هوية
+                         البرنامج، وقبل مكان البيانات لأن ده معلومة دعم فني.
+                         النص والتواريخ في SettingsViewModel مش هنا. -->
+                    <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,0"
+                               Text="{Binding AppCreditText}" />
+                    <TextBlock Style="{StaticResource HintText}"
+                               Text="{Binding AppReleaseDatesText}" />
+
                     <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,0" Text="مكان البيانات:" />
                     <TextBlock Style="{StaticResource HintText}" FlowDirection="LeftToRight"
                                TextWrapping="Wrap" Text="{Binding DataFolderText}" />

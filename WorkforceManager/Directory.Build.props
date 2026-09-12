@@ -39,8 +39,34 @@
   <PropertyGroup>
     <Company>WorkforceManager</Company>
     <Product>نظام إدارة إنتاجية وأجور العمال</Product>
-    <Version>1.5.3</Version>
-    <FileVersion>1.5.3.0</FileVersion>
+    <Version>1.5.4</Version>
+    <FileVersion>1.5.4.0</FileVersion>
+
+    <!--
+      تواريخ الإصدار — بتتعرض في سطر المعلومات آخر شاشة الإعدادات
+      (SettingsViewModel.AppCreditText).
+
+      أول إصدار ثابت تاريخيًا ومابيتغيرش. آخر إصدار **بيتحدّث مع رقم
+      الإصدار فوقه** — هما الاتنين بيتغيروا في نفس اللحظة (وقت الإصدار)،
+      فحطّهم جنب بعض معناه إن حد ينسى يحدّث واحد فيهم أصعب.
+
+      مكتوب هنا مش في الكود لأنه بيتحفر في التجميعة وقت البناء: النشر
+      بوضع SingleFile بيخلي Assembly.Location فاضي، فقراءة تاريخ الملف
+      نفسه مكانتش هتشتغل على كل أوضاع التوزيع.
+    -->
+    <FirstReleaseDate>2026-08-25</FirstReleaseDate>
+    <LatestReleaseDate>2026-09-12</LatestReleaseDate>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>FirstReleaseDate</_Parameter1>
+      <_Parameter2>$(FirstReleaseDate)</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>LatestReleaseDate</_Parameter1>
+      <_Parameter2>$(LatestReleaseDate)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
 
 </Project>
