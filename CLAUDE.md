@@ -394,6 +394,28 @@ Core  <----------------------- UI
   `App.xaml` is pinned to `Light`, and without that call the 22 ComboBoxes, 39 DataGrids and 10 DatePickers
   kept drawing themselves from the library's light theme on top of a black page — no palette change could
   ever reach them, because they never read our brushes at all.
+  **The accent half of that same bridge died silently when the library was upgraded, and it took a real
+  render (a `DatePicker` calendar popup, screenshotted in indigo blue) to catch it.** `App.xaml` used to
+  override `PrimaryHueMidBrush`/`PrimaryHueLightBrush`/`PrimaryHueDarkBrush` (+ `SecondaryHue*`, +
+  `*ForegroundBrush` pairs) with gold, matching the resource names MaterialDesignThemes used to expose for
+  its own accent colour. **MaterialDesignThemes 5.1.0 renders from a completely different set of keys**
+  (`MaterialDesign.Brush.Primary`, `.Light`, `.Dark`, each with a `.Foreground` twin) — confirmed by
+  walking the live merged dictionaries at runtime and finding zero references to the old `PrimaryHue*`
+  names anywhere in the library's own styles, while `MaterialDesign.Brush.Primary` held `#FF3F51B5`
+  (stock Material Indigo) untouched. The old override wasn't wrong when it was written; the library moved
+  the keys out from under it, and nothing failed loudly because most of the app is styled by our own named
+  styles, not the library's defaults — a `DatePicker` calendar is one of the few places still drawn
+  entirely by MaterialDesignThemes' own template, so it was the one place with nowhere to hide the gap.
+  **Fixed the version-appropriate way**: `ApplyMaterialDesignBaseTheme` now sets `theme.PrimaryLight/Mid/
+  Dark` and `SecondaryLight/Mid/Dark` in code (each a `MaterialDesignColors.ColorPair` of colour +
+  foreground), read from the palette *after* `ApplyPalette` has already run so they flip with the theme;
+  `BundledTheme.PrimaryColor="Indigo"` can't take an arbitrary hex directly (named Material colours only),
+  which is why this has to happen in code, not XAML. The dead `PrimaryHue*Brush` declarations are gone —
+  confirmed nothing in this app's own XAML referenced them either, so removing them cost nothing.
+  Re-verify with the same method if the library is upgraded again: enumerate
+  `Application.Current.Resources` (root **and** merged dictionaries — the override sits in the root, the
+  library's real keys sit inside `MaterialDesign2.Defaults.xaml`) for anything containing `"Primary"`, and
+  confirm the key this app writes to is the same one the library's styles actually read.
   **A control with no template gets Windows' default chrome, which ignores every palette.** The ComboBoxes
   carried a style that set only padding and font ("without rebuilding the inner template, to avoid
   unnecessary risk"), so they kept Aero's white gradient box; `DatePickerTextBox` was worse, because
