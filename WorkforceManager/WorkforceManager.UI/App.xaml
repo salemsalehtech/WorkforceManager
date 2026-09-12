@@ -57,33 +57,24 @@
                  كلها بقت جوه ملف اللوحة نفسه (Palette.Light/Dark)، عشان
                  تتبدّل مع الثيم زي باقي الألوان.
 
-                 اللي فضل هنا هو ألوان MaterialDesign بس، ولازم تفضل
-                 مباشرة لنفس السبب بالظبط — دي الطريقة الوحيدة إنها تغلب
-                 القاموس بتاع المكتبة. بس بقت بتاخد لونها من اللوحة
-                 (DynamicResource) بدل ما تكون أرقام مكتوبة بالإيد، فبتتغير
-                 مع الثيم زي أي حاجة تانية.
+                 **محاولة تانية كانت هنا (PrimaryHueMidBrush وأخواتها)
+                 واتشالت هي كمان — نفس القصة بالظبط تكررت.** كانت بتغلب
+                 اللي المكتبة بترسم بيه (CheckBox، RadioButton، تقويم
+                 DatePicker، مؤشر TabControl) بتعريف فرش بنفس أسامي
+                 الموارد القديمة اللي مكتبة MaterialDesignThemes كانت
+                 بتستخدمها. بس المكتبة (5.1.0) اتحدّثت وبقت بترسم من
+                 مفاتيح جديدة تمامًا (MaterialDesign.Brush.Primary...)،
+                 فالتجاوز القديم بقى **بيعرّف أسامي محدش بيقراها خالص** —
+                 كود ميت من يوم ما المكتبة اتحدّثت، ومحدش لاحظ لأن أغلب
+                 عناصر الواجهة معمولة بستايلات خاصة بينا مش بستايلات
+                 المكتبة الافتراضية (اللي فضل ظاهر عليه الأثر: تقويم
+                 DatePicker، طلع بالنيلي الافتراضي #3F51B5 بدل الدهبي).
 
-                 BundledTheme.PrimaryColor بياخد أسماء ألوان Material بس
-                 (مش Hex حر)، فالتحكم الحقيقي بيحصل من هنا. -->
-            <!-- الـ Primary بتاع MaterialDesign هو لون التمييز في كل
-                 عناصرها: علامة الـ CheckBox، نقطة الـ RadioButton،
-                 اليوم المختار في التقويم، مؤشر الـ TabControl. كان
-                 مربوط بالحبر — يعني في الثيم الأسود بقى **أبيض تقريبًا**
-                 (الحبر هناك #EDEDED)، فمربع الاختيار كان بيطلع مربع
-                 أبيض ناصع وسط شاشة سودا. الدهبي هو لون التمييز عندنا،
-                 فهو اللي المفروض يكون هنا. -->
-            <SolidColorBrush x:Key="PrimaryHueLightBrush" Color="{DynamicResource GoldLineColor}" />
-            <SolidColorBrush x:Key="PrimaryHueLightForegroundBrush" Color="{DynamicResource InkOnAccentColor}" />
-            <SolidColorBrush x:Key="PrimaryHueMidBrush" Color="{DynamicResource GoldColor}" />
-            <SolidColorBrush x:Key="PrimaryHueMidForegroundBrush" Color="{DynamicResource InkOnAccentColor}" />
-            <SolidColorBrush x:Key="PrimaryHueDarkBrush" Color="{DynamicResource GoldDeepColor}" />
-            <SolidColorBrush x:Key="PrimaryHueDarkForegroundBrush" Color="{DynamicResource InkOnAccentColor}" />
-            <SolidColorBrush x:Key="SecondaryHueLightBrush" Color="{DynamicResource GoldLineColor}" />
-            <SolidColorBrush x:Key="SecondaryHueLightForegroundBrush" Color="{DynamicResource InkOnAccentColor}" />
-            <SolidColorBrush x:Key="SecondaryHueMidBrush" Color="{DynamicResource GoldColor}" />
-            <SolidColorBrush x:Key="SecondaryHueMidForegroundBrush" Color="{DynamicResource InkOnAccentColor}" />
-            <SolidColorBrush x:Key="SecondaryHueDarkBrush" Color="{DynamicResource GoldDeepColor}" />
-            <SolidColorBrush x:Key="SecondaryHueDarkForegroundBrush" Color="{DynamicResource SurfaceColor}" />
+                 الإصلاح الحقيقي دلوقتي في App.xaml.cs
+                 (ApplyMaterialDesignBaseTheme) — بيضبط Theme.PrimaryLight/
+                 Mid/Dark وSecondaryLight/Mid/Dark برمجيًا بعد كل تبديل
+                 ثيم، مش هنا. XAML مينفعش يعمل ده لوحده: BundledTheme.
+                 PrimaryColor بياخد أسماء ألوان Material بس (مش Hex حر). -->
 
             <!-- ══════════════════════════════════════════════════
                  الخطوط (Typography)

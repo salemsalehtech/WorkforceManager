@@ -1,5 +1,7 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Media;
+using MaterialDesignColors;
 using MaterialDesignThemes.Wpf;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -597,14 +599,29 @@ namespace WorkforceManager.UI
         }
 
         /// <summary>
-        /// بيخلي ثيم MaterialDesign يمشي مع ثيم البرنامج.
+        /// بيخلي ثيم MaterialDesign يمشي مع ثيم البرنامج — الخلفية/السطح
+        /// (BaseTheme) **ولون التمييز** (Primary/Secondary) مع بعض.
         ///
-        /// من غير دي البرنامج بيفضل على BaseTheme="Light" المكتوب في
-        /// App.xaml مهما اتغيّرت لوحتنا — و**دي كانت أكبر مشكلة في
-        /// الوضع الليلي**: 22 ComboBox و39 DataGrid و10 DatePicker
-        /// بيرسموا نفسهم من ثيم المكتبة مش من لوحتنا، فكانوا بيطلعوا
-        /// بنص غامق على سطح غامق وقوايم منسدلة بيضا. لوحة الألوان
-        /// لوحدها عمرها ما كانت هتوصلهم.
+        /// من غير الخطوة الأولى، البرنامج بيفضل على BaseTheme="Light"
+        /// المكتوب في App.xaml مهما اتغيّرت لوحتنا — و**دي كانت أكبر
+        /// مشكلة في الوضع الليلي**: 22 ComboBox و39 DataGrid و10
+        /// DatePicker بيرسموا نفسهم من ثيم المكتبة مش من لوحتنا، فكانوا
+        /// بيطلعوا بنص غامق على سطح غامق وقوايم منسدلة بيضا.
+        ///
+        /// **الخطوة التانية (PrimaryLight/Mid/Dark) اتضافت بعد ما اتلاقى
+        /// إن التقويم بتاع DatePicker وعناصر تانية لسه بترسم بالنيلي
+        /// الافتراضي (#3F51B5) حتى بعد كل ده.** السبب: نسخة المكتبة
+        /// المستخدمة (5.1.0) بقت بترسم عناصرها من مفاتيح موارد جديدة
+        /// (MaterialDesign.Brush.Primary وأخواتها) بدل الأسماء القديمة
+        /// (PrimaryHueMidBrush...) اللي App.xaml كانت بتغلبها — فالتجاوز
+        /// القديم بقى **كود ميت من يوم ما المكتبة اتحدّثت**، ومحدش لاحظ
+        /// لأن أغلب عناصر الواجهة معمولة بستايلات خاصة بينا مش بستايلات
+        /// المكتبة الافتراضية. `PaletteHelper` مالوش طريقة تاخد Hex حر
+        /// عن طريق BundledTheme.PrimaryColor (بياخد أسماء ألوان Material
+        /// بس)، فالطريقة الصحيحة دلوقتي هي كائن Theme نفسه: PrimaryLight/
+        /// Mid/Dark وSecondaryLight/Mid/Dark كل واحد ColorPair (لون +
+        /// لون النص فوقه)، بتتقرا من نفس ألوان اللوحة الحالية (بعد
+        /// ApplyPalette فوق) فبتتقلب مع الثيم زي أي حاجة تانية.
         ///
         /// الفشل هنا مش سبب لإيقاف تبديل الثيم: أسوأ حاجة إن عناصر
         /// المكتبة تفضل بالمظهر القديم، والباقي بيتبدّل عادي.
@@ -617,6 +634,20 @@ namespace WorkforceManager.UI
                 var theme = helper.GetTheme();
 
                 theme.SetBaseTheme(darkMode ? BaseTheme.Dark : BaseTheme.Light);
+
+                // لازم تتقرا بعد ApplyPalette فوق عشان تجيب لون الثيم
+                // الحالي — الدالة دي بتتنادى من ApplyTheme اللي بيبدّل
+                // اللوحة قبلها
+                Color Palette(string key) => (Color)Application.Current.Resources[key];
+                var inkOnAccent = Palette("InkOnAccentColor");
+
+                theme.PrimaryLight = new ColorPair(Palette("GoldLineColor"), inkOnAccent);
+                theme.PrimaryMid = new ColorPair(Palette("GoldColor"), inkOnAccent);
+                theme.PrimaryDark = new ColorPair(Palette("GoldDeepColor"), inkOnAccent);
+                theme.SecondaryLight = new ColorPair(Palette("GoldLineColor"), inkOnAccent);
+                theme.SecondaryMid = new ColorPair(Palette("GoldColor"), inkOnAccent);
+                theme.SecondaryDark = new ColorPair(Palette("GoldDeepColor"), Palette("SurfaceColor"));
+
                 helper.SetTheme(theme);
             }
             catch
