@@ -1097,6 +1097,16 @@ Core  <----------------------- UI
     closes pooled connections for *every* database in the process. With `VACUUM INTO` the backup paths
     no longer need it, and it was also the cause of a 1-in-20 flaky test (`TestDatabase.Dispose` called
     it while other tests were mid-query — use `ClearPool(connection)` for one database).
+- **Creator credit**: `SettingsViewModel.AppCreditText` ("تصميم وتطوير: مهندس سالم صالح") and
+  `AppReleaseDatesText` render at the bottom of `SettingsView`, directly under `AppVersionText` and above
+  "مكان البيانات". One deliberately placed spot — not the splash screen, not the window title — chosen
+  because Settings is visited often enough to be findable but not part of daily flow. Not user-editable or
+  hideable; that was explicit. The release dates are **not read from file timestamps**: `PublishSingleFile`
+  leaves `Assembly.Location` empty, so `FirstReleaseDate`/`LatestReleaseDate` are baked in at build time as
+  `AssemblyMetadataAttribute`s from `Directory.Build.props` (`FirstReleaseDate` fixed at 2026-08-25;
+  `LatestReleaseDate` sits next to `<Version>` so both are bumped in the same edit, on the same release).
+  If the metadata is ever absent (an old build, or a stripped assembly) `AppReleaseDatesText` returns
+  empty rather than a placeholder — a blank line is less wrong than a fabricated date.
 - **Activity-log retention** (`ActivityLogService.PurgeExpiredAsync`, run once per startup from
   `App.OnStartup` **after** the backup, so anything it deletes is still in today's backup; its failure is
   swallowed — a cleanup is not a startup prerequisite). **Two windows, not one**, because this log has no
