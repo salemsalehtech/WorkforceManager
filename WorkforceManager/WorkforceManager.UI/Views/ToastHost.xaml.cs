@@ -44,6 +44,20 @@ namespace WorkforceManager.UI.Views
 
         public void Register() => Current = this;
 
+        /// <summary>
+        /// بيفك التسجيل لما نافذة الجلسة تتقفل (تسجيل خروج).
+        ///
+        /// من غيرها الـ static بيفضل ماسك حاوية نافذة مقفولة — يعني
+        /// شجرتها البصرية كلها بتفضل عايشة لحد ما جلسة جديدة تسجّل
+        /// حاوية تانية، وأي إشعار بين الاتنين كان هيروح لنافذة مش
+        /// معروضة ويضيع في صمت. الشرط (ReferenceEquals) عشان حاوية
+        /// جديدة سجّلت نفسها بالفعل ماتتشالش بالغلط.
+        /// </summary>
+        public void Unregister()
+        {
+            if (ReferenceEquals(Current, this)) Current = null;
+        }
+
         public void Show(string message, string? title, ToastKind kind)
         {
             var item = new ToastItem(message, title, kind, Remove);

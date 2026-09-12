@@ -101,18 +101,29 @@ namespace WorkforceManager.UI
                     services.AddSingleton<PayslipStripExcelService>();
 
                     // Windows / Views
-                    services.AddSingleton<MainWindow>();
+                    // **Scoped مش Singleton**: كل تسجيل دخول بيعمل نطاق
+                    // جديد (شوف StartSession)، فالنافذة وكل اللي جوّاها
+                    // بيتولدوا من أول وجديد للحساب الداخل — والخروج
+                    // بيتخلص منهم كلهم بـ Dispose واحد بدل تنظيف يدوي
+                    // بند بند كان بينسى حاجة مع كل شاشة جديدة تتضاف.
+                    // جوّه الجلسة الواحدة Scoped بتتصرف زي Singleton
+                    // بالظبط، فسلوك التنقّل الموثّق تحت مابيتغيرش.
+                    services.AddScoped<MainWindow>();
                     // الشاشات الداخلية Transient: نسخة جديدة نظيفة مع كل تنقّل
                     services.AddTransient<Views.WorkersView>();
                     services.AddTransient<ViewModels.WorkersViewModel>();
-                    // التسجيل اليومي وحدها Singleton: فيها توزيع عمال على
-                    // مراحل لسه مش محفوظ، ونسخة جديدة كل تنقّل كانت بتمسحه
-                    // لو المستخدم راح لشاشة تانية ورجع من غير حفظ. الحمل
-                    // الفعلي (استعلامات قاعدة البيانات) لسه بيحصل مرة واحدة
-                    // بس (شوف DailyEntryViewModel._initialized) — الفرق إن
-                    // الرجوع للشاشة بقى مبيعيدش بناءها من الصفر.
-                    services.AddSingleton<Views.DailyEntryView>();
-                    services.AddSingleton<ViewModels.DailyEntryViewModel>();
+                    // التسجيل اليومي وحدها Scoped مش Transient: فيها توزيع
+                    // عمال على مراحل لسه مش محفوظ، ونسخة جديدة كل تنقّل
+                    // كانت بتمسحه لو المستخدم راح لشاشة تانية ورجع من غير
+                    // حفظ. الحمل الفعلي (استعلامات قاعدة البيانات) لسه
+                    // بيحصل مرة واحدة بس (شوف DailyEntryViewModel._initialized)
+                    // — الفرق إن الرجوع للشاشة بقى مبيعيدش بناءها من الصفر.
+                    //
+                    // كانت Singleton؛ Scoped بتدّي نفس الضمانة بالظبط جوّه
+                    // الجلسة، وبتضيف إن الحساب الجديد بعد الخروج بيلاقي
+                    // شاشة نضيفة من غير ما حد يفتكر يصفّرها بإيده.
+                    services.AddScoped<Views.DailyEntryView>();
+                    services.AddScoped<ViewModels.DailyEntryViewModel>();
                     services.AddTransient<Views.ReportsView>();
                     services.AddTransient<ViewModels.ReportsViewModel>();
                     services.AddTransient<Views.ReportBuilderView>();
@@ -330,10 +341,7 @@ namespace WorkforceManager.UI
                     // متجاهَل عن قصد — شوف الكومنت فوق
                 }
 
-                var mainWindow = AppHost.Services.GetRequiredService<MainWindow>();
-                MainWindow = mainWindow;
-                ShutdownMode = ShutdownMode.OnMainWindowClose;
-                mainWindow.Show();
+                var mainWindow = StartSession();
 
                 // تذكيرات الذاكرة بعد ما النافذة تبان فعلاً: التذكير
                 // بياخدها Owner (وOwner على نافذة لسه ماتعرضتش بيرمي)،
@@ -376,6 +384,70 @@ namespace WorkforceManager.UI
         /// العادية كل مرة البرنامج بيتقفل بشكل طبيعي عن طريق زرار "حفظ
         /// نهائي" أو منع الإغلاق في MainWindow).
         /// </summary>
+        /// <summary>
+        /// نطاق الجلسة الحالية — النافذة الرئيسية وكل اللي جوّاها بيتولدوا
+        /// منه. تسجيل الخروج بيتخلص منه بالكامل، فمفيش حاجة من حساب
+        /// بتعيش لحساب بعده.
+        /// </summary>
+        private static IServiceScope? _sessionScope;
+
+        /// <summary>
+        /// بيفتح جلسة جديدة: نطاق نضيف، نافذة رئيسية جديدة منه، وعرضها.
+        ///
+        /// <see cref="ShutdownMode"/> بيترجّع لـ OnMainWindowClose هنا —
+        /// كان OnExplicitShutdown أثناء شاشة الدخول (ومن تسجيل الخروج)
+        /// عشان قفل النافذة القديمة أو إلغاء الدخول ما يقفلش البرنامج
+        /// في اللحظة الغلط.
+        /// </summary>
+        private static MainWindow StartSession()
+        {
+            _sessionScope = AppHost.Services.CreateScope();
+
+            var window = _sessionScope.ServiceProvider.GetRequiredService<MainWindow>();
+
+            Current.MainWindow = window;
+            Current.ShutdownMode = ShutdownMode.OnMainWindowClose;
+            window.Show();
+
+            return window;
+        }
+
+        /// <summary>
+        /// تسجيل خروج: بيقفل الجلسة الحالية بالكامل ويرجّع لشاشة الدخول.
+        ///
+        /// **بوابة التوقيع بتتنفّذ في المنادي قبل ما يوصل هنا** — الدالة
+        /// دي بتنفّذ الخروج مش بتقرره.
+        ///
+        /// الترتيب مهم: ShutdownMode بيتحوّل الأول، لأن قفل النافذة
+        /// الرئيسية وهو على OnMainWindowClose بيقفل البرنامج كله بدل ما
+        /// يوصل لشاشة الدخول.
+        /// </summary>
+        public static void SignOutAndRestartSession()
+        {
+            Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+            AppHost.Services.GetRequiredService<CurrentUserContext>().SignOut();
+
+            // النافذة بتتقفل فعليًا مش بتتخبى — ومعاها كل نوافذها التابعة
+            if (Current.MainWindow is { } old)
+            {
+                Current.MainWindow = null;
+                old.Close();
+            }
+
+            // ودي اللي بتصفّي الـ ViewModels والـ DbContexts بتوع الجلسة
+            _sessionScope?.Dispose();
+            _sessionScope = null;
+
+            if (new Views.LoginWindow().ShowDialog() != true)
+            {
+                Current.Shutdown();
+                return;
+            }
+
+            StartSession();
+        }
+
         /// <summary>
         /// تذكيرات خطط الذاكرة المستحقة عند بدء التشغيل — كل خطة نشطة
         /// تاريخ تذكيرها النهارده أو قبله.

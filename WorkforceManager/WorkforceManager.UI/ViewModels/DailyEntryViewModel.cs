@@ -155,21 +155,11 @@ namespace WorkforceManager.UI.ViewModels
             await LoadInitialBalanceTabAsync();
         }
 
-        /// <summary>
-        /// بيرجّع الشاشة لحالتها الأولى — لازم يتنادى عند تسجيل الخروج.
-        /// الشاشة Singleton (شوف توثيق _initialized فوق)، فمن غير الدالة
-        /// دي حساب إداري تاني بيدخل بعد كده كان هيلاقي رحلة إنتاج لسه
-        /// من غير حفظ سابها الحساب اللي قبله — والبرنامج بالتصميم بيسمح
-        /// بأكتر من حساب إداري يستخدموا نفس الجهاز في نفس الشيفت.
-        /// </summary>
-        public void ResetForNewSession()
-        {
-            // مسح الرحلات بيشيل معاه أي ترتيب خطة كان مسلّح عليها
-            // (شوف FlowSessionViewModel._memoryStageOrder)
-            FlowSessions.Clear();
-            _initialized = false;
-            EntryDate = DateTime.Today;
-        }
+        // ResetForNewSession اتشالت: كانت بتصفّر الشاشة بإيدها عند تسجيل
+        // الخروج لأن الـ ViewModel كانت Singleton وبتعيش عبر الحسابات.
+        // بقت Scoped على نطاق الجلسة (شوف App.StartSession)، فالحساب
+        // الجديد بياخد نسخة جديدة أصلاً — والتصفير اليدوي بقى لا لزوم له،
+        // وكان هيفضل ناقص أول ما حد يضيف حالة جديدة وينسى يصفّرها هناك.
 
         /// <summary>
         /// بيفتح الشاشة على منتج خطة ذاكرة بترتيب مراحلها.

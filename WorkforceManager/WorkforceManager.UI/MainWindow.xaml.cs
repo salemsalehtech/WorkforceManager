@@ -25,9 +25,17 @@ namespace WorkforceManager.UI
     {
         private readonly CurrentUserContext _currentUser;
 
-        public MainWindow(CurrentUserContext currentUser)
+        /// <summary>
+        /// نطاق الجلسة اللي النافذة دي جزء منه. الشاشات بتتطلب منه مش من
+        /// الجذر، عشان تموت مع الجلسة لما المستخدم يسجّل خروج — ده اللي
+        /// بيخلي الحساب الجديد يلاقي شاشات نضيفة من غير تنظيف يدوي.
+        /// </summary>
+        private readonly IServiceProvider _session;
+
+        public MainWindow(CurrentUserContext currentUser, IServiceProvider session)
         {
             _currentUser = currentUser;
+            _session = session;
 
             InitializeComponent();
 
@@ -47,10 +55,14 @@ namespace WorkforceManager.UI
             SourceInitialized += (_, _) => WindowChromeColors.Apply(this);
 
             // الشاشة الافتراضية عند فتح البرنامج: شاشة العمال
-            MainContent.Content = App.AppHost.Services.GetRequiredService<WorkersView>();
+            MainContent.Content = _session.GetRequiredService<WorkersView>();
 
             // مايتقفلش من غير توقيع نهاية اليوم — شوف MainWindow_Closing
             Closing += MainWindow_Closing;
+
+            // الحاوية بتفك تسجيلها مع النافذة: الجلسة بتتقفل فعليًا عند
+            // تسجيل الخروج، والـ static كان هيفضل ماسك حاوية ميتة
+            Closed += (_, _) => Toasts.Unregister();
 
             // التخطيط بيتصغّر لو الشاشة أضيق من مساحة التصميم — شوف ApplyUiScale
             SizeChanged += (_, _) => ApplyUiScale();
@@ -235,31 +247,47 @@ namespace WorkforceManager.UI
         /// البرنامج (LoginWindow.Close_Click)، فالبرنامج بيقفل بدل ما
         /// يفضل واقف من غير حد داخل بيه.
         /// </summary>
-        private void Logout_Click(object sender, RoutedEventArgs e)
+        private async void Logout_Click(object sender, RoutedEventArgs e)
         {
             if (!Notify.Ask("تسجيل الخروج من الحساب الحالي؟", "تأكيد")) return;
 
-            _currentUser.SignOut();
+            // نفس حارس معالج الإغلاق: ضغطتين سريعتين كانوا هيفتحوا فلوين
+            if (_closeFlowRunning) return;
+            _closeFlowRunning = true;
 
-            var login = new LoginWindow();
-            if (login.ShowDialog() != true)
+            try
             {
-                Application.Current.Shutdown();
-                return;
+                // **نفس بوابة إغلاق البرنامج بالظبط** — تسجيل الخروج
+                // بيسيب الجهاز لحساب تاني، فاليوم اللي مش موقّع بيضيع
+                // مسؤوليته زي ما بيضيع لما البرنامج يتقفل
+                if (!await RunFinalSaveFlowAsync(SignOffTrigger.Logout)) return;
+            }
+            finally
+            {
+                _closeFlowRunning = false;
             }
 
-            ShowIdentity();
-            RefreshActivityBadge(); // الحساب الجديد ممكن يكون له عدد مختلف تمامًا
+            // البوابة عدّت — النافذة بتتقفل جوه SignOutAndRestartSession،
+            // ومعالج Closing مالوش داعي يسأل تاني
+            _closeConfirmed = true;
 
-            // شاشة التسجيل اليومي Singleton (عشان رجوعك لها من شاشة تانية
-            // ميمسحش رحلة لسه مش محفوظة) — من غيرها هنا، الحساب الجديد
-            // كان هيلاقي رحلة الحساب اللي فات لسه واقفة على الشاشة
-            App.AppHost.Services.GetRequiredService<ViewModels.DailyEntryViewModel>().ResetForNewSession();
+            App.SignOutAndRestartSession();
+        }
 
-            // الرجوع للشاشة الافتراضية بدل ما يفضل واقف على شاشة ممكن
-            // ماعادش مسموح للحساب الجديد يشوفها (زي الحسابات الإدارية)
-            NavWorkersItem.IsChecked = true;
-            MainContent.Content = App.AppHost.Services.GetRequiredService<WorkersView>();
+        /// <summary>
+        /// مين طلب التوقيع. بيغيّر رسالة الرفض بس — المنطق واحد للتلاتة
+        /// (شوف <see cref="RunFinalSaveFlowAsync"/>).
+        /// </summary>
+        private enum SignOffTrigger
+        {
+            /// <summary>زرار "حفظ نهائي" — المستخدم طالب الفلو بنفسه</summary>
+            Button,
+
+            /// <summary>محاولة قفل البرنامج</summary>
+            WindowClose,
+
+            /// <summary>تسجيل خروج — بيسيب الجهاز لحساب تاني</summary>
+            Logout
         }
 
         private static bool HasArabic(string text) =>
@@ -268,35 +296,35 @@ namespace WorkforceManager.UI
         private void NavWorkers_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return; // بيحصل مرة واحدة أثناء تهيئة النافذة
-            MainContent.Content = App.AppHost.Services.GetRequiredService<WorkersView>();
+            MainContent.Content = _session.GetRequiredService<WorkersView>();
             RefreshActivityBadge();
         }
 
         private void NavProducts_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
-            MainContent.Content = App.AppHost.Services.GetRequiredService<ProductsView>();
+            MainContent.Content = _session.GetRequiredService<ProductsView>();
             RefreshActivityBadge();
         }
 
         private void NavDailyEntry_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
-            MainContent.Content = App.AppHost.Services.GetRequiredService<DailyEntryView>();
+            MainContent.Content = _session.GetRequiredService<DailyEntryView>();
             RefreshActivityBadge();
         }
 
         private void NavEvaluation_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
-            MainContent.Content = App.AppHost.Services.GetRequiredService<ReportsView>();
+            MainContent.Content = _session.GetRequiredService<ReportsView>();
             RefreshActivityBadge();
         }
 
         private void NavReports_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
-            MainContent.Content = App.AppHost.Services.GetRequiredService<ReportBuilderView>();
+            MainContent.Content = _session.GetRequiredService<ReportBuilderView>();
             RefreshActivityBadge();
         }
 
@@ -310,26 +338,26 @@ namespace WorkforceManager.UI
         {
             if (MainContent is null) return;
 
-            var view = App.AppHost.Services.GetRequiredService<DailyEntryView>();
+            var view = _session.GetRequiredService<DailyEntryView>();
             MainContent.Content = view;
             NavDailyEntryItem.IsChecked = true;
             RefreshActivityBadge();
 
-            await App.AppHost.Services.GetRequiredService<ViewModels.DailyEntryViewModel>()
+            await _session.GetRequiredService<ViewModels.DailyEntryViewModel>()
                 .StartFromMemoryAsync(productId, stageOrder);
         }
 
         private void NavMemory_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
-            MainContent.Content = App.AppHost.Services.GetRequiredService<MemoryView>();
+            MainContent.Content = _session.GetRequiredService<MemoryView>();
             RefreshActivityBadge();
         }
 
         private void NavActivityLog_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
-            MainContent.Content = App.AppHost.Services.GetRequiredService<ActivityLogView>();
+            MainContent.Content = _session.GetRequiredService<ActivityLogView>();
             // فتح الشاشة بيصفّر آخر وقت مشاهدة جوه الـ ViewModel نفسها؛
             // الرجوع هنا بعد شوية (تنقّل تاني) هو اللي بيعرض الصفر فعليًا
             RefreshActivityBadge();
@@ -338,14 +366,14 @@ namespace WorkforceManager.UI
         private void NavSettings_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
-            MainContent.Content = App.AppHost.Services.GetRequiredService<SettingsView>();
+            MainContent.Content = _session.GetRequiredService<SettingsView>();
             RefreshActivityBadge();
         }
 
         private void NavDepartmentAccounts_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
-            MainContent.Content = App.AppHost.Services.GetRequiredService<DepartmentAccountsView>();
+            MainContent.Content = _session.GetRequiredService<DepartmentAccountsView>();
             RefreshActivityBadge();
         }
 
@@ -399,7 +427,7 @@ namespace WorkforceManager.UI
             {
                 try
                 {
-                    if (await RunFinalSaveFlowAsync(fromCloseAttempt: true))
+                    if (await RunFinalSaveFlowAsync(SignOffTrigger.WindowClose))
                     {
                         _closeConfirmed = true;
                         Close();
@@ -422,15 +450,15 @@ namespace WorkforceManager.UI
 
         /// <summary>
         /// فلو "حفظ نهائي" الكامل: باسورد → مراجعة كل حاجة حصلت النهارده
-        /// → توقيع. مشترك بين زرار القائمة الجانبية ومعالج الإغلاق عشان
-        /// الاتنين يمشوا بنفس المسار بالظبط ونفس الرسايل.
+        /// → توقيع. **بوابة واحدة بتتنادى من تلات أماكن** (الزرار، محاولة
+        /// الإغلاق، تسجيل الخروج) عشان التلاتة يمشوا بنفس المسار بالظبط
+        /// — نسخة تانية من نفس الفحص كانت هتفترق عن دي أول تعديل.
+        ///
+        /// اللي بيفرق حسب المشغّل هو **رسالة الرفض بس**: المستخدم لازم
+        /// يفهم ليه الحاجة اللي طلبها ما حصلتش، مش يشوف ديالوج ظهر فجأة.
         /// </summary>
-        /// <param name="fromCloseAttempt">
-        /// جاي من محاولة إغلاق مش من الزرار — بيخلي البرنامج يوضّح
-        /// للمستخدم ليه النافذة ما اتقفلتش، بدل ما ديالوج يظهر فجأة.
-        /// </param>
         /// <returns>النهارده بقى مغطّى بتوقيع (سواء دلوقتي أو من قبل)؟</returns>
-        private async Task<bool> RunFinalSaveFlowAsync(bool fromCloseAttempt = false)
+        private async Task<bool> RunFinalSaveFlowAsync(SignOffTrigger trigger = SignOffTrigger.Button)
         {
             var today = DateTime.Today;
 
@@ -447,10 +475,17 @@ namespace WorkforceManager.UI
                 pending = (await signOff.GetActivitySinceLastSignOffAsync(today)).ToList();
             }
 
-            if (fromCloseAttempt)
+            // الزرار مالوش رسالة: المستخدم هو اللي طلب الفلو، فالديالوج
+            // اللي جاي هو الرد. الاتنين التانيين لازم يتقالهم ليه الحاجة
+            // اللي طلبوها اتوقفت
+            if (trigger is SignOffTrigger.WindowClose)
                 Notify.Warn(
                     "فيه شغل النهارده لسه ما اتوقّعش عليه. لازم \"حفظ نهائي\" الأول قبل ما تقفل البرنامج.",
                     "مش هينفع تقفل");
+            else if (trigger is SignOffTrigger.Logout)
+                Notify.Warn(
+                    "فيه شغل النهارده لسه ما اتوقّعش عليه. لازم \"حفظ نهائي\" الأول قبل ما تسجّل خروج.",
+                    "مش هينفع تسجّل خروج");
 
             using var gateScope = App.AppHost.Services.CreateScope();
             var gate = gateScope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
