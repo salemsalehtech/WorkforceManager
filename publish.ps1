@@ -44,7 +44,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root    = $PSScriptRoot
-$sln     = Join-Path $root 'WorkforceManager'
+# الحل والمشاريع في جذر الريبو مباشرة (مكانوش في مجلد WorkforceManager
+# جوّه الجذر) — $sln باقي كمتغير منفصل عشان باقي السكربت ما يتغيّرش
+$sln     = $root
 $proj    = Join-Path $sln  'WorkforceManager.UI\WorkforceManager.UI.csproj'
 $dist    = Join-Path $root 'dist'
 $assets  = Join-Path $root 'publish-assets'

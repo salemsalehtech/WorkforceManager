@@ -60,7 +60,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 
 OutputDir={#OutDir}
 OutputBaseFilename=WorkforceManager-Setup-v{#AppVersion}
-SetupIconFile=..\WorkforceManager\WorkforceManager.UI\Assets\app.ico
+SetupIconFile=..\WorkforceManager.UI\Assets\app.ico
 UninstallDisplayIcon={app}\{#AppExeName}
 UninstallDisplayName={#AppName}
 

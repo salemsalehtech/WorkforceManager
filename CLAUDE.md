@@ -9,11 +9,16 @@ skills, products and their manufacturing stages, daily piece-production entry (w
 calculation), attendance, and performance evaluation vs. team average. All in-code comments and docs are
 written in Arabic — follow that convention when editing existing files.
 
-The solution root is `WorkforceManager/` (contains `WorkforceManager.sln`), one level below the repo root.
+**`WorkforceManager.sln` and the six projects sit at the repo root**, next to `publish.ps1`, `clean.ps1`,
+`installer/` and `publish-assets/`. They used to live one level down in a `WorkforceManager/` folder; that
+extra level bought nothing (the repo holds exactly one solution) and hid everything behind a click on
+GitHub — including the README, which GitHub only renders on the landing page when it is at the root.
+`publish.ps1`/`clean.ps1` keep a `$sln` variable that is now just `$PSScriptRoot`, so the rest of both
+scripts stayed untouched.
 
 ## Commands
 
-Run from inside the `WorkforceManager/` folder (where the `.sln` lives):
+Run from the repo root (where the `.sln` lives):
 
 ```bash
 dotnet restore
@@ -31,7 +36,7 @@ dotnet run --project WorkforceManager.UI
 dotnet build
 ```
 
-From the **repo root** (one level above the `.sln`):
+Also from the repo root (same folder — the packaging scripts live next to the `.sln`):
 
 ```powershell
 # build the distributable — wipes dist/ first, so only ONE copy ever exists
@@ -92,7 +97,7 @@ builder, the production chart (day/week/month + scrap), payslip strips, **backup
 safety**, fresh-install seeding, **the installed-mode data path and the one-time legacy migration**,
 **daily operations sign-off** (the unsigned-past-dates gap calculation, the automatic cutover seed, and
 which `SensitiveAction`s still gate immediately), and the removed-field guards — run with `dotnet test`
-from the `WorkforceManager/` folder. It spins up a real SQLite file DB per test (`TestDatabase`), not the
+from the repo root. It spins up a real SQLite file DB per test (`TestDatabase`), not the
 EF InMemory provider, because the concurrency tests need SQLite's actual write lock. `TestDatabase` mirrors
 the DI registrations from `App.xaml.cs`, so a service added there but not here fails the tests on purpose.
 

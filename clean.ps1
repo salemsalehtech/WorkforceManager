@@ -19,7 +19,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$sln  = Join-Path $root 'WorkforceManager'
+# الحل والمشاريع في جذر الريبو مباشرة — شوف نفس الملاحظة في publish.ps1
+$sln  = $root
 
 function Get-FolderMB {
     param([string]$Path)
