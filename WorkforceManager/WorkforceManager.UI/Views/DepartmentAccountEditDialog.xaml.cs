@@ -44,6 +44,7 @@ namespace WorkforceManager.UI.Views
             };
             RoleBox.SelectedIndex = 0;
             RoleBox.IsEnabled = !restrictToSelf;
+            WageBox.IsEnabled = !restrictToSelf;
 
             if (_isEditMode)
             {

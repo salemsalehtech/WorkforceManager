@@ -176,9 +176,17 @@ namespace WorkforceManager.UI.ViewModels
 
             try
             {
+                // دفاع إضافي — المسمّى وسعر اليومية مقفولين في الديالوج
+                // (WageBox.IsEnabled/RoleBox.IsEnabled = !restrictToSelf)
+                // لتعديل ذاتي، بس مايتاعتمدش على قفل الواجهة بس: لو حصل
+                // فيه أي تلاعب بالقيمة المرجوعة من الديالوج، القيمة
+                // الأصلية (row) هي اللي بتتبعت مش أي حاجة تانية
+                var role = restrictFields ? row.Role : dialog.Role;
+                var dailyWage = restrictFields ? row.DailyWageEgp : dialog.DailyWageEgp;
+
                 await mgmt.UpdateWorkerAsync(
                     row.WorkerId, dialog.AccountName, dialog.PhoneNumber,
-                    hourlyRole: dialog.Role, dailyWageEgp: dialog.DailyWageEgp);
+                    hourlyRole: role, dailyWageEgp: dailyWage);
 
                 if (dialog.PhotoChanged)
                     await mgmt.SetWorkerPhotoAsync(row.WorkerId, dialog.PhotoData);

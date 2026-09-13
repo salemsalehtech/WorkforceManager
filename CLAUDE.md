@@ -1063,6 +1063,27 @@ Core  <----------------------- UI
   periods for every worker — there's no per-entity "own creation date" that a shared cursor could skip.
   Both `WeeklySummaryService` and `WorkerRecognitionRules` independently exclude department accounts and
   hourly workers from eligibility (see above), so a manager account can never win a production title.
+  **A department head's self-edit ("تعديل بياناتي") only locked the role field, not the wage field, even
+  though the class's own doc comment named both** ("المسمّى وسعر اليومية مقفولين... تغيير سعر يوميته =
+  زيادة راتب لنفسه" — role and wage are locked, changing your own wage rate is a self-raise).
+  `DepartmentAccountEditDialog`'s constructor set `RoleBox.IsEnabled = !restrictToSelf` but never touched
+  `WageBox.IsEnabled` — a head editing their own profile could freely retype their own daily wage, and
+  `DepartmentAccountsViewModel.EditAccountAsync` passed it straight to `WorkerManagementService.
+  UpdateWorkerAsync` with no operations-password argument at all. Whether that actually reached the
+  database depended entirely on whether the factory had configured an operations password:
+  `OperationsPasswordService.VerifyAsync` returns `IsAllowed = true` when none is configured (a
+  deliberate, documented trade-off — "البوابة مفتوحة... قفلها فجأة كان هيوقف المصنع" — so pre-existing
+  installs aren't locked out by a feature added later), which is also the exact state the Settings screen
+  itself warns about ("⚠ مش متسجّلة — أي حد يقعد على الجهاز يقدر... يعدّل الأجور من غير أي تأكيد"). So an
+  uninitialized/no-ops-password install let a head silently set their own pay; a configured one refused
+  the save with a confusing generic error instead of ever disabling the field. Fixed by disabling
+  `WageBox` the same way `RoleBox` already was, **plus** a ViewModel-level clamp
+  (`restrictFields ? row.DailyWageEgp/Role : dialog.DailyWageEgp/Role`) so the persisted value never
+  depends on the dialog's returned value alone for a self-edit — matching the "re-check even though the
+  button is already hidden" defense-in-depth already used everywhere else in this same ViewModel. Neither
+  field had any test coverage before this (`WorkforceManager.UiTests` had zero references to this dialog);
+  `DepartmentAccountEditDialogTests` now asserts both fields lock together for a self-edit and both stay
+  editable for an admin edit.
 - `WorkdayCalculationService.Update/DeleteProductionAsync` edit rows freely. They used to refuse rows
   belonging to a batch because quantity and line position could desync; with numbers derived from the
   rows themselves, correcting a row corrects every report that depends on it.
