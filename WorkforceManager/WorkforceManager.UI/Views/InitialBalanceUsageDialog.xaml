@@ -28,7 +28,7 @@
             </Border>
 
             <StackPanel Margin="24,20,24,22">
-                <TextBlock x:Name="BalanceText" FontWeight="Bold" Margin="0,0,0,6" TextWrapping="Wrap" />
+                <TextBlock x:Name="BalanceText" FontWeight="Bold" Margin="0,0,0,6" TextWrapping="Wrap"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock x:Name="RangeText" FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,4" TextWrapping="Wrap" />
                 <TextBlock x:Name="RemainingText" FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,12" />
 

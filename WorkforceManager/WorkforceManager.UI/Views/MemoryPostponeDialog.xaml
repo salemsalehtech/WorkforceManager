@@ -39,7 +39,7 @@
                             Tag="7" Click="Quick_Click" Content="بعد أسبوع" />
                 </WrapPanel>
 
-                <TextBlock Text="أو اختار يوم" FontWeight="Bold" FontSize="12.5" Margin="0,8,0,4" />
+                <TextBlock Text="أو اختار يوم" FontWeight="Bold" FontSize="12.5" Margin="0,8,0,4"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <DatePicker x:Name="DatePick" FontSize="13.5" />
 
                 <Border x:Name="ErrorBox" Background="{DynamicResource DangerBgBrush}" CornerRadius="7"

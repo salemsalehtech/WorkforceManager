@@ -38,7 +38,7 @@
                             <TextBlock x:Name="ToggleWorkersButtonText" Text="عرض العمال" Margin="5,0,0,0" />
                         </StackPanel>
                     </Button>
-                    <TextBlock x:Name="TitleText" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    <TextBlock x:Name="TitleText" FontWeight="Bold" TextWrapping="Wrap" VerticalAlignment="Center"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                 </DockPanel>
                 <TextBlock x:Name="SummaryText" FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,12" />
 
@@ -58,7 +58,7 @@
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="{Binding Headline}" FontWeight="Bold" />
+                                            <TextBlock Text="{Binding Headline}" FontWeight="Bold"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             <TextBlock Text="{Binding Details}" FontSize="12.2" Margin="0,2,0,0"
                                                        Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
                                             <TextBlock Text="{Binding QuantityText}" FontSize="11.5" Margin="0,4,0,0"

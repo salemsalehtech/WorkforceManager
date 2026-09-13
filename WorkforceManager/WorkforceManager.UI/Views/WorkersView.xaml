@@ -48,19 +48,19 @@
 
                 <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
                     <TextBlock Style="{DynamicResource Muted}">
-                        <Run Text="{Binding ActiveCount, Mode=OneWay}" FontWeight="Bold" /><Run Text=" عامل نشط" />
+                        <Run Text="{Binding ActiveCount, Mode=OneWay}" FontWeight="Bold"  Foreground="{DynamicResource TextPrimaryBrush}"/><Run Text=" عامل نشط" />
                     </TextBlock>
 
                     <TextBlock Text="·" Margin="8,0" Foreground="{DynamicResource InkFaintBrush}" />
 
                     <TextBlock Style="{DynamicResource Muted}">
-                        <Run Text="{Binding HourlyCount, Mode=OneWay}" FontWeight="Bold" /><Run Text=" بالساعة" />
+                        <Run Text="{Binding HourlyCount, Mode=OneWay}" FontWeight="Bold"  Foreground="{DynamicResource TextPrimaryBrush}"/><Run Text=" بالساعة" />
                     </TextBlock>
 
                     <TextBlock Text="·" Margin="8,0" Foreground="{DynamicResource InkFaintBrush}" />
 
                     <TextBlock Style="{DynamicResource Muted}">
-                        <Run Text="{Binding InactiveCount, Mode=OneWay}" FontWeight="Bold" /><Run Text=" موقوف" />
+                        <Run Text="{Binding InactiveCount, Mode=OneWay}" FontWeight="Bold"  Foreground="{DynamicResource TextPrimaryBrush}"/><Run Text=" موقوف" />
                     </TextBlock>
 
                     <!-- المحتاجين انتباه: زرار مش نص، لأنه بيعمل حاجة -->
@@ -83,7 +83,7 @@
                                                      VerticalAlignment="Center" />
                             <TextBlock Margin="5,0,0,0" FontSize="{DynamicResource FontTiny}"
                                        VerticalAlignment="Center">
-                                <Run Text="{Binding NeedsAttentionCount, Mode=OneWay}" FontWeight="Bold" /><Run Text=" محتاج انتباه" />
+                                <Run Text="{Binding NeedsAttentionCount, Mode=OneWay}" FontWeight="Bold"  Foreground="{DynamicResource TextPrimaryBrush}"/><Run Text=" محتاج انتباه" />
                             </TextBlock>
                         </StackPanel>
                     </Button>
@@ -353,7 +353,7 @@
                         <!-- مدة مخصوصة: تاريخين بدل السهمين -->
                         <StackPanel Orientation="Horizontal"
                                     Visibility="{Binding IsPeriodCustom, Converter={StaticResource BoolToVis}}">
-                            <TextBlock Text="من" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBlock Text="من" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                             <DatePicker SelectedDate="{Binding CustomFrom}" Width="140" VerticalAlignment="Center" />
                             <TextBlock Text="لحد" VerticalAlignment="Center" Margin="10,0,6,0" />
                             <DatePicker SelectedDate="{Binding CustomTo}" Width="140" VerticalAlignment="Center" />
@@ -934,7 +934,7 @@
                                     </StackPanel>
                                 </Button>
                                 <TextBlock Text="المهارات (المراحل اللي بيعرف يعملها)" FontWeight="Bold"
-                                           VerticalAlignment="Center" Margin="0,0,8,0" />
+                                           VerticalAlignment="Center" Margin="0,0,8,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                             </DockPanel>
 
                             <!-- شريط أدوات: بحث في مهاراته + فتح/قفل الكل -->
@@ -1259,7 +1259,7 @@
                                                                                        HorizontalAlignment="Center" VerticalAlignment="Center">
                                                                                 <TextBlock.Style>
                                                                                     <Style TargetType="TextBlock">
-                                                                                        <Setter Property="Foreground" Value="{DynamicResource SidebarInkBrush}" />
+                                                                                        <Setter Property="Foreground" Value="{DynamicResource SidebarInkBrush}"/>
                                                                                         <Style.Triggers>
                                                                                             <DataTrigger Binding="{Binding IsKnown}" Value="True">
                                                                                                 <Setter Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
@@ -1448,7 +1448,7 @@
 
 
                             <!-- ===== الهستوري الأسبوعي: كارت لكل أسبوع، بيتفتح على تفاصيله ===== -->
-                            <TextBlock Text="الهستوري الأسبوعي (آخر 8 أسابيع)" FontWeight="Bold" Margin="0,10,0,6" />
+                            <TextBlock Text="الهستوري الأسبوعي (آخر 8 أسابيع)" FontWeight="Bold" Margin="0,10,0,6"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <ItemsControl ItemsSource="{Binding WeeklyHistory}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>

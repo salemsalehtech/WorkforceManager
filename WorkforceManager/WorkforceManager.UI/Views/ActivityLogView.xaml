@@ -27,9 +27,9 @@
                 </StackPanel>
 
                 <WrapPanel>
-                    <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" />
+                    <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     <DatePicker SelectedDate="{Binding FromDate}" Width="130" FontSize="12.5" />
-                    <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" />
+                    <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                     <DatePicker SelectedDate="{Binding ToDate}" Width="130" FontSize="12.5" />
 
                     <Button Command="{Binding LoadCommand}" Style="{StaticResource PrimaryButton}"

@@ -31,14 +31,14 @@
                                Foreground="{DynamicResource TextMutedBrush}"
                                Text="اكتب المنتج اللي ناوي تعمله وترتيب مراحله، والبرنامج هيفكّرك في اليوم اللي تحدده." />
 
-                    <TextBlock Text="المنتج" FontWeight="Bold" FontSize="12.5" Margin="0,0,0,4" />
+                    <TextBlock Text="المنتج" FontWeight="Bold" FontSize="12.5" Margin="0,0,0,4"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <ComboBox ItemsSource="{Binding Products}"
                               SelectedItem="{Binding SelectedProduct}"
                               DisplayMemberPath="ProductName"
                               FontSize="13.5" Padding="8,6"
                               materialDesign:HintAssist.Hint="اختار المنتج" />
 
-                    <TextBlock Text="ترتيب المراحل" FontWeight="Bold" FontSize="12.5" Margin="0,14,0,4" />
+                    <TextBlock Text="ترتيب المراحل" FontWeight="Bold" FontSize="12.5" Margin="0,14,0,4"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="9" Padding="12,10">
                         <StackPanel>
                             <TextBlock Text="{Binding StageOrderSummary}" TextWrapping="Wrap" FontSize="12.5"
@@ -56,10 +56,10 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Text="فكّرني يوم" FontWeight="Bold" FontSize="12.5" Margin="0,14,0,4" />
+                    <TextBlock Text="فكّرني يوم" FontWeight="Bold" FontSize="12.5" Margin="0,14,0,4"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <DatePicker SelectedDate="{Binding RemindOn}" FontSize="13.5" />
 
-                    <TextBlock Text="ملاحظات" FontWeight="Bold" FontSize="12.5" Margin="0,14,0,4" />
+                    <TextBlock Text="ملاحظات" FontWeight="Bold" FontSize="12.5" Margin="0,14,0,4"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
                              AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90"
                              VerticalScrollBarVisibility="Auto" Padding="8,6" FontSize="13"

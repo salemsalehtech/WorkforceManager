@@ -40,7 +40,7 @@
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="CalendarBlankOutline" Width="17" Height="17"
                                              Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <DatePicker SelectedDate="{Binding EntryDate}" Width="160" VerticalAlignment="Center" />
                 </StackPanel>
             </DockPanel>
@@ -153,7 +153,7 @@
                                             <!-- رأس الرحلة: اختيار المنتج + إزالة الرحلة -->
                                             <DockPanel Grid.Row="0" Margin="0,0,0,8">
                                                 <TextBlock DockPanel.Dock="Left" Text="المنتج:" FontWeight="Bold"
-                                                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                           VerticalAlignment="Center" Margin="0,0,6,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding Products}"
                                                           SelectedItem="{Binding SelectedProduct}"
                                                           DisplayMemberPath="Name" Width="200" />
@@ -371,7 +371,7 @@
                                                                             </Border>
 
                                                                             <TextBlock Text="{Binding StageName}" FontWeight="Bold" FontSize="14"
-                                                                                       VerticalAlignment="Center" Margin="8,0,0,0" />
+                                                                                       VerticalAlignment="Center" Margin="8,0,0,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
 
                                                                             <!-- مرحلة رص إدارية: بلا نطاق/قطع، عاملها بيتحط تاج بيومية مباشرة -->
                                                                             <Border Background="{DynamicResource InfoBgBrush}" CornerRadius="4"
@@ -664,10 +664,10 @@
                                                                             CornerRadius="6" Padding="8,6" Margin="0,0,0,6">
                                                                         <StackPanel>
                                                                             <StackPanel Orientation="Horizontal">
-                                                                                <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" />
+                                                                                <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                                                                                 <ComboBox ItemsSource="{Binding StageOptions}" SelectedItem="{Binding FromStage}"
                                                                                           DisplayMemberPath="Display" Width="120" FontSize="12" />
-                                                                                <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" />
+                                                                                <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                                                                                 <ComboBox ItemsSource="{Binding StageOptions}" SelectedItem="{Binding ToStage}"
                                                                                           DisplayMemberPath="Display" Width="120" FontSize="12" />
                                                                             </StackPanel>
@@ -799,12 +799,18 @@
                                         <TextBlock Text="رصيد أولي جديد" Margin="6,0,0,0" />
                                     </StackPanel>
                                 </Button>
-                                <ToggleButton Style="{StaticResource StatusChip}" Margin="10,0,0,0"
+                                <ToggleButton Style="{StaticResource ToolbarToggle}" Margin="10,0,0,0"
                                               IsChecked="{Binding IsShowingInitialBalanceHistory}"
                                               ToolTip="الأرصدة اللي كملت باستخدامها بالكامل">
+                                    <!-- ToolbarToggle مش StatusChip: قالب StatusChip بيقرا Icon/Display/AccentColor
+                                         من الـ DataContext بس (لعناصر ItemsControl زي StatusChoices تحت)،
+                                         وبيتجاهل أي Content حرفي زي ده خالص. ClipboardTextClockOutline بدل
+                                         ArchiveOutline: نفس أيقونة "السجل" في باقي البرنامج (سجل العمليات) —
+                                         "أرشيف" مالوش علاقة بصرية بمعنى سجل تاريخي زي الساعة/اللوح دي -->
                                     <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="ArchiveOutline" Width="14" Height="14" VerticalAlignment="Center" />
-                                        <TextBlock Text="السجل" Margin="5,0,0,0" />
+                                        <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="14" Height="14"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
+                                        <TextBlock Text="السجل" Margin="5,0,0,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                                     </StackPanel>
                                 </ToggleButton>
                             </StackPanel>
@@ -827,7 +833,7 @@
 
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="16,0,16,0"
                                         VerticalAlignment="Center">
-                                <TextBlock Text="المنتج:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="المنتج:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <ComboBox ItemsSource="{Binding Products}"
                                           SelectedItem="{Binding SelectedInitialBalanceProduct}"
                                           DisplayMemberPath="Name" Width="200" VerticalAlignment="Center" />
@@ -1048,7 +1054,7 @@
                                        VerticalAlignment="Center" Margin="10,0,0,0"
                                        Foreground="{DynamicResource TextMutedBrush}" />
 
-                            <TextBlock Text="المنتج:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <TextBlock Text="المنتج:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <ComboBox ItemsSource="{Binding RecordsProductOptions}"
                                       SelectedItem="{Binding SelectedRecordsProduct}"
                                       DisplayMemberPath="Display" Width="200" VerticalAlignment="Center" />
@@ -1553,7 +1559,7 @@
                                 <TextBlock Text="المبلغ:" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 <TextBox Text="{Binding AdjustmentAmount, UpdateSourceTrigger=PropertyChanged}"
                                          Width="110" Padding="8,6" VerticalAlignment="Center" />
-                                <TextBlock Text="ج" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="Bold" />
+                                <TextBlock Text="ج" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="Bold"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                             </StackPanel>
                             <DockPanel Margin="0,8,0,0">
                                 <Button DockPanel.Dock="Left" Command="{Binding AddAdjustmentCommand}"

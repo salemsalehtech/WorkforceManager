@@ -75,7 +75,7 @@
                                                      VerticalAlignment="Center"
                                                      Foreground="{DynamicResource GoldDeepBrush}" />
                             <TextBlock Text="قالب جاهز:" FontWeight="Bold" FontSize="13"
-                                       VerticalAlignment="Center" Margin="6,0,10,0" />
+                                       VerticalAlignment="Center" Margin="6,0,10,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
                                       DisplayMemberPath="Name" Width="200" FontSize="12.5"
                                       ToolTip="بيملّي الاختيارات تحت — تقدر تعدّل عليها بعدها عادي" />

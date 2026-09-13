@@ -50,7 +50,7 @@
                 </Border>
 
                 <StackPanel x:Name="PasswordSection">
-                    <TextBlock Text="كلمة سر العمليات" FontWeight="Bold" FontSize="12.5" Margin="0,0,0,4" />
+                    <TextBlock Text="كلمة سر العمليات" FontWeight="Bold" FontSize="12.5" Margin="0,0,0,4"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <PasswordBox x:Name="PasswordBox" Padding="8,6" FontSize="14" />
                 </StackPanel>
 

@@ -99,7 +99,7 @@
 
                 <!-- بيانات الدخول: يوزر + باسورد خاصين بالحساب ده -->
                 <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,0,0,14" />
-                <TextBlock Text="بيانات الدخول" Style="{StaticResource FieldLabel}" FontWeight="Bold" Margin="0,0,0,8" />
+                <TextBlock Text="بيانات الدخول" Style="{StaticResource FieldLabel}" FontWeight="Bold" Margin="0,0,0,8"  Foreground="{DynamicResource TextPrimaryBrush}"/>
 
                 <TextBlock Text="اسم الدخول" Style="{StaticResource FieldLabel}" />
                 <TextBox x:Name="UsernameBox" Margin="0,0,0,12" />
@@ -120,7 +120,7 @@
                 <!-- كلمة سر العمليات: منفصلة تمامًا عن كلمة الدخول —
                      بتتطلب قبل الحذف وتعديل الأجور والجزاءات بس -->
                 <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,0,0,14" />
-                <TextBlock Text="كلمة سر العمليات" Style="{StaticResource FieldLabel}" FontWeight="Bold" Margin="0,0,0,4" />
+                <TextBlock Text="كلمة سر العمليات" Style="{StaticResource FieldLabel}" FontWeight="Bold" Margin="0,0,0,4"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Text="منفصلة عن كلمة الدخول — بتتطلب قبل الحذف وتعديل الأجور والجزاءات بس."
                            Style="{StaticResource HintText}" Margin="0,0,0,8" TextWrapping="Wrap" />
 

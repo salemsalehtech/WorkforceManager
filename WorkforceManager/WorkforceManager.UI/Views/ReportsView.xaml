@@ -41,7 +41,7 @@
                         </StackPanel>
 
                         <TextBlock DockPanel.Dock="Right" Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center"
-                                   Margin="14,0,8,0" />
+                                   Margin="14,0,8,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <DatePicker DockPanel.Dock="Right" SelectedDate="{Binding OutputDate}" Width="160"
                                     VerticalAlignment="Center" />
 
@@ -81,7 +81,7 @@
                                        HorizontalAlignment="Center">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding OutputHasScrap}" Value="True">
                                                 <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
@@ -116,7 +116,7 @@
                                                              VerticalAlignment="Center"
                                                              Foreground="{DynamicResource WarnBrush}" />
                                     <TextBlock Text="عمال إنتاجهم قلّ عن المعتاد" FontWeight="Bold" FontSize="13.5"
-                                               Margin="6,0,0,0" VerticalAlignment="Center" />
+                                               Margin="6,0,0,0" VerticalAlignment="Center"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 </StackPanel>
 
                                 <ItemsControl ItemsSource="{Binding DecliningWorkers}" Margin="0,8,0,0">
@@ -129,7 +129,7 @@
                                                                FontWeight="Bold" FontSize="13"
                                                                Foreground="{DynamicResource WarnBrush}" />
                                                     <StackPanel Margin="10,0,0,0">
-                                                        <TextBlock Text="{Binding WorkerName}" FontWeight="SemiBold" FontSize="12.5" />
+                                                        <TextBlock Text="{Binding WorkerName}" FontWeight="SemiBold" FontSize="12.5"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                         <TextBlock FontSize="11" Foreground="{DynamicResource TextMutedBrush}">
                                                             <Run Text="{Binding TodayWorkdaysText, Mode=OneWay}" />
                                                             <Run Text="يومية النهارده — المتوسط" />
@@ -325,7 +325,7 @@
                                 <Border Width="13" Height="13" CornerRadius="3" ui:ThemeBrush.BackgroundKey="{Binding Color}"
                                         VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" FontSize="12.5"
-                                           VerticalAlignment="Center" Margin="6,0,4,0" />
+                                           VerticalAlignment="Center" Margin="6,0,4,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <TextBlock Text="{Binding TotalText}" Foreground="{DynamicResource TextMutedBrush}"
                                            FontSize="11.5" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding ChangeText}" FontSize="11.5" FontWeight="Bold"
@@ -544,7 +544,7 @@
                                                                FontWeight="Bold" FontSize="13.5"
                                                                Foreground="{DynamicResource GoldDeepBrush}" />
                                                     <StackPanel Margin="10,0,0,0">
-                                                        <TextBlock Text="{Binding WorkerName}" FontWeight="SemiBold" FontSize="12.5" />
+                                                        <TextBlock Text="{Binding WorkerName}" FontWeight="SemiBold" FontSize="12.5"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                         <TextBlock Text="{Binding TodayText}" FontSize="11" Margin="0,2,0,0">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">

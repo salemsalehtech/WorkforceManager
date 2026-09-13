@@ -65,7 +65,7 @@
                         <TextBlock Margin="6,0,0,0"
                                 VerticalAlignment="Center">
                             <Run Text="{Binding NeedsAttentionCount, Mode=OneWay}"
-                                    FontWeight="Bold"/><Run Text=" منتج فيه مشكلة"/>
+                                    FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/><Run Text=" منتج فيه مشكلة"/>
                         </TextBlock>
                     </StackPanel>
                 </Button>
@@ -887,7 +887,7 @@
                                 Margin="0,0,0,6">
                             <TextBlock Text="خط الإنتاج"
                                     FontWeight="Bold"
-                                    VerticalAlignment="Center"/>
+                                    VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBlock Text="الترتيب مهم — نطاقات التسجيل بتتحسب بيه"
                                     FontSize="11"
                                        VerticalAlignment="Center"
@@ -956,7 +956,8 @@
                                                                 CommandParameter="{Binding}">
                                                             <materialDesign:PackIcon Kind="ChevronUp"
                                                                     Width="15"
-                                                                    Height="15"/>
+                                                                    Height="15"
+                                                                    Foreground="{DynamicResource GoldBrush}"/>
                                                         </Button>
                                                         <Button Style="{StaticResource IconButton}"
                                                                 Padding="3"
@@ -965,7 +966,8 @@
                                                                 CommandParameter="{Binding}">
                                                             <materialDesign:PackIcon Kind="ChevronDown"
                                                                     Width="15"
-                                                                    Height="15"/>
+                                                                    Height="15"
+                                                                    Foreground="{DynamicResource GoldBrush}"/>
                                                         </Button>
                                                     </StackPanel>
 
@@ -1154,7 +1156,8 @@
                                                                 CommandParameter="{Binding}">
                                                             <materialDesign:PackIcon Kind="AccountSearchOutline"
                                                                     Width="15"
-                                                                    Height="15"/>
+                                                                    Height="15"
+                                                                    Foreground="{DynamicResource GoldBrush}"/>
                                                         </Button>
                                                         <Button Margin="0,0,4,0"
                                                                 Style="{StaticResource IconButton}"
@@ -1163,13 +1166,16 @@
                                                                 CommandParameter="{Binding}">
                                                             <materialDesign:PackIcon Kind="PencilOutline"
                                                                     Width="14"
-                                                                    Height="14"/>
+                                                                    Height="14"
+                                                                    Foreground="{DynamicResource GoldBrush}"/>
                                                         </Button>
                                                         <Button Command="{Binding DataContext.ToggleStageActiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}">
                                                             <Button.Style>
                                                                 <Style TargetType="Button"
                                                                         BasedOn="{StaticResource IconButton}">
+                                                                    <Setter Property="Foreground"
+                                                                            Value="{DynamicResource GoldBrush}"/>
                                                                     <Setter Property="Content">
                                                                         <Setter.Value>
                                                                             <materialDesign:PackIcon Kind="PauseCircleOutline"

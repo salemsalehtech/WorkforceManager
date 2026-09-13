@@ -33,7 +33,7 @@
             <StackPanel Margin="24,20,24,22">
                 <!-- المرحلة/المنتج (للتأكد إنه السجل الصح قبل التعديل) -->
                 <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="10" Margin="0,0,0,14">
-                    <TextBlock x:Name="StageText" FontWeight="Bold" FontSize="13.5" />
+                    <TextBlock x:Name="StageText" FontWeight="Bold" FontSize="13.5"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                 </Border>
 
                 <TextBlock Text="العامل" Style="{StaticResource FieldLabel}" />

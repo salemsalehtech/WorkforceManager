@@ -438,6 +438,50 @@ Core  <----------------------- UI
   **An implicit `TextBlock` style sets `Foreground`**, because WPF's default is black and dozens of
   TextBlocks in this app never set one — invisible on a black page, and perfectly fine-looking in the light
   theme, which is why it went unnoticed for so long.
+  **The implicit `TextBlock` style only helps a `TextBlock` with no local `Foreground` and no explicit
+  `FontWeight`/`Style` that resets it — it does not make `Foreground` reliably inherit through every control
+  template in this app.** A user report after the fix above still showed black icons/text in ~20 views
+  (`ProductsView` per-stage action icons, `MemoryView`, `ReportsView`, `WorkersView`, `SettingsView`,
+  `DailyEntryView`, `ActivityLogView`, `InitialBalanceDialog`, `ReportBuilderView`). A regex sweep for
+  `<TextBlock` / `<materialDesign:PackIcon` attributes with no `Foreground=` found ~50 more instances: every
+  one had an explicit `FontWeight="Bold"`/`"SemiBold"` or sat inside an `IconButton`/unstyled `Button`,
+  which is enough to make some renders fall back to WPF's plain black default instead of the themed ink —
+  in practice, ambient `Foreground` inheritance through this app's button/icon templates is **not reliable
+  enough to depend on**. Fixed by setting `Foreground="{DynamicResource TextPrimaryBrush}"` (text) or
+  `{DynamicResource GoldBrush}` (the ProductsView stage-action icons — pencil/assign/pause/reorder chevrons;
+  the trash icon stays `DangerBrush`) **explicitly on every such element**, rather than chasing why
+  inheritance failed in each template. **The convention going forward: never rely on ambient `Foreground`
+  inheritance for text or icons in this app — set it explicitly via `DynamicResource` on the element
+  itself.** Verify with a real dark-theme render (`XamlReader.Parse` + `RenderTargetBitmap`, see the render
+  harness pattern used throughout this file's history), not by reading the XAML — a `Foreground` that
+  *looks* set two levels up the tree is exactly what silently failed here.
+  **`StatusChip`'s `ControlTemplate` ignores the `ToggleButton`'s literal `Content` entirely** — it hardcodes
+  `Icon`/`Display`/`AccentColor` bindings read from the `ToggleButton`'s `DataContext` (built for the
+  `StatusChoices` `ItemsControl` chips, which supply exactly those three properties per item). Any
+  `StatusChip`-styled `ToggleButton` given literal XAML content instead (an icon + `TextBlock` in a
+  `StackPanel`, e.g. DailyEntryView's old "السجل" history toggle) renders that content **nowhere** — no
+  `ContentPresenter` exists in the template to draw it — no matter what `Foreground` is set on it. This is a
+  different failure mode than the inheritance issue above (content is discarded outright, not mis-coloured),
+  and was only caught by rendering the actual chip and seeing the text missing, not just faint. `ShiftChip`
+  is similarly unsuitable for literal content (`Text="{TemplateBinding Content}"` only accepts a plain
+  string). **`ToolbarToggle`** (used by the Products/Reports filter and period toggles) is the right style
+  for a `ToggleButton` with arbitrary literal content — its template uses a real
+  `ContentPresenter`. The "السجل" toggle now uses `ToolbarToggle`; `StatusChip` itself was left unchanged
+  since its one remaining use (`DailyEntryView`'s `StatusChoices` `ItemsControl`) is genuinely data-bound and
+  correct. Before styling a new custom `ToggleButton`/`Button` with literal (non-databound) content, check
+  the target style's `ControlTemplate` actually contains a `ContentPresenter` — several styles in this file
+  don't, because they were built for one specific, narrower binding shape.
+  **A `ui:ThemeBrush.ForegroundKey` binding always wins over a plain `Foreground="{DynamicResource ...}"`
+  set on the same element**, so never add the latter "just in case" next to the former. The blanket
+  Foreground-hardening sweep above briefly did this on 8 elements (rows/cells whose colour is meant to
+  flip per-item — e.g. `NetColor`, `ChangeColor`, `TypeColor`, `AccentColor`) before being caught and
+  reverted; verified empirically (`XamlReader.Parse` + set `DataContext` + read back `TextBlock.Foreground`)
+  that `ThemeBrush`'s binding always resolves *after* the parse-time literal value and overwrites it via
+  `SetResourceReference`, and falls back to the implicit style's colour (not to the literal one) via
+  `ClearValue` when the bound key is empty — so the literal `Foreground` was never wrong, only dead weight
+  that could mislead a future reader into thinking it mattered. If a `TextBlock`/icon already carries
+  `ui:ThemeBrush.ForegroundKey`, its dark-theme visibility bug (if any) is in the *key it's bound to*
+  returning an untinted colour, not in a missing `Foreground`.
   All four sidebar screens are implemented. Navigation uses `Checked` (not `Click`) on the sidebar
   radios — handlers guard against the initial `Checked` that fires during `InitializeComponent` before
   `MainContent` exists. `App.xaml` holds the design system: brand brushes (BrandBrush/AccentBrush/

@@ -58,10 +58,10 @@
                                 <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,0,0,6">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" />
+                                            <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                                             <ComboBox ItemsSource="{Binding Stages}" SelectedItem="{Binding FromStage}" DisplayMemberPath="Name" Width="120" FontSize="12"
                                                       IsEnabled="{Binding IsEditableSpan}" />
-                                            <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" />
+                                            <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" Foreground="{DynamicResource TextPrimaryBrush}" />
                                             <ComboBox ItemsSource="{Binding Stages}" SelectedItem="{Binding ToStage}" DisplayMemberPath="Name" Width="120" FontSize="12"
                                                       IsEnabled="{Binding IsEditableSpan}" />
                                         </StackPanel>
