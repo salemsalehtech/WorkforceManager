@@ -142,7 +142,19 @@ Core  <----------------------- UI
 
 - **WorkforceManager.Core** — POCO models (`Models/`), enums (`Enums/`), and repository interfaces
   (`Interfaces/`). Zero dependency on EF Core or WPF — this is what would let SQLite be swapped for
-  SQL Server later without touching models or business logic.
+  SQL Server later without touching models or business logic. **This claim briefly stopped being true and
+  nothing caught it for a while**: 13 models had grown a `[Index(...)]` data-annotation directly on the
+  class (a real, working index — just declared a different way than the older ones), which needs the
+  `Microsoft.EntityFrameworkCore.IndexAttribute` type, so `Core.csproj` had picked up a `PackageReference`
+  to the *full* `Microsoft.EntityFrameworkCore` package "just for the attribute." Two problems compounded:
+  the zero-dependency claim above was flatly false, and index declaration now lived in two disagreeing
+  places (fluent `HasIndex` in `AppDbContext.OnModelCreating` for the older tables, `[Index]` attributes
+  on the model for the newer ones) — the same "one rule, two places" shape this file warns against
+  elsewhere. Fixed by moving all 19 attribute-based indexes into `OnModelCreating` fluent calls next to
+  the rest, and dropping the package reference entirely. **Verified with zero behavioural risk**:
+  generated a migration right after the move and confirmed it came back with empty `Up`/`Down` methods —
+  proof the fluent declarations produce byte-identical schema to what the attributes produced, not just
+  "looks equivalent." If a model ever needs an index again, add it in `AppDbContext`, not on the class.
 - **WorkforceManager.Data** — EF Core + SQLite. `AppDbContext` is the single point of contact with the
   database (all relationships/cascade rules configured in `OnModelCreating`); `Repositories/` implement
   the Core interfaces; nothing outside this project talks to `AppDbContext` directly.
@@ -676,12 +688,22 @@ Core  <----------------------- UI
   midnight. `DatabaseIntegrityTests` covers both halves: the range boundaries are inclusive, and every
   stored `Date` equals its own `.Date`. The one exception is `ActivityEvent.OccurredAt`, which stores a
   real time (`DateTime.Now`) — it uses a half-open range (`>= from.Date && < to.Date.AddDays(1)`).
-- **Five CHECK constraints** guard the table itself: stars 1–5, stage quota > 0, production
-  `PieceCount >= 0 AND PiecesPerWorkdayAtEntry > 0` (that column is the divisor behind every wage),
-  adjustment amount > 0, daily wage >= 0. The services already enforce all of these; the constraints
+- **CHECK constraints** guard the tables themselves: stars 1–5, stage quota > 0, stage difficulty
+  multiplier > 0, production `PieceCount >= 0 AND PiecesPerWorkdayAtEntry > 0` (that column is the
+  divisor behind every wage), adjustment amount > 0, daily wage >= 0, plus (added with Initial Balance)
+  balance/range/usage quantities > 0, plus (an audit-round gap fix) `ProductionScrap.PieceCount > 0` and
+  `ProductionStageOutput.PieceCount > 0`. The services already enforce all of these; the constraints
   exist so a future code path, a bad migration, or an external tool can't put the data in a state the
   reports would silently mis-total. They were verified against the live DB (0 violations) before being
-  added.
+  added. **A `[Range(...)]` data-annotation on a model property is a C# validation attribute only — EF
+  Core's SQLite provider does not translate it into a real database CHECK constraint.** `ProductionScrap`
+  and `ProductionStageOutput` both carried `[Range(1, int.MaxValue)]` on `PieceCount` for a long time,
+  which *looked* like the same protection every sibling numeric column got, but a `CreateTable` migration
+  for either table had no `CheckConstraints:` clause — confirmed by generating a fresh migration and
+  reading it, not by assuming. Both feed the same "pending work" aggregates `DailyProduction.PieceCount`
+  does, so a negative or zero row would have silently corrupted a report total exactly like the
+  documented cases above. If a new numeric column needs a real floor/ceiling, add
+  `HasCheckConstraint` in `AppDbContext`; a `[Range]` attribute alone is decoration.
 - **Every `decimal` needs an explicit `HasColumnType`.** EF's SQLite provider maps `decimal` to TEXT by
   default, and TEXT compares lexicographically — `"10.5" < "9.0"` is true. `WorkerSkill.MeasuredRatio`
   was stored that way (the other three decimals were configured); it is now `decimal(5,2)`. A test

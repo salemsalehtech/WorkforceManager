@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Core.Enums;
 
 namespace WorkforceManager.Core.Models
@@ -13,8 +12,8 @@ namespace WorkforceManager.Core.Models
     /// الأجر = (صافي اليوميات × سعر اليومية) + الحوافز − السلف.
     /// حذفه hard delete للتصحيح (زي الجزاءات)، وبيتمسح مع العامل.
     /// </summary>
-    // فهرس (WorkerId, Date) لتسريع تجميع تعديلات العامل خلال فترة معينة
-    [Index(nameof(WorkerId), nameof(Date))]
+    // فهرس (WorkerId, Date) لتسريع تجميع تعديلات العامل خلال فترة معينة.
+    // معرّف بـ fluent API في AppDbContext.OnModelCreating
     public class WageAdjustment
     {
         [Key]

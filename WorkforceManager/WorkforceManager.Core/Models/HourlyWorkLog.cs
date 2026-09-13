@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace WorkforceManager.Core.Models
 {
@@ -14,8 +13,9 @@ namespace WorkforceManager.Core.Models
     /// الحساب اتغيرت بعدين، السجلات القديمة تفضل زي ما كانت وقت الشغل
     /// الفعلي (نفس مبدأ اليومية في DailyProduction).
     /// </summary>
-    [Index(nameof(WorkerId), nameof(Date), IsUnique = true)] // سجل واحد لكل عامل في اليوم
-    [Index(nameof(Date))] // لاستعلامات اليوم/الأسبوع
+    // فهرس (WorkerId, Date) يونيك (سجل واحد لكل عامل في اليوم) وفهرس Date
+    // مستقل (لاستعلامات اليوم/الأسبوع) — معرّفين بـ fluent API في
+    // AppDbContext.OnModelCreating
     public class HourlyWorkLog
     {
         [Key]

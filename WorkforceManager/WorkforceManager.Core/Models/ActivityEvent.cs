@@ -1,6 +1,5 @@
 using System;
 using System.ComponentModel.DataAnnotations;
-using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Core.Enums;
 
 namespace WorkforceManager.Core.Models
@@ -22,8 +21,11 @@ namespace WorkforceManager.Core.Models
     // بتحصل في الذاكرة في شاشة السجل)، وحتى لو كان فيه، العمود 11 قيمة بس
     // فالفهرس مكانش هيقلّل الصفوف بأي قدر مفيد. كان بيدفع تكلفة كتابة مع
     // كل حدث مقابل صفر قراءات.
-    [Index(nameof(OccurredAt))]                          // العرض والتنظيف التلقائي بيمشوا بالوقت
-    [Index(nameof(EntityType), nameof(EntityId))]        // "إيه اللي حصل للعامل ده؟"
+    //
+    // فهارس OccurredAt (العرض والتنظيف التلقائي) وEntityType+EntityId
+    // ("إيه اللي حصل للعامل ده؟") معرّفين بـ fluent API في
+    // AppDbContext.OnModelCreating، مش [Index] Attribute هنا — شوف تعليق
+    // "فهارس منقولة من [Index] Attribute" هناك للسبب
     public class ActivityEvent
     {
         [Key]

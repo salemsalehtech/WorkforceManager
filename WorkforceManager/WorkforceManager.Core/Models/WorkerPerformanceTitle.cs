@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Core.Enums;
 
 namespace WorkforceManager.Core.Models
@@ -14,7 +13,8 @@ namespace WorkforceManager.Core.Models
     /// بتتنادى تلقائيًا عند بدء التشغيل) — وبيفضل ثابت على بروفايل
     /// العامل لحد ما لقب جديد من نفس النوع يتسجّل.
     /// </summary>
-    [Index(nameof(TitleType), nameof(PeriodStart))]
+    // فهرس (TitleType, PeriodStart) معرّف بـ fluent API في
+    // AppDbContext.OnModelCreating
     public class WorkerPerformanceTitle
     {
         [Key]

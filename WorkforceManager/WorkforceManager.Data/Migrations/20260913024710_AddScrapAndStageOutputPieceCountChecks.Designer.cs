@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using WorkforceManager.Data;
 
@@ -10,9 +11,11 @@ using WorkforceManager.Data;
 namespace WorkforceManager.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260913024710_AddScrapAndStageOutputPieceCountChecks")]
+    partial class AddScrapAndStageOutputPieceCountChecks
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.29");
@@ -60,7 +63,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("EntityType", "EntityId");
 
-                    b.ToTable("ActivityEvents", (string)null);
+                    b.ToTable("ActivityEvents");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.AppUser", b =>
@@ -106,7 +109,7 @@ namespace WorkforceManager.Data.Migrations
                         .IsUnique()
                         .HasFilter("\"WorkerId\" IS NOT NULL");
 
-                    b.ToTable("AppUsers", (string)null);
+                    b.ToTable("AppUsers");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.Attendance", b =>
@@ -134,7 +137,7 @@ namespace WorkforceManager.Data.Migrations
                     b.HasIndex("WorkerId", "Date")
                         .IsUnique();
 
-                    b.ToTable("Attendances", (string)null);
+                    b.ToTable("Attendances");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.DailyOperationsSignOff", b =>
@@ -154,7 +157,7 @@ namespace WorkforceManager.Data.Migrations
                     b.HasIndex("Date")
                         .IsUnique();
 
-                    b.ToTable("DailyOperationsSignOffs", (string)null);
+                    b.ToTable("DailyOperationsSignOffs");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.DailyProduction", b =>
@@ -213,7 +216,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("ProductionStageId", "Date", "IsDeleted", "PieceCount", "IsRework", "IsBalanceCompletion");
 
-                    b.ToTable("DailyProductions", null, t =>
+                    b.ToTable("DailyProductions", t =>
                         {
                             t.HasCheckConstraint("CK_DailyProduction_Amounts", "[PieceCount] >= 0 AND [PiecesPerWorkdayAtEntry] > 0");
                         });
@@ -247,7 +250,7 @@ namespace WorkforceManager.Data.Migrations
                     b.HasIndex("WorkerId", "Date")
                         .IsUnique();
 
-                    b.ToTable("HourlyWorkLogs", (string)null);
+                    b.ToTable("HourlyWorkLogs");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.InitialBalance", b =>
@@ -311,7 +314,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("ProductId", "OriginalDate");
 
-                    b.ToTable("InitialBalances", null, t =>
+                    b.ToTable("InitialBalances", t =>
                         {
                             t.HasCheckConstraint("CK_InitialBalance_Quantity", "[Quantity] > 0");
                         });
@@ -346,7 +349,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("ToStageId");
 
-                    b.ToTable("InitialBalanceRanges", null, t =>
+                    b.ToTable("InitialBalanceRanges", t =>
                         {
                             t.HasCheckConstraint("CK_InitialBalanceRange_PieceCount", "[PieceCount] > 0");
                         });
@@ -409,7 +412,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("WorkerId");
 
-                    b.ToTable("InitialBalanceUsages", null, t =>
+                    b.ToTable("InitialBalanceUsages", t =>
                         {
                             t.HasCheckConstraint("CK_InitialBalanceUsage_Quantity", "[Quantity] > 0");
                         });
@@ -449,7 +452,7 @@ namespace WorkforceManager.Data.Migrations
                         .IsUnique()
                         .HasFilter("\"AppUserId\" IS NOT NULL");
 
-                    b.ToTable("OperationsCredentials", (string)null);
+                    b.ToTable("OperationsCredentials");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.Penalty", b =>
@@ -484,7 +487,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("WorkerId", "Date");
 
-                    b.ToTable("Penalties", (string)null);
+                    b.ToTable("Penalties");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.Product", b =>
@@ -538,7 +541,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("RackingWorkerId");
 
-                    b.ToTable("Products", (string)null);
+                    b.ToTable("Products");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.ProductionMemory", b =>
@@ -570,7 +573,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("CompletedAt", "RemindOn");
 
-                    b.ToTable("ProductionMemories", (string)null);
+                    b.ToTable("ProductionMemories");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.ProductionMemoryStage", b =>
@@ -595,7 +598,7 @@ namespace WorkforceManager.Data.Migrations
                     b.HasIndex("ProductionMemoryId", "Position")
                         .IsUnique();
 
-                    b.ToTable("ProductionMemoryStages", (string)null);
+                    b.ToTable("ProductionMemoryStages");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.ProductionScrap", b =>
@@ -635,7 +638,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("ProductionStageId", "Date", "PieceCount");
 
-                    b.ToTable("ProductionScraps", null, t =>
+                    b.ToTable("ProductionScraps", t =>
                         {
                             t.HasCheckConstraint("CK_ProductionScrap_PieceCount", "[PieceCount] > 0");
                         });
@@ -694,7 +697,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("ProductionStages", null, t =>
+                    b.ToTable("ProductionStages", t =>
                         {
                             t.HasCheckConstraint("CK_ProductionStage_Difficulty", "[DifficultyMultiplier] > 0");
 
@@ -733,7 +736,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("ProductionStageId", "Date", "PieceCount");
 
-                    b.ToTable("ProductionStageOutputs", null, t =>
+                    b.ToTable("ProductionStageOutputs", t =>
                         {
                             t.HasCheckConstraint("CK_ProductionStageOutput_PieceCount", "[PieceCount] > 0");
                         });
@@ -764,7 +767,7 @@ namespace WorkforceManager.Data.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("ScrapReasons", (string)null);
+                    b.ToTable("ScrapReasons");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.WageAdjustment", b =>
@@ -798,7 +801,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("WorkerId", "Date");
 
-                    b.ToTable("WageAdjustments", null, t =>
+                    b.ToTable("WageAdjustments", t =>
                         {
                             t.HasCheckConstraint("CK_WageAdjustment_Amount", "[AmountEgp] > 0");
                         });
@@ -866,7 +869,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("FullName");
 
-                    b.ToTable("Workers", null, t =>
+                    b.ToTable("Workers", t =>
                         {
                             t.HasCheckConstraint("CK_Worker_DailyWage", "[DailyWageEgp] >= 0");
                         });
@@ -899,7 +902,7 @@ namespace WorkforceManager.Data.Migrations
 
                     b.HasIndex("TitleType", "PeriodStart");
 
-                    b.ToTable("WorkerPerformanceTitles", (string)null);
+                    b.ToTable("WorkerPerformanceTitles");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.WorkerSkill", b =>
@@ -946,7 +949,7 @@ namespace WorkforceManager.Data.Migrations
                     b.HasIndex("WorkerId", "ProductionStageId")
                         .IsUnique();
 
-                    b.ToTable("WorkerSkills", null, t =>
+                    b.ToTable("WorkerSkills", t =>
                         {
                             t.HasCheckConstraint("CK_WorkerSkill_Stars", "[Stars] BETWEEN 1 AND 5");
                         });

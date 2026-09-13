@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Core.Enums;
 
 namespace WorkforceManager.Core.Models
@@ -13,8 +12,8 @@ namespace WorkforceManager.Core.Models
     /// وبيتخصم من إجمالي يوميات العامل في الأسبوع اللي وقع فيه، وبيظهر
     /// في تقريره وبروفايله.
     /// </summary>
-    // فهرس (WorkerId, Date) لتسريع تجميع جزاءات العامل خلال أسبوع معين في الحسابات والتقارير
-    [Index(nameof(WorkerId), nameof(Date))]
+    // فهرس (WorkerId, Date) لتسريع تجميع جزاءات العامل خلال أسبوع معين في
+    // الحسابات والتقارير. معرّف بـ fluent API في AppDbContext.OnModelCreating
     public class Penalty
     {
         [Key]

@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace WorkforceManager.Core.Models
 {
@@ -20,13 +19,11 @@ namespace WorkforceManager.Core.Models
     /// مش يستبدله، فالفهرس على (ProductionStageId, Date) يونيك لضمان صف
     /// واحد تتجمّع فيه، لا صفوف متعددة.
     /// </summary>
-    [Index(nameof(Date))]
-    [Index(nameof(ProductionStageId), nameof(Date), IsUnique = true)]
-
-    // فهرس مغطّي بنفس منطق DailyProduction/ProductionScrap: "الشغل
-    // الواقف" بيجمع الإنتاج الفعلي من أول يوم مجمّعًا بالمرحلة. PieceCount
-    // جوه الفهرس عشان المجموع يتحسب من غير رجوع للجدول.
-    [Index(nameof(ProductionStageId), nameof(Date), nameof(PieceCount))]
+    // فهرس Date، فهرس (ProductionStageId, Date) يونيك، وفهرس مغطّي بنفس
+    // منطق DailyProduction/ProductionScrap: "الشغل الواقف" بيجمع الإنتاج
+    // الفعلي من أول يوم مجمّعًا بالمرحلة. PieceCount جوه الفهرس عشان
+    // المجموع يتحسب من غير رجوع للجدول. التلاتة معرّفين بـ fluent API في
+    // AppDbContext.OnModelCreating
     public class ProductionStageOutput
     {
         [Key]

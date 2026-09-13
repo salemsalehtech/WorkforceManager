@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace WorkforceManager.Core.Models
 {
@@ -12,8 +11,8 @@ namespace WorkforceManager.Core.Models
     /// والتقييمات (مقارنة العامل بزملائه).
     /// </summary>
     // فهرس مركّب (WorkerId, ProductionStageId, Date) لتسريع استعلامات
-    // "إنتاج عامل معين في يوم معين" التي ستُستخدم بكثرة في التقارير والتقييم
-    [Index(nameof(WorkerId), nameof(ProductionStageId), nameof(Date))]
+    // "إنتاج عامل معين في يوم معين" التي ستُستخدم بكثرة في التقارير والتقييم.
+    // معرّف بـ fluent API في AppDbContext.OnModelCreating
 
     // ــــــــ الفهرس المغطّي ــــــــ
     // "الشغل الواقف" بيجمع كل قطعة اتسجّلت من أول يوم في البرنامج لحد
@@ -34,8 +33,8 @@ namespace WorkforceManager.Core.Models
     // للحساب القديم في ProductionStageOutputService بتفلتر عليهم
     // (سجلات الإعادة وإكمال الرصيد مش إنتاج جديد يوم التسجيل)، ولو مش
     // جوّه الفهرس ده الفلتر هيرجّع SQLite للجدول صف صف — يعني نفس
-    // الـ1047 مللي اللي الفهرس اتعمل أصلًا عشانها.
-    [Index(nameof(ProductionStageId), nameof(Date), nameof(IsDeleted), nameof(PieceCount), nameof(IsRework), nameof(IsBalanceCompletion))]
+    // الـ1047 مللي اللي الفهرس اتعمل أصلًا عشانها. معرّف بـ fluent API في
+    // AppDbContext.OnModelCreating
     public class DailyProduction : SoftDeletableEntity
     {
         [Key]

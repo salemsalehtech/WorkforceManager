@@ -1,6 +1,5 @@
 using System;
 using System.ComponentModel.DataAnnotations;
-using Microsoft.EntityFrameworkCore;
 
 namespace WorkforceManager.Core.Models
 {
@@ -26,7 +25,8 @@ namespace WorkforceManager.Core.Models
     /// SignedOffAt.Date بـ Date نفسها: لو مختلفين يبقى توقيع لاحق. نفس
     /// فلسفة المشروع: القيمة المشتقة أولى من التخزين لما تبقى رخيصة الحساب.
     /// </summary>
-    [Index(nameof(Date), IsUnique = true)] // توقيع واحد لكل يوم
+    // فهرس Date يونيك — توقيع واحد لكل يوم. معرّف بـ fluent API في
+    // AppDbContext.OnModelCreating
     public class DailyOperationsSignOff
     {
         [Key]

@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using Microsoft.EntityFrameworkCore;
 
 namespace WorkforceManager.Core.Models
 {
@@ -14,8 +13,8 @@ namespace WorkforceManager.Core.Models
     /// الموقع صريح ومخزّن مش مستنتج من الـ Id: الـ Id ترتيب إدخال،
     /// والمستخدم بيعيد الترتيب بعد الإدخال.
     /// </summary>
-    // موقع واحد لكل خطة — بيمنع ترتيب متكرر أو ناقص على مستوى القاعدة
-    [Index(nameof(ProductionMemoryId), nameof(Position), IsUnique = true)]
+    // موقع واحد لكل خطة — بيمنع ترتيب متكرر أو ناقص على مستوى القاعدة.
+    // معرّف بـ fluent API في AppDbContext.OnModelCreating
     public class ProductionMemoryStage
     {
         [Key]

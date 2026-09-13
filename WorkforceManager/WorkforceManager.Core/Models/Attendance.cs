@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 using WorkforceManager.Core.Enums;
 
 namespace WorkforceManager.Core.Models
@@ -18,7 +17,8 @@ namespace WorkforceManager.Core.Models
     /// بالساعة بيتسجّل في HourlyWorkLog اللي فيه ساعة انتهاء فعلية.
     /// ومعاهم اتشال Notes اللي عمره ما اتكتب أصلاً.
     /// </summary>
-    [Index(nameof(WorkerId), nameof(Date), IsUnique = true)] // يوم واحد بالظبط لكل عامل، منع تكرار التسجيل
+    // فهرس (WorkerId, Date) يونيك — يوم واحد بالظبط لكل عامل، منع تكرار
+    // التسجيل. معرّف بـ fluent API في AppDbContext.OnModelCreating
     public class Attendance
     {
         [Key]

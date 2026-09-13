@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace WorkforceManager.Core.Models
 {
@@ -32,7 +31,7 @@ namespace WorkforceManager.Core.Models
     /// DailyProduction ولا عامل (<see cref="WorkerId"/> بيبقى null).
     /// القاعدة دي متفروضة في طبقة الـ Service مش في قاعدة البيانات.
     /// </summary>
-    [Index(nameof(InitialBalanceId))]
+    // فهرس InitialBalanceId معرّف بـ fluent API في AppDbContext.OnModelCreating
     public class InitialBalanceUsage
     {
         [Key]

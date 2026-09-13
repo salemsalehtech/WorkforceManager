@@ -1,7 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace WorkforceManager.Core.Models
 {
@@ -28,15 +27,13 @@ namespace WorkforceManager.Core.Models
     /// **مفيش عامل على السجل** عن قصد: القطعة عدّت على مراحل كتير قبل
     /// ما تتشال، فنسبها لعامل واحد قرار إداري مش حقيقة في البيانات.
     /// </summary>
-    [Index(nameof(Date))]
-
-    // فهرس مغطّي بنفس منطق فهرس DailyProduction: "الشغل الواقف" بيجمع
-    // كل الهالك من أول يوم مجمّعًا بالمرحلة، وبيتنده من شاشة الإنتاج
+    // فهرس Date، وفهرس مغطّي بنفس منطق فهرس DailyProduction: "الشغل الواقف"
+    // بيجمع كل الهالك من أول يوم مجمّعًا بالمرحلة، وبيتنده من شاشة الإنتاج
     // اليومي. الجدول ده صغير دلوقتي، بس مصنع بيسجّل هالك على كل مرحلة
     // كل يوم بيوصل لمئات الألوف في سنين — ونفس الاستعلام ساعتها بيبقى
     // نفس المشكلة بالظبط. PieceCount جوه الفهرس عشان المجموع يتحسب من
-    // غير رجوع للجدول.
-    [Index(nameof(ProductionStageId), nameof(Date), nameof(PieceCount))]
+    // غير رجوع للجدول. الاتنين معرّفين بـ fluent API في
+    // AppDbContext.OnModelCreating
     public class ProductionScrap
     {
         [Key]

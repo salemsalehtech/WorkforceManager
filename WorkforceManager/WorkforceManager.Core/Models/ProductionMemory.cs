@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using Microsoft.EntityFrameworkCore;
 
 namespace WorkforceManager.Core.Models
 {
@@ -25,8 +24,8 @@ namespace WorkforceManager.Core.Models
     /// </summary>
     // الاستعلام الوحيد المتكرر: "المتأخرة والنهارده" عند كل بدء تشغيل.
     // فهرس مطابق له بالظبط — الجدول صغير بطبيعته (خطط المستخدم)، بس
-    // ده استعلام بدء تشغيل ومكلّفش حاجة
-    [Index(nameof(CompletedAt), nameof(RemindOn))]
+    // ده استعلام بدء تشغيل ومكلّفش حاجة. معرّف بـ fluent API في
+    // AppDbContext.OnModelCreating
     public class ProductionMemory
     {
         [Key]

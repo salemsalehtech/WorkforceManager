@@ -293,6 +293,54 @@ namespace WorkforceManager.Data
                 .HasColumnType("decimal(4,2)")
                 .HasDefaultValue(1.0m);
 
+            // ---------- فهارس منقولة من [Index] Attribute على النماذج ----------
+            // دي كانت [Index] Attribute مباشرة على 13 كيان في WorkforceManager.Core،
+            // وده كان بيحتاج Core يرجّع PackageReference كامل لـ
+            // Microsoft.EntityFrameworkCore لمجرد الـ Attribute — عكس مبدأ "Core
+            // مالوش أي اعتماد على EF Core" المكتوب في معمارية المشروع نفسها (اتفحص
+            // وأتأكد إن محدش في Core بيستخدم أي حاجة تانية من الحزمة غير الـ
+            // Attribute ده). اتنقلوا هنا عشان يبقوا جنب باقي الفهارس اللي أصلاً
+            // fluent API، ونفس التعريفات بالظبط (نفس الأعمدة وترتيبها، نفس
+            // IsUnique) — اتأكد بـ `dotnet ef migrations add` إن الفرق فاضي
+            // تمامًا قبل ما الـ Attributes تتشال نهائيًا من النماذج.
+            modelBuilder.Entity<ActivityEvent>().HasIndex(e => e.OccurredAt);
+            modelBuilder.Entity<ActivityEvent>().HasIndex(e => new { e.EntityType, e.EntityId });
+
+            modelBuilder.Entity<Attendance>().HasIndex(a => new { a.WorkerId, a.Date }).IsUnique();
+
+            modelBuilder.Entity<DailyOperationsSignOff>().HasIndex(s => s.Date).IsUnique();
+
+            modelBuilder.Entity<DailyProduction>()
+                .HasIndex(dp => new { dp.WorkerId, dp.ProductionStageId, dp.Date });
+            modelBuilder.Entity<DailyProduction>().HasIndex(dp =>
+                new { dp.ProductionStageId, dp.Date, dp.IsDeleted, dp.PieceCount, dp.IsRework, dp.IsBalanceCompletion });
+
+            modelBuilder.Entity<HourlyWorkLog>().HasIndex(h => new { h.WorkerId, h.Date }).IsUnique();
+            modelBuilder.Entity<HourlyWorkLog>().HasIndex(h => h.Date);
+
+            modelBuilder.Entity<InitialBalanceUsage>().HasIndex(u => u.InitialBalanceId);
+
+            modelBuilder.Entity<Penalty>().HasIndex(p => new { p.WorkerId, p.Date });
+
+            modelBuilder.Entity<ProductionMemory>().HasIndex(m => new { m.CompletedAt, m.RemindOn });
+
+            modelBuilder.Entity<ProductionMemoryStage>()
+                .HasIndex(ms => new { ms.ProductionMemoryId, ms.Position }).IsUnique();
+
+            modelBuilder.Entity<ProductionScrap>().HasIndex(s => s.Date);
+            modelBuilder.Entity<ProductionScrap>()
+                .HasIndex(s => new { s.ProductionStageId, s.Date, s.PieceCount });
+
+            modelBuilder.Entity<ProductionStageOutput>().HasIndex(o => o.Date);
+            modelBuilder.Entity<ProductionStageOutput>()
+                .HasIndex(o => new { o.ProductionStageId, o.Date }).IsUnique();
+            modelBuilder.Entity<ProductionStageOutput>()
+                .HasIndex(o => new { o.ProductionStageId, o.Date, o.PieceCount });
+
+            modelBuilder.Entity<WageAdjustment>().HasIndex(a => new { a.WorkerId, a.Date });
+
+            modelBuilder.Entity<WorkerPerformanceTitle>().HasIndex(t => new { t.TitleType, t.PeriodStart });
+
             // ---------- قيود على مستوى قاعدة البيانات ----------
             // الشروط دي مضمونة في الخدمات أصلاً. وجودها هنا كمان مش تكرار:
             // الخدمة بتحمي المسار اللي بيعدّي عليها، والقيد بيحمي الجدول
@@ -318,6 +366,18 @@ namespace WorkforceManager.Data
 
             modelBuilder.Entity<Worker>().ToTable(t => t.HasCheckConstraint(
                 "CK_Worker_DailyWage", "[DailyWageEgp] >= 0"));
+
+            // ProductionScrap.PieceCount وProductionStageOutput.PieceCount كان
+            // عليهم [Range(1, int.MaxValue)] بس — دي خاصية تحقق C# فقط، ومزوّد
+            // SQLite في EF Core ما بيترجمهاش لقيد CHECK حقيقي في الجدول. الاتنين
+            // بيتجمّعوا في "الشغل الواقف" بالظبط زي DailyProduction.PieceCount
+            // (اللي عنده قيد حقيقي أصلًا)، فقيمة سالبة أو صفر هنا كانت هتفسد
+            // نفس النوع من المجاميع من غير أي حماية على مستوى القاعدة
+            modelBuilder.Entity<ProductionScrap>().ToTable(t => t.HasCheckConstraint(
+                "CK_ProductionScrap_PieceCount", "[PieceCount] > 0"));
+
+            modelBuilder.Entity<ProductionStageOutput>().ToTable(t => t.HasCheckConstraint(
+                "CK_ProductionStageOutput_PieceCount", "[PieceCount] > 0"));
 
             // ---------- الرصيد الأولي ----------
             // حذف ناعم زي DailyProduction: الرصيد سجل تاريخي (شوف قاعدة
