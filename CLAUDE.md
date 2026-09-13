@@ -1304,6 +1304,10 @@ Core  <----------------------- UI
   `LatestReleaseDate` sits next to `<Version>` so both are bumped in the same edit, on the same release).
   If the metadata is ever absent (an old build, or a stripped assembly) `AppReleaseDatesText` returns
   empty rather than a placeholder — a blank line is less wrong than a fabricated date.
+- **Version numbering — the patch digit caps at 9.** When a bump would push the patch past 9, it carries
+  into the minor digit instead of climbing indefinitely (`1.5.9` → next release is `1.6.0`, not `1.5.10`).
+  Decided 2026-09-13 (retroactively re-numbered `1.5.14`/`1.5.15` to `1.6.4`/`1.6.5` on the spot) — purely
+  cosmetic, no behavior depends on it, just keep applying the carry on every future bump.
 - **Activity-log retention** (`ActivityLogService.PurgeExpiredAsync`, run once per startup from
   `App.OnStartup` **after** the backup, so anything it deletes is still in today's backup; its failure is
   swallowed — a cleanup is not a startup prerequisite). **Two windows, not one**, because this log has no
