@@ -26,7 +26,6 @@ namespace WorkforceManager.Business.Services
         private readonly IDailyProductionRepository _productionRepo;
         private readonly IAttendanceRepository _attendanceRepo;
         private readonly IPenaltyRepository _penaltyRepo;
-        private readonly IWorkerRepository _workerRepo;
         private readonly IHourlyWorkLogRepository _hourlyRepo;
         private readonly IGenericRepository<ProductionStage> _stageRepo;
 
@@ -34,14 +33,12 @@ namespace WorkforceManager.Business.Services
             IDailyProductionRepository productionRepo,
             IAttendanceRepository attendanceRepo,
             IPenaltyRepository penaltyRepo,
-            IWorkerRepository workerRepo,
             IHourlyWorkLogRepository hourlyRepo,
             IGenericRepository<ProductionStage> stageRepo)
         {
             _productionRepo = productionRepo;
             _attendanceRepo = attendanceRepo;
             _penaltyRepo = penaltyRepo;
-            _workerRepo = workerRepo;
             _hourlyRepo = hourlyRepo;
             _stageRepo = stageRepo;
         }

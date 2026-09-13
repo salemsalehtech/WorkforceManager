@@ -179,4 +179,6 @@ namespace WorkforceManager.UI.Views
         /// <summary>عكس IsLocked — تسهيلًا للـ Binding على IsEnabled في الـ XAML</summary>
         public bool IsEditableSpan => !IsLocked;
     }
+
+    public record BalanceStageChoice(int StageId, string Name);
 }
