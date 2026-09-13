@@ -810,6 +810,28 @@ Core  <----------------------- UI
 - `AppUser`: login accounts (unique username + PBKDF2-SHA256 hash/salt, never plaintext — all hashing in
   `AuthService`). Startup flow in `App.OnStartup`: migrate/seed → `EnsureDefaultUserAsync` (admin/admin on
   first run) → `LoginWindow.ShowDialog()` (with `ShutdownMode` juggling) → MainWindow only on success.
+  **`LoginWindow` follows the user's theme** — it used to be pinned to light with its own
+  `Palette.Light.xaml` in `Window.Resources` (window resources resolve before application ones, so the
+  local palette beat whatever `ApplyTheme` had set). The original reasoning was that black on the very
+  first screen reads as a loading screen rather than the app's front door; the user asked for the
+  opposite outright — someone running dark mode wants the whole app dark from the first screen, and the
+  jump from a white login to a black app was itself the jarring part. The local palette is gone, so the
+  window inherits the application dictionaries like every other screen. `ApplyTheme` already runs in
+  `OnStartup` before the first `LoginWindow` is built, and nothing reverts it on logout, so the theme
+  holds across logout → login too.
+- **No window sets `Icon` in XAML — `AppIcon.ApplyTo` is the only thing that sets a window icon.**
+  `LoginWindow.xaml` and `MainWindow.xaml` both used to carry `Icon="…/Assets/app.ico"`, which is loaded
+  *inside* `InitializeComponent()` with no error handling: a transient failure reading that resource
+  throws `XamlParseException` and **kills the whole window construction**. That is not hypothetical — a
+  real `crash.txt` caught it (`Cannot locate resource 'assets/app.ico'` during
+  `LoginWindow.InitializeComponent()`), and the app simply refused to open. The attribute was also pure
+  duplication: both constructors call `AppIcon.ApplyTo(this)` immediately after `InitializeComponent()`,
+  which overwrites whatever XAML set. `AppIcon`'s own default is now a `Lazy<BitmapImage?>` with a
+  try/catch instead of an eagerly-initialised `static readonly` field — a throwing type initialiser
+  becomes a `TypeInitializationException` that rethrows on *every* later touch, so one transient failure
+  would have killed icons for the rest of the session. A window with no icon beats a window that won't
+  open. The exe's own icon (`<ApplicationIcon>` in the csproj) is a separate Win32-level thing and is
+  unaffected by any of this.
 - Seeding (`DatabaseSeeder`): first-run seeds products/workers (`RealDataSeed`) + skill links
   (`WorkerSkillsSeed`, idempotent). `SeedHourlyRolesAsync` runs every startup (idempotent) — sets
   `HourlyRole` on descriptive workers (رص/جودة/تدريب) that have notes but no skills and no role yet.

@@ -4,7 +4,6 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:views="clr-namespace:WorkforceManager.UI.Views"
         Title="نظام إدارة إنتاجية وأجور العمال"
-        Icon="Assets/app.ico"
         Height="720" Width="1200"
         MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterScreen"

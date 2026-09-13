@@ -4,7 +4,6 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:views="clr-namespace:WorkforceManager.UI.Views"
         Title="تسجيل الدخول — إدارة الإنتاجية"
-        Icon="/Assets/app.ico"
         Width="880" Height="520"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" ResizeMode="NoResize"
@@ -12,20 +11,16 @@
         FlowDirection="RightToLeft" FontFamily="{StaticResource AppFont}" FontSize="14">
 
     <!--
-      **شاشة الدخول فاتحة دايمًا، حتى والبرنامج على الوضع الليلي.**
+      **شاشة الدخول بتتبع ثيم المستخدم (فاتح/غامق) زي أي شاشة تانية.**
 
-      دي أول حاجة بتظهر قبل ما البرنامج يفتح أصلاً، ومالهاش سياق شغل
-      لسه — الأسود هنا بيخليها تبان زي شاشة تحميل مش زي باب البرنامج.
-      لوحة الفاتح متحطوطة على النافذة نفسها، وموارد النافذة بتتحل قبل
-      موارد التطبيق، فالشاشة دي بتاخد الفاتح والباقي بياخد ثيم المستخدم.
+      كانت مثبّتة على الفاتح دايمًا بلوحة Palette.Light متحطوطة على
+      النافذة نفسها (موارد النافذة بتتحل قبل موارد التطبيق، فكانت
+      بتغلب الثيم المختار)، والحجة وقتها إن الأسود في أول شاشة يخليها
+      تبان زي شاشة تحميل. المستخدم طلب العكس صراحةً: اللي مشغّل الوضع
+      الليلي عاوز البرنامج كله ليلي من أول شاشة — الانتقال من شاشة دخول
+      بيضا لبرنامج أسود كان هو نفسه المفاجأة. مفيش لوحة محلية دلوقتي،
+      فالشاشة بتورّث موارد التطبيق اللي ApplyTheme بيبدّلها.
     -->
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="../Themes/Palette.Light.xaml" />
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
 
     <!-- شاشة الدخول الترحيبية: بطاقة عائمة بلا إطار نظام —
          يمين: لوحة الهوية بتدرج SidebarBrush (أسود دافي)، شمال: فورم الدخول -->
