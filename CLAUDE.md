@@ -997,6 +997,50 @@ Core  <----------------------- UI
     ask the same way and write the same kind of row. `LateSignOffCatchUpDialog` has no working close
     button — `Window_Closing` cancels unconditionally until acknowledgement succeeds — because unlike
     every other dialog in the app, walking away from this one without answering isn't a valid choice.
+- **Department accounts** (`DepartmentAttendanceService`, `Worker.HourlyRole` values `DepartmentManager`/
+  `DepartmentHead`, the `DepartmentAccounts*` views): a manager/department-head login that is paid a full
+  daily wage automatically, every day, with zero manual action. `WorkerRepository.GetDepartmentAccountsAsync`
+  is their one query source; `GetActiveWithSkillsAsync`/`GetAllWithSkillsAsync` exclude them outright so
+  they never appear in the workers screen, reports, or production flow, and `WeeklySummaryService`/
+  `WorkerRecognitionRules` separately exclude them from team averages and "best worker" eligibility — two
+  independent guards, checked independently, both correct.
+  `EnsureDailyPresenceAsync` (`App.OnStartup`, same "no scheduled-job system" reasoning as the recognition
+  titles below) backfills any day since account creation with no attendance/hourly row yet. **It used to
+  re-scan every day from account creation to today, on every single startup, forever** — an account a year
+  old cost 700+ sequential awaited queries on every launch, and the number only grows with account age
+  (the same shape of bug `PendingWorkService` already had, except here the fix can't be "add an index"
+  since it's round-trip count, not per-query cost, that's the problem). Fixed by asking each account's own
+  data where it left off (`IHourlyWorkLogRepository`/`IAttendanceRepository.GetLastDateForWorkerAsync`,
+  one indexed point query each) and only looping the actual gap — normally zero or one day. **Deliberately
+  not a single shared cursor** (the first attempt used one, persisted in `AppSettingsStore`, mirroring
+  `WorkerRecognitionService` below): a global "we've covered up to day X" cursor is wrong the moment a
+  *second* account exists whose own last-known day is earlier than the first account's progress — the
+  cursor has no way to know a newer account still needs its own gap filled. A test written specifically to
+  catch this (`EnsureDailyPresenceAsync_ANewerAccountIsNotBlockedByAnOlderAccountsProgress`) is what found
+  the shared-cursor design was wrong before it shipped. Per-account queries have no such failure mode:
+  each account's start point depends only on its own rows.
+  **`CorrectDayAsync`** (manual "fix one day" from the account's profile screen — attendance status,
+  overtime hour) is the only way to change a department account's pay-bearing day, and **it used to write
+  nothing to the activity log at all** — the one write path in the whole app that didn't, discovered
+  during an audit pass and confirmed with a real test, not just by reading the code: sign a day off, call
+  `CorrectDayAsync` for that date, and `DailyOperationsSignOffService.IsFullySignedOffAsync` still came
+  back `true`, because that check reads the activity log to decide "did anything happen after the
+  signature" and this path left no trace there. Fixed by logging
+  `ActivityEventType.DepartmentAccountDayCorrected` (long-lived retention, grouped as money in the log
+  screen, same reasoning as `WorkerWageChanged`) on every call — now behaves like every other attendance/
+  wage edit in the app and correctly re-arms the sign-off guard.
+- **Worker recognition titles** (`WorkerRecognitionService`/`WorkerRecognitionRules`,
+  `WorkerPerformanceTitle`) are the official, permanently-recorded "أحسن عامل" awards — distinct from
+  `WorkerWeeklySummaryDto.IsBestWorkerOfWeek`, which is recomputed live every time the screen opens and
+  never stored. `AwardTitlesForClosedPeriodsAsync` runs once per startup (same "no scheduled-job system"
+  reasoning as the department-account backfill above) and awards a title for each week/month that has
+  **actually closed** since the last time it ran, using a persisted cursor
+  (`AppSettingsStore.LastBestWorkerWeekComputedFor`/`LastBestWorkerMonthComputedFor`) capped at 8 weeks /
+  3 months of catch-up so a long-idle install doesn't do a heavy recompute burst. This cursor design is
+  safe here (unlike the department-account case above) because weeks and months are the same calendar
+  periods for every worker — there's no per-entity "own creation date" that a shared cursor could skip.
+  Both `WeeklySummaryService` and `WorkerRecognitionRules` independently exclude department accounts and
+  hourly workers from eligibility (see above), so a manager account can never win a production title.
 - `WorkdayCalculationService.Update/DeleteProductionAsync` edit rows freely. They used to refuse rows
   belonging to a batch because quantity and line position could desync; with numbers derived from the
   rows themselves, correcting a row corrects every report that depends on it.

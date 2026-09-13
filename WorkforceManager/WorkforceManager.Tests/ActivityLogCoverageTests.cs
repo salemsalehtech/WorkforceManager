@@ -186,6 +186,32 @@ namespace WorkforceManager.Tests
                 Assert.Single(await EventsOfAsync(ActivityEventType.ProductCreated)).EntityName);
         }
 
+        [Fact]
+        public async Task CorrectingADepartmentAccountDay_IsLogged_BothPresentAndAbsent()
+        {
+            // فجوة كانت موجودة: تصحيح يوم حساب إداري كان بيغيّر يومية
+            // مدفوعة من غير أي أثر في السجل خالص — وكان بيمر من غير ما
+            // يفكّ توقيع نهاية اليوم لو اليوم ده كان موقّع (شوف
+            // DailyOperationsSignOffServiceTests.CorrectingADepartmentAccountDayAfterSignOff_ReArmsTheGuard)
+            int accountId;
+            using (var scope = _db.CreateScope())
+                accountId = (await _db.GetService<WorkerManagementService>(scope)
+                    .CreateWorkerAsync("مدير الإنتاج", hourlyRole: HourlyRole.DepartmentManager, dailyWageEgp: 300m)).Id;
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<DepartmentAttendanceService>(scope)
+                    .CorrectDayAsync(accountId, Day, AttendanceStatus.Present, HourlyWorkdayService.EveningEndHour);
+
+            var present = Assert.Single(await EventsOfAsync(ActivityEventType.DepartmentAccountDayCorrected));
+            Assert.Equal("مدير الإنتاج", present.EntityName);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<DepartmentAttendanceService>(scope)
+                    .CorrectDayAsync(accountId, Day, AttendanceStatus.AbsentWithoutPermission, HourlyWorkdayService.ShiftEndHour);
+
+            Assert.Equal(2, (await EventsOfAsync(ActivityEventType.DepartmentAccountDayCorrected)).Count);
+        }
+
         // ---------------- سياسة الاحتفاظ ----------------
 
         [Fact]

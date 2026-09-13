@@ -167,7 +167,8 @@ namespace WorkforceManager.UI.ViewModels
                 or ActivityEventType.PenaltySaved
                 or ActivityEventType.PenaltyDeleted
                 or ActivityEventType.WageAdjustmentSaved
-                or ActivityEventType.WageAdjustmentDeleted,
+                or ActivityEventType.WageAdjustmentDeleted
+                or ActivityEventType.DepartmentAccountDayCorrected,
 
             EventGroup.Deletions => type
                 is ActivityEventType.ProductionDayDeleted
@@ -258,6 +259,7 @@ namespace WorkforceManager.UI.ViewModels
             ActivityEventType.StageCreated => "إضافة مرحلة",
             ActivityEventType.ScrapDeleted => "حذف هالك",
             ActivityEventType.DaySignedOff => "توقيع نهاية اليوم",
+            ActivityEventType.DepartmentAccountDayCorrected => "تصحيح يوم حساب إداري",
             _ => _event.EventType.ToString()
         };
 
@@ -286,6 +288,7 @@ namespace WorkforceManager.UI.ViewModels
             ActivityEventType.StageCreated => PackIconKind.PlusBoxOutline,
             ActivityEventType.ScrapDeleted => PackIconKind.DeleteOutline,
             ActivityEventType.DaySignedOff => PackIconKind.CheckCircleOutline,
+            ActivityEventType.DepartmentAccountDayCorrected => PackIconKind.AccountEditOutline,
             _ => PackIconKind.InformationOutline
         };
 
@@ -308,7 +311,8 @@ namespace WorkforceManager.UI.ViewModels
             is ActivityEventType.WorkerWageChanged
             or ActivityEventType.ProductionPiecesEdited
             or ActivityEventType.PenaltySaved
-            or ActivityEventType.WageAdjustmentSaved;
+            or ActivityEventType.WageAdjustmentSaved
+            or ActivityEventType.DepartmentAccountDayCorrected;
 
         /// <summary>مفتاح فرشاة من اللوحة — مش كود لون (شوف <see cref="ThemeBrush"/>)</summary>
         public string AccentColor =>

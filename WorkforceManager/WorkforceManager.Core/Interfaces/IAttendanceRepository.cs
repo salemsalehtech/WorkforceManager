@@ -15,5 +15,8 @@ namespace WorkforceManager.Core.Interfaces
 
         /// <summary>كل سجلات الحضور لكل العمال خلال فترة زمنية (للملخص والتقرير الأسبوعي المجمّع)</summary>
         Task<IReadOnlyList<Attendance>> GetByRangeAsync(DateTime from, DateTime to);
+
+        /// <summary>أحدث تاريخ ليه سجل حضور لعامل معيّن — null لو مفيش أي سجل خالص</summary>
+        Task<DateTime?> GetLastDateForWorkerAsync(int workerId);
     }
 }

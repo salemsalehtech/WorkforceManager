@@ -171,6 +171,40 @@ namespace WorkforceManager.Tests
             Assert.Equal(2, logs.Count); // يومين بس (النهارده وامبارح) — مفيش تكرار
         }
 
+        /// <summary>
+        /// تدقيق لقى: الإصلاح الأول (مؤشر settings.json مركزي) كان عنده
+        /// عيب حقيقي — لقطه اختبار زي ده بالظبط: حساب تاني اتضاف بتاريخ
+        /// إنشاء قبل ما حساب أول يخلّص تعبيته كان بيتجاهَل، لأن المؤشر
+        /// المركزي بيتقدّم بناءً على الحساب الأول بس. الإصلاح النهائي
+        /// بيسأل كل حساب عن "آخر يوم ليك فيه سجل؟" بنفسه (GetLastDateForWorkerAsync)
+        /// بدل مؤشر مشترك، فترتيب إضافة الحسابات مبقاش يأثر خالص.
+        /// </summary>
+        [Fact]
+        public async Task EnsureDailyPresenceAsync_ANewerAccountIsNotBlockedByAnOlderAccountsProgress()
+        {
+            var firstAccountId = await CreateDepartmentAccountAsync("مدير أول");
+            await SetCreatedAtAsync(firstAccountId, DateTime.Today.AddDays(-5));
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<DepartmentAttendanceService>(scope).EnsureDailyPresenceAsync();
+
+            // حساب تاني اتضاف بعد ما الأول خلّص تعبيته بالكامل، بتاريخ
+            // إنشاء قبل النهارده بيومين — لازم يتغطى من يومين قبل النهارده
+            // برضه، مش يتجاهل لمجرد إن الحساب الأول وصل لحد النهارده خلاص
+            var secondAccountId = await CreateDepartmentAccountAsync("مدير تاني");
+            await SetCreatedAtAsync(secondAccountId, DateTime.Today.AddDays(-2));
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<DepartmentAttendanceService>(scope).EnsureDailyPresenceAsync();
+
+            using var checkScope = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(checkScope);
+
+            for (var day = DateTime.Today.AddDays(-2); day <= DateTime.Today; day = day.AddDays(1))
+                Assert.NotNull(await db.HourlyWorkLogs
+                    .FirstOrDefaultAsync(h => h.WorkerId == secondAccountId && h.Date == day));
+        }
+
         // ======================= تصحيح يوم يدويًا (بروفايل الحساب) =======================
 
         [Fact]

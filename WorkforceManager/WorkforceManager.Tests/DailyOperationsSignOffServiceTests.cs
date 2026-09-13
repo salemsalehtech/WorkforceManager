@@ -169,6 +169,44 @@ namespace WorkforceManager.Tests
             Assert.Single(await service.GetActivitySinceLastSignOffAsync(Today));
         }
 
+        /// <summary>
+        /// تدقيق لقى: تصحيح يوم حساب إداري (DepartmentAttendanceService.
+        /// CorrectDayAsync) كان بيغيّر يومية مدفوعة بلا أي حدث في السجل
+        /// خالص — يعني اليوم فضل "موقّع بالكامل" حتى لو حصل فيه تعديل
+        /// أجر حقيقي بعد التوقيع. الإصلاح: CorrectDayAsync بقى بيسجّل
+        /// DepartmentAccountDayCorrected زي أي تعديل حضور/أجر تاني.
+        ///
+        /// بيستخدم DateTime.Today الحقيقي (مش Today الثابت بتاع باقي
+        /// الملف) عن قصد: LogAsync بيختم OccurredAt بالوقت الحقيقي دايمًا
+        /// (زي أي حدث حقيقي في البرنامج)، فلازم يوم التوقيع هنا يطابق
+        /// نفس اليوم الحقيقي عشان GetByRangeAsync(date, date) يمسك الحدث.
+        /// </summary>
+        [Fact]
+        public async Task CorrectingADepartmentAccountDayAfterSignOff_ReArmsTheGuard()
+        {
+            var realToday = DateTime.Today;
+            int workerId;
+
+            using (var scope = _db.CreateScope())
+                workerId = (await _db.GetService<WorkerManagementService>(scope)
+                    .CreateWorkerAsync("مدير الإنتاج", hourlyRole: HourlyRole.DepartmentManager, dailyWageEgp: 300m)).Id;
+
+            // التوقيع بعد إنشاء الحساب — حدث الإنشاء نفسه بيتسجّل وقت
+            // الإنشاء، فمش من ضمن "النشاط بعد التوقيع" اللي الاختبار ده بيتأكد منه
+            await SignOffAtAsync(realToday, DateTime.Now);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<DepartmentAttendanceService>(scope)
+                    .CorrectDayAsync(workerId, realToday, AttendanceStatus.Present, HourlyWorkdayService.EveningEndHour);
+
+            using var check = _db.CreateScope();
+            var service = _db.GetService<DailyOperationsSignOffService>(check);
+
+            Assert.False(await service.IsFullySignedOffAsync(realToday));
+            var activity = Assert.Single(await service.GetActivitySinceLastSignOffAsync(realToday));
+            Assert.Equal(ActivityEventType.DepartmentAccountDayCorrected, activity.EventType);
+        }
+
         [Fact]
         public async Task TheSignOffEventItself_NeverReArmsTheGuard()
         {

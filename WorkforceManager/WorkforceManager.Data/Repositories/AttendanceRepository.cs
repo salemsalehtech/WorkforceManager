@@ -37,5 +37,15 @@ namespace WorkforceManager.Data.Repositories
                 .OrderBy(a => a.Date)
                 .ToListAsync();
         }
+
+        public async Task<DateTime?> GetLastDateForWorkerAsync(int workerId)
+        {
+            // بيستفيد من الفهرس اليونيك (WorkerId, Date) الموجود أصلًا —
+            // نتيجة واحدة من غير تحميل أي صف كامل
+            return await DbSet.Where(a => a.WorkerId == workerId)
+                .OrderByDescending(a => a.Date)
+                .Select(a => (DateTime?)a.Date)
+                .FirstOrDefaultAsync();
+        }
     }
 }

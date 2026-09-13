@@ -15,5 +15,8 @@ namespace WorkforceManager.Core.Interfaces
 
         /// <summary>فيه أي شغل بالساعة مسجّل للعامل ده؟</summary>
         Task<bool> HasAnyForWorkerAsync(int workerId);
+
+        /// <summary>أحدث تاريخ ليه سجل شغل بالساعة لعامل معيّن — null لو مفيش أي سجل خالص</summary>
+        Task<DateTime?> GetLastDateForWorkerAsync(int workerId);
     }
 }
