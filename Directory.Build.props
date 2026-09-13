@@ -39,8 +39,8 @@
   <PropertyGroup>
     <Company>WorkforceManager</Company>
     <Product>نظام إدارة إنتاجية وأجور العمال</Product>
-    <Version>1.5.14</Version>
-    <FileVersion>1.5.14.0</FileVersion>
+    <Version>1.5.15</Version>
+    <FileVersion>1.5.15.0</FileVersion>
 
     <!--
       تواريخ الإصدار — بتتعرض في سطر المعلومات آخر شاشة الإعدادات
