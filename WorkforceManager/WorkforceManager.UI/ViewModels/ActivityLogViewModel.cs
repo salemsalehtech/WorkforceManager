@@ -178,14 +178,17 @@ namespace WorkforceManager.UI.ViewModels
                 or ActivityEventType.StageDeleted
                 or ActivityEventType.PenaltyDeleted
                 or ActivityEventType.WageAdjustmentDeleted
-                or ActivityEventType.ScrapDeleted,
+                or ActivityEventType.ScrapDeleted
+                or ActivityEventType.ProductionMemoryDeleted,
 
             EventGroup.Production => type
                 is ActivityEventType.ProductionRecorded
                 or ActivityEventType.AttendanceSaved
                 or ActivityEventType.ProductionDayClosed
                 or ActivityEventType.ProductionDayReopened
-                or ActivityEventType.ScrapRecorded,
+                or ActivityEventType.ScrapRecorded
+                or ActivityEventType.ProductionMemoryCreated
+                or ActivityEventType.ProductionMemoryEdited,
 
             EventGroup.Setup => type
                 is ActivityEventType.WorkerCreated
@@ -260,6 +263,9 @@ namespace WorkforceManager.UI.ViewModels
             ActivityEventType.ScrapDeleted => "حذف هالك",
             ActivityEventType.DaySignedOff => "توقيع نهاية اليوم",
             ActivityEventType.DepartmentAccountDayCorrected => "تصحيح يوم حساب إداري",
+            ActivityEventType.ProductionMemoryCreated => "حفظ خطة في الذاكرة",
+            ActivityEventType.ProductionMemoryEdited => "تعديل خطة في الذاكرة",
+            ActivityEventType.ProductionMemoryDeleted => "حذف خطة من الذاكرة",
             _ => _event.EventType.ToString()
         };
 
@@ -289,6 +295,9 @@ namespace WorkforceManager.UI.ViewModels
             ActivityEventType.ScrapDeleted => PackIconKind.DeleteOutline,
             ActivityEventType.DaySignedOff => PackIconKind.CheckCircleOutline,
             ActivityEventType.DepartmentAccountDayCorrected => PackIconKind.AccountEditOutline,
+            ActivityEventType.ProductionMemoryCreated => PackIconKind.NotebookPlusOutline,
+            ActivityEventType.ProductionMemoryEdited => PackIconKind.NotebookEditOutline,
+            ActivityEventType.ProductionMemoryDeleted => PackIconKind.NotebookRemoveOutline,
             _ => PackIconKind.InformationOutline
         };
 

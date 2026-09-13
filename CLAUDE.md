@@ -884,6 +884,13 @@ Core  <----------------------- UI
   deactivated or deleted, or whose stages left the line, still shows its reminder with "ابدأ الآن"
   disabled and the reason spelled out; `BlockedReason` is derived at read time, never stored, because the
   product can change at any point after the plan was written.
+  **Saving, editing, or deleting a memory plan is logged** (`ProductionMemoryCreated`/`Edited`/`Deleted`) —
+  found as a real gap the same way the department-account one was: a user reported that signing off a day
+  and then saving a plan still let the app close without asking again. `ProductionMemoryService` had zero
+  `LogAsync` calls at all before this, for any of its writes. `PostponeAsync` (just moving a reminder date)
+  and `MarkStartedAsync` (automatic bookkeeping the moment the reminder's screen opens, not a decision the
+  user made) are still deliberately unlogged — same reasoning as everywhere else in this file: log what
+  has real value, not every write.
 - **Day closure was removed outright** (`DayClosureService`, `ProductionDayClosure`, the lock/reopen
   button on Daily Entry, the "اليوم مقفول" badge on the Reports screen — all deleted, not deprecated).
   It used to let the user lock one date's production numbers against further edits after reviewing

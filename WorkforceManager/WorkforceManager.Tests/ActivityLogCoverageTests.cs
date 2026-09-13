@@ -212,6 +212,36 @@ namespace WorkforceManager.Tests
             Assert.Equal(2, (await EventsOfAsync(ActivityEventType.DepartmentAccountDayCorrected)).Count);
         }
 
+        [Fact]
+        public async Task SavingEditingAndDeletingAMemoryPlan_IsLogged()
+        {
+            // فجوة كانت موجودة: حفظ/تعديل/حذف خطة في "الذاكرة" كان بيحصل
+            // من غير أي أثر في السجل خالص — يوم موقّع عليه بيفضل موقّع
+            // حتى لو نوايا الإنتاج اتغيّرت فعلًا بعد التوقيع
+            int memoryId;
+            using (var scope = _db.CreateScope())
+                memoryId = await _db.GetService<ProductionMemoryService>(scope).CreateAsync(
+                    TestDatabase.ProductRingId,
+                    new[] { TestDatabase.RingStage2Id, TestDatabase.RingStage1Id },
+                    "ملاحظة", Day.AddDays(1));
+
+            var created = Assert.Single(await EventsOfAsync(ActivityEventType.ProductionMemoryCreated));
+            Assert.Equal("دبلة", created.EntityName);
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<ProductionMemoryService>(scope).UpdateAsync(
+                    memoryId, TestDatabase.ProductRingId,
+                    new[] { TestDatabase.RingStage1Id, TestDatabase.RingStage2Id },
+                    "ملاحظة اتعدّلت", Day.AddDays(2));
+
+            Assert.Single(await EventsOfAsync(ActivityEventType.ProductionMemoryEdited));
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<ProductionMemoryService>(scope).DeleteAsync(memoryId);
+
+            Assert.Single(await EventsOfAsync(ActivityEventType.ProductionMemoryDeleted));
+        }
+
         // ---------------- سياسة الاحتفاظ ----------------
 
         [Fact]

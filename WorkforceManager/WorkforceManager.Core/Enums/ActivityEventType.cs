@@ -133,7 +133,16 @@ namespace WorkforceManager.Core.Enums
         /// ومن غير ما يفكّ توقيع نهاية اليوم لو اليوم ده كان موقّع بالفعل
         /// (شوف DepartmentAttendanceService.CorrectDayAsync).
         /// </summary>
-        DepartmentAccountDayCorrected = 30
+        DepartmentAccountDayCorrected = 30,
+
+        /// <summary>خطة إنتاج متأجّلة ("الذاكرة") جديدة اتحفظت</summary>
+        ProductionMemoryCreated = 31,
+
+        /// <summary>خطة ذاكرة نشطة اتعدّلت (منتجها، ترتيب مراحلها، أو ملاحظاتها)</summary>
+        ProductionMemoryEdited = 32,
+
+        /// <summary>خطة ذاكرة اتشالت</summary>
+        ProductionMemoryDeleted = 33
 
         // مفيش نوع لاسترجاع النسخة الاحتياطية عن قصد: الاسترجاع بيستبدل
         // ملف قاعدة البيانات كله وبيعيد تشغيل البرنامج، فالحدث اللي

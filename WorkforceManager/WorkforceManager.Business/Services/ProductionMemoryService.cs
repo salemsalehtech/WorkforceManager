@@ -1,4 +1,5 @@
 using WorkforceManager.Business.DTOs;
+using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 
@@ -11,17 +12,26 @@ namespace WorkforceManager.Business.Services
     /// الخدمة دي **مبتسجّلش أي إنتاج** — كل اللي بتعمله إنها تحفظ الخطة
     /// وترجّع ترتيبها. التسجيل نفسه بيمشي في ProductionFlowService زي أي
     /// جلسة عادية، وبياخد الترتيب كباراميتر.
+    ///
+    /// الحفظ/التعديل/الحذف بيتسجّلوا في سجل العمليات (زي أي عملية ليها
+    /// قيمة) — كانت فجوة حقيقية: خطة بتتحفظ أو تتشال من غير أي أثر خالص،
+    /// فيوم موقّع عليه بيفضل "موقّع" حتى لو حصل فيه تغيير حقيقي في نوايا
+    /// الإنتاج بعد التوقيع. التأجيل (PostponeAsync) ونقل الخطة للمنجزة
+    /// (MarkStartedAsync) مش مسجّلين عن قصد — الأول تحريك تاريخ بسيط،
+    /// والتاني بوكيبنج تلقائي بيحصل بمجرد فتح الشاشة مش فعل قرره المستخدم.
     /// </summary>
     public class ProductionMemoryService
     {
         private readonly IProductionMemoryRepository _memories;
         private readonly IProductRepository _products;
+        private readonly ActivityLogService _log;
 
         public ProductionMemoryService(
-            IProductionMemoryRepository memories, IProductRepository products)
+            IProductionMemoryRepository memories, IProductRepository products, ActivityLogService log)
         {
             _memories = memories;
             _products = products;
+            _log = log;
         }
 
         /// <summary>الخطط النشطة، الأقرب تذكيرًا الأول</summary>
@@ -52,7 +62,7 @@ namespace WorkforceManager.Business.Services
         public async Task<int> CreateAsync(
             int productId, IReadOnlyList<int> stageIds, string notes, DateTime remindOn)
         {
-            await ValidatePlanAsync(productId, stageIds);
+            var product = await ValidatePlanAsync(productId, stageIds);
 
             var memory = new ProductionMemory
             {
@@ -65,6 +75,10 @@ namespace WorkforceManager.Business.Services
 
             await _memories.AddAsync(memory);
             await _memories.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.ProductionMemoryCreated, "ProductionMemory", memory.Id,
+                entityName: product.Name, details: $"تذكير يوم {remindOn.Date:yyyy/MM/dd}");
 
             return memory.Id;
         }
@@ -83,7 +97,7 @@ namespace WorkforceManager.Business.Services
             if (memory.CompletedAt is not null)
                 throw new InvalidOperationException("الخطة دي اتنفّذت خلاص — مش هينفع تتعدّل");
 
-            await ValidatePlanAsync(productId, stageIds);
+            var product = await ValidatePlanAsync(productId, stageIds);
 
             memory.ProductId = productId;
             memory.Notes = (notes ?? string.Empty).Trim();
@@ -94,6 +108,10 @@ namespace WorkforceManager.Business.Services
                 memory.Stages.Add(stage);
 
             await _memories.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.ProductionMemoryEdited, "ProductionMemory", memory.Id,
+                entityName: product.Name, details: $"تذكير يوم {remindOn.Date:yyyy/MM/dd}");
         }
 
         /// <summary>
@@ -132,11 +150,17 @@ namespace WorkforceManager.Business.Services
 
         public async Task DeleteAsync(int id)
         {
-            var memory = await _memories.GetByIdAsync(id)
+            var memory = await _memories.GetWithStagesAsync(id)
                 ?? throw new InvalidOperationException("الخطة المحددة مش موجودة");
+
+            var productName = memory.Product?.Name ?? "(منتج متشال)";
 
             _memories.Remove(memory);
             await _memories.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.ProductionMemoryDeleted, "ProductionMemory", id,
+                entityName: productName);
         }
 
         /// <summary>
@@ -172,7 +196,7 @@ namespace WorkforceManager.Business.Services
         /// بيستخدمها — قاعدة واحدة، مفيش نسخة تانية تسيب حاجة تعدّي هنا
         /// وترفضها هناك.
         /// </summary>
-        private async Task ValidatePlanAsync(int productId, IReadOnlyList<int> stageIds)
+        private async Task<Product> ValidatePlanAsync(int productId, IReadOnlyList<int> stageIds)
         {
             var product = await _products.GetWithStagesAsync(productId)
                 ?? throw new InvalidOperationException("المنتج المحدد غير موجود");
@@ -181,6 +205,8 @@ namespace WorkforceManager.Business.Services
                 throw new InvalidOperationException("المنتج المحدد متشال");
 
             ProductionLine.CustomOrder(ProductionLine.Active(product), stageIds);
+
+            return product;
         }
 
         /// <summary>
