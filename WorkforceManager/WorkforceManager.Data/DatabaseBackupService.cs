@@ -83,8 +83,23 @@ namespace WorkforceManager.Data
                         $"المجلد الخارجي غير متاح:\n{externalFolder}\n\nوصّل الفلاشة/القرص أو راجع المسار من الإعدادات. (النسخة المحلية اتاخدت عادي)");
 
                 externalPath = Path.Combine(externalFolder, TodayBackupName());
-                File.Copy(localPath, externalPath, overwrite: true);
-                CleanupOldBackups(externalFolder, retentionDays);
+
+                // النسخة المحلية فوق خلصت خلاص وقت ما نوصل هنا، فأي فشل
+                // في النسخ الخارجي (فلاشة اتشالت أثناء الكتابة، القرص
+                // امتلا، صلاحيات الكتابة) لازم برضه يترجم لرسالة عربية
+                // واضحة زي حالة "المجلد مش موجود" فوق — مش استثناء .NET
+                // خام (IOException/UnauthorizedAccessException) يوصل
+                // المستخدم عن طريق معالج الأخطاء العام بس
+                try
+                {
+                    File.Copy(localPath, externalPath, overwrite: true);
+                    CleanupOldBackups(externalFolder, retentionDays);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    throw new InvalidOperationException(
+                        $"تعذّر النسخ للمجلد الخارجي:\n{externalFolder}\n\n{ex.Message}\n\n(النسخة المحلية اتاخدت عادي)", ex);
+                }
             }
 
             return (localPath, externalPath);

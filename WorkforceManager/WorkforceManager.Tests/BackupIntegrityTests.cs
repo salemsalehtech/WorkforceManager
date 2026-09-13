@@ -204,5 +204,43 @@ namespace WorkforceManager.Tests
             Assert.False(File.Exists(dbPath + "-wal"), "ملف الـ WAL القديم لازم يتشال مع القاعدة القديمة");
             Assert.False(File.Exists(dbPath + "-shm"));
         }
+
+        /// <summary>
+        /// تدقيق لقى: BackupNow كانت بترمي رسالة عربية واضحة بس لو المجلد
+        /// الخارجي مش موجود خالص — أي فشل تاني أثناء النسخ الفعلي (فلاشة
+        /// اتشالت، صلاحيات، القرص امتلا) كان بيسيب IOException/
+        /// UnauthorizedAccessException خام توصل المستخدم عن طريق معالج
+        /// الأخطاء العام. بنحاكي الفشل هنا بملف هدف للقراءة بس.
+        /// </summary>
+        [Fact]
+        public async Task BackupNow_WhenTheExternalCopyItselfFails_ThrowsAClearArabicMessage_NotARawIOException()
+        {
+            var dbPath = await NewDatabaseAsync();
+            ClearPoolFor(dbPath);
+
+            var externalFolder = Path.Combine(Path.GetDirectoryName(dbPath)!, "external");
+            Directory.CreateDirectory(externalFolder);
+            _folders.Add(externalFolder);
+
+            // اسم النسخة بتاع اليوم بالظبط — عشان File.Copy(overwrite:true)
+            // يصطدم بملف موجود وللقراءة بس فيفشل بـ UnauthorizedAccessException
+            var todayName = $"workforce_{DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)}.db";
+            var blockedPath = Path.Combine(externalFolder, todayName);
+            await File.WriteAllTextAsync(blockedPath, "");
+            File.SetAttributes(blockedPath, FileAttributes.ReadOnly);
+
+            try
+            {
+                var ex = Assert.Throws<InvalidOperationException>(
+                    () => DatabaseBackupService.BackupNow(dbPath, externalFolder, 14));
+
+                Assert.Contains(externalFolder, ex.Message);
+                Assert.Contains("النسخة المحلية اتاخدت عادي", ex.Message);
+            }
+            finally
+            {
+                File.SetAttributes(blockedPath, FileAttributes.Normal);
+            }
+        }
     }
 }
