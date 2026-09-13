@@ -1198,6 +1198,16 @@ Core  <----------------------- UI
   key strings** (same as `ToastHost`) so `SetResourceReference` keeps the binding live across a theme
   swap, and so the mapping is unit-testable without WPF. Note `SensitiveActionDialog` still uses the
   solid-colour header and has the same dark-mode weakness — left alone deliberately, not overlooked.
+- **A `{DynamicResource}`/`{StaticResource}` reference to a key that doesn't exist fails completely
+  silently** — no exception, no XAML-load error, `XamlLoadTests` doesn't catch it. The property is simply
+  left unset, so a `Border.Background` renders as fully transparent instead of whatever the author
+  intended. Three racking-stage/tag-only badges (`DailyEntryView`, `ProductsView`) had used
+  `InfoBgBrush` — a key that never existed anywhere in the palette; the real key is `InfoTintBrush`,
+  following the same tint/ink pairing as the line above (`InfoTintBrush`+`InfoBrush`). Found by diffing
+  every `{Static/DynamicResource ...}` key referenced across `Views/*.xaml` against every key actually
+  declared in `App.xaml`/`Themes/*.xaml`, not by eye — a targeted render before/after confirmed the badge
+  had **no background pill shape at all** before the fix (just floating text) and the correctly-tinted
+  pill after. Re-run that key-diff after any bulk rename of a palette brush; nothing else will catch it.
 - **Excel export runs on a background thread** (`ExcelExport.RunAsync` wraps the write in `Task.Run`).
   Every caller passes a lambda that does its work synchronously and returns `Task.CompletedTask`, so it
   used to execute on the UI thread — a year's report with 14k detail rows froze the window for 3.3

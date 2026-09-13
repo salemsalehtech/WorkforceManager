@@ -374,7 +374,7 @@
                                                                                        VerticalAlignment="Center" Margin="8,0,0,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
 
                                                                             <!-- مرحلة رص إدارية: بلا نطاق/قطع، عاملها بيتحط تاج بيومية مباشرة -->
-                                                                            <Border Background="{DynamicResource InfoBgBrush}" CornerRadius="4"
+                                                                            <Border Background="{DynamicResource InfoTintBrush}" CornerRadius="4"
                                                                                     Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center"
                                                                                     Visibility="{Binding IsRackingStage, Converter={StaticResource BoolToVis}}">
                                                                                 <TextBlock Text="رص" FontSize="10.5" ui:ThemeBrush.ForegroundKey="InfoBrush" />
@@ -411,7 +411,7 @@
                                                                                                 <Setter Property="Background" Value="{DynamicResource ChipBgBrush}" />
                                                                                                 <Style.Triggers>
                                                                                                     <DataTrigger Binding="{Binding IsTagOnly}" Value="True">
-                                                                                                        <Setter Property="Background" Value="{DynamicResource InfoBgBrush}" />
+                                                                                                        <Setter Property="Background" Value="{DynamicResource InfoTintBrush}" />
                                                                                                     </DataTrigger>
                                                                                                     <!-- إعادة عمل: لون مختلف عشان تتميّز فورًا عن الإنتاج العادي -->
                                                                                                     <DataTrigger Binding="{Binding IsRework}" Value="True">
@@ -567,7 +567,7 @@
 
                                                                                                 <!-- تاج (متدرّب/عامل رص): بادج بدل النجوم — التقييم
                                                                                                      مالوش معنى لعامل بيتحاسب بالساعة -->
-                                                                                                <Border Background="{DynamicResource InfoBgBrush}" CornerRadius="4"
+                                                                                                <Border Background="{DynamicResource InfoTintBrush}" CornerRadius="4"
                                                                                                         Padding="5,1" Margin="0,1,0,0" HorizontalAlignment="Left"
                                                                                                         Visibility="{Binding HasTagLabel, Converter={StaticResource BoolToVis}}">
                                                                                                     <TextBlock Text="{Binding TagLabel}" FontSize="10"
