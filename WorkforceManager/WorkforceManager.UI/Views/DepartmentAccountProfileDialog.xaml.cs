@@ -97,6 +97,8 @@ namespace WorkforceManager.UI.Views
 
         private async void AddCorrection_Click(object sender, RoutedEventArgs e)
         {
+            if (!_canManage) return; // دفاع إضافي — الزرار نفسه مخفي عن غير مدير القسم
+
             var dialog = new DepartmentOvertimeDialog(_account.FullName, _account.Role) { Owner = this };
             if (dialog.ShowDialog() != true) return;
 
@@ -109,6 +111,8 @@ namespace WorkforceManager.UI.Views
 
         private void AddAdjustment_Click(object sender, RoutedEventArgs e)
         {
+            if (!_canManage) return; // دفاع إضافي — الزرار نفسه مخفي عن غير مدير القسم
+
             AdjustmentErrorText.ClearError();
             AddAdjustmentPanel.Visibility = AddAdjustmentPanel.Visibility == Visibility.Visible
                 ? Visibility.Collapsed
@@ -117,6 +121,8 @@ namespace WorkforceManager.UI.Views
 
         private async void SaveAdjustment_Click(object sender, RoutedEventArgs e)
         {
+            if (!_canManage) return; // دفاع إضافي — اللوحة اللي فيها الزرار ده مخفية عن غير مدير القسم
+
             if (!decimal.TryParse(AdjustmentAmountBox.Text.Trim(), out var amount) || amount <= 0)
             {
                 AdjustmentErrorText.ShowError("المبلغ لازم يكون رقم موجب");
@@ -154,6 +160,8 @@ namespace WorkforceManager.UI.Views
 
         private async void RemoveAdjustment_Click(object sender, RoutedEventArgs e)
         {
+            if (!_canManage) return; // دفاع إضافي — زرار الحذف نفسه مخفي لكل صف (CanRemove) عن غير مدير القسم
+
             var adjustmentId = (int)((Button)sender).Tag;
 
             using var scope = _scopeFactory.CreateScope();
