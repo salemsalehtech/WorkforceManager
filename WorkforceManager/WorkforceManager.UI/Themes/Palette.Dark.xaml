@@ -34,8 +34,6 @@
     <SolidColorBrush x:Key="SurfaceBrush" Color="{DynamicResource SurfaceColor}" />
     <Color x:Key="SurfaceAltColor">#1D1D20</Color>
     <SolidColorBrush x:Key="SurfaceAltBrush" Color="{DynamicResource SurfaceAltColor}" />
-    <Color x:Key="SurfaceSunkenColor">#000000</Color>
-    <SolidColorBrush x:Key="SurfaceSunkenBrush" Color="{DynamicResource SurfaceSunkenColor}" />
 
     <!-- الشريط الجانبي أسود كامل: هو أعمق طبقة في الشاشة -->
     <Color x:Key="SidebarColor">#000000</Color>

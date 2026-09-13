@@ -39,8 +39,6 @@
     <SolidColorBrush x:Key="SurfaceBrush" Color="{DynamicResource SurfaceColor}" />
     <Color x:Key="SurfaceAltColor">#F1ECDF</Color>
     <SolidColorBrush x:Key="SurfaceAltBrush" Color="{DynamicResource SurfaceAltColor}" />
-    <Color x:Key="SurfaceSunkenColor">#EBE4D3</Color>
-    <SolidColorBrush x:Key="SurfaceSunkenBrush" Color="{DynamicResource SurfaceSunkenColor}" />
 
     <!-- الشريط الجانبي: أسود دافي (محايد) في الثيمين — هو هوية البرنامج،
          مش الكحلي. نفس درجة إضاءة الكحلي القديم بالظبط، غير لونه بس. -->
