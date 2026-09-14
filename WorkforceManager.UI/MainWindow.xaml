@@ -348,6 +348,15 @@
                                TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" />
                     <TextBlock x:Name="TourDescription" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap"
                                Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <!-- بتظهر بس أثناء خطوة تدريب تفاعلي حقيقية (RunGuidedStepAsync) —
+                         بتوضّح إن العنصر المضوّي قابل للدوس فعليًا دلوقتي -->
+                    <StackPanel x:Name="TourGuidedHint" Orientation="Horizontal" Margin="0,10,0,0"
+                                Visibility="Collapsed">
+                        <materialDesign:PackIcon Kind="CursorDefaultClick" Width="14" Height="14"
+                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
+                        <TextBlock Text="دوس على العنصر المضوّي — هيكمّل لوحده" FontSize="11.5" Margin="6,0,0,0"
+                                   FontWeight="Bold" Foreground="{DynamicResource GoldBrush}" />
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                         <Button Style="{StaticResource PrimaryButton}" Padding="16,7" Content="التالي"
                                 Click="TourNext_Click" />
