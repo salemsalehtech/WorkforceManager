@@ -15,7 +15,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- ==================== نموذج الخطة ==================== -->
-        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,10,0">
+        <Border x:Name="MemoryFormPanel" Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,10,0">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,4">

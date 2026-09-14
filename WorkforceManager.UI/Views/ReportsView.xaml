@@ -28,7 +28,7 @@
                 <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
                     <DockPanel>
                         <!-- شرايح التقسيم: يوم / أسبوع / شهر — نفس نمط تبويب إنتاج المنتجات -->
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <StackPanel x:Name="OutputGrainRow" DockPanel.Dock="Right" Orientation="Horizontal">
                             <RadioButton Style="{StaticResource Chip}" Content="بيوم" GroupName="OutputGrain"
                                          IsChecked="{Binding IsOutputGrainDay, Mode=OneWay}"
                                          Command="{Binding SetOutputGrainCommand}" CommandParameter="day" />
@@ -53,7 +53,7 @@
                 </Border>
 
                 <!-- ملخص اليوم في تلات أرقام: خلص، دخل، واتهلك -->
-                <UniformGrid Grid.Row="1" Columns="3" Margin="0,8,0,8">
+                <UniformGrid x:Name="KpiSummaryRow" Grid.Row="1" Columns="3" Margin="0,8,0,8">
                     <Border Style="{StaticResource Card}" Padding="14,11" Margin="0,0,4,0">
                         <StackPanel>
                             <TextBlock Text="{Binding OutputCompletedText}" FontSize="24" FontWeight="Bold"

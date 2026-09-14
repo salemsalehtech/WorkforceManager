@@ -34,7 +34,7 @@
 
                     <Button Command="{Binding LoadCommand}" Style="{StaticResource PrimaryButton}"
                             Margin="8,0,0,0" Padding="12,6" Content="عرض" />
-                    <Button Command="{Binding ShowTodayCommand}" Style="{StaticResource GhostButton}"
+                    <Button x:Name="QuickRangeButton" Command="{Binding ShowTodayCommand}" Style="{StaticResource GhostButton}"
                             Margin="6,0,0,0" Padding="12,6" Content="النهارده" />
                     <Button Command="{Binding ShowLastMonthCommand}" Style="{StaticResource GhostButton}"
                             Margin="6,0,0,0" Padding="12,6" Content="آخر 30 يوم" />
@@ -42,7 +42,7 @@
                     <!-- السجل بقى بيسجّل كل عملية ليها قيمة مش الحذف بس،
                          فالفلتر ده بقى ضروري: من غيره اللي بيدوّر على
                          حركة فلوس بيعدّي على كل حفظ إنتاج في الشهر -->
-                    <ComboBox ItemsSource="{Binding EventGroups}"
+                    <ComboBox x:Name="EventGroupComboBox" ItemsSource="{Binding EventGroups}"
                               SelectedItem="{Binding SelectedEventGroup}"
                               DisplayMemberPath="Display"
                               Width="140" Margin="12,0,0,0" FontSize="12.5" />

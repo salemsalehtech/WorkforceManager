@@ -253,12 +253,15 @@ namespace WorkforceManager.UI
         private TaskCompletionSource<bool>? _tourStepTcs;
 
         /// <summary>
-        /// بيشغّل الجولة خطوة خطوة: تنقّل للشاشة الصح لو الخطوة محتاجاها،
-        /// استنى التخطيط يستقر، لوّن سبوت لايت على العنصر المستهدف، واستنى
-        /// "التالي" أو "تخطي الكل". بينادى من App.OfferAppTourIfNewAsync.
+        /// بيشغّل الجولة خطوة خطوة: تنقّل للشاشة الصح لو الخطوة محتاجاها
+        /// (وتبويب "تسجيل الإنتاج اليومي" الصح لو محدّد)، استنى التخطيط
+        /// يستقر، لوّن سبوت لايت على العنصر المستهدف، واستنى "التالي" أو
+        /// "تخطي الكل". بينادى من App.OfferAppTourIfNewAsync وHelpViewModel.
         ///
         /// عنصر مش موجود دلوقتي (نادر — بس ممكن لو حد غيّر XAML بعدين
-        /// ونسي يحدّث AppTourContent) بيتخطّى بس، مش بيوقف الجولة كلها.
+        /// ونسي يحدّث المحتوى)، أو موجود بس مخفي/بلا مساحة (عناصر بتظهر
+        /// بشرط، زي زرار "إضافة حساب" اللي بيختفي لغير مدير القسم) — الاتنين
+        /// بيتخطّوا بس، مش بيوقفوا الجولة كلها.
         /// </summary>
         public async Task RunTourAsync(IReadOnlyList<Tour.AppTourStep> steps)
         {
@@ -271,9 +274,15 @@ namespace WorkforceManager.UI
                     var step = steps[i];
 
                     NavigateToTourScreen(step.Screen);
-                    await Task.Delay(150); // استقرار التخطيط بعد التنقّل قبل ما نقيس مكان العنصر
+
+                    if (step.TabIndex is int tab)
+                        _session.GetRequiredService<ViewModels.DailyEntryViewModel>().SelectedTabIndex = tab;
+
+                    await Task.Delay(150); // استقرار التخطيط بعد التنقّل/التبويب قبل ما نقيس مكان العنصر
 
                     if (FindTourTarget(step.TargetElementName) is not { } target) continue;
+                    if (target.Visibility != Visibility.Visible || target.ActualWidth <= 0 || target.ActualHeight <= 0)
+                        continue; // موجود جوه الشجرة بس مخفي فعليًا دلوقتي
 
                     PositionTourStep(target, i + 1, steps.Count, step.Title, step.Description);
 

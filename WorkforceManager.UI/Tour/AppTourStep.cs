@@ -26,5 +26,15 @@ namespace WorkforceManager.UI.Tour
         public required string Description { get; init; }
         public required string TargetElementName { get; init; }
         public TourScreen Screen { get; init; } = TourScreen.None;
+
+        /// <summary>
+        /// تبويب "تسجيل الإنتاج اليومي" اللي لازم يتفتح بعد التنقّل —
+        /// null لباقي الشاشات (مالهاش تبويبات فرعية الجولة محتاجة تختارها).
+        /// الترقيم بترتيب التبويبات في DailyEntryView.xaml: 0=تسجيل الإنتاج،
+        /// 1=الرصيد الأولي، 2=سجلات اليوم، 3=الحضور والغياب، 4=الجزاءات،
+        /// 5=السلف والحوافز، 6=الهالك — نفس الترقيم اللي DailyEntryViewModel
+        /// نفسها بتستخدمه (شوف OpenInitialBalanceTabCommand).
+        /// </summary>
+        public int? TabIndex { get; init; }
     }
 }

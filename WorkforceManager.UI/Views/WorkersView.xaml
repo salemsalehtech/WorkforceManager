@@ -64,7 +64,7 @@
                     </TextBlock>
 
                     <!-- المحتاجين انتباه: زرار مش نص، لأنه بيعمل حاجة -->
-                    <Button Command="{Binding ShowNeedsAttentionCommand}"
+                    <Button x:Name="ShowNeedsAttentionButton" Command="{Binding ShowNeedsAttentionCommand}"
                             Margin="14,0,0,0" Padding="10,3"
                             ToolTip="اعرض العمال دول بس">
                         <Button.Style>
@@ -101,7 +101,7 @@
                     </StackPanel>
                 </Button>
 
-                <Button Command="{Binding AddWorkerCommand}"
+                <Button x:Name="AddWorkerButton" Command="{Binding AddWorkerCommand}"
                         Style="{DynamicResource GoldButton}" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="AccountPlus" Width="17" Height="17"

@@ -76,7 +76,7 @@
                                                      Foreground="{DynamicResource GoldDeepBrush}" />
                             <TextBlock Text="قالب جاهز:" FontWeight="Bold" FontSize="13"
                                        VerticalAlignment="Center" Margin="6,0,10,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
+                            <ComboBox x:Name="TemplateComboBox" ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
                                       DisplayMemberPath="Name" Width="200" FontSize="12.5"
                                       ToolTip="بيملّي الاختيارات تحت — تقدر تعدّل عليها بعدها عادي" />
                             <Button Command="{Binding StartRenameTemplateCommand}"
@@ -163,7 +163,7 @@
                         </StackPanel>
 
                         <WrapPanel>
-                            <ComboBox ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject}"
+                            <ComboBox x:Name="SubjectComboBox" ItemsSource="{Binding Subjects}" SelectedItem="{Binding SelectedSubject}"
                                       DisplayMemberPath="Display" Width="150" FontSize="12.5"
                                       Margin="0,0,10,4" />
 
@@ -609,7 +609,7 @@
                             </Popup>
                         </Grid>
 
-                        <Button Command="{Binding ExportCommand}"
+                        <Button x:Name="ExportButton" Command="{Binding ExportCommand}"
                                 Style="{StaticResource SuccessButton}" Padding="15,8"
                                 IsEnabled="{Binding HasReport}">
                             <StackPanel Orientation="Horizontal">

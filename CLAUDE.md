@@ -222,15 +222,29 @@ Core  <----------------------- UI
   a short (usually one-step) spotlight tour through the exact same `MainWindow.RunTourAsync` engine, not a
   separate mechanism. `HelpViewModel.TryTourAsync` reaches `MainWindow` via `Application.Current.MainWindow`
   (the same pattern `DailyEntryViewModel` already uses everywhere as a dialog `Owner`), not DI — the topic
-  list is static content, no repository needed. Every `TargetElementName` here reuses an `x:Name` that
-  already existed for another reason where one was available (`FilterToggle` on Workers/Products/
-  ReportBuilder, `PreviewGrid`, `ProductToggle`, the Memory/Daily-Entry names from the tour above) rather
-  than adding a new one — only `ActivityLogList`, `BackupCard`, `AccountsListCard` are new, and each was
-  picked because it stays visible regardless of role/state (the Department Accounts card list, not the
-  "إضافة حساب" button, since that button is `Visibility`-collapsed for non-manager accounts and a spotlight
-  step needs its target to actually have a size). **Maintenance**: a new sidebar screen needs both a new
-  `TourScreen` enum value + `NavigateToTourScreen` case **and** a new `HelpTopic` here — nothing enforces
-  this automatically, same caveat as the tour above.
+  list is static content, no repository needed.
+  **Depth (revised after real use)**: the first pass gave every topic exactly one shallow step (e.g. just
+  "here's the filter button"); the user tried it and asked for the features actually worth knowing, 3-5
+  per screen, reusing an existing `x:Name` where one already fit (`FilterToggle`, `PreviewGrid`,
+  `ProductToggle`, `ActivityLogList`, `BackupCard`, `AccountsListCard`...) and adding one where the
+  distinctive action had none (`AddWorkerButton`, `SetPasswordButton`, `ExportButton`, and ~25 more —
+  always on static chrome, never inside an `ItemsControl`/`DataGrid` `DataTemplate`, since that repeats
+  per row and has no single instance to point at).
+  **"تسجيل الإنتاج اليومي" is 7 `HelpTopic`s, not one** — it has 7 internal tabs (`DailyEntryView.xaml`'s
+  `TabControl`, bound to `DailyEntryViewModel.SelectedTabIndex`) each with a real, separate workflow, too
+  much to fold into a single topic without becoming shallow again. `AppTourStep.TabIndex` (`int?`) carries
+  the tab to select; `RunTourAsync` sets `DailyEntryViewModel.SelectedTabIndex` after navigating, the exact
+  same mechanism `OpenInitialBalanceTabCommand` already used to jump to tab 1 — not a new pattern.
+  **Conditionally-visible targets are allowed now**, not avoided — `AddAccountButton` (Department
+  Accounts, `Visibility`-collapsed for non-manager accounts) is a deliberate step despite that, because a
+  general engine fix in `RunTourAsync` covers it for every topic at once: after `FindTourTarget` finds an
+  element, it also checks `Visibility == Visible` and `ActualWidth/Height > 0` before showing the step,
+  skipping to the next one otherwise — the same graceful handling already used for a target that isn't
+  found at all. Excluding every conditional element by hand would have thrown away real, important content
+  (the whole point of this revision) for a problem one shared check already solves.
+  **Maintenance**: a new sidebar screen needs both a new `TourScreen` enum value + `NavigateToTourScreen`
+  case **and** a new `HelpTopic` here (or, if it has its own internal tabs like Daily Entry, one per tab)
+  — nothing enforces this automatically, same caveat as the tour above.
   `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) is
   implemented as a **card list** (same `WorkerCard` style as the attendance screen), not a grid: summary
   bar (active / hourly / inactive + a "needs attention" button that filters to problem
