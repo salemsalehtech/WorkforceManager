@@ -846,6 +846,23 @@ namespace WorkforceManager.UI.Tour
                         Description = "النهارده أو آخر 30 يوم بضغطة واحدة، بدل ما تختار تاريخين من التقويم كل مرة.",
                         TargetElementName = "QuickRangeButton",
                         Screen = TourScreen.ActivityLog
+                    },
+                    new()
+                    {
+                        Title = "بحث نصي",
+                        Description = "دوّر باسم عامل/منتج أو بجزء من السبب المكتوب — بيفلتر فورًا من غير ما تحتاج زرار.",
+                        TargetElementName = "ActivityLogSearchBox",
+                        Screen = TourScreen.ActivityLog
+                    },
+                    new()
+                    {
+                        Title = "مدة الاحتفاظ",
+                        Description =
+                            "السجل بيقصّر لوحده بعد فترة (مختلفة للحذف عن حركات الفلوس) — السطر ده تحت بيقولّك المدة " +
+                            "الحالية بالظبط، وتقدر تغيّرها من شاشة الإعدادات. فتح الشاشة دي كمان بيصفّر شارة \"عمليات " +
+                            "جديدة\" في القايمة الجانبية.",
+                        TargetElementName = "RetentionNoteText",
+                        Screen = TourScreen.ActivityLog
                     }
                 }
             },
