@@ -152,6 +152,21 @@
 
                                             <!-- رأس الرحلة: اختيار المنتج + إزالة الرحلة -->
                                             <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                                                <!-- الرحلة دي جاية من خطة في شاشة "الذاكرة" — مش رحلة حرة عادية،
+                                                     عشان المستخدم مايتلخبطش (FlowSessionViewModel.IsFromMemoryPlan) -->
+                                                <Border DockPanel.Dock="Top" Background="{DynamicResource InfoTintBrush}"
+                                                        CornerRadius="7" Padding="9,5" Margin="0,0,0,8"
+                                                        Visibility="{Binding IsFromMemoryPlan, Converter={StaticResource BoolToVis}}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="14" Height="14"
+                                                                                 VerticalAlignment="Center"
+                                                                                 Foreground="{DynamicResource InfoBrush}" />
+                                                        <TextBlock Text="الرحلة دي من خطة محفوظة في الذاكرة" FontSize="12" FontWeight="Bold"
+                                                                   Margin="6,0,0,0" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource InfoBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+
                                                 <TextBlock DockPanel.Dock="Left" Text="المنتج:" FontWeight="Bold"
                                                            VerticalAlignment="Center" Margin="0,0,6,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding Products}"

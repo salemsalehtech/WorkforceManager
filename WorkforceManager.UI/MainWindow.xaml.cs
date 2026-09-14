@@ -334,7 +334,7 @@ namespace WorkforceManager.UI
         /// بيعلّم عنصر التنقل كمان — من غير كده الشاشة بتتغيّر والشريط
         /// الجانبي فاضل مأشّر على مكان تاني، فالمستخدم مش عارف هو فين.
         /// </summary>
-        public async Task OpenDailyEntryForMemoryAsync(int productId, IReadOnlyList<int> stageOrder)
+        public async Task OpenDailyEntryForMemoryAsync(int memoryId, int productId, IReadOnlyList<int> stageOrder)
         {
             if (MainContent is null) return;
 
@@ -344,7 +344,7 @@ namespace WorkforceManager.UI
             RefreshActivityBadge();
 
             await _session.GetRequiredService<ViewModels.DailyEntryViewModel>()
-                .StartFromMemoryAsync(productId, stageOrder);
+                .StartFromMemoryAsync(memoryId, productId, stageOrder);
         }
 
         private void NavMemory_Checked(object sender, RoutedEventArgs e)

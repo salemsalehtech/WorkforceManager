@@ -169,7 +169,7 @@ namespace WorkforceManager.UI.ViewModels
         /// Singleton وممكن يكون فيها توزيع لسه مش محفوظ من قبل التذكير،
         /// والدوس على ترتيب خطة فوقه كان هيضيّعه من غير ما المستخدم يطلب.
         /// </summary>
-        public async Task StartFromMemoryAsync(int productId, IReadOnlyList<int> stageOrder)
+        public async Task StartFromMemoryAsync(int memoryId, int productId, IReadOnlyList<int> stageOrder)
         {
             await InitializeAsync();
 
@@ -186,7 +186,7 @@ namespace WorkforceManager.UI.ViewModels
             FlowSessions.Add(session);
 
             // بعد تحديد المنتج: تحديده بيصفّر أي ترتيب خطة سابق
-            await session.ArmMemoryOrderAsync(stageOrder);
+            await session.ArmMemoryOrderAsync(stageOrder, memoryId);
         }
 
         /// <summary>بعد حفظ أي رحلة: الحضور التلقائي وسجلات اليوم بيظهروا فورًا</summary>

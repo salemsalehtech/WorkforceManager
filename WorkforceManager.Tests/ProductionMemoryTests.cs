@@ -162,7 +162,9 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task Starting_a_plan_moves_it_to_the_done_list_and_stops_the_reminder()
         {
-            // بيحصل بمجرد فتح الشاشة، من غير ما يتسجّل أي إنتاج
+            // MarkStartedAsync بتتنادى من FlowSessionViewModel بعد أول حفظ
+            // إنتاج حقيقي للرحلة — مش بمجرد فتح شاشة التسجيل (شوف الاختبار
+            // اللي بعده). هنا بنتأكد من سلوك الميثود نفسها بس.
             using var scope = _db.CreateScope();
 
             var id = await Memories(scope).CreateAsync(
@@ -173,6 +175,23 @@ namespace WorkforceManager.Tests
             Assert.Empty(await Memories(scope).GetDueAsync(Today));
             Assert.Empty(await Memories(scope).GetActiveAsync());
             Assert.Single(await Memories(scope).GetCompletedAsync());
+        }
+
+        [Fact]
+        public async Task OpeningASessionForAPlan_WithoutSavingAnything_LeavesItActive()
+        {
+            // الفحص بتاع GetStageOrderForSessionAsync (بيتنادى لما المستخدم
+            // يدوس "ابدأ الآن") مالوش أي أثر على حالة الخطة — لازم تفضل
+            // نشطة لحد ما حفظ حقيقي يحصل (MarkStartedAsync) في اختبار تاني
+            using var scope = _db.CreateScope();
+
+            var id = await Memories(scope).CreateAsync(
+                TestDatabase.ProductBagId, RealBagOrder, "", Today);
+
+            await Memories(scope).GetStageOrderForSessionAsync(id);
+
+            Assert.Single(await Memories(scope).GetActiveAsync());
+            Assert.Empty(await Memories(scope).GetCompletedAsync());
         }
 
         [Fact]

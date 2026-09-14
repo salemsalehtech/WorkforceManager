@@ -113,16 +113,24 @@ namespace WorkforceManager.UI.ViewModels
         /// </summary>
         private IReadOnlyList<int>? _memoryStageOrder;
 
+        /// <summary>
+        /// خطة الذاكرة اللي الجلسة دي جاية منها — null معناها جلسة عادية.
+        /// بتتعلّم منجزة (`ProductionMemoryService.MarkStartedAsync`) بعد
+        /// أول حفظ فعلي للرحلة، مش بمجرد فتح الشاشة — شوف `RecordAsync`.
+        /// </summary>
+        private int? _memoryId;
+
         /// <summary>هل الجلسة دي ماشية بترتيب خطة؟ (الواجهة بتوضّحه للمستخدم)</summary>
         public bool IsFromMemoryPlan => _memoryStageOrder is not null;
 
         /// <summary>
-        /// بيسلّح الجلسة بترتيب خطة. لازم يتنادى **بعد** ما المنتج
+        /// بيسلّح الجلسة بترتيب خطة ومعرّفها. لازم يتنادى **بعد** ما المنتج
         /// يتحدّد، لأن تحديد المنتج بيصفّر الترتيب.
         /// </summary>
-        public async Task ArmMemoryOrderAsync(IReadOnlyList<int> stageOrder)
+        public async Task ArmMemoryOrderAsync(IReadOnlyList<int> stageOrder, int memoryId)
         {
             _memoryStageOrder = stageOrder;
+            _memoryId = memoryId;
             OnPropertyChanged(nameof(IsFromMemoryPlan));
 
             await ReloadAsync();
@@ -133,6 +141,7 @@ namespace WorkforceManager.UI.ViewModels
             // منتج تاني = خطة تانية. ترتيب الخطة القديمة بيشاور على مراحل
             // منتج مختلف، فسيبانه كان هيرمي عند الحفظ في أحسن الأحوال
             _memoryStageOrder = null;
+            _memoryId = null;
             OnPropertyChanged(nameof(IsFromMemoryPlan));
 
             if (_suppressProductReload) return;
@@ -1212,6 +1221,15 @@ namespace WorkforceManager.UI.ViewModels
                 // وقت ما المستخدم يحب (آخر الأسبوع مثلاً).
 
                 _pendingWithdrawal = null;
+
+                // الرحلة دي جاية من خطة ذاكرة وحصل فيها حفظ حقيقي — دلوقتي
+                // بس تتعلّم الخطة منجزة (شوف كومنت _memoryId فوق)
+                if (_memoryId is int memoryId)
+                {
+                    using var memoryScope = _scopeFactory.CreateScope();
+                    await memoryScope.ServiceProvider.GetRequiredService<ProductionMemoryService>()
+                        .MarkStartedAsync(memoryId);
+                }
 
                 // إعادة تحميل الرحلة ("مسجل اليوم" بيتحدث وبتبدأ نظيفة) + إبلاغ الشاشة الأم (تحديث الحضور)
                 await ReloadAsync();

@@ -490,13 +490,20 @@ namespace WorkforceManager.UI
         }
 
         /// <summary>
-        /// بيفتح شاشة الإنتاج اليومي على خطة، وبينقلها لقايمة المنجزة.
+        /// بيفتح شاشة الإنتاج اليومي على خطة.
         ///
-        /// **الترتيب مقصود**: بنجيب ترتيب المراحل الأول (وده بيرمي لو
-        /// الخطة بقت مش صالحة)، وبعدين بنعلّمها منجزة، وبعدين بنفتح
-        /// الشاشة — عشان خطة باتت متتعلّمش منجزة ومتفتحش جلسة مكسورة.
+        /// **الخطة بتتعلّم "منجزة" لما يتحفظ إنتاج حقيقي بس، مش هنا.**
+        /// كان القرار القديم إنها تتعلّم منجزة بمجرد فتح الشاشة — اتغيّر
+        /// لأن ده بيخلي خطط تظهر "اتبدأت" في شاشة الذاكرة والمستخدم أصلاً
+        /// ماسجّلش حاجة (اتلاحظ فعليًا: خطة اتفتح لها الشاشة وماتسجلش
+        /// فيها إنتاج، وفضلت ظاهرة منجزة). دلوقتي بنمرر معرّف الخطة
+        /// لـ`FlowSessionViewModel` (شوف `ArmMemoryOrderAsync`)، وهي اللي
+        /// بتنادي `MarkStartedAsync` بعد أول حفظ فعلي للرحلة.
+        ///
+        /// `GetStageOrderForSessionAsync` بيفضل يتنادى هنا الأول عشان
+        /// يرمي لو الخطة بقت مش صالحة قبل ما نفتح شاشة على جلسة مكسورة.
         /// </summary>
-        private static async Task StartMemorySessionAsync(ProductionMemoryDto memory)
+        internal static async Task StartMemorySessionAsync(ProductionMemoryDto memory)
         {
             IReadOnlyList<int> stageOrder;
 
@@ -506,10 +513,6 @@ namespace WorkforceManager.UI
                 var service = scope.ServiceProvider.GetRequiredService<ProductionMemoryService>();
 
                 stageOrder = await service.GetStageOrderForSessionAsync(memory.Id);
-
-                // بمجرد فتح الشاشة الخطة بتبقى منجزة، حتى لو المستخدم
-                // ماحفظش أي إنتاج بعد كده (قرار مؤكد): التذكير خلّص شغله
-                await service.MarkStartedAsync(memory.Id);
             }
             catch (InvalidOperationException ex)
             {
@@ -519,7 +522,7 @@ namespace WorkforceManager.UI
 
             if (Current?.MainWindow is not MainWindow main) return;
 
-            await main.OpenDailyEntryForMemoryAsync(memory.ProductId, stageOrder);
+            await main.OpenDailyEntryForMemoryAsync(memory.Id, memory.ProductId, stageOrder);
         }
 
         private static async Task EnsureLateSignOffsAcknowledgedAsync()
