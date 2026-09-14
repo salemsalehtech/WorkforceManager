@@ -654,6 +654,28 @@ namespace WorkforceManager.Business.Services
                 .ToList();
 
         /// <summary>
+        /// كل الأرصدة الأولية (نشطة + مكتملة) **عبر كل المنتجات مع بعض** —
+        /// لا يوجد استعلام مماثل قبل كده، كل استعلام موجود محصور بمنتج
+        /// واحد (<see cref="GetAllForProductAsync"/>). أُضيفت خصيصًا للبحث
+        /// الشامل (GlobalSearchService)، اللي محتاج يدوّر في كل الأرصدة
+        /// مرة واحدة بدل ما يستدعي الخدمة دي لكل منتج على حدة. نفس شكل
+        /// الاستعلام الموجود بالظبط، بس من غير فلتر ProductId.
+        /// </summary>
+        public async Task<IReadOnlyList<InitialBalanceDto>> GetAllAsync()
+        {
+            var balances = await _db.InitialBalances
+                .AsNoTracking()
+                .Include(b => b.Product)
+                .Include(b => b.Ranges).ThenInclude(r => r.FromStage)
+                .Include(b => b.Ranges).ThenInclude(r => r.ToStage)
+                .Include(b => b.Usages)
+                .OrderByDescending(b => b.OriginalDate).ThenByDescending(b => b.CreatedAt)
+                .ToListAsync();
+
+            return balances.Select(ToDto).ToList();
+        }
+
+        /// <summary>
         /// تجميع أرصدة منتج **النشطة بس** في رقم واحد — للكارت المُجمّع
         /// (progress bar) في شاشة الإنتاج اليومي بدل عرض كل رصيد لوحده.
         /// **عن قصد بيستبعد المكتمل** (نفس نطاق GetForProductAsync بالظبط)

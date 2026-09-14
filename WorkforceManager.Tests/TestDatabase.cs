@@ -22,6 +22,14 @@ namespace WorkforceManager.Tests
         private readonly string _dbPath;
         private readonly ServiceProvider _provider;
 
+        /// <summary>
+        /// مسار ملف قوالب تقارير مؤقت ومعزول لكل نسخة اختبار — نفس فكرة
+        /// _dbPath بالظبط، بس لـ GlobalSearchService (اللي بيعتمد على
+        /// ReportTemplateStore.Load الجاهزة+المحفوظة) — عشان الاختبار
+        /// ميتأثرش بقوالب حقيقية محفوظة على جهاز المطوّر.
+        /// </summary>
+        private readonly string _reportTemplatesPath;
+
         // ------- معرّفات البيانات المزروعة (ثابتة عشان الاختبارات تبقى مقروءة) -------
         public const int WorkerAhmedId = 1;
         public const int WorkerSaidId = 2;
@@ -59,6 +67,7 @@ namespace WorkforceManager.Tests
         public TestDatabase()
         {
             _dbPath = Path.Combine(Path.GetTempPath(), $"wfm-test-{Guid.NewGuid():N}.db");
+            _reportTemplatesPath = Path.Combine(Path.GetTempPath(), $"wfm-test-report-templates-{Guid.NewGuid():N}.json");
 
             var services = new ServiceCollection();
 
@@ -127,6 +136,14 @@ namespace WorkforceManager.Tests
             services.AddScoped<DepartmentAttendanceService>();
             services.AddScoped<WorkerRecognitionService>();
             services.AddScoped<ProductionTrendService>();
+            var reportTemplatesPath = _reportTemplatesPath;
+            services.AddScoped<GlobalSearchService>(sp => new GlobalSearchService(
+                sp.GetRequiredService<IWorkerRepository>(),
+                sp.GetRequiredService<IProductRepository>(),
+                sp.GetRequiredService<InitialBalanceService>(),
+                sp.GetRequiredService<ProductionMemoryService>(),
+                sp.GetRequiredService<ActivityLogService>(),
+                reportTemplatesPath));
             services.AddSingleton<ReportTableExcelService>();
             services.AddSingleton<PayslipStripExcelService>();
 
@@ -326,6 +343,7 @@ namespace WorkforceManager.Tests
             try
             {
                 if (File.Exists(_dbPath)) File.Delete(_dbPath);
+                if (File.Exists(_reportTemplatesPath)) File.Delete(_reportTemplatesPath);
             }
             catch (IOException)
             {
