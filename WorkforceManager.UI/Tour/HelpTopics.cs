@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace WorkforceManager.UI.Tour
 {
     /// <summary>
@@ -82,18 +84,6 @@ namespace WorkforceManager.UI.Tour
                     },
                     new()
                     {
-                        Title = "إضافة مهارات لعامل",
-                        Description =
-                            "دوس على عامل من القايمة يفتحلك بروفايله، وبعدين دوس \"إضافة مهارات\". هتلاقي كارت لكل منتج — " +
-                            "افتح كارت \"الخياطة\" مثلًا، وهتلاقي كل مراحل خطه. دوس على أي مرحلة تضيفها للعامل بتقييم 3 " +
-                            "نجوم افتراضي، أو دوس مباشرة على النجمة الرابعة يضيفها بـ4 نجوم من أول مرة. لو الخط كله ناقص، " +
-                            "فيه زرار \"إضافة الكل\" يضيف كل المراحل الناقصة في المنتج ده دفعة واحدة.",
-                        TargetElementName = "SkillsSectionHeader",
-                        Screen = TourScreen.Workers,
-                        SelectFirstWorker = true
-                    },
-                    new()
-                    {
                         Title = "منطق النجوم",
                         Description =
                             "النجوم رأي المدير الشخصي في مهارة العامل على المرحلة دي — هو بس اللي بيحددها، والبرنامج " +
@@ -125,6 +115,52 @@ namespace WorkforceManager.UI.Tour
                             "زرار حفظ منفصل.",
                         TargetElementName = "OpenWorkerOrderButton",
                         Screen = TourScreen.Workers
+                    }
+                },
+                GuidedFlows = new List<GuidedPracticeFlow>
+                {
+                    new()
+                    {
+                        Title = "إضافة مهارة لعامل — تجربة عملية",
+                        Description =
+                            "جرّب الخطوات الحقيقية على بيانات تجريبية: افتح وضع الإضافة، افتح كارت منتج، وقيّم مرحلة " +
+                            "بالنجوم. دوس على العنصر المضوّي بنفسك — مش هتشرحلك بس، هتعملها فعلًا.",
+                        Screen = TourScreen.Workers,
+                        SelectFirstWorker = true,
+                        Steps = new List<GuidedPracticeStep>
+                        {
+                            new()
+                            {
+                                Title = "افتح وضع الإضافة",
+                                Description = "دوس على زرار \"إضافة مهارات\" عشان تفتح كروت المنتجات.",
+                                TargetElementName = "ToggleAddSkillsButton",
+                                IsComplete = vm => vm is ViewModels.WorkersViewModel { Detail.IsAddingSkills: true }
+                            },
+                            new()
+                            {
+                                Title = "افتح كارت منتج",
+                                Description = "دوس على أي كارت منتج تحت عشان يتفتح ويوريك مراحله.",
+                                TargetElementName = "SkillsListPanel",
+                                IsComplete = vm => vm is ViewModels.WorkersViewModel { Detail: { } d } &&
+                                    d.SkillProducts.Any(g => g.IsExpanded),
+                                WatchSelectors = vm => vm is ViewModels.WorkersViewModel { Detail: { } d }
+                                    ? d.SkillProducts.Cast<object>()
+                                    : Array.Empty<object>()
+                            },
+                            new()
+                            {
+                                Title = "قيّم مرحلة بـ3 نجوم أو أكتر",
+                                Description =
+                                    "دوس على النجمة التالتة (أو اللي بعدها) على أي مرحلة ناقصة — بتضيفها للعامل بالتقييم " +
+                                    "ده على طول.",
+                                TargetElementName = "SkillsListPanel",
+                                IsComplete = vm => vm is ViewModels.WorkersViewModel { Detail: { } d } &&
+                                    d.SkillProducts.Any(g => g.IsExpanded && g.Stages.Any(s => s.IsKnown && s.Stars >= 3)),
+                                WatchSelectors = vm => vm is ViewModels.WorkersViewModel { Detail: { } d }
+                                    ? d.SkillProducts.SelectMany(g => g.Stages).Cast<object>()
+                                    : Array.Empty<object>()
+                            }
+                        }
                     }
                 }
             },
