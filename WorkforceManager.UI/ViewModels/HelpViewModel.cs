@@ -23,6 +23,18 @@ namespace WorkforceManager.UI.ViewModels
     {
         public IReadOnlyList<HelpTopic> Topics => HelpTopics.Topics;
         public IReadOnlyList<FaqEntry> Faq => HelpFaq.Entries;
+        public IReadOnlyList<LearnFeaturesVersion> LearnVersions => LearnFeaturesContent.Versions;
+
+        /// <summary>أكورديون إصدار واحد مفتوح بس في قسم "تعلم مميزات التحديث".</summary>
+        [RelayCommand]
+        private void ToggleLearnVersion(LearnFeaturesVersion? version)
+        {
+            if (version is null) return;
+
+            var opening = !version.IsExpanded;
+            foreach (var v in LearnVersions) v.IsExpanded = false;
+            version.IsExpanded = opening;
+        }
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasSelectedTopic))]

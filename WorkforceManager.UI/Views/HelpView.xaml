@@ -164,6 +164,106 @@
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
+                <!-- ═══ تعلم مميزات التحديث ═══ فوق الشبكة عن قصد — أول حاجة
+                     المستخدم العائد يشوفها. أكورديون بالإصدارات، الأحدث
+                     مفتوح افتراضيًا، والقديمة تفضل متصفّحة دايمًا هنا مش
+                     مرة واحدة بس. -->
+                <StackPanel Margin="0,0,0,16">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <materialDesign:PackIcon Kind="RocketLaunchOutline" Width="19" Height="19"
+                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
+                        <TextBlock Text="تعلم مميزات التحديث" FontSize="15" FontWeight="Bold"
+                                   Margin="8,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{Binding LearnVersions}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource GoldTintBrush}" BorderBrush="{DynamicResource GoldLineBrush}"
+                                        BorderThickness="1" CornerRadius="{DynamicResource RadiusCard}" Padding="16,13" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <Button Cursor="Hand" HorizontalContentAlignment="Stretch"
+                                                Command="{Binding DataContext.ToggleLearnVersionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}">
+                                            <Button.Style>
+                                                <Style TargetType="Button">
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="Transparent">
+                                                                    <ContentPresenter />
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Style>
+                                            </Button.Style>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                                    <TextBlock FontWeight="Bold" FontSize="14" Foreground="{DynamicResource GoldDeepBrush}">
+                                                        <Run Text="إصدار " /><Run Text="{Binding Version, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                    <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
+                                                            Padding="7,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock FontSize="10.5" Foreground="{DynamicResource TextMutedBrush}">
+                                                            <Run Text="{Binding Features.Count, Mode=OneWay}" /><Run Text=" ميزة" />
+                                                        </TextBlock>
+                                                    </Border>
+                                                </StackPanel>
+                                                <materialDesign:PackIcon Grid.Column="1" Kind="ChevronLeft" Width="17" Height="17"
+                                                                         Foreground="{DynamicResource GoldDeepBrush}">
+                                                    <materialDesign:PackIcon.Style>
+                                                        <Style TargetType="materialDesign:PackIcon">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                                    <Setter Property="Kind" Value="ChevronDown" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </materialDesign:PackIcon.Style>
+                                                </materialDesign:PackIcon>
+                                            </Grid>
+                                        </Button>
+
+                                        <ItemsControl ItemsSource="{Binding Features}" Margin="0,10,0,0"
+                                                      Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="{DynamicResource RadiusSmall}"
+                                                            Padding="10,8" Margin="0,0,0,6">
+                                                        <DockPanel>
+                                                            <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}" Padding="10,4"
+                                                                    VerticalAlignment="Center"
+                                                                    Command="{Binding DataContext.TryTourCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                    CommandParameter="{Binding TourSteps[0]}">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <materialDesign:PackIcon Kind="TelevisionPlay" Width="13" Height="13" VerticalAlignment="Center" />
+                                                                    <TextBlock Text="جرّبها" Margin="4,0,0,0" FontSize="11.5" />
+                                                                </StackPanel>
+                                                            </Button>
+                                                            <StackPanel Margin="0,0,10,0">
+                                                                <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="12.5"
+                                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                                <TextBlock Text="{Binding Description}" FontSize="11.5" TextWrapping="Wrap"
+                                                                           Margin="0,3,0,0" Foreground="{DynamicResource TextMutedBrush}" />
+                                                            </StackPanel>
+                                                        </DockPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
                 <ItemsControl x:Name="TopicsGrid" ItemsSource="{Binding Topics}" ItemTemplate="{StaticResource TopicTile}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>

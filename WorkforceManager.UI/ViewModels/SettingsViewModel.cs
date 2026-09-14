@@ -42,25 +42,7 @@ namespace WorkforceManager.UI.ViewModels
         /// نسخة؟"، ومن غيره مفيش إجابة. بيتغيّر لوحده مع كل ترقية فمحتاجش
         /// حد يفتكر يحدّثه.
         /// </summary>
-        public static string AppVersionText
-        {
-            get
-            {
-                var assembly = Assembly.GetEntryAssembly();
-
-                var informational = assembly
-                    ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
-                    ?.InformationalVersion;
-
-                // أدوات البناء بتلزق hash بتاع الكوميت بعد علامة + —
-                // مالوش أي معنى للمستخدم
-                var plus = informational?.IndexOf('+') ?? -1;
-                if (plus > 0) informational = informational![..plus];
-
-                return "الإصدار " +
-                       (informational ?? assembly?.GetName().Version?.ToString(3) ?? "؟");
-            }
-        }
+        public static string AppVersionText => "الإصدار " + AppVersion.Current;
 
         /// <summary>
         /// سطر نسبة البرنامج لصاحبه — بيتعرض تحت الإصدار في آخر شاشة

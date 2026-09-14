@@ -121,7 +121,7 @@
                      عشان أي حد يقدر يبدّل حساب من غير ما يقفل البرنامج
                      كله (مهم دلوقتي إن الحسابات الإدارية بقى لكل واحدة
                      يوزر وباسورد لوحدها). -->
-                <Border DockPanel.Dock="Bottom" Margin="16,0,16,10" Padding="12,9"
+                <Border x:Name="AccountCard" DockPanel.Dock="Bottom" Margin="16,0,16,10" Padding="12,9"
                         CornerRadius="{DynamicResource RadiusSmall}"
                         Background="{DynamicResource SidebarAltBrush}">
                     <DockPanel>

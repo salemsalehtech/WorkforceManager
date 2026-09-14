@@ -118,6 +118,16 @@ namespace WorkforceManager.Data
         /// </summary>
         public string? LastSeenTourVersion { get; set; }
 
+        // ------- "تعلم مميزات التحديث" -------
+
+        /// <summary>
+        /// آخر رقم إصدار حقيقي (AppVersion.Current، مش AppTourContent.Version)
+        /// اتعرض فيه عرض "تعلم مميزات التحديث" على المستخدم. null = عمره
+        /// ما شافه. علَم منفصل عن LastSeenTourVersion فوق عن قصد — العرضين
+        /// مستقلّين، ومفيش داعي واحد يسكت التاني لو المستخدم شاف واحد بس.
+        /// </summary>
+        public string? LastSeenLearnVersion { get; set; }
+
         // ------- تنظيف سجل العمليات -------
 
         /// <summary>
