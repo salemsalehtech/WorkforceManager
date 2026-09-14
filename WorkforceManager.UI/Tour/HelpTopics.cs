@@ -1,21 +1,25 @@
 namespace WorkforceManager.UI.Tour
 {
     /// <summary>
-    /// محتوى شاشة "الدليل" — موضوع واحد لكل شاشة في القائمة الجانبية، ما عدا
-    /// "تسجيل الإنتاج اليومي" اللي اتفكّك لـ7 مواضيع (واحد لكل تبويب داخلي،
-    /// فيه تفاصيل كتير جدًا عشان يتغطّى في موضوع واحد بمعنى حقيقي).
+    /// محتوى شاشة "الدليل" — موضوع لكل شاشة في القائمة الجانبية
+    /// (<see cref="MainTopics"/>)، ما عدا "تسجيل الإنتاج اليومي" اللي اتفكّك
+    /// لـ7 مواضيع منفصلة (<see cref="DailyEntryTopics"/>) — واحد لكل تبويب
+    /// داخلي، فيه تفاصيل كتير جدًا عشان يتغطّى في موضوع واحد بمعنى حقيقي.
+    /// القسمة دي بتتقرا في HelpViewModel لعرض عنوان قسم فوق كروت التسجيل
+    /// اليومي في شاشة الدليل، مش مجرد تجميع منطقي هنا.
     ///
     /// كل خطوة مبنية على عنصر وميزة حقيقيين في الكود (أمر/Binding حقيقي)،
-    /// مش وصف عام. الخطوات بتركّز على الميزات اللي فعلًا بتتستخدم كتير —
-    /// مش كل عنصر موجود في الشاشة.
+    /// والوصف فيه مثال ملموس مش جملة عامة — "مثلاً: اختار أحمد، اكتب نص
+    /// يوم، السبب..." بدل "سجّل جزاء على عامل".
     ///
-    /// **صيانة**: أي شاشة جديدة تتضاف للبرنامج لازم تاخد موضوع هنا كمان —
-    /// وإلا الدليل يبقى ناقص من غير ما حد ياخد باله، لأن مفيش فحص آلي
-    /// بيقارن عدد عناصر القائمة الجانبية بعدد المواضيع هنا.
+    /// **صيانة**: أي شاشة جديدة تتضاف للبرنامج لازم تاخد موضوع في
+    /// <see cref="MainTopics"/> (أو مواضيع في <see cref="DailyEntryTopics"/>
+    /// لو زيها في التعقيد) — وإلا الدليل يبقى ناقص من غير ما حد ياخد باله،
+    /// لأن مفيش فحص آلي بيقارن عدد عناصر القائمة الجانبية بعدد المواضيع هنا.
     /// </summary>
     public static class HelpTopics
     {
-        public static IReadOnlyList<HelpTopic> All { get; } = new List<HelpTopic>
+        public static IReadOnlyList<HelpTopic> MainTopics { get; } = new List<HelpTopic>
         {
             new()
             {
@@ -31,21 +35,28 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "فلاتر وترتيب",
-                        Description = "بدل صف أزرار تاني، فلاتر المرحلة والمنتج والنجوم والحضور كلها هنا وبتتراكب مع بعض.",
+                        Description =
+                            "بدل صف أزرار تاني، فلاتر المرحلة والمنتج والنجوم والحضور كلها هنا وبتتراكب مع بعض. مثلاً: " +
+                            "عايز تشوف عمال \"الخياطة\" بس اللي تقييمهم 4 نجوم فأكتر وحاضرين النهارده — دوس الزرار، " +
+                            "اختار الثلاثة فلاتر مع بعض، والقايمة بتتظبط فورًا.",
                         TargetElementName = "FilterToggle",
                         Screen = TourScreen.Workers
                     },
                     new()
                     {
                         Title = "عامل جديد",
-                        Description = "إضافة عامل جديد بصورته وبياناته الأساسية.",
+                        Description =
+                            "إضافة عامل جديد بصورته وبياناته الأساسية. اكتب الاسم وسعر اليومية، ارفع صورة لو عندك، واحفظ " +
+                            "— بعدها تقدر تضيفله مهارات على مراحل محدّدة من شاشة المنتجات.",
                         TargetElementName = "AddWorkerButton",
                         Screen = TourScreen.Workers
                     },
                     new()
                     {
                         Title = "محتاج انتباه",
-                        Description = "لو فيه عمال إنتاجهم قلّ أو محتاجين متابعة، الزرار ده بيعرضهم لوحدهم — بيختفي لو مفيش حد محتاج انتباه دلوقتي.",
+                        Description =
+                            "لو فيه عمال إنتاجهم قلّ عن معدّلهم المعتاد أو محتاجين متابعة لأي سبب تاني، الزرار ده بيعرضهم " +
+                            "لوحدهم على طول من غير ما تدوّر عليهم وسط كل العمال. بيختفي لو مفيش حد محتاج انتباه دلوقتي.",
                         TargetElementName = "ShowNeedsAttentionButton",
                         Screen = TourScreen.Workers
                     }
@@ -71,14 +82,18 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "فترة العرض",
-                        Description = "بالإفتراض بتشوف المنتجات اللي اشتغلت الفترة دي بس — بدّل الفترة لو عايز تشوف كل المنتجات.",
+                        Description =
+                            "بالإفتراض بتشوف المنتجات اللي اشتغلت الفترة دي بس، عشان القايمة متفضلش مليانة منتجات " +
+                            "متوقفة من شهور. عايز تشوف منتج قديم مش شغال دلوقتي؟ بدّل الفترة لـ\"كل المنتجات\".",
                         TargetElementName = "PeriodToggle",
                         Screen = TourScreen.Products
                     },
                     new()
                     {
                         Title = "منتج جديد",
-                        Description = "إضافة منتج جديد — بعدها تقدر تضيفله مراحل إنتاجه بالترتيب.",
+                        Description =
+                            "إضافة منتج جديد. مثلاً: منتج اسمه \"شنطة جلد\" — بعد ما تضيفه، تدخل عليه وتضيف مراحله " +
+                            "بالترتيب (قص ← خياطة ← تشطيب)، وده اللي هيحدد ترتيب التسجيل في شاشة الإنتاج اليومي.",
                         TargetElementName = "AddProductButton",
                         Screen = TourScreen.Products
                     }
@@ -97,7 +112,10 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "خطة جديدة",
-                        Description = "اختار المنتج، رتّب مراحله لو عايز ترتيب مختلف عن خط الإنتاج العادي، وحدّد يوم التذكير.",
+                        Description =
+                            "مثال: عايز تبدأ منتج \"الدبلة\" الأسبوع الجاي بترتيب مراحل مختلف عن المعتاد؟ اختار المنتج، " +
+                            "رتّب مراحله من هنا لو محتاج ترتيب مختلف، اكتب أي ملاحظة، وحدّد يوم التذكير — هيفكّرك بيها " +
+                            "أول ما اليوم ده ييجي.",
                         TargetElementName = "MemoryFormPanel",
                         Screen = TourScreen.Memory
                     },
@@ -111,7 +129,9 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "تحكّم أسرع في كل خطة",
-                        Description = "من كارت الخطة نفسه: ابدأها دلوقتي، أجّل التذكير، احذفها، أو رجّعها نشطة لو اتعلّمت منجزة غلط.",
+                        Description =
+                            "من كارت الخطة نفسه: \"ابدأها دلوقتي\" بدل ما تستنى التذكير، \"أجّل\" لو مش وقتها لسه، " +
+                            "أو \"رجّعها نشطة\" لو اتعلّمت منجزة غلط (فتحت شاشتها بس ماسجّلتش إنتاج فعلي فيها).",
                         TargetElementName = "MemoryListsPanel",
                         Screen = TourScreen.Memory
                     }
@@ -129,21 +149,21 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "تجميع الفترة",
-                        Description = "شوف أرقام اليوم، أو اجمعها بالأسبوع أو الشهر.",
+                        Description = "شوف أرقام اليوم، أو اجمعها بالأسبوع أو الشهر — لو عايز تقارن إنتاج الأسبوع ده بالي فات مثلاً.",
                         TargetElementName = "OutputGrainRow",
                         Screen = TourScreen.Evaluation
                     },
                     new()
                     {
                         Title = "ملخص سريع",
-                        Description = "قطعة خلصت الخط كامل، قطعة دخلت الخط، وقطعة هالك — أهم 3 أرقام في الفترة المختارة.",
+                        Description = "قطعة خلصت الخط كامل، قطعة دخلت الخط، وقطعة هالك — أهم 3 أرقام تعرفهم أول ما تفتح الشاشة.",
                         TargetElementName = "KpiSummaryRow",
                         Screen = TourScreen.Evaluation
                     },
                     new()
                     {
                         Title = "فلترة بمنتج",
-                        Description = "ضيّق الرسم البياني والأرقام على منتج معيّن بدل كل المنتجات مع بعض.",
+                        Description = "ضيّق الرسم البياني والأرقام على منتج معيّن، زي \"الشنطة\" بس، بدل كل المنتجات مع بعض.",
                         TargetElementName = "ProductToggle",
                         Screen = TourScreen.Evaluation
                     }
@@ -162,28 +182,30 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "قالب جاهز",
-                        Description = "أسرع طريقة لتقرير بتعمله بانتظام — اختار قالب محفوظ وكل الاختيارات بتتملى لوحدها.",
+                        Description =
+                            "مثلاً بتعمل كشف أجور آخر كل شهر بنفس الفلاتر بالظبط؟ احفظه قالب مرة واحدة، وبعدها اختاره من " +
+                            "هنا وكل الاختيارات بتتملى لوحدها.",
                         TargetElementName = "TemplateComboBox",
                         Screen = TourScreen.Reports
                     },
                     new()
                     {
                         Title = "الموضوع",
-                        Description = "أول وأهم اختيار — كل حاجة تانية في الشاشة بتتغيّر حسبه.",
+                        Description = "أول وأهم اختيار — إنتاج ولا حضور ولا أجور ولا هالك ولا مهارات. كل حاجة تانية في الشاشة بتتغيّر حسبه.",
                         TargetElementName = "SubjectComboBox",
                         Screen = TourScreen.Reports
                     },
                     new()
                     {
                         Title = "المعاينة الحية",
-                        Description = "الجدول ده بيتحدّث لحظيًا مع كل اختيار قبل ما تصدّر أي حاجة.",
+                        Description = "الجدول ده بيتحدّث لحظيًا مع كل اختيار (فلتر جديد، تجميع مختلف) قبل ما تصدّر أي حاجة — تتأكد إن الأرقام صح الأول.",
                         TargetElementName = "PreviewGrid",
                         Screen = TourScreen.Reports
                     },
                     new()
                     {
                         Title = "تصدير Excel",
-                        Description = "التقرير جاهز؟ يتصدّر ملف Excel تقدر تفتحه أو تطبعه على طول.",
+                        Description = "التقرير جاهز في المعاينة؟ يتصدّر ملف Excel تقدر تفتحه أو تطبعه على طول.",
                         TargetElementName = "ExportButton",
                         Screen = TourScreen.Reports
                     }
@@ -201,21 +223,21 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "قايمة الأحداث",
-                        Description = "كل عملية حساسة حصلت في البرنامج، بأيقونة وتاريخ وسبب واضح.",
+                        Description = "كل عملية حساسة حصلت في البرنامج، بأيقونة وتاريخ وسبب واضح — مثلاً \"مين غيّر أجر أحمد وامتى\".",
                         TargetElementName = "ActivityLogList",
                         Screen = TourScreen.ActivityLog
                     },
                     new()
                     {
                         Title = "فلترة بالنوع",
-                        Description = "دوّر على حركة فلوس بس، أو حذف بس، بدل ما تعدّي على كل حدث في الشهر.",
+                        Description = "دوّر على حركة فلوس بس، أو حذف بس، بدل ما تعدّي على كل حدث تسجيل إنتاج في الشهر.",
                         TargetElementName = "EventGroupComboBox",
                         Screen = TourScreen.ActivityLog
                     },
                     new()
                     {
                         Title = "فترات جاهزة",
-                        Description = "النهارده أو آخر 30 يوم بضغطة واحدة، بدل ما تختار تاريخين من التقويم.",
+                        Description = "النهارده أو آخر 30 يوم بضغطة واحدة، بدل ما تختار تاريخين من التقويم كل مرة.",
                         TargetElementName = "QuickRangeButton",
                         Screen = TourScreen.ActivityLog
                     }
@@ -234,21 +256,21 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "كلمة سر العمليات",
-                        Description = "بتحمي الحذف والتعديلات المالية — أهم إعداد حماية في البرنامج كله.",
+                        Description = "بتحمي الحذف والتعديلات المالية — أهم إعداد حماية في البرنامج كله. حطّها الأول قبل أي حاجة تانية.",
                         TargetElementName = "SetPasswordButton",
                         Screen = TourScreen.Settings
                     },
                     new()
                     {
                         Title = "النسخ الاحتياطي المحلي",
-                        Description = "نسخة تلقائية كل يوم — من هنا تقدر تاخد نسخة دلوقتي أو تفتح مجلد النسخ.",
+                        Description = "نسخة تلقائية كل يوم — من هنا تقدر تاخد نسخة دلوقتي بنفسك (مثلاً قبل تعديل كبير) أو تفتح مجلد النسخ.",
                         TargetElementName = "BackupCard",
                         Screen = TourScreen.Settings
                     },
                     new()
                     {
                         Title = "النسخ الخارجي",
-                        Description = "نسخة على فلاشة أو قرص تاني — النسخة المحلية بيانها بتتحمي من تلف الهارد نفسه بالنسخة دي بس.",
+                        Description = "نسخة على فلاشة أو قرص تاني — لو الهارد نفسه اتلف، النسخة المحلية بتضيع معاه، والنسخة الخارجية بس اللي بتحميك من ده.",
                         TargetElementName = "ChooseExternalFolderButton",
                         Screen = TourScreen.Settings
                     },
@@ -281,22 +303,26 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "إضافة حساب",
-                        Description = "زرار مدير القسم بس — بيضيف رئيس/مدير قسم جديد بتسجيل دخول خاص بيه.",
+                        Description = "زرار مدير القسم بس — بيضيف رئيس/مدير قسم جديد بتسجيل دخول خاص بيه (يوزر وباسورد).",
                         TargetElementName = "AddAccountButton",
                         Screen = TourScreen.DepartmentAccounts
                     },
                     new()
                     {
                         Title = "أنهي وضع أنت فيه",
-                        Description = "العنوان هنا بيوضّحلك: بتشوف كل الحسابات كمدير قسم، ولا بروفايلك أنت بس.",
+                        Description = "العنوان هنا بيوضّحلك: بتشوف كل الحسابات كمدير قسم، ولا بروفايلك أنت بس كرئيس قسم.",
                         TargetElementName = "ScreenTitleRow",
                         Screen = TourScreen.DepartmentAccounts
                     }
                 }
-            },
+            }
+        };
+
+        public static IReadOnlyList<HelpTopic> DailyEntryTopics { get; } = new List<HelpTopic>
+        {
             new()
             {
-                Title = "تسجيل الإنتاج اليومي — تسجيل الإنتاج",
+                Title = "تسجيل الإنتاج",
                 Description =
                     "القلب الحقيقي للبرنامج: هنا بتسجّل إنتاج كل يوم. تضيف منتج، توزّع عماله على " +
                     "مراحله، تكتب القطع في نطاقات (من مرحلة لمرحلة)، وتحفظ. الحضور بيتسجّل تلقائي " +
@@ -314,7 +340,9 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "إضافة منتج",
-                        Description = "كل منتج بتشتغل عليه النهارده بيبقى له رحلة منفصلة هنا — تقدر تفتح أكتر من منتج مع بعض.",
+                        Description =
+                            "مثال: النهارده شغالين على \"شنطة\" و\"دبلة\" مع بعض؟ دوس الزرار ده مرتين — كل منتج بياخد رحلة " +
+                            "منفصلة، تختار فيها المنتج وتوزّع عماله على مراحله وتكتب القطع، من غير ما تتلخبط برحلة المنتج التاني.",
                         TargetElementName = "AddFlowSessionButton",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 0
@@ -323,7 +351,7 @@ namespace WorkforceManager.UI.Tour
             },
             new()
             {
-                Title = "تسجيل الإنتاج اليومي — الرصيد الأولي",
+                Title = "الرصيد الأولي",
                 Description =
                     "أي إنتاج ماوصلش لآخر مرحلة في الخط بيتحول تلقائيًا لـ\"رصيد أولي\" — شغل واقف " +
                     "منتظر يكمّل. هنا تديره: تسحب منه لما تكمّل الشغل، تحوّله لهالك لو اتعطّب، أو " +
@@ -333,7 +361,7 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "رصيد أولي جديد",
-                        Description = "لو عندك شغل واقف من غير ما يتحول تلقائي (نادر، بس ممكن)، تقدر تضيفه يدوي من هنا.",
+                        Description = "لو عندك شغل واقف من قبل التحديث ده (يعني ماتحوّلش تلقائي)، تقدر تضيفه يدوي من هنا مرة واحدة.",
                         TargetElementName = "AddInitialBalanceButton",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 1
@@ -341,7 +369,7 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "السجل",
-                        Description = "الأرصدة اللي خلصت واستُخدمت بالكامل بتتخبّى من القايمة العادية — بتلاقيها هنا للمراجعة.",
+                        Description = "مثلاً رصيد \"شنطة\" اتسحب منه كله واتسجّل؟ بيتخبّى من القايمة العادية تلقائي، وتلاقيه هنا في \"السجل\" للمراجعة بس.",
                         TargetElementName = "InitialBalanceHistoryToggle",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 1
@@ -350,7 +378,7 @@ namespace WorkforceManager.UI.Tour
             },
             new()
             {
-                Title = "تسجيل الإنتاج اليومي — سجلات اليوم",
+                Title = "سجلات اليوم",
                 Description =
                     "مراجعة وتصحيح إنتاج اتسجّل قبل كده — بفترة (يوم/أسبوع/شهر) مستقلة عن تاريخ " +
                     "التسجيل فوق. تقدر تعدّل عدد قطع سجل، تمسحه، أو تتراجع عن آخر عملية بـCtrl+Z.",
@@ -359,7 +387,7 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "سجلات اليوم",
-                        Description = "كل سجل إنتاج في الفترة المختارة، بأزرار تعديل وحذف لكل صف.",
+                        Description = "مثال: سجّلت 50 قطعة غلط بدل 40؟ دوّر على السجل هنا وعدّله بزرار التعديل، من غير ما تحذف وتسجّل من الأول.",
                         TargetElementName = "RecordsTabRoot",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 2
@@ -367,7 +395,7 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "فترة العرض",
-                        Description = "يوم، أسبوع، أو شهر — مستقلة تمامًا عن تاريخ التسجيل في باقي التبويبات.",
+                        Description = "يوم، أسبوع، أو شهر — مستقلة تمامًا عن تاريخ التسجيل في باقي التبويبات، عشان تقدر تراجع أسبوع فات وانت لسه بتسجّل النهارده.",
                         TargetElementName = "RecordsGrainRow",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 2
@@ -376,7 +404,7 @@ namespace WorkforceManager.UI.Tour
             },
             new()
             {
-                Title = "تسجيل الإنتاج اليومي — الحضور والغياب",
+                Title = "الحضور والغياب",
                 Description =
                     "الحضور بيتسجّل تلقائي لأي عامل شارك في تسجيل إنتاج النهارده، بس تقدر من هنا " +
                     "تراجع وتعدّل: حاضر، غايب بعذر، غايب من غير عذر (بيسحب نص يوم تلقائي)، أو لسه " +
@@ -386,7 +414,7 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "ملخص الحضور",
-                        Description = "عدد الحاضرين والغائبين بعذر ومن غير عذر — دوس على أي رقم عشان تفلتر القايمة عليه.",
+                        Description = "عدد الحاضرين والغائبين بعذر ومن غير عذر. دوس على رقم \"غايب من غير عذر\" مثلاً، والقايمة تحتيه بتتفلتر عليهم بس.",
                         TargetElementName = "AttendanceSummaryRow",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 3
@@ -394,7 +422,7 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "حفظ الحضور",
-                        Description = "أي تعديل يدوي على حالة عامل لازم يتحفظ من هنا.",
+                        Description = "غيّرت حالة عامل يدوي (من حاضر لغايب بعذر مثلاً)؟ التعديل ده لازم يتحفظ من هنا عشان يتسجّل فعلًا.",
                         TargetElementName = "SaveAttendanceButton",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 3
@@ -403,7 +431,7 @@ namespace WorkforceManager.UI.Tour
             },
             new()
             {
-                Title = "تسجيل الإنتاج اليومي — الجزاءات",
+                Title = "الجزاءات",
                 Description =
                     "تسجيل جزاء (خصم يوم أو جزء منه) على عامل، بسبب مكتوب — غياب من غير عذر بيسجّل " +
                     "جزاءه التلقائي هنا، وتقدر تضيف جزاءات يدوية لأسباب تانية.",
@@ -412,7 +440,7 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "تسجيل جزاء",
-                        Description = "اختار العامل، مقدار الخصم، واكتب السبب.",
+                        Description = "مثال: عامل اتأخر ساعتين؟ اختاره من البحث، اختار مقدار الخصم (نص يوم مثلًا)، اكتب السبب \"اتأخر\"، ودوس تسجيل.",
                         TargetElementName = "AddPenaltyButton",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 4
@@ -420,7 +448,7 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "جزاءات اليوم",
-                        Description = "كل جزاء اتسجّل النهارده — يدوي كان أو تلقائي من غياب — بتفاصيله.",
+                        Description = "كل جزاء اتسجّل النهارده — يدوي كان أو تلقائي من غياب من غير عذر — بتفاصيله وسببه.",
                         TargetElementName = "PenaltiesGrid",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 4
@@ -429,7 +457,7 @@ namespace WorkforceManager.UI.Tour
             },
             new()
             {
-                Title = "تسجيل الإنتاج اليومي — السلف والحوافز",
+                Title = "السلف والحوافز",
                 Description =
                     "سلفة (مبلغ بيتخصم من أجر العامل في كشف الفترة) أو حافز (مبلغ بيتزاد على أجره) " +
                     "— بمبلغ بالجنيه وملاحظة اختيارية.",
@@ -438,7 +466,7 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "تسجيل سلفة أو حافز",
-                        Description = "اختار العامل والنوع (سلفة تتخصم، أو حافز يتزاد) والمبلغ.",
+                        Description = "مثال: عامل طلب سلفة 300 جنيه؟ اختاره، اختار النوع \"سلفة\"، اكتب 300، ودوس تسجيل — هتتخصم من كشفه في الفترة دي.",
                         TargetElementName = "AddAdjustmentButton",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 5
@@ -446,7 +474,7 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "حركات اليوم",
-                        Description = "كل سلفة وحافز اتسجّل النهارده، بلون مختلف حسب النوع.",
+                        Description = "كل سلفة وحافز اتسجّل النهارده، بلون مختلف حسب النوع (السلفة والحافز واضحين من بعض بصريًا).",
                         TargetElementName = "AdjustmentsGrid",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 5
@@ -455,7 +483,7 @@ namespace WorkforceManager.UI.Tour
             },
             new()
             {
-                Title = "تسجيل الإنتاج اليومي — الهالك",
+                Title = "الهالك",
                 Description =
                     "قطع اتشالت ومش هتتكمّل. الهالك على آخر مرحلة بيتخصم من الإنتاج التام، واللي في " +
                     "نص الخط بيتشال من الشغل الواقف (الرصيد الأولي) — مالوش أي تأثير على الأجور.",
@@ -464,7 +492,7 @@ namespace WorkforceManager.UI.Tour
                     new()
                     {
                         Title = "تسجيل هالك",
-                        Description = "اختار المرحلة وعدد القطع وسبب الهالك.",
+                        Description = "مثال: 5 قطع اتعطبت في مرحلة الخياطة؟ اختار المرحلة، اكتب 5، والسبب \"عيب في القماش\" مثلًا.",
                         TargetElementName = "AddScrapButton",
                         Screen = TourScreen.DailyEntry,
                         TabIndex = 6

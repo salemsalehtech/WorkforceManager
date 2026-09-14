@@ -245,6 +245,23 @@ Core  <----------------------- UI
   **Maintenance**: a new sidebar screen needs both a new `TourScreen` enum value + `NavigateToTourScreen`
   case **and** a new `HelpTopic` here (or, if it has its own internal tabs like Daily Entry, one per tab)
   — nothing enforces this automatically, same caveat as the tour above.
+  **Tour/Guide engine, round 2** (after real use showed the round-1 back/skip-only flow too rigid):
+  `RunTourAsync` took a `TourAction { Next, Previous, Skip }` result instead of a plain bool, and the
+  `for` loop became a `while` loop over a mutable index with a `delta` (±1) — a step whose target turns
+  out hidden/missing is skipped **in the direction already being travelled** (advancing normally skips
+  forward, "السابق" skips backward), otherwise pressing "السابق" straight into a skipped step could
+  silently push you forward again, defeating the button. `TourBackButton.IsEnabled` is set to `i > 0` each
+  step so it disables itself on the first step instead of doing nothing. The overlay also closes on
+  **Escape** (`Window.PreviewKeyDown`, checked only while `TourOverlay` is visible so it can't intercept
+  Escape used elsewhere) and on **clicking the dimmed area** (`TourDimPath.MouseLeftButtonDown`) — both
+  just resolve the same `TourAction.Skip` the button does, no separate code path.
+  `HelpTopics` is two lists now, `MainTopics` and `DailyEntryTopics`, not one flat `All` — `HelpView.xaml`
+  renders them as two `ItemsControl`s sharing one `DataTemplate` (`UserControl.Resources`, referenced by
+  both via `StaticResource`) with a section heading between them, so the seven Daily Entry tab-topics read
+  as parts of one screen instead of seven unrelated cards. Every step's `Description` also got a concrete
+  worked example (real values: "اختار أحمد، اكتب نص يوم، السبب...") after the first pass turned out to be
+  correct but too abstract to actually teach the click-by-click "how" — found from real use, not a
+  design guess up front.
   `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) is
   implemented as a **card list** (same `WorkerCard` style as the attendance screen), not a grid: summary
   bar (active / hourly / inactive + a "needs attention" button that filters to problem

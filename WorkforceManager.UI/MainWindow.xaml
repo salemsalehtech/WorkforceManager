@@ -11,7 +11,8 @@
         FlowDirection="RightToLeft"
         FontFamily="{StaticResource AppFont}" FontSize="14"
         UseLayoutRounding="True"
-        TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType">
+        TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType"
+        PreviewKeyDown="Window_PreviewKeyDown">
     <!--
       UseLayoutRounding + TextOptions هنا لأن النمط الضمني TargetType="Window"
       في App.xaml بيحطهم برضه — بس زي FlowDirection فوقه بالظبط، النمط
@@ -307,11 +308,13 @@
              التاني. النص العربي جوه الفقاعة بيرجّع RTL بنفسه. -->
         <Grid x:Name="TourOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" Panel.ZIndex="1000"
               FlowDirection="LeftToRight">
-            <Path x:Name="TourDimPath" Fill="#AA000000" />
+            <!-- دوسة على المنطقة المعتمة (برّه الفقاعة والهالة) = زي "تخطي الكل" —
+                 نفس تعامل أي Overlay/Dialog تاني بيتقفل بدوسة برّه -->
+            <Path x:Name="TourDimPath" Fill="#AA000000" MouseLeftButtonDown="TourDim_MouseLeftButtonDown" />
             <Border x:Name="TourHighlight" BorderBrush="{DynamicResource GoldBrush}" BorderThickness="3"
                     CornerRadius="8" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False" />
             <Border x:Name="TourCallout" Background="{DynamicResource SurfaceBrush}" CornerRadius="14"
-                    Padding="18,16" Width="300" HorizontalAlignment="Left" VerticalAlignment="Top"
+                    Padding="18,16" Width="340" HorizontalAlignment="Left" VerticalAlignment="Top"
                     FlowDirection="RightToLeft">
                 <Border.Effect>
                     <DropShadowEffect BlurRadius="24" ShadowDepth="0" Opacity="0.3" Color="{DynamicResource ShadowColor}" />
@@ -325,6 +328,8 @@
                     <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                         <Button Style="{StaticResource PrimaryButton}" Padding="16,7" Content="التالي"
                                 Click="TourNext_Click" />
+                        <Button x:Name="TourBackButton" Style="{StaticResource GhostButton}" Padding="16,7" Margin="8,0,0,0"
+                                Content="السابق" Click="TourBack_Click" />
                         <Button Style="{StaticResource GhostButton}" Padding="16,7" Margin="8,0,0,0"
                                 Content="تخطي الكل" Click="TourSkip_Click" />
                     </StackPanel>

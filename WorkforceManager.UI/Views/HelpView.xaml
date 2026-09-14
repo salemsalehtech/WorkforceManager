@@ -6,6 +6,36 @@
              d:DesignWidth="1100" xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">
 
+    <!-- كارت الموضوع نفسه Resource مشترك بين القايمتين تحت (المواضيع
+         العادية وتبويبات التسجيل اليومي) — نفس الشكل بالظبط، مفيش داعي
+         يتكرر مرتين -->
+    <UserControl.Resources>
+        <DataTemplate x:Key="HelpTopicCard">
+            <Border Style="{StaticResource Card}" Margin="0,0,10,10">
+                <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock Text="{Binding Description}" FontSize="12.5" TextWrapping="Wrap"
+                               Margin="0,8,0,0" Foreground="{DynamicResource TextMutedBrush}" />
+                    <Button HorizontalAlignment="Left" Margin="0,12,0,0"
+                            Style="{StaticResource GhostButton}" Padding="12,6"
+                            Command="{Binding DataContext.TryTourCommand,
+                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                            CommandParameter="{Binding}">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="TelevisionPlay" Width="14" Height="14"
+                                                     VerticalAlignment="Center" />
+                            <TextBlock Text="جرّبها معايا" Margin="5,0,0,0" FontSize="12.5" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+        <ItemsPanelTemplate x:Key="TwoColumnPanel">
+            <UniformGrid Columns="2" />
+        </ItemsPanelTemplate>
+    </UserControl.Resources>
+
     <Grid Margin="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -25,36 +55,25 @@
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding Topics}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <UniformGrid Columns="2" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Style="{StaticResource Card}" Margin="0,0,10,10">
-                            <StackPanel>
-                                <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="Bold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                                <TextBlock Text="{Binding Description}" FontSize="12.5" TextWrapping="Wrap"
-                                           Margin="0,8,0,0" Foreground="{DynamicResource TextMutedBrush}" />
-                                <Button HorizontalAlignment="Left" Margin="0,12,0,0"
-                                        Style="{StaticResource GhostButton}" Padding="12,6"
-                                        Command="{Binding DataContext.TryTourCommand,
-                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="TelevisionPlay" Width="14" Height="14"
-                                                                 VerticalAlignment="Center" />
-                                        <TextBlock Text="جرّبها معايا" Margin="5,0,0,0" FontSize="12.5" />
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <StackPanel>
+                <ItemsControl ItemsSource="{Binding MainTopics}"
+                              ItemsPanel="{StaticResource TwoColumnPanel}"
+                              ItemTemplate="{StaticResource HelpTopicCard}" />
+
+                <!-- عنوان قسم فوق التبويبات السبعة بتاعة التسجيل اليومي —
+                     يوضّح إنهم أجزاء من نفس الشاشة مش مواضيع منفصلة -->
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,10">
+                    <materialDesign:PackIcon Kind="ClipboardListOutline" Width="18" Height="18"
+                                             VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
+                    <TextBlock Text="تسجيل الإنتاج اليومي — تبويباتها السبعة" FontSize="14" FontWeight="Bold"
+                               Margin="8,0,0,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                </StackPanel>
+
+                <ItemsControl ItemsSource="{Binding DailyEntryTopics}"
+                              ItemsPanel="{StaticResource TwoColumnPanel}"
+                              ItemTemplate="{StaticResource HelpTopicCard}" />
+            </StackPanel>
         </ScrollViewer>
     </Grid>
 </UserControl>

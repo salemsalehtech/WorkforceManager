@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.Services;
@@ -250,18 +251,22 @@ namespace WorkforceManager.UI
 
         // ======================= جولة "إيه الجديد" (Tour.AppTourContent) =======================
 
-        private TaskCompletionSource<bool>? _tourStepTcs;
+        private enum TourAction { Next, Previous, Skip }
+
+        private TaskCompletionSource<TourAction>? _tourStepTcs;
 
         /// <summary>
         /// بيشغّل الجولة خطوة خطوة: تنقّل للشاشة الصح لو الخطوة محتاجاها
         /// (وتبويب "تسجيل الإنتاج اليومي" الصح لو محدّد)، استنى التخطيط
-        /// يستقر، لوّن سبوت لايت على العنصر المستهدف، واستنى "التالي" أو
-        /// "تخطي الكل". بينادى من App.OfferAppTourIfNewAsync وHelpViewModel.
+        /// يستقر، لوّن سبوت لايت على العنصر المستهدف، واستنى "التالي"/"السابق"/
+        /// "تخطي الكل" (أو Escape، أو دوسة على المنطقة المعتمة — نفس تأثير
+        /// "تخطي الكل"). بينادى من App.OfferAppTourIfNewAsync وHelpViewModel.
         ///
         /// عنصر مش موجود دلوقتي (نادر — بس ممكن لو حد غيّر XAML بعدين
         /// ونسي يحدّث المحتوى)، أو موجود بس مخفي/بلا مساحة (عناصر بتظهر
-        /// بشرط، زي زرار "إضافة حساب" اللي بيختفي لغير مدير القسم) — الاتنين
-        /// بيتخطّوا بس، مش بيوقفوا الجولة كلها.
+        /// بشرط، زي زرار "إضافة حساب" اللي بيختفي لغير مدير القسم) —
+        /// بيتخطّى بنفس اتجاه الحركة الحالي (تقدّم أو رجوع)، مش بيوقف
+        /// الجولة كلها.
         /// </summary>
         public async Task RunTourAsync(IReadOnlyList<Tour.AppTourStep> steps)
         {
@@ -269,7 +274,10 @@ namespace WorkforceManager.UI
 
             try
             {
-                for (var i = 0; i < steps.Count; i++)
+                var i = 0;
+                var delta = 1; // اتجاه الحركة الحالي — بيتغيّر لـ-1 لو المستخدم دوس "السابق"
+
+                while (i >= 0 && i < steps.Count)
                 {
                     var step = steps[i];
 
@@ -280,15 +288,23 @@ namespace WorkforceManager.UI
 
                     await Task.Delay(150); // استقرار التخطيط بعد التنقّل/التبويب قبل ما نقيس مكان العنصر
 
-                    if (FindTourTarget(step.TargetElementName) is not { } target) continue;
-                    if (target.Visibility != Visibility.Visible || target.ActualWidth <= 0 || target.ActualHeight <= 0)
-                        continue; // موجود جوه الشجرة بس مخفي فعليًا دلوقتي
+                    if (FindTourTarget(step.TargetElementName) is not { } target ||
+                        target.Visibility != Visibility.Visible || target.ActualWidth <= 0 || target.ActualHeight <= 0)
+                    {
+                        i += delta; // موجود جوه الشجرة بس مخفي فعليًا دلوقتي، أو مش موجود أصلًا
+                        continue;
+                    }
 
                     PositionTourStep(target, i + 1, steps.Count, step.Title, step.Description);
+                    TourBackButton.IsEnabled = i > 0;
 
-                    _tourStepTcs = new TaskCompletionSource<bool>();
-                    var proceed = await _tourStepTcs.Task;
-                    if (!proceed) break; // "تخطي الكل"
+                    _tourStepTcs = new TaskCompletionSource<TourAction>();
+                    var action = await _tourStepTcs.Task;
+
+                    if (action == TourAction.Skip) return;
+
+                    delta = action == TourAction.Previous ? -1 : 1;
+                    i += delta;
                 }
             }
             finally
@@ -348,7 +364,7 @@ namespace WorkforceManager.UI
             TourDescription.Text = description;
 
             // الفقاعة تحت العنصر لو فيه مساحة، وإلا فوقه — عشان متطلعش برّه الشاشة
-            const double calloutWidth = 300, calloutHeight = 170;
+            const double calloutWidth = 340, calloutHeight = 210;
             var calloutTop = hole.Bottom + 12;
             if (calloutTop + calloutHeight > TourOverlay.ActualHeight)
                 calloutTop = Math.Max(0, hole.Top - calloutHeight - 12);
@@ -357,9 +373,22 @@ namespace WorkforceManager.UI
             TourCallout.Margin = new Thickness(calloutLeft, calloutTop, 0, 0);
         }
 
-        private void TourNext_Click(object sender, RoutedEventArgs e) => _tourStepTcs?.TrySetResult(true);
+        private void TourNext_Click(object sender, RoutedEventArgs e) => _tourStepTcs?.TrySetResult(TourAction.Next);
 
-        private void TourSkip_Click(object sender, RoutedEventArgs e) => _tourStepTcs?.TrySetResult(false);
+        private void TourBack_Click(object sender, RoutedEventArgs e) => _tourStepTcs?.TrySetResult(TourAction.Previous);
+
+        private void TourSkip_Click(object sender, RoutedEventArgs e) => _tourStepTcs?.TrySetResult(TourAction.Skip);
+
+        /// <summary>دوسة على المنطقة المعتمة برّه الفقاعة = زي "تخطي الكل" — نفس تعامل أي Overlay بيتقفل بدوسة برّه</summary>
+        private void TourDim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) =>
+            _tourStepTcs?.TrySetResult(TourAction.Skip);
+
+        /// <summary>Escape يقفل الجولة لو شغّالة — بيتحقق من الظهور هنا عشان مايتصادمش مع أي استخدام تاني لـEscape في البرنامج</summary>
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape && TourOverlay.Visibility == Visibility.Visible)
+                _tourStepTcs?.TrySetResult(TourAction.Skip);
+        }
 
         /// <summary>
         /// اسم المصنع والقسم في رأس القايمة الجانبية وفي عنوان النافذة.
