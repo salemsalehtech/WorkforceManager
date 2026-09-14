@@ -1,3 +1,4 @@
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace WorkforceManager.UI.Tour
@@ -17,6 +18,17 @@ namespace WorkforceManager.UI.Tour
         public required string Title { get; init; }
         public required string Description { get; init; }
         public required IReadOnlyList<AppTourStep> TourSteps { get; init; }
+
+        /// <summary>اسم أيقونة MaterialDesign — نفس أيقونة الشاشة في القايمة الجانبية.</summary>
+        public string Icon { get; init; } = "HelpCircleOutline";
+
+        /// <summary>
+        /// عدد الميزات الإجمالي — بيشمل ميزات المواضيع الفرعية (SubTopics)
+        /// عشان تايل زي "تسجيل الإنتاج اليومي" (TourSteps بتاعته فاضية،
+        /// الميزات كلها جوّه SubTopics) يوري رقم حقيقي على الشبكة بدل صفر.
+        /// </summary>
+        public int FeatureCount =>
+            TourSteps.Count + SubTopics.Sum(s => s.TourSteps.Count);
 
         /// <summary>
         /// فلوات تدريب تفاعلي حقيقي (وضع تجربة، بيانات وهمية) — فاضية

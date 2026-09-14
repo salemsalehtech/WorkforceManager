@@ -24,10 +24,24 @@ namespace WorkforceManager.UI.ViewModels
         public IReadOnlyList<HelpTopic> Topics => HelpTopics.Topics;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasSelectedTopic))]
         private HelpTopic? _selectedTopic;
 
+        public bool HasSelectedTopic => SelectedTopic is not null;
+
+        /// <summary>
+        /// دوسة تايل في الشبكة = اختيار بسيط (مش أكورديون). IsExpanded بتاعة
+        /// كل موضوع بتتظبط هنا كمان — مش لفتح/قفل حاجة، بس عشان تايل الشبكة
+        /// يعرف يلوّن حدّه دهبي للتايل المختار من غير ما يحتاج مقارنة مرجع
+        /// مع SelectedTopic (Binding عادي على IsExpanded بتاعة نفسه كفاية).
+        /// </summary>
         [RelayCommand]
-        private void SelectTopic(HelpTopic? topic) => SelectedTopic = topic;
+        private void SelectTopic(HelpTopic? topic)
+        {
+            foreach (var t in Topics) t.IsExpanded = false;
+            if (topic is not null) topic.IsExpanded = true;
+            SelectedTopic = topic;
+        }
 
         /// <summary>
         /// أكورديون كارت واحد مفتوح بس **جوّه نفس الموضوع الأب** (تسجيل
