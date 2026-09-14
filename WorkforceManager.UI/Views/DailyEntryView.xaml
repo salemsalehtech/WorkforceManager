@@ -37,11 +37,23 @@
                     </StackPanel>
                 </Button>
 
-                <StackPanel Orientation="Horizontal">
+                <StackPanel x:Name="DateNavPanel" Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="CalendarBlankOutline" Width="17" Height="17"
                                              Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                     <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <DatePicker SelectedDate="{Binding EntryDate}" Width="160" VerticalAlignment="Center" />
+                    <Button Style="{StaticResource IconButton}" Padding="5" ToolTip="يوم فات"
+                            Command="{Binding PreviousDayCommand}">
+                        <materialDesign:PackIcon Kind="ChevronRight" Width="16" Height="16" />
+                    </Button>
+                    <DatePicker SelectedDate="{Binding EntryDate}" Width="150" VerticalAlignment="Center" Margin="4,0" />
+                    <Button Style="{StaticResource IconButton}" Padding="5" ToolTip="يوم جاي"
+                            Command="{Binding NextDayCommand}">
+                        <materialDesign:PackIcon Kind="ChevronLeft" Width="16" Height="16" />
+                    </Button>
+                    <Button Style="{StaticResource GhostButton}" Padding="10,5" Margin="8,0,0,0" FontSize="12"
+                            ToolTip="ارجع لتاريخ النهارده" Command="{Binding GoToTodayCommand}">
+                        <TextBlock Text="النهارده" />
+                    </Button>
                 </StackPanel>
             </DockPanel>
         </Border>

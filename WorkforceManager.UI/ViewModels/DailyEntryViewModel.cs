@@ -80,6 +80,16 @@ namespace WorkforceManager.UI.ViewModels
             SafeAsync.Run(ReloadForDateAsync);
         }
 
+        /// <summary>تنقّل سريع بين الأيام — أزرار جنب الـDatePicker، بتستخدم نفس آلية إعادة التحميل فوق</summary>
+        [RelayCommand]
+        private void PreviousDay() => EntryDate = EntryDate.AddDays(-1);
+
+        [RelayCommand]
+        private void NextDay() => EntryDate = EntryDate.AddDays(1);
+
+        [RelayCommand]
+        private void GoToToday() => EntryDate = DateTime.Today;
+
         /// <summary>
         /// أول تحميل للشاشة: المنتجات + أول رحلة + الحضور + الجزاءات.
         /// View.Loaded بينادّيها في كل رجوع للشاشة (الشاشة Singleton)،
