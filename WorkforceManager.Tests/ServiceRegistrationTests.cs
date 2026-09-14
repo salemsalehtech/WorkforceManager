@@ -51,10 +51,11 @@ namespace WorkforceManager.Tests
         [Fact]
         public void EveryServiceTheAppRegisters_IsAlsoRegisteredForTests()
         {
-            // TestDatabase بيقلّد تسجيلات App.xaml.cs — لو خدمة اتضافت في
-            // واحد بس، أول اختبار بيلمسها بيقع برسالة عن الحاوية مش عن
-            // السلوك، والوقت بيضيع في الترجمة
-            var app = Registrations(Read(@"WorkforceManager.UI\App.xaml.cs"));
+            // التسجيلات الحقيقية دلوقتي في AppServiceRegistration.cs (App.xaml.cs
+            // بينادي عليها بس، AddWorkforceManagerCore) — TestDatabase بيقلّدها،
+            // لو خدمة اتضافت في واحد بس، أول اختبار بيلمسها بيقع برسالة عن
+            // الحاوية مش عن السلوك، والوقت بيضيع في الترجمة
+            var app = Registrations(Read(@"WorkforceManager.UI\AppServiceRegistration.cs"));
             var tests = Registrations(Read(@"WorkforceManager.Tests\TestDatabase.cs"));
 
             // الشاشات والنوافذ محتاجة WPF فمش بتتسجّل في اختبارات الأعمال
@@ -72,7 +73,7 @@ namespace WorkforceManager.Tests
         {
             // خدمة مسجّلة ومحدش بينده عليها = كود ميت بيتصان بالغلط
             var root = SolutionRoot();
-            var app = Read(@"WorkforceManager.UI\App.xaml.cs");
+            var app = Read(@"WorkforceManager.UI\AppServiceRegistration.cs");
 
             var services = Registrations(app)
                 .Where(n => n.EndsWith("Service"))
@@ -84,7 +85,7 @@ namespace WorkforceManager.Tests
             var sources = Directory
                 .EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)
                 .Where(f => !f.Contains(@"\bin\") && !f.Contains(@"\obj\"))
-                .Where(f => !f.EndsWith(@"App.xaml.cs"))
+                .Where(f => !f.EndsWith(@"AppServiceRegistration.cs"))
                 .Where(f => !f.EndsWith(@"TestDatabase.cs"))
                 .Where(f => !f.EndsWith(@"ServiceRegistrationTests.cs"))
                 .Select(File.ReadAllText)
