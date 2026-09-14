@@ -253,6 +253,7 @@ namespace WorkforceManager.UI
                     {
                         await ShowDueMemoryRemindersAsync(mainWindow);
                         await OfferAppTourIfNewAsync(mainWindow);
+                        OfferLearnFeaturesIfNew(mainWindow);
                     })),
                     System.Windows.Threading.DispatcherPriority.Background);
 
@@ -414,6 +415,32 @@ namespace WorkforceManager.UI
             }
 
             settings.LastSeenTourVersion = Tour.AppTourContent.Version;
+            AppSettingsStore.Save(settings);
+        }
+
+        /// <summary>
+        /// بيعرض "تعلم مميزات التحديث" مرة واحدة بس لكل رقم إصدار حقيقي
+        /// (AppVersion.Current — مش Tour.AppTourContent.Version، اللي عدّاد
+        /// محتوى منفصل تمامًا وله علَمه الخاص فوق). علَم منفصل ومقارنة
+        /// منفصلة عن جولة "إيه الجديد" عن قصد — العرضين مستقلّين، مش
+        /// المفروض واحد يسكت التاني.
+        ///
+        /// لو مفيش محتوى "تعلم مميزات" لإصدار البرنامج الحالي أصلًا (لسه
+        /// مضافش)، مفيش عرض خالص — مش رسالة فاضية.
+        /// </summary>
+        private static void OfferLearnFeaturesIfNew(MainWindow owner)
+        {
+            var settings = AppSettingsStore.Load();
+            if (!Tour.LearnFeaturesContent.ShouldOffer(settings.LastSeenLearnVersion, AppVersion.Current)) return;
+
+            if (Notify.Ask(
+                "فيه ميزات جديدة اتضافت في النسخة دي — عايز تتعلمها بالتطبيق العملي؟",
+                "تعلم مميزات التحديث"))
+            {
+                owner.NavHelpItem.IsChecked = true; // أحدث إصدار مفتوح افتراضيًا في المحتوى نفسه، فمفيش داعي لعلَم "افتحله" إضافي
+            }
+
+            settings.LastSeenLearnVersion = AppVersion.Current;
             AppSettingsStore.Save(settings);
         }
 

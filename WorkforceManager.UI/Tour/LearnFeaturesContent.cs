@@ -31,6 +31,16 @@ namespace WorkforceManager.UI.Tour
     /// </summary>
     public static class LearnFeaturesContent
     {
+        /// <summary>
+        /// قرار نقي (بدون WPF/إعدادات) قابل للاختبار لوحده: نعرض "تعلم
+        /// مميزات التحديث" لو (أ) فيه فعلًا محتوى مكتوب لإصدار البرنامج
+        /// الحالي، و(ب) المستخدم لسه ماشافوش لنفس الرقم ده بالظبط.
+        /// App.OfferLearnFeaturesIfNew بينادي عليها بدل ما يكرر المنطق.
+        /// </summary>
+        public static bool ShouldOffer(string? lastSeenLearnVersion, string currentAppVersion) =>
+            lastSeenLearnVersion != currentAppVersion &&
+            Versions.Any(v => v.Version == currentAppVersion);
+
         public static IReadOnlyList<LearnFeaturesVersion> Versions { get; } = new List<LearnFeaturesVersion>
         {
             new()
