@@ -216,7 +216,7 @@
                          منها، والتقارير بتطلّع ورق. خلطهم في شاشة واحدة
                          كان بيخلي المدير يدوّر على اللي بيهمه وسط تبويبات
                          بتعمل حاجة تانية خالص. -->
-                    <RadioButton Style="{StaticResource NavItem}"
+                    <RadioButton x:Name="NavEvaluationItem" Style="{StaticResource NavItem}"
                                  Checked="NavEvaluation_Checked" Click="NavEvaluation_Checked"
                                  AutomationProperties.Name="التقييم والمتابعة">
                         <StackPanel Orientation="Horizontal">
@@ -225,7 +225,7 @@
                         </StackPanel>
                     </RadioButton>
 
-                    <RadioButton Style="{StaticResource NavItem}"
+                    <RadioButton x:Name="NavReportsItem" Style="{StaticResource NavItem}"
                                  Checked="NavReports_Checked" Click="NavReports_Checked"
                                  AutomationProperties.Name="التقارير">
                         <StackPanel Orientation="Horizontal">
@@ -234,7 +234,7 @@
                         </StackPanel>
                     </RadioButton>
 
-                    <RadioButton Style="{StaticResource NavItem}"
+                    <RadioButton x:Name="NavActivityLogItem" Style="{StaticResource NavItem}"
                                  Checked="NavActivityLog_Checked" Click="NavActivityLog_Checked"
                                  AutomationProperties.Name="سجل العمليات">
                         <StackPanel Orientation="Horizontal">
@@ -254,7 +254,7 @@
                         </StackPanel>
                     </RadioButton>
 
-                    <RadioButton Style="{StaticResource NavItem}"
+                    <RadioButton x:Name="NavSettingsItem" Style="{StaticResource NavItem}"
                                  Checked="NavSettings_Checked" Click="NavSettings_Checked"
                                  AutomationProperties.Name="الإعدادات والنسخ">
                         <StackPanel Orientation="Horizontal">
@@ -265,12 +265,23 @@
 
                     <!-- قايمة منفصلة تمامًا عن "العمال والمهارات" —
                          الحسابات دي مش عمال إنتاج -->
-                    <RadioButton Style="{StaticResource NavItem}"
+                    <RadioButton x:Name="NavDepartmentAccountsItem" Style="{StaticResource NavItem}"
                                  Checked="NavDepartmentAccounts_Checked" Click="NavDepartmentAccounts_Checked"
                                  AutomationProperties.Name="الحسابات الإدارية">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="AccountTie" Width="18" Height="18" VerticalAlignment="Center" />
                             <TextBlock Text="الحسابات الإدارية" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <!-- مرجع دائم بشرح كل شاشة + جولة سبوت لايت قصيرة لكل ميزة —
+                         آخر عنصر عن قصد، زي أي "مساعدة" في أي برنامج -->
+                    <RadioButton x:Name="NavHelpItem" Style="{StaticResource NavItem}"
+                                 Checked="NavHelp_Checked" Click="NavHelp_Checked"
+                                 AutomationProperties.Name="الدليل">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="HelpCircleOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                            <TextBlock Text="الدليل" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
                 </StackPanel>
@@ -287,6 +298,38 @@
             <!-- الإشعارات فوق المحتوى: بتظهر في الركن وبتروح لوحدها،
                  والشغل تحتها مبيتوقفش -->
             <views:ToastHost x:Name="Toasts" />
+        </Grid>
+
+        <!-- ══════════ جولة "إيه الجديد" (Spotlight) ══════════
+             FlowDirection="LeftToRight" مقصود: المواقع بتتحسب في الكود
+             بإحداثيات فعلية (TransformToVisual)، ولو سبنا RTL الموروثة
+             كانت هتنعكس Margin.Left/HorizontalAlignment="Left" على الجنب
+             التاني. النص العربي جوه الفقاعة بيرجّع RTL بنفسه. -->
+        <Grid x:Name="TourOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" Panel.ZIndex="1000"
+              FlowDirection="LeftToRight">
+            <Path x:Name="TourDimPath" Fill="#AA000000" />
+            <Border x:Name="TourHighlight" BorderBrush="{DynamicResource GoldBrush}" BorderThickness="3"
+                    CornerRadius="8" HorizontalAlignment="Left" VerticalAlignment="Top" IsHitTestVisible="False" />
+            <Border x:Name="TourCallout" Background="{DynamicResource SurfaceBrush}" CornerRadius="14"
+                    Padding="18,16" Width="300" HorizontalAlignment="Left" VerticalAlignment="Top"
+                    FlowDirection="RightToLeft">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="24" ShadowDepth="0" Opacity="0.3" Color="{DynamicResource ShadowColor}" />
+                </Border.Effect>
+                <StackPanel>
+                    <TextBlock x:Name="TourStepCounter" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
+                    <TextBlock x:Name="TourTitle" FontSize="15.5" FontWeight="Bold" Margin="0,4,0,0"
+                               TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock x:Name="TourDescription" FontSize="13" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <Button Style="{StaticResource PrimaryButton}" Padding="16,7" Content="التالي"
+                                Click="TourNext_Click" />
+                        <Button Style="{StaticResource GhostButton}" Padding="16,7" Margin="8,0,0,0"
+                                Content="تخطي الكل" Click="TourSkip_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </Grid>
     </Grid>
 </Window>

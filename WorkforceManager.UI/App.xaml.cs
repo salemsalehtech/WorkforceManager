@@ -140,6 +140,8 @@ namespace WorkforceManager.UI
                     services.AddTransient<ViewModels.SettingsViewModel>();
                     services.AddTransient<Views.DepartmentAccountsView>();
                     services.AddTransient<ViewModels.DepartmentAccountsViewModel>();
+                    services.AddTransient<Views.HelpView>();
+                    services.AddTransient<ViewModels.HelpViewModel>();
                 })
                 .Build();
         }
@@ -353,8 +355,15 @@ namespace WorkforceManager.UI
                 // بيخالف قاعدة "متستخدمش ‎_ = SomeAsync()": الشغل غير
                 // المتزامن نفسه جوّه SafeAsync.Run، فأي فشل بيظهر
                 // للمستخدم مش بيضيع في صمت
+                //
+                // جولة "إيه الجديد" بعد التذكيرات عن قصد — مفيش حاجتين
+                // بيتنافسوا على انتباه المستخدم في نفس اللحظة
                 _ = mainWindow.Dispatcher.BeginInvoke(
-                    new Action(() => ViewModels.SafeAsync.Run(() => ShowDueMemoryRemindersAsync(mainWindow))),
+                    new Action(() => ViewModels.SafeAsync.Run(async () =>
+                    {
+                        await ShowDueMemoryRemindersAsync(mainWindow);
+                        await OfferAppTourIfNewAsync(mainWindow);
+                    })),
                     System.Windows.Threading.DispatcherPriority.Background);
 
                 base.OnStartup(e);
@@ -496,6 +505,26 @@ namespace WorkforceManager.UI
                 await StartMemorySessionAsync(memory);
                 return; // الشاشة اتفتحت — باقي التذكيرات لبكرة
             }
+        }
+
+        /// <summary>
+        /// بيعرض جولة "إيه الجديد" (<see cref="Tour.AppTourContent"/>) مرة
+        /// واحدة بس لكل نسخة محتوى — مش لكل تشغيلة. بيتسجّل "شافها" حتى لو
+        /// رفض، زي أي تذكير تاني في البرنامج (مش المفروض يتكرر السؤال).
+        /// </summary>
+        private static async Task OfferAppTourIfNewAsync(MainWindow owner)
+        {
+            var settings = AppSettingsStore.Load();
+            if (settings.LastSeenTourVersion == Tour.AppTourContent.Version) return;
+
+            if (Notify.Ask(
+                "في حاجات جديدة في البرنامج — عايز جولة سريعة توريك إيها؟", "إيه الجديد؟"))
+            {
+                await owner.RunTourAsync(Tour.AppTourContent.Steps);
+            }
+
+            settings.LastSeenTourVersion = Tour.AppTourContent.Version;
+            AppSettingsStore.Save(settings);
         }
 
         /// <summary>

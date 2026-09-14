@@ -148,7 +148,7 @@
                 </Border>
 
                 <!-- النسخ المحلي -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <Border x:Name="BackupCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="DatabaseOutline" Width="18" Height="18"

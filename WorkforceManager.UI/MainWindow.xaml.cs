@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
+using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
@@ -246,6 +247,111 @@ namespace WorkforceManager.UI
             else if (MainContent?.Content is ProductsView { DataContext: ViewModels.ProductsViewModel productsVm })
                 productsVm.SearchText = chosen.Name;
         }
+
+        // ======================= جولة "إيه الجديد" (Tour.AppTourContent) =======================
+
+        private TaskCompletionSource<bool>? _tourStepTcs;
+
+        /// <summary>
+        /// بيشغّل الجولة خطوة خطوة: تنقّل للشاشة الصح لو الخطوة محتاجاها،
+        /// استنى التخطيط يستقر، لوّن سبوت لايت على العنصر المستهدف، واستنى
+        /// "التالي" أو "تخطي الكل". بينادى من App.OfferAppTourIfNewAsync.
+        ///
+        /// عنصر مش موجود دلوقتي (نادر — بس ممكن لو حد غيّر XAML بعدين
+        /// ونسي يحدّث AppTourContent) بيتخطّى بس، مش بيوقف الجولة كلها.
+        /// </summary>
+        public async Task RunTourAsync(IReadOnlyList<Tour.AppTourStep> steps)
+        {
+            TourOverlay.Visibility = Visibility.Visible;
+
+            try
+            {
+                for (var i = 0; i < steps.Count; i++)
+                {
+                    var step = steps[i];
+
+                    NavigateToTourScreen(step.Screen);
+                    await Task.Delay(150); // استقرار التخطيط بعد التنقّل قبل ما نقيس مكان العنصر
+
+                    if (FindTourTarget(step.TargetElementName) is not { } target) continue;
+
+                    PositionTourStep(target, i + 1, steps.Count, step.Title, step.Description);
+
+                    _tourStepTcs = new TaskCompletionSource<bool>();
+                    var proceed = await _tourStepTcs.Task;
+                    if (!proceed) break; // "تخطي الكل"
+                }
+            }
+            finally
+            {
+                TourOverlay.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void NavigateToTourScreen(Tour.TourScreen screen)
+        {
+            switch (screen)
+            {
+                case Tour.TourScreen.Workers: NavWorkersItem.IsChecked = true; break;
+                case Tour.TourScreen.Products: NavProductsItem.IsChecked = true; break;
+                case Tour.TourScreen.DailyEntry: NavDailyEntryItem.IsChecked = true; break;
+                case Tour.TourScreen.Memory: NavMemoryItem.IsChecked = true; break;
+                case Tour.TourScreen.Evaluation: NavEvaluationItem.IsChecked = true; break;
+                case Tour.TourScreen.Reports: NavReportsItem.IsChecked = true; break;
+                case Tour.TourScreen.ActivityLog: NavActivityLogItem.IsChecked = true; break;
+                case Tour.TourScreen.Settings: NavSettingsItem.IsChecked = true; break;
+                case Tour.TourScreen.DepartmentAccounts: NavDepartmentAccountsItem.IsChecked = true; break;
+                case Tour.TourScreen.None: break;
+            }
+        }
+
+        /// <summary>بيدوّر على عنصر بالاسم: الشريط الجانبي الأول (ثابت دايمًا)، وبعدين الشاشة المفتوحة حاليًا</summary>
+        private FrameworkElement? FindTourTarget(string name)
+        {
+            if (FindName(name) is FrameworkElement sidebarElement) return sidebarElement;
+            return (MainContent?.Content as FrameworkElement)?.FindName(name) as FrameworkElement;
+        }
+
+        /// <summary>
+        /// بيحسب مكان العنصر بالنسبة لـ TourOverlay (إحداثيات فعلية —
+        /// شوف كومنت FlowDirection على TourOverlay في XAML)، ويبني ثقب
+        /// السبوت لايت والفقاعة حواليه.
+        /// </summary>
+        private void PositionTourStep(
+            FrameworkElement target, int stepNumber, int totalSteps, string title, string description)
+        {
+            var bounds = target.TransformToVisual(TourOverlay)
+                .TransformBounds(new Rect(0, 0, target.ActualWidth, target.ActualHeight));
+
+            const double pad = 8;
+            var hole = new Rect(bounds.X - pad, bounds.Y - pad, bounds.Width + pad * 2, bounds.Height + pad * 2);
+
+            var outer = new RectangleGeometry(new Rect(0, 0, TourOverlay.ActualWidth, TourOverlay.ActualHeight));
+            var inner = new RectangleGeometry(hole, 8, 8);
+            TourDimPath.Data = new CombinedGeometry(GeometryCombineMode.Exclude, outer, inner);
+
+            TourHighlight.Width = hole.Width;
+            TourHighlight.Height = hole.Height;
+            TourHighlight.Margin = new Thickness(hole.X, hole.Y, 0, 0);
+
+            TourStepCounter.Text = $"{stepNumber} من {totalSteps}";
+            TourTitle.Text = title;
+            TourDescription.Text = description;
+
+            // الفقاعة تحت العنصر لو فيه مساحة، وإلا فوقه — عشان متطلعش برّه الشاشة
+            const double calloutWidth = 300, calloutHeight = 170;
+            var calloutTop = hole.Bottom + 12;
+            if (calloutTop + calloutHeight > TourOverlay.ActualHeight)
+                calloutTop = Math.Max(0, hole.Top - calloutHeight - 12);
+
+            var calloutLeft = Math.Clamp(bounds.X, 12, Math.Max(12, TourOverlay.ActualWidth - calloutWidth - 12));
+            TourCallout.Margin = new Thickness(calloutLeft, calloutTop, 0, 0);
+        }
+
+        private void TourNext_Click(object sender, RoutedEventArgs e) => _tourStepTcs?.TrySetResult(true);
+
+        private void TourSkip_Click(object sender, RoutedEventArgs e) => _tourStepTcs?.TrySetResult(false);
+
         /// <summary>
         /// اسم المصنع والقسم في رأس القايمة الجانبية وفي عنوان النافذة.
         ///
@@ -429,6 +535,14 @@ namespace WorkforceManager.UI
         {
             if (MainContent is null) return;
             MainContent.Content = _session.GetRequiredService<DepartmentAccountsView>();
+            RefreshActivityBadge();
+            RefreshMemoryBadge();
+        }
+
+        private void NavHelp_Checked(object sender, RoutedEventArgs e)
+        {
+            if (MainContent is null) return;
+            MainContent.Content = _session.GetRequiredService<HelpView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
         }

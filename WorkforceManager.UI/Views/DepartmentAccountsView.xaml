@@ -54,7 +54,7 @@
         </Border>
 
         <!-- القايمة -->
-        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="0">
+        <Border x:Name="AccountsListCard" Grid.Row="1" Style="{StaticResource Card}" Padding="0">
             <Grid>
                 <TextBlock Text="مفيش حسابات إدارية مضافة لسه" FontSize="13.5"
                            HorizontalAlignment="Center" VerticalAlignment="Center"

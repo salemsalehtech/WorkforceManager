@@ -107,6 +107,17 @@ namespace WorkforceManager.Data
         /// </summary>
         public List<string>? PayslipStripFields { get; set; }
 
+        // ------- جولة "إيه الجديد" -------
+
+        /// <summary>
+        /// آخر نسخة محتوى لجولة "إيه الجديد" (AppTourContent.Version) اتعرضت
+        /// على المستخدم. null = عمره ما شافها.
+        ///
+        /// بيتسجّل حتى لو المستخدم رفض الجولة — مرة واحدة بس لكل نسخة
+        /// محتوى، زي أي تذكير تاني في البرنامج (شوف OfferAppTourIfNewAsync).
+        /// </summary>
+        public string? LastSeenTourVersion { get; set; }
+
         // ------- تنظيف سجل العمليات -------
 
         /// <summary>

@@ -83,7 +83,7 @@
                     ListBox عشان يفضل شكله زي القايمة القديمة بالظبط —
                     قايمة عرض مش قايمة اختيار.
                 -->
-                <ListBox ItemsSource="{Binding Events}" Margin="12"
+                <ListBox x:Name="ActivityLogList" ItemsSource="{Binding Events}" Margin="12"
                          Background="Transparent" BorderThickness="0"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          VirtualizingPanel.VirtualizationMode="Recycling">
