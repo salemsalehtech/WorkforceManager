@@ -286,11 +286,14 @@ namespace WorkforceManager.UI
                     if (step.TabIndex is int tab)
                         _session.GetRequiredService<ViewModels.DailyEntryViewModel>().SelectedTabIndex = tab;
 
-                    if (step.SelectFirstWorker)
-                    {
-                        var workersVm = _session.GetRequiredService<ViewModels.WorkersViewModel>();
+                    // (MainContent.Content as ...)?.DataContext مش _session.GetRequiredService
+                    // عن قصد: WorkersView/WorkersViewModel مسجّلين Transient، فـ
+                    // GetRequiredService كان بيبني نسخة تانية يتيمة غير اللي فعليًا
+                    // ظاهرة على الشاشة (اللي NavigateToTourScreen فوق بناها) — العامل
+                    // كان بيتحدد على نسخة محدش شايفها، والخطوة كانت بتتخطّى بصمت
+                    if (step.SelectFirstWorker &&
+                        (MainContent.Content as FrameworkElement)?.DataContext is ViewModels.WorkersViewModel workersVm)
                         workersVm.SelectedWorker = workersVm.Workers.FirstOrDefault();
-                    }
 
                     // تحديد عامل بيحمّل بروفايله (SelectedWorker/OnSelectedWorkerChanged) async
                     // في الخلفية، فمحتاج وقت أطول من مجرد استقرار تخطيط الشاشة
