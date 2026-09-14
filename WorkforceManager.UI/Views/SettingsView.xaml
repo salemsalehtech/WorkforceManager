@@ -215,7 +215,7 @@
                 <!-- ===== أسباب الهالك =====
                      من غير قايمة، المستخدم بيكتب السبب بالإيد في الملاحظات
                      كل مرة — وساعتها "الهالك راح فين؟" مالهاش إجابة مجمّعة. -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <Border x:Name="ScrapReasonsCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="DeleteSweepOutline" Width="18" Height="18"
@@ -292,7 +292,7 @@
                 <!-- ===== هوية التقارير المطبوعة =====
                      التقرير بيخرج من البرنامج ويروح لناس مشافوش البرنامج،
                      فلازم يقول هو بتاع مين من غير ما حد يشرح. -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <Border x:Name="ReportIdentityCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18"
@@ -346,7 +346,7 @@
                      منفصل عن شعار التقارير فوق عن قصد: ده بيحل محل
                      شعار WMS جوّه البرنامج نفسه (مربع صغير)، مش هيدر
                      ورقة مطبوعة — نادرًا ما تناسب نفس الصورة الاتنين. -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <Border x:Name="AppLogoCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ImageOutline" Width="18" Height="18"
@@ -385,7 +385,7 @@
                            Style="{StaticResource GroupCaption}" />
 
                 <!-- ===== المظهر ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <Border x:Name="DarkModeCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ThemeLightDark" Width="18" Height="18"
@@ -409,7 +409,7 @@
                 <!-- ===== تنظيف سجل العمليات =====
                      مدتين مش واحدة عن قصد: كل حدث في السجل ده إما حذف أو
                      حركة فلوس، واللي فيه فلوس السؤال عليه بييجي بعد شهور. -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                <Border x:Name="LogRetentionCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="DeleteClockOutline" Width="18" Height="18"
@@ -477,7 +477,7 @@
                      هنا بدل ما حد يدوّر عليهم أو يخمّن.
                      المسار بـ LeftToRight عن قصد: مسار ويندوز مكتوب
                      بالإنجليزي، وعرضه في اتجاه عربي بيبعتر الشرطات. -->
-                <StackPanel Margin="6,2,6,0">
+                <StackPanel x:Name="AppInfoFooter" Margin="6,2,6,0">
                     <TextBlock Style="{StaticResource HintText}" Text="{Binding AppVersionText}" />
 
                     <!-- نسبة البرنامج لصاحبه: جنب الإصدار لأن الاتنين هوية
