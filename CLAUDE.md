@@ -170,7 +170,68 @@ Core  <----------------------- UI
   their DTOs in `DTOs/`.
 - **WorkforceManager.UI** — WPF, MVVM (CommunityToolkit.Mvvm) + MaterialDesignThemes. `App.xaml.cs` wires
   up DI via `Microsoft.Extensions.Hosting`'s `Host` (`AppHost`) — this is the single place new
-  repositories/services/views get registered. `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) is
+  repositories/services/views get registered.
+  **Every `[RelayCommand]` on an async method that actually writes to the database
+  (Save/Delete/Add/Edit/Toggle/Withdraw/Set/Reactivate...) takes `(AllowConcurrentExecutions = false)`.**
+  No screen anywhere used to give any feedback or protection while such a command was running — a fast
+  double-click could fire the same save/delete twice. CommunityToolkit.Mvvm's generated
+  `IAsyncRelayCommand` already tracks `IsRunning` and raises `CanExecuteChanged` when this flag is set,
+  so a `Button` bound via plain `Command="{Binding XCommand}"` disables itself automatically while running
+  — **zero XAML changes needed**, and the existing `IsEnabled="False"` triggers in `Core.xaml`'s button
+  styles already grey it out, which doubles as the "this is busy" cue. Commands that only open a dialog,
+  export a file, or navigate (`Show*`, `Open*`, `Export*`, `Prev/NextPeriod`) are deliberately left alone
+  — no duplicate-write risk, and a modal dialog already blocks re-clicking anyway.
+  **`DailyEntryViewModel.EntryDate` has quick prev/next/today commands** (`PreviousDay`/`NextDay`/
+  `GoToToday`, next to the `DatePicker` in `DailyEntryView.xaml`) — trivial wrappers that just reassign
+  `EntryDate`, reusing the existing `OnEntryDateChanged` → `ReloadForDateAsync` pipeline; no new loading
+  logic.
+  **`GlobalSearchDialog`** (`Views/GlobalSearchDialog.xaml`, opened from a "بحث سريع" button always
+  visible at the top of the sidebar in `MainWindow.xaml`) is a lightweight quick-search over active
+  workers + active products, same non-MVVM dialog pattern as `MemoryPostponeDialog`. It does not carry
+  its own database logic: `MainWindow.GlobalSearch_Click` loads the two lists up front with the exact
+  same repository calls `WorkersViewModel`/`MemoryViewModel.LoadAsync` already use
+  (`IWorkerRepository.GetActiveWithSkillsAsync`, `IProductRepository.GetActiveWithStagesAsync`), and on a
+  pick, **checks the corresponding nav `RadioButton` first** (`NavWorkersItem`/`NavProductsItem`, letting
+  the existing `NavWorkers_Checked`/`NavProducts_Checked` handlers resolve the (Transient) view+ViewModel
+  the normal way) **before** reading `MainContent.Content`'s `DataContext` and setting its `SearchText` —
+  resolving the view a second time here directly would create a throwaway duplicate instance instead of
+  the one actually on screen. `WorkersView`/`ProductsView` reuse the DTO the search dialog created and end
+  up filtered to the picked name on arrival for free, off their own existing `SearchText` filtering.
+  **"إيه الجديد؟" spotlight tour** (`Tour/AppTourStep.cs`, `Tour/AppTourContent.cs`,
+  `MainWindow.RunTourAsync`/`PositionTourStep`): a real coach-mark tour, not a changelog dialog — each
+  step navigates to the right screen (reusing the same `NavXItem.IsChecked = true` pattern as the global
+  search above) and darkens everything except a rounded-rect cutout around the target element
+  (`CombinedGeometry` with `GeometryCombineMode.Exclude`, computed fresh per step from
+  `target.TransformToVisual(TourOverlay)`). **`TourOverlay` is `FlowDirection="LeftToRight"`, overriding
+  the app's inherited RTL** — the positions are computed in physical coordinates via `TransformToVisual`,
+  and RTL would silently mirror `Margin`/`HorizontalAlignment="Left"` to the wrong side; the callout
+  bubble re-applies `FlowDirection="RightToLeft"` locally so its Arabic text still reads correctly. Only
+  targets **static chrome elements with one stable `x:Name`** (a button, a search box, a panel) — never an
+  `ItemsControl.ItemTemplate`-generated element (e.g. a specific memory-plan card's button), because there
+  is no single always-present instance to point at and the list could be empty when the tour runs; a step
+  whose named target isn't found is skipped, not treated as a tour-ending error. Offered once per
+  `AppTourContent.Version` (`App.OfferAppTourIfNewAsync`, right after the memory reminders in the same
+  startup dispatcher chain — so it never competes with them for attention), tracked in
+  `AppSettings.LastSeenTourVersion`; the "seen" flag is written whether the user accepts or declines, same
+  as every other one-time prompt in this app. **Maintenance**: any future feature worth teaching needs a
+  new step added to `AppTourContent.Steps` **and** `Version` bumped — otherwise a user who already saw an
+  older version never sees the new step, since the check is a single version-equality comparison.
+  **"الدليل" (`Views/HelpView.xaml`, `ViewModels/HelpViewModel.cs`, last nav item)** is a standing
+  reference, unlike the one-time tour above — one `HelpTopic` (`Tour/HelpTopic.cs`) per sidebar screen (9
+  total, `Tour/HelpTopics.cs`), each a plain-language description plus a "جرّبها معايا" button that runs
+  a short (usually one-step) spotlight tour through the exact same `MainWindow.RunTourAsync` engine, not a
+  separate mechanism. `HelpViewModel.TryTourAsync` reaches `MainWindow` via `Application.Current.MainWindow`
+  (the same pattern `DailyEntryViewModel` already uses everywhere as a dialog `Owner`), not DI — the topic
+  list is static content, no repository needed. Every `TargetElementName` here reuses an `x:Name` that
+  already existed for another reason where one was available (`FilterToggle` on Workers/Products/
+  ReportBuilder, `PreviewGrid`, `ProductToggle`, the Memory/Daily-Entry names from the tour above) rather
+  than adding a new one — only `ActivityLogList`, `BackupCard`, `AccountsListCard` are new, and each was
+  picked because it stays visible regardless of role/state (the Department Accounts card list, not the
+  "إضافة حساب" button, since that button is `Visibility`-collapsed for non-manager accounts and a spotlight
+  step needs its target to actually have a size). **Maintenance**: a new sidebar screen needs both a new
+  `TourScreen` enum value + `NavigateToTourScreen` case **and** a new `HelpTopic` here — nothing enforces
+  this automatically, same caveat as the tour above.
+  `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) is
   implemented as a **card list** (same `WorkerCard` style as the attendance screen), not a grid: summary
   bar (active / hourly / inactive + a "needs attention" button that filters to problem
   workers), instant search, `FilterChip` quick filters (الكل / بالإنتاج / بالساعة / موقوفين), and a sort
@@ -902,22 +963,46 @@ Core  <----------------------- UI
   be refused at save time with a confusing "stage not in this session" message.
   **The stale-plan hazard is real, not theoretical**: `DailyEntryViewModel`/`DailyEntryView` are
   **singletons**, so a plan's order left on a session would silently govern the next ordinary session.
-  `FlowSessionViewModel._memoryStageOrder` is cleared in `OnSelectedProductChanged` (a different product
-  means a different plan) and dies with `FlowSessions.Clear()` in `ResetForNewSession`; `StartFromMemoryAsync`
-  always adds a **fresh** session rather than reusing the first one, so an unsaved distribution already on
-  screen is never overwritten by a reminder.
-  A memory moves to the "منجزة" list the moment the screen opens — **not** when production is saved
-  (confirmed): the reminder's job is to remind, and it finished it. A plan whose product was since
-  deactivated or deleted, or whose stages left the line, still shows its reminder with "ابدأ الآن"
-  disabled and the reason spelled out; `BlockedReason` is derived at read time, never stored, because the
-  product can change at any point after the plan was written.
-  **Saving, editing, or deleting a memory plan is logged** (`ProductionMemoryCreated`/`Edited`/`Deleted`) —
+  `FlowSessionViewModel._memoryStageOrder`/`_memoryId` are cleared together in `OnSelectedProductChanged`
+  (a different product means a different plan) and die with `FlowSessions.Clear()` in `ResetForNewSession`;
+  `StartFromMemoryAsync` always adds a **fresh** session rather than reusing the first one, so an unsaved
+  distribution already on screen is never overwritten by a reminder.
+  **A memory moves to the "منجزة" list only after a real production save for that session — not the
+  moment the screen opens.** This reverses an earlier confirmed decision ("the reminder's job is to
+  remind, and it finished it the moment it delivered the user to the screen"): real use showed a plan
+  opened from its reminder and then abandoned (nothing ever saved) still sat in "منجزة" forever, with no
+  evidence anything was actually produced. `App.StartMemorySessionAsync` no longer calls
+  `MarkStartedAsync` before opening the screen — it only validates the plan (`GetStageOrderForSessionAsync`,
+  still throws first if the plan has gone stale) and passes the memory's id through
+  `MainWindow.OpenDailyEntryForMemoryAsync` → `DailyEntryViewModel.StartFromMemoryAsync` →
+  `FlowSessionViewModel.ArmMemoryOrderAsync(stageOrder, memoryId)`. `MarkStartedAsync` itself is now called
+  from inside the session's own save path, right after a save actually succeeds — its existing
+  `if (memory.CompletedAt is not null) return;` guard makes a second save in the same session harmless.
+  A plan whose product was since deactivated or deleted, or whose stages left the line, still shows its
+  reminder with "ابدأ الآن" disabled and the reason spelled out; `BlockedReason` is derived at read time,
+  never stored, because the product can change at any point after the plan was written.
+  A plan that got marked "منجزة" without a real save (from before this fix, or any other mix-up) can be
+  moved back to "نشطة" from its card — `ProductionMemoryService.ReactivateAsync` just clears `CompletedAt`
+  and logs it as an edit; it refuses a plan that's already active.
+  **Saving, editing, deleting, or reactivating a memory plan is logged**
+  (`ProductionMemoryCreated`/`Edited`/`Deleted`, `ReactivateAsync` logs `ProductionMemoryEdited` too) —
   found as a real gap the same way the department-account one was: a user reported that signing off a day
   and then saving a plan still let the app close without asking again. `ProductionMemoryService` had zero
   `LogAsync` calls at all before this, for any of its writes. `PostponeAsync` (just moving a reminder date)
-  and `MarkStartedAsync` (automatic bookkeeping the moment the reminder's screen opens, not a decision the
-  user made) are still deliberately unlogged — same reasoning as everywhere else in this file: log what
-  has real value, not every write.
+  is still deliberately unlogged — same reasoning as everywhere else in this file: log what has real
+  value, not every write.
+  **The Daily Entry screen marks a session as memory-driven**: `FlowSessionViewModel.IsFromMemoryPlan`
+  drives a small banner at the top of the flow-session card ("الرحلة دي من خطة محفوظة في الذاكرة") so the
+  user isn't confused about why a session opened pre-filled — the property existed before but was never
+  bound in any XAML until this.
+  **The "الذاكرة" screen itself**: the nav icon carries a due-count badge (same pattern as the activity-log
+  badge, sourced from `GetDueAsync(DateTime.Today).Count`, refreshed at the same call sites as
+  `RefreshActivityBadge`); Active cards show an overdue/due-today chip (`ProductionMemoryDto.IsOverdue`/
+  `IsDueToday`, computed like `IsBlocked` — never stored) plus quick "ابدأ الآن" and "أجّل" buttons
+  (the latter needs a dialog owner, so it's a `Click` handler in `MemoryView.xaml.cs` using the same
+  `Window.GetWindow(this)` pattern as `ReorderStages_Click`, not a `Command`); both lists filter by product
+  name through a `SearchText` property, same manual-rebuild-from-a-backing-list pattern as
+  `ProductsViewModel.ApplyFilter` (not `ICollectionView`).
 - **Day closure was removed outright** (`DayClosureService`, `ProductionDayClosure`, the lock/reopen
   button on Daily Entry, the "اليوم مقفول" badge on the Reports screen — all deleted, not deprecated).
   It used to let the user lock one date's production numbers against further edits after reviewing
