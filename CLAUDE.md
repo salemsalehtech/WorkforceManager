@@ -345,6 +345,26 @@ Core  <----------------------- UI
   selected-worker profile panel they target on the *real* instance never actually rendered). Reading the
   ViewModel from `(MainContent.Content as FrameworkElement)?.DataContext` instead — the same source
   `RunGuidedPracticeAsync` uses — fixes both paths from one root cause.
+  **Debugging note that cost real time**: `EnterSandboxModeAsync` originally called
+  `workersVm.LoadAsync()` explicitly after resolving the sandbox `WorkersView`, on top of the
+  `Loaded += async (_, _) => await viewModel.LoadAsync();` the View's own constructor already
+  wires (this pattern — self-load on `Loaded`, not in the constructor — is standard across this
+  app's screens, "عشان الواجهة متعلقش"). Two calls on the same fresh instance race; whichever
+  finishes **second** re-runs `Workers.Clear()`, which resets the ListBox's `SelectedItem` (and
+  therefore `SelectedWorker`/`Detail`) back to null via ordinary WPF selection behavior — silently
+  undoing whatever `SelectFirstWorker` had already picked, sometimes *mid-flow*, after step 1 had
+  already started. Compounded by `[RelayCommand] async Task` methods (here,
+  `HelpViewModel.TryGuidedPracticeAsync`) swallowing exceptions by default — `AsyncRelayCommand`
+  doesn't await/rethrow — so none of this produced any visible error, only a spotlight box in a
+  nonsensical position and "التالي" appearing to dump the user straight back to the Guide (steps
+  2/3's targets, now inside a collapsed panel, both silently reported "not found" and the loop ran
+  to completion). Fixed by not issuing a second `LoadAsync()` call at all — waiting on the View's
+  `Loaded` event (proof the one real call started) then polling `IsLoading` to `false` (proof it
+  finished) — and separately by wrapping `RunGuidedPracticeAsync` in try/catch → `Notify.Error` so
+  a future bug in this class surfaces instead of vanishing. **General rule for any future
+  automation/orchestration code that navigates to a screen and needs its data ready**: check
+  whether the View already self-loads on `Loaded` before calling its load method again — if it
+  does, wait for that one call instead of adding a competing one.
   `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) is
   implemented as a **card list** (same `WorkerCard` style as the attendance screen), not a grid: summary
   bar (active / hourly / inactive + a "needs attention" button that filters to problem
