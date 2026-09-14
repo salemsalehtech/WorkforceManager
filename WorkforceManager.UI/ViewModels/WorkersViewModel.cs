@@ -889,7 +889,7 @@ namespace WorkforceManager.UI.ViewModels
 
         // ------- أوامر الإدارة -------
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddWorkerAsync()
         {
             var dialog = new WorkerEditDialog { Owner = Application.Current.MainWindow };
@@ -926,7 +926,7 @@ namespace WorkforceManager.UI.ViewModels
             await LoadAsync();
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task EditWorkerAsync()
         {
             if (SelectedWorker is null || Detail is null) return;
@@ -984,7 +984,7 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task ToggleActiveAsync()
         {
             if (SelectedWorker is null) return;
@@ -1084,7 +1084,7 @@ namespace WorkforceManager.UI.ViewModels
         ///
         /// سجلاته التاريخية (إنتاج، أجور، حضور) بتفضل كلها زي ما هي.
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task DeleteWorkerAsync()
         {
             if (SelectedWorker is null) return;
@@ -1143,7 +1143,7 @@ namespace WorkforceManager.UI.ViewModels
         /// يضيف كل مراحل الخط اللي العامل مش بيعرفها مرة واحدة. عامل بيغطي
         /// خط من 14 مرحلة كان محتاج 14 دوسة + 14 إعادة تحميل.
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddAllStagesAsync(SkillProductGroup? group)
         {
             if (group is null || Detail is null) return;
@@ -1185,7 +1185,7 @@ namespace WorkforceManager.UI.ViewModels
         /// والمستخدم بيضيف عشر مهارات ورا بعض، يعني عشر مرات بيدوّر على
         /// مكانه تاني. التحديث بقى في مكانه، واللوحة بتفضل زي ما هي.
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task ToggleSkillAsync(SkillStageItem? stage)
         {
             if (stage is null || Detail is null) return;
@@ -1217,7 +1217,7 @@ namespace WorkforceManager.UI.ViewModels
         /// مبيبعتش معاملين، والبديل (خمس أوامر لكل نجمة) كان هيكرر نفس
         /// الكود خمس مرات.
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task SetSkillStarsAsync(string? parameter)
         {
             if (Detail is null || string.IsNullOrWhiteSpace(parameter)) return;

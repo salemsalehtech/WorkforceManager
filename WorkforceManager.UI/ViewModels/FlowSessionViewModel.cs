@@ -1094,7 +1094,7 @@ namespace WorkforceManager.UI.ViewModels
                 "تأكيد تكليف إضافي");
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task SaveFlowAsync()
         {
             if (SelectedProduct is null)

@@ -223,7 +223,7 @@ namespace WorkforceManager.UI.ViewModels
         /// الأنظمة المشتركة — مفيش نسخة تانية منهم هنا. **Tier B**: بدون
         /// باسورد فوري، بقى متغطى بتوقيع نهاية اليوم.
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task DeleteDayAsync()
         {
             var input = SensitiveActionDialog.AskConfirm(
@@ -397,7 +397,7 @@ namespace WorkforceManager.UI.ViewModels
             SelectedTabIndex = 1;
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddInitialBalanceAsync()
         {
             if (SelectedInitialBalanceProduct is not { } product)
@@ -459,7 +459,7 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task EditInitialBalanceAsync(InitialBalanceDto? balance)
         {
             if (balance is null) return;
@@ -510,7 +510,7 @@ namespace WorkforceManager.UI.ViewModels
             dialog.ShowDialog();
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task DeleteInitialBalanceAsync(InitialBalanceDto? balance)
         {
             if (balance is null) return;
@@ -544,7 +544,7 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task WithdrawBalanceRangeAsync(InitialBalanceRangeDto? range)
         {
             if (range is null) return;
@@ -571,7 +571,7 @@ namespace WorkforceManager.UI.ViewModels
         /// صغير (كمية/سبب/ملاحظة/تاريخ) بدل ScrapDialog العام، لأن
         /// المنتج/المرحلة هنا محددين بالفعل من النطاق.
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task ScrapBalanceRangeAsync(InitialBalanceRangeDto? range)
         {
             if (range is null) return;
@@ -621,7 +621,7 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task WithdrawWholeBalanceAsync(InitialBalanceDto? balance)
         {
             if (balance is null) return;
@@ -908,7 +908,7 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>مفيش سجلات في الفترة/الفلتر المختارين حاليًا — رسالة التبويب الفاضي</summary>
         public bool RecordsTabIsEmpty => DayRecords.Count == 0;
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task EditDayRecordAsync(DayRecordRow? row)
         {
             if (row is null) return;
@@ -1007,7 +1007,7 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task DeleteDayRecordAsync(DayRecordRow? row)
         {
             if (row is null) return;
@@ -1364,7 +1364,7 @@ namespace WorkforceManager.UI.ViewModels
             RefreshAttendanceSummary();
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task SaveAttendanceAsync()
         {
             // **اللي اتغيّر بس.** قبل كده كان بيتبعت كل صف عليه حالة —
@@ -1504,7 +1504,7 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddPenaltyAsync()
         {
             if (PenaltyWorker is null)
@@ -1552,7 +1552,7 @@ namespace WorkforceManager.UI.ViewModels
         /// يعدّل جزاء يدوي متسجّل. الجزاءات التلقائية بترفض التعديل من
         /// الخدمة نفسها — الشاشة بتعرض السبب.
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task EditPenaltyAsync(PenaltyRow? row)
         {
             if (row is null) return;
@@ -1585,7 +1585,7 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task RemovePenaltyAsync(PenaltyRow? row)
         {
             if (row is null) return;
@@ -1656,7 +1656,7 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddAdjustmentAsync()
         {
             if (AdjustmentWorker is null)
@@ -1735,7 +1735,7 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(ScrapTotalText));
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddScrapAsync()
         {
             List<ScrapProductChoice> products;
@@ -1806,7 +1806,7 @@ namespace WorkforceManager.UI.ViewModels
             await LoadDaySummaryAsync(); // ملخص اليوم بيتغيّر مع الهالك
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task RemoveScrapAsync(ScrapRecordDto? row)
         {
             if (row is null) return;
@@ -1827,7 +1827,7 @@ namespace WorkforceManager.UI.ViewModels
             await LoadDaySummaryAsync();
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task RemoveAdjustmentAsync(AdjustmentRow? row)
         {
             if (row is null) return;

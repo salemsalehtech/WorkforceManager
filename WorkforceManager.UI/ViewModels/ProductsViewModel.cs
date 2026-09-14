@@ -527,7 +527,7 @@ namespace WorkforceManager.UI.ViewModels
             return choices;
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddProductAsync()
         {
             var dialog = new ProductEditDialog(await LoadRackingWorkerChoicesAsync())
@@ -556,7 +556,7 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task EditProductAsync()
         {
             if (SelectedProduct is null) return;
@@ -591,7 +591,7 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task ToggleProductActiveAsync()
         {
             if (SelectedProduct is null) return;
@@ -619,7 +619,7 @@ namespace WorkforceManager.UI.ViewModels
         /// يشيل المنتج نهائيًا — غير الإيقاف. بيمر على بوابة كلمة السر
         /// وبيتسجّل في سجل العمليات، وسجلات إنتاجه القديمة بتفضل محفوظة.
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task DeleteProductAsync()
         {
             if (SelectedProduct is null) return;
@@ -658,7 +658,7 @@ namespace WorkforceManager.UI.ViewModels
 
         // ------- إدارة المراحل -------
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddStageAsync()
         {
             if (SelectedProduct is null) return;
@@ -684,7 +684,7 @@ namespace WorkforceManager.UI.ViewModels
         /// يضيف مرحلة "رص" آخر خط الإنتاج — مرة واحدة بس لكل منتج
         /// (<see cref="ProductRow.HasRackingStage"/> بيقفل الزرار بعد كده).
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddRackingStageAsync()
         {
             if (SelectedProduct is null) return;
@@ -719,7 +719,7 @@ namespace WorkforceManager.UI.ViewModels
                 stage.StageId, SelectedProduct?.Name ?? "", stage.StageName);
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task EditStageAsync(StageRow? stage)
         {
             if (stage is null) return;
@@ -764,7 +764,7 @@ namespace WorkforceManager.UI.ViewModels
             await ReloadKeepingSelectionAsync();
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task ToggleStageActiveAsync(StageRow? stage)
         {
             if (stage is null) return;
@@ -789,7 +789,7 @@ namespace WorkforceManager.UI.ViewModels
         }
 
         /// <summary>يشيل مرحلة من الخط نهائيًا — بكلمة سر وسبب مسجّلين</summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task DeleteStageAsync(StageRow? stage)
         {
             if (stage is null) return;

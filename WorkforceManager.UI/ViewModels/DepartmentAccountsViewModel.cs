@@ -103,7 +103,7 @@ namespace WorkforceManager.UI.ViewModels
             }.ShowDialog();
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddAccountAsync()
         {
             if (!CanManage) return; // دفاع إضافي — الزرار نفسه مخفي عن غير المدير
@@ -147,7 +147,7 @@ namespace WorkforceManager.UI.ViewModels
         /// DepartmentAccountEditDialog.CurrentLoginPassword/
         /// CurrentOperationsPassword).
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task EditAccountAsync(DepartmentAccountRow? row)
         {
             if (row is null) return;
@@ -243,7 +243,7 @@ namespace WorkforceManager.UI.ViewModels
             }
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task ToggleActiveAsync(DepartmentAccountRow? row)
         {
             if (!CanManage || row is null) return;
@@ -272,7 +272,7 @@ namespace WorkforceManager.UI.ViewModels
         /// عمره ما بيسيب حساب دخول بلا حساب إداري يقدر يستخدمه حد تاني بالغلط —
         /// شوف WorkerManagementService.DeleteWorkerAsync لقاعدة الحذف نفسها).
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task DeleteAccountAsync(DepartmentAccountRow? row)
         {
             if (!CanManage || row is null) return;

@@ -197,7 +197,7 @@ namespace WorkforceManager.UI.ViewModels
 
         public void ApplyStageOrder(IReadOnlyList<int> order) => StageOrder = order.ToList();
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task SaveAsync()
         {
             if (SelectedProduct is null)

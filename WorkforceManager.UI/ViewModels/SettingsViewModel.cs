@@ -313,7 +313,7 @@ namespace WorkforceManager.UI.ViewModels
             foreach (var reason in reasons) ScrapReasons.Add(reason);
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddScrapReasonAsync()
         {
             var name = NewScrapReason.Trim();
@@ -339,7 +339,7 @@ namespace WorkforceManager.UI.ViewModels
         /// في تقارير الشهور اللي فاتت لازم يفضل معروف — الموقوف بيختفي
         /// من التسجيل الجديد بس.
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task ToggleScrapReasonAsync(ScrapReason? reason)
         {
             if (reason is null) return;
@@ -610,7 +610,7 @@ namespace WorkforceManager.UI.ViewModels
         /// التحقق من الكلمة القديمة بيتم في OperationsPasswordService مش
         /// هنا — الشاشة بتجمع المدخلات بس.
         /// </summary>
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task SetOperationsPasswordAsync()
         {
             var input = OperationsPasswordDialog.Ask(
