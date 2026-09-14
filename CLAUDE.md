@@ -302,6 +302,49 @@ Core  <----------------------- UI
   Daily Entry tabs) still have their round-1 step counts and are candidates for the same "surface every
   real feature separately" treatment in a follow-up round, now that the accordion structure they'd need
   already exists generically.
+  **Guided practice mode ("جرّبها بنفسك")**: the user rejected passive spotlight-explain as the ceiling —
+  wanted the real element clickable under the spotlight, advancing on the real action, in an isolated
+  sandbox so nothing touches real factory data. This is a **new sibling system** next to the spotlight
+  tour, not a replacement: `Tour/AppTourStep.cs`/`HelpTopic.TourSteps`/`MainWindow.RunTourAsync` are
+  untouched; `Tour/GuidedPracticeStep.cs` (`GuidedPracticeStep`, `GuidedPracticeFlow`) and
+  `MainWindow.RunGuidedPracticeAsync`/`RunGuidedStepAsync` are the parallel path, reusing the same
+  `TourOverlay`/`PositionTourStep`/`_tourStepTcs`/Next-Back-Skip buttons so there's no duplicated UI.
+  **Step completion is a predicate over ViewModel state** (`GuidedPracticeStep.IsComplete`, checked on
+  `PropertyChanged`/`CollectionChanged` via `WatchSelectors` for nested objects), not a `Click` hook on
+  the target element — deliberately, because the "add a skill" worked example needs to detect completion
+  inside `DataTemplate`-generated content (a specific product card, a specific star) that structurally
+  can never get a static `x:Name` (the same hard rule as the spotlight engine), so a raw element-click
+  handler couldn't reach it even in principle. The predicate approach also verifies the *result* (stars
+  reached ≥3), not just "a click happened somewhere."
+  **`AppServiceRegistration.AddWorkforceManagerCore`** (`WorkforceManager.UI/AppServiceRegistration.cs`)
+  extracts `App.xaml.cs`'s entire DI registration list (repos, services, Views/ViewModels, `AddDbContext`)
+  into a shared `IServiceCollection` extension parameterized by connection string — `App.xaml.cs` now
+  just calls it with the real `AppPaths.DbPath`. This exists because practice mode needs a second,
+  isolated container with the *same* registrations, and hand-copying that list a third time (there's
+  already one accepted, deliberately-separate copy in `WorkforceManager.Tests/TestDatabase.cs`) would let
+  production code drift out of sync with nothing to catch it — unlike the test copy, a missing sandbox
+  registration only surfaces as a runtime crash for a real user. `ServiceRegistrationTests.cs` was updated
+  to scan this new file instead of `App.xaml.cs`, since that's where registrations actually live now.
+  **`Sandbox/SandboxSession.cs`** builds a temp-file SQLite `ServiceProvider` via that same extension
+  method, seeded by `Sandbox/SandboxDemoSeeder.cs` with obviously-fake data (products/workers named
+  "تجريبي"), and holds **one root `IServiceScope` open for its whole lifetime** — not a scope-per-call
+  like `TestDatabase` — so `Scoped` services behave "like a singleton within the session" exactly the way
+  they do in the real `MainWindow._session`, not like a test fixture. `MainWindow.EnterSandboxModeAsync`
+  swaps `MainContent.Content` to a View resolved from the sandbox provider instead of the real one;
+  `FindTourTarget` already just does `FindName` on whatever `MainContent.Content` currently holds, so the
+  spotlight positioning code needed zero changes to work against the sandboxed screen. Every
+  `NavXxx_Checked` handler gained one line — clicking any sidebar item while `_sandboxActive` resolves the
+  pending `_tourStepTcs` with `Skip` and returns instead of navigating, so the first click always exits
+  practice mode and a second click (now that sandbox mode is off) does the real navigation, rather than
+  trying to do both in the same handler invocation.
+  **Fixed along the way, not new scope**: `SelectFirstWorker`/`RunTourAsync` used to resolve
+  `WorkersViewModel` via `_session.GetRequiredService<WorkersViewModel>()` — but `WorkersView`/
+  `WorkersViewModel` are `Transient`, so that call built a second, never-displayed instance distinct from
+  the one `NavigateToTourScreen` had already put on screen, meaning the three `SelectFirstWorker` steps
+  (skills, star logic, weekly history) were silently skipping in production before this round (the
+  selected-worker profile panel they target on the *real* instance never actually rendered). Reading the
+  ViewModel from `(MainContent.Content as FrameworkElement)?.DataContext` instead — the same source
+  `RunGuidedPracticeAsync` uses — fixes both paths from one root cause.
   `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) is
   implemented as a **card list** (same `WorkerCard` style as the attendance screen), not a grid: summary
   bar (active / hourly / inactive + a "needs attention" button that filters to problem
