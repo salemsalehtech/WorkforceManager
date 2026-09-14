@@ -115,7 +115,7 @@
         <!-- ═══════════ تذكير مراجعة التقييمات ═══════════
              بيظهر مرة كل شهر ولو فيه اقتراحات فعلاً بس. التذكير من غير
              حاجة تستاهل بيتحوّل لضوضاء المستخدم بيتعلّم يتجاهلها. -->
-        <Border Grid.Row="1" Margin="0,0,0,14" Padding="16,13"
+        <Border x:Name="SkillReviewCard" Grid.Row="1" Margin="0,0,0,14" Padding="16,13"
                 CornerRadius="{DynamicResource RadiusCard}"
                 Background="{DynamicResource GoldTintBrush}"
                 BorderBrush="{DynamicResource GoldLineBrush}" BorderThickness="1"
@@ -207,7 +207,7 @@
                 </Grid>
             </Border>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0"
+            <StackPanel x:Name="QuickFilterChipsPanel" Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0"
                         VerticalAlignment="Center">
                 <RadioButton Content="الكل" Style="{DynamicResource Chip}"
                              IsChecked="{Binding IsFilterAll, Mode=OneWay}"
@@ -318,7 +318,7 @@
                      بتتحكم في يوميات/حضور/غياب كل عامل تحت وكارت أحسن 3
                      عمال سوا — مستقلة عن أي فلتر تاني وبتفضل زي ما هي
                      بعد أي Reload (تعديل عامل مثلًا). -->
-                <Border Grid.Row="0" Style="{StaticResource ToolbarCard}" Margin="0,0,0,10">
+                <Border x:Name="PeriodControlCard" Grid.Row="0" Style="{StaticResource ToolbarCard}" Margin="0,0,0,10">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                             <RadioButton Style="{StaticResource Chip}" Content="أسبوع" GroupName="WorkersPeriod"
@@ -836,7 +836,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <StackPanel x:Name="WorkerActionsRow" Orientation="Horizontal" Margin="0,0,0,10">
                                 <Button Command="{Binding DataContext.EditWorkerCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         Style="{DynamicResource QuietButton}" Margin="0,0,6,0">
                                     <StackPanel Orientation="Horizontal">
