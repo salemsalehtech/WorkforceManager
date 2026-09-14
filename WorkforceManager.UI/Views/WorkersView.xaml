@@ -91,7 +91,7 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button Command="{Binding OpenWorkerOrderCommand}"
+                <Button x:Name="OpenWorkerOrderButton" Command="{Binding OpenWorkerOrderCommand}"
                         Style="{DynamicResource GhostButton}" VerticalAlignment="Center"
                         Margin="0,0,8,0" ToolTip="رتّب العمال بالترتيب اللي عايزه — نفس الترتيب هيظهر في كل مكان">
                     <StackPanel Orientation="Horizontal">
@@ -393,7 +393,7 @@
                                    Foreground="{DynamicResource SidebarInkSoftBrush}" />
 
                         <!-- صف الفايزين: #1 أكبر + #2/#3 أصغر جنبه -->
-                        <Grid Visibility="{Binding HasBestWorkerCards, Converter={StaticResource BoolToVis}}">
+                        <Grid x:Name="BestWorkerCardsRow" Visibility="{Binding HasBestWorkerCards, Converter={StaticResource BoolToVis}}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="1.3*" />
                                 <ColumnDefinition Width="10" />
@@ -892,7 +892,7 @@
                             </StackPanel>
 
                             <!-- ===== المهارات: كارت لكل منتج، بيتفتح على مراحل الخط ===== -->
-                            <DockPanel Margin="0,4,0,6">
+                            <DockPanel x:Name="SkillsSectionHeader" Margin="0,4,0,6">
                                 <!-- بيقلب بين "مهاراته" و"كل المنتجات" — مش بيفتح فورم تاني -->
                                 <Button DockPanel.Dock="Left" Padding="10,5"
                                         Command="{Binding DataContext.ToggleAddSkillsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
@@ -1448,7 +1448,7 @@
 
 
                             <!-- ===== الهستوري الأسبوعي: كارت لكل أسبوع، بيتفتح على تفاصيله ===== -->
-                            <TextBlock Text="الهستوري الأسبوعي (آخر 8 أسابيع)" FontWeight="Bold" Margin="0,10,0,6"  Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock x:Name="WeeklyHistoryHeader" Text="الهستوري الأسبوعي (آخر 8 أسابيع)" FontWeight="Bold" Margin="0,10,0,6"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <ItemsControl ItemsSource="{Binding WeeklyHistory}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
