@@ -21,9 +21,17 @@
         <!-- تايل الشبكة المدمجة — يستخدم CardButton (كارت كله زرار، بدون
              تكبير عند المرور، حلقة دهبية بس) الموجود أصلًا في Core.xaml -->
         <DataTemplate x:Key="TopicTile">
+            <!-- Opacity/RenderTransform بيبدأوا في حالة "لسه ما دخلش" —
+                 HelpView.xaml.cs بيحرّكهم لحالتهم الطبيعية بحركة متدرّجة
+                 (Storyboard حقيقي، مش تايمر بيغيّر خصائص يدوي) أول ما
+                 الشاشة تفتح، بفارق وقت بسيط بين تايل والتاني -->
             <Button Style="{StaticResource CardButton}" Width="220" Margin="0,0,10,10"
+                    Opacity="0"
                     Command="{Binding DataContext.SelectTopicCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                     CommandParameter="{Binding}">
+                <Button.RenderTransform>
+                    <TranslateTransform Y="14" />
+                </Button.RenderTransform>
                 <Border Padding="14,12">
                     <Border.Style>
                         <Style TargetType="Border" BasedOn="{StaticResource Card}">
