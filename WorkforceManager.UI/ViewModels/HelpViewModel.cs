@@ -11,34 +11,37 @@ namespace WorkforceManager.UI.ViewModels
     /// الجديد" اللي بتظهر مرة واحدة بس. المحتوى ثابت (<see cref="HelpTopics"/>)
     /// فمفيش تحميل من قاعدة بيانات هنا خالص.
     ///
-    /// قايمتين منفصلتين مش قايمة واحدة عشان الشاشة تقدر تحط عنوان قسم
-    /// فوق كروت "تسجيل الإنتاج اليومي" السبعة، فيبان إنهم أجزاء من نفس
-    /// الشاشة مش مواضيع مستقلة.
-    ///
-    /// كل كارت أكورديون: دوسة على هيدره بتفتحله قايمة ميزاته الفردية
-    /// (<see cref="ToggleTopic"/>)، والمستخدم يختار هو عايز يجرّب أنهي
-    /// ميزة (<see cref="TryTourAsync"/>) بدل ما يتفرّج على جولة طويلة
-    /// بالترتيب مفروضة عليه — مع خيار "شغّل كل الميزات بالترتيب"
-    /// (<see cref="TryFullTourAsync"/>) لمين عايز الجولة القديمة برضو.
+    /// موضوع واحد لكل شاشة في القايمة الجانبية، بنفس ترتيبها (9 عناصر).
+    /// شبكة مدمجة فوق (دوسة على كارت = <see cref="SelectTopic"/>، اختيار
+    /// بسيط مش أكورديون) + لوحة تفاصيل بعرض كامل تحت مربوطة بـ
+    /// <see cref="SelectedTopic"/>. "تسجيل الإنتاج اليومي" وحده عنده
+    /// <see cref="HelpTopic.SubTopics"/> (السبع تبويبات الداخلية) —
+    /// دي بتاخد أكورديون مستقل جوّه لوحة التفاصيل (<see cref="ToggleSubTopic"/>)،
+    /// منفصل عن اختيار الكارت نفسه فوق.
     /// </summary>
     public partial class HelpViewModel : ObservableObject
     {
-        public IReadOnlyList<HelpTopic> MainTopics => HelpTopics.MainTopics;
-        public IReadOnlyList<HelpTopic> DailyEntryTopics => HelpTopics.DailyEntryTopics;
+        public IReadOnlyList<HelpTopic> Topics => HelpTopics.Topics;
+
+        [ObservableProperty]
+        private HelpTopic? _selectedTopic;
+
+        [RelayCommand]
+        private void SelectTopic(HelpTopic? topic) => SelectedTopic = topic;
 
         /// <summary>
-        /// أكورديون كارت واحد مفتوح بس في كل القوائم (زي
-        /// WorkersViewModel.ToggleSkillGroup بالظبط) — عشان شاشة الدليل
-        /// تفضل قصيرة حتى مع 15 موضوع.
+        /// أكورديون كارت واحد مفتوح بس **جوّه نفس الموضوع الأب** (تسجيل
+        /// الإنتاج اليومي دلوقتي، أي موضوع عنده SubTopics مستقبلًا) — مش
+        /// عبر الشاشة كلها زي اختيار الكارت الرئيسي فوق.
         /// </summary>
         [RelayCommand]
-        private void ToggleTopic(HelpTopic? topic)
+        private void ToggleSubTopic(HelpTopic? subTopic)
         {
-            if (topic is null) return;
+            if (subTopic is null || SelectedTopic is null) return;
 
-            var opening = !topic.IsExpanded;
-            foreach (var other in MainTopics.Concat(DailyEntryTopics)) other.IsExpanded = false;
-            topic.IsExpanded = opening;
+            var opening = !subTopic.IsExpanded;
+            foreach (var other in SelectedTopic.SubTopics) other.IsExpanded = false;
+            subTopic.IsExpanded = opening;
         }
 
         /// <summary>

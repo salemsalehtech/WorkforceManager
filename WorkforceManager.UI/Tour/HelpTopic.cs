@@ -27,6 +27,17 @@ namespace WorkforceManager.UI.Tour
 
         public bool HasGuidedFlows => GuidedFlows.Count > 0;
 
+        /// <summary>
+        /// مواضيع فرعية متداخلة — مستخدمة لـ"تسجيل الإنتاج اليومي" بس دلوقتي
+        /// (7 تبويبات داخلية، كل واحد HelpTopic عادي بميزاته الخاصة). فاضية
+        /// افتراضيًا، فباقي المواضيع بتعرض TourSteps بتاعتها مباشرة زي ما هي.
+        /// نفس النوع HelpTopic بالظبط بدل نوع جديد موازي — أي شاشة تانية
+        /// تحتاج نفس الفكرة تقدر تستخدمها من غير أي تعديل هنا.
+        /// </summary>
+        public IReadOnlyList<HelpTopic> SubTopics { get; init; } = Array.Empty<HelpTopic>();
+
+        public bool HasSubTopics => SubTopics.Count > 0;
+
         [ObservableProperty]
         private bool _isExpanded;
     }

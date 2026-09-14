@@ -3,25 +3,24 @@ using System.Linq;
 namespace WorkforceManager.UI.Tour
 {
     /// <summary>
-    /// محتوى شاشة "الدليل" — موضوع لكل شاشة في القائمة الجانبية
-    /// (<see cref="MainTopics"/>)، ما عدا "تسجيل الإنتاج اليومي" اللي اتفكّك
-    /// لـ7 مواضيع منفصلة (<see cref="DailyEntryTopics"/>) — واحد لكل تبويب
-    /// داخلي، فيه تفاصيل كتير جدًا عشان يتغطّى في موضوع واحد بمعنى حقيقي.
-    /// القسمة دي بتتقرا في HelpViewModel لعرض عنوان قسم فوق كروت التسجيل
-    /// اليومي في شاشة الدليل، مش مجرد تجميع منطقي هنا.
+    /// محتوى شاشة "الدليل" — موضوع واحد لكل شاشة في القائمة الجانبية،
+    /// بنفس ترتيبها بالظبط (<see cref="Topics"/>، 9 عناصر). "تسجيل الإنتاج
+    /// اليومي" وحده بيحمل <see cref="HelpTopic.SubTopics"/> — 7 مواضيع
+    /// متداخلة، واحد لكل تبويب داخلي، فيه تفاصيل كتير جدًا عشان يتغطّى في
+    /// موضوع واحد بمعنى حقيقي.
     ///
     /// كل خطوة مبنية على عنصر وميزة حقيقيين في الكود (أمر/Binding حقيقي)،
     /// والوصف فيه مثال ملموس مش جملة عامة — "مثلاً: اختار أحمد، اكتب نص
     /// يوم، السبب..." بدل "سجّل جزاء على عامل".
     ///
     /// **صيانة**: أي شاشة جديدة تتضاف للبرنامج لازم تاخد موضوع في
-    /// <see cref="MainTopics"/> (أو مواضيع في <see cref="DailyEntryTopics"/>
+    /// <see cref="Topics"/> (أو مواضيع فرعية في <see cref="HelpTopic.SubTopics"/>
     /// لو زيها في التعقيد) — وإلا الدليل يبقى ناقص من غير ما حد ياخد باله،
     /// لأن مفيش فحص آلي بيقارن عدد عناصر القائمة الجانبية بعدد المواضيع هنا.
     /// </summary>
     public static class HelpTopics
     {
-        public static IReadOnlyList<HelpTopic> MainTopics { get; } = new List<HelpTopic>
+        public static IReadOnlyList<HelpTopic> Topics { get; } = new List<HelpTopic>
         {
             new()
             {
@@ -198,6 +197,204 @@ namespace WorkforceManager.UI.Tour
                             "بالترتيب (قص ← خياطة ← تشطيب)، وده اللي هيحدد ترتيب التسجيل في شاشة الإنتاج اليومي.",
                         TargetElementName = "AddProductButton",
                         Screen = TourScreen.Products
+                    }
+                }
+            },
+            new()
+            {
+                Title = "تسجيل الإنتاج اليومي",
+                Description =
+                    "القلب الحقيقي للبرنامج: هنا بتسجّل إنتاج كل يوم. سبع تبويبات داخلية — من تسجيل " +
+                    "الإنتاج نفسه لحد الهالك — دوس على أي تبويب تحت عشان تشوف ميزاته بالتفصيل.",
+                TourSteps = new List<AppTourStep>(),
+                SubTopics = new List<HelpTopic>
+                {
+                    new()
+                    {
+                        Title = "تسجيل الإنتاج",
+                        Description =
+                            "القلب الحقيقي للبرنامج: هنا بتسجّل إنتاج كل يوم. تضيف منتج، توزّع عماله على " +
+                            "مراحله، تكتب القطع في نطاقات (من مرحلة لمرحلة)، وتحفظ. الحضور بيتسجّل تلقائي " +
+                            "لأي عامل شارك في التسجيل — مفيش داعي تسجّله يدوي.",
+                        TourSteps = new List<AppTourStep>
+                        {
+                            new()
+                            {
+                                Title = "ملخص اليوم وإضافة منتج",
+                                Description = "أرقام اليوم (قطع/يوميات) بتظهر هنا أول ما تسجّل حاجة، وزرار \"إضافة منتج\" بيفتح رحلة تسجيل جديدة.",
+                                TargetElementName = "ProductionSummaryBar",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 0
+                            },
+                            new()
+                            {
+                                Title = "إضافة منتج",
+                                Description =
+                                    "مثال: النهارده شغالين على \"شنطة\" و\"دبلة\" مع بعض؟ دوس الزرار ده مرتين — كل منتج بياخد رحلة " +
+                                    "منفصلة، تختار فيها المنتج وتوزّع عماله على مراحله وتكتب القطع، من غير ما تتلخبط برحلة المنتج التاني.",
+                                TargetElementName = "AddFlowSessionButton",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 0
+                            }
+                        }
+                    },
+                    new()
+                    {
+                        Title = "الرصيد الأولي",
+                        Description =
+                            "أي إنتاج ماوصلش لآخر مرحلة في الخط بيتحول تلقائيًا لـ\"رصيد أولي\" — شغل واقف " +
+                            "منتظر يكمّل. هنا تديره: تسحب منه لما تكمّل الشغل، تحوّله لهالك لو اتعطّب، أو " +
+                            "تراجع رصيد اتسحب بالكامل من السجل.",
+                        TourSteps = new List<AppTourStep>
+                        {
+                            new()
+                            {
+                                Title = "رصيد أولي جديد",
+                                Description = "لو عندك شغل واقف من قبل التحديث ده (يعني ماتحوّلش تلقائي)، تقدر تضيفه يدوي من هنا مرة واحدة.",
+                                TargetElementName = "AddInitialBalanceButton",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 1
+                            },
+                            new()
+                            {
+                                Title = "السجل",
+                                Description = "مثلاً رصيد \"شنطة\" اتسحب منه كله واتسجّل؟ بيتخبّى من القايمة العادية تلقائي، وتلاقيه هنا في \"السجل\" للمراجعة بس.",
+                                TargetElementName = "InitialBalanceHistoryToggle",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 1
+                            }
+                        }
+                    },
+                    new()
+                    {
+                        Title = "سجلات اليوم",
+                        Description =
+                            "مراجعة وتصحيح إنتاج اتسجّل قبل كده — بفترة (يوم/أسبوع/شهر) مستقلة عن تاريخ " +
+                            "التسجيل فوق. تقدر تعدّل عدد قطع سجل، تمسحه، أو تتراجع عن آخر عملية بـCtrl+Z.",
+                        TourSteps = new List<AppTourStep>
+                        {
+                            new()
+                            {
+                                Title = "سجلات اليوم",
+                                Description = "مثال: سجّلت 50 قطعة غلط بدل 40؟ دوّر على السجل هنا وعدّله بزرار التعديل، من غير ما تحذف وتسجّل من الأول.",
+                                TargetElementName = "RecordsTabRoot",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 2
+                            },
+                            new()
+                            {
+                                Title = "فترة العرض",
+                                Description = "يوم، أسبوع، أو شهر — مستقلة تمامًا عن تاريخ التسجيل في باقي التبويبات، عشان تقدر تراجع أسبوع فات وانت لسه بتسجّل النهارده.",
+                                TargetElementName = "RecordsGrainRow",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 2
+                            }
+                        }
+                    },
+                    new()
+                    {
+                        Title = "الحضور والغياب",
+                        Description =
+                            "الحضور بيتسجّل تلقائي لأي عامل شارك في تسجيل إنتاج النهارده، بس تقدر من هنا " +
+                            "تراجع وتعدّل: حاضر، غايب بعذر، غايب من غير عذر (بيسحب نص يوم تلقائي)، أو لسه " +
+                            "مش متسجّل.",
+                        TourSteps = new List<AppTourStep>
+                        {
+                            new()
+                            {
+                                Title = "ملخص الحضور",
+                                Description = "عدد الحاضرين والغائبين بعذر ومن غير عذر. دوس على رقم \"غايب من غير عذر\" مثلاً، والقايمة تحتيه بتتفلتر عليهم بس.",
+                                TargetElementName = "AttendanceSummaryRow",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 3
+                            },
+                            new()
+                            {
+                                Title = "حفظ الحضور",
+                                Description = "غيّرت حالة عامل يدوي (من حاضر لغايب بعذر مثلاً)؟ التعديل ده لازم يتحفظ من هنا عشان يتسجّل فعلًا.",
+                                TargetElementName = "SaveAttendanceButton",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 3
+                            }
+                        }
+                    },
+                    new()
+                    {
+                        Title = "الجزاءات",
+                        Description =
+                            "تسجيل جزاء (خصم يوم أو جزء منه) على عامل، بسبب مكتوب — غياب من غير عذر بيسجّل " +
+                            "جزاءه التلقائي هنا، وتقدر تضيف جزاءات يدوية لأسباب تانية.",
+                        TourSteps = new List<AppTourStep>
+                        {
+                            new()
+                            {
+                                Title = "تسجيل جزاء",
+                                Description = "مثال: عامل اتأخر ساعتين؟ اختاره من البحث، اختار مقدار الخصم (نص يوم مثلًا)، اكتب السبب \"اتأخر\"، ودوس تسجيل.",
+                                TargetElementName = "AddPenaltyButton",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 4
+                            },
+                            new()
+                            {
+                                Title = "جزاءات اليوم",
+                                Description = "كل جزاء اتسجّل النهارده — يدوي كان أو تلقائي من غياب من غير عذر — بتفاصيله وسببه.",
+                                TargetElementName = "PenaltiesGrid",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 4
+                            }
+                        }
+                    },
+                    new()
+                    {
+                        Title = "السلف والحوافز",
+                        Description =
+                            "سلفة (مبلغ بيتخصم من أجر العامل في كشف الفترة) أو حافز (مبلغ بيتزاد على أجره) " +
+                            "— بمبلغ بالجنيه وملاحظة اختيارية.",
+                        TourSteps = new List<AppTourStep>
+                        {
+                            new()
+                            {
+                                Title = "تسجيل سلفة أو حافز",
+                                Description = "مثال: عامل طلب سلفة 300 جنيه؟ اختاره، اختار النوع \"سلفة\"، اكتب 300، ودوس تسجيل — هتتخصم من كشفه في الفترة دي.",
+                                TargetElementName = "AddAdjustmentButton",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 5
+                            },
+                            new()
+                            {
+                                Title = "حركات اليوم",
+                                Description = "كل سلفة وحافز اتسجّل النهارده، بلون مختلف حسب النوع (السلفة والحافز واضحين من بعض بصريًا).",
+                                TargetElementName = "AdjustmentsGrid",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 5
+                            }
+                        }
+                    },
+                    new()
+                    {
+                        Title = "الهالك",
+                        Description =
+                            "قطع اتشالت ومش هتتكمّل. الهالك على آخر مرحلة بيتخصم من الإنتاج التام، واللي في " +
+                            "نص الخط بيتشال من الشغل الواقف (الرصيد الأولي) — مالوش أي تأثير على الأجور.",
+                        TourSteps = new List<AppTourStep>
+                        {
+                            new()
+                            {
+                                Title = "تسجيل هالك",
+                                Description = "مثال: 5 قطع اتعطبت في مرحلة الخياطة؟ اختار المرحلة، اكتب 5، والسبب \"عيب في القماش\" مثلًا.",
+                                TargetElementName = "AddScrapButton",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 6
+                            },
+                            new()
+                            {
+                                Title = "هالك اليوم",
+                                Description = "إجمالي الهالك وتفاصيل كل سجل — المنتج، المرحلة، العدد، والسبب.",
+                                TargetElementName = "ScrapGrid",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 6
+                            }
+                        }
                     }
                 }
             },
@@ -415,197 +612,6 @@ namespace WorkforceManager.UI.Tour
                         Description = "العنوان هنا بيوضّحلك: بتشوف كل الحسابات كمدير قسم، ولا بروفايلك أنت بس كرئيس قسم.",
                         TargetElementName = "ScreenTitleRow",
                         Screen = TourScreen.DepartmentAccounts
-                    }
-                }
-            }
-        };
-
-        public static IReadOnlyList<HelpTopic> DailyEntryTopics { get; } = new List<HelpTopic>
-        {
-            new()
-            {
-                Title = "تسجيل الإنتاج",
-                Description =
-                    "القلب الحقيقي للبرنامج: هنا بتسجّل إنتاج كل يوم. تضيف منتج، توزّع عماله على " +
-                    "مراحله، تكتب القطع في نطاقات (من مرحلة لمرحلة)، وتحفظ. الحضور بيتسجّل تلقائي " +
-                    "لأي عامل شارك في التسجيل — مفيش داعي تسجّله يدوي.",
-                TourSteps = new List<AppTourStep>
-                {
-                    new()
-                    {
-                        Title = "ملخص اليوم وإضافة منتج",
-                        Description = "أرقام اليوم (قطع/يوميات) بتظهر هنا أول ما تسجّل حاجة، وزرار \"إضافة منتج\" بيفتح رحلة تسجيل جديدة.",
-                        TargetElementName = "ProductionSummaryBar",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 0
-                    },
-                    new()
-                    {
-                        Title = "إضافة منتج",
-                        Description =
-                            "مثال: النهارده شغالين على \"شنطة\" و\"دبلة\" مع بعض؟ دوس الزرار ده مرتين — كل منتج بياخد رحلة " +
-                            "منفصلة، تختار فيها المنتج وتوزّع عماله على مراحله وتكتب القطع، من غير ما تتلخبط برحلة المنتج التاني.",
-                        TargetElementName = "AddFlowSessionButton",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 0
-                    }
-                }
-            },
-            new()
-            {
-                Title = "الرصيد الأولي",
-                Description =
-                    "أي إنتاج ماوصلش لآخر مرحلة في الخط بيتحول تلقائيًا لـ\"رصيد أولي\" — شغل واقف " +
-                    "منتظر يكمّل. هنا تديره: تسحب منه لما تكمّل الشغل، تحوّله لهالك لو اتعطّب، أو " +
-                    "تراجع رصيد اتسحب بالكامل من السجل.",
-                TourSteps = new List<AppTourStep>
-                {
-                    new()
-                    {
-                        Title = "رصيد أولي جديد",
-                        Description = "لو عندك شغل واقف من قبل التحديث ده (يعني ماتحوّلش تلقائي)، تقدر تضيفه يدوي من هنا مرة واحدة.",
-                        TargetElementName = "AddInitialBalanceButton",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 1
-                    },
-                    new()
-                    {
-                        Title = "السجل",
-                        Description = "مثلاً رصيد \"شنطة\" اتسحب منه كله واتسجّل؟ بيتخبّى من القايمة العادية تلقائي، وتلاقيه هنا في \"السجل\" للمراجعة بس.",
-                        TargetElementName = "InitialBalanceHistoryToggle",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 1
-                    }
-                }
-            },
-            new()
-            {
-                Title = "سجلات اليوم",
-                Description =
-                    "مراجعة وتصحيح إنتاج اتسجّل قبل كده — بفترة (يوم/أسبوع/شهر) مستقلة عن تاريخ " +
-                    "التسجيل فوق. تقدر تعدّل عدد قطع سجل، تمسحه، أو تتراجع عن آخر عملية بـCtrl+Z.",
-                TourSteps = new List<AppTourStep>
-                {
-                    new()
-                    {
-                        Title = "سجلات اليوم",
-                        Description = "مثال: سجّلت 50 قطعة غلط بدل 40؟ دوّر على السجل هنا وعدّله بزرار التعديل، من غير ما تحذف وتسجّل من الأول.",
-                        TargetElementName = "RecordsTabRoot",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 2
-                    },
-                    new()
-                    {
-                        Title = "فترة العرض",
-                        Description = "يوم، أسبوع، أو شهر — مستقلة تمامًا عن تاريخ التسجيل في باقي التبويبات، عشان تقدر تراجع أسبوع فات وانت لسه بتسجّل النهارده.",
-                        TargetElementName = "RecordsGrainRow",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 2
-                    }
-                }
-            },
-            new()
-            {
-                Title = "الحضور والغياب",
-                Description =
-                    "الحضور بيتسجّل تلقائي لأي عامل شارك في تسجيل إنتاج النهارده، بس تقدر من هنا " +
-                    "تراجع وتعدّل: حاضر، غايب بعذر، غايب من غير عذر (بيسحب نص يوم تلقائي)، أو لسه " +
-                    "مش متسجّل.",
-                TourSteps = new List<AppTourStep>
-                {
-                    new()
-                    {
-                        Title = "ملخص الحضور",
-                        Description = "عدد الحاضرين والغائبين بعذر ومن غير عذر. دوس على رقم \"غايب من غير عذر\" مثلاً، والقايمة تحتيه بتتفلتر عليهم بس.",
-                        TargetElementName = "AttendanceSummaryRow",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 3
-                    },
-                    new()
-                    {
-                        Title = "حفظ الحضور",
-                        Description = "غيّرت حالة عامل يدوي (من حاضر لغايب بعذر مثلاً)؟ التعديل ده لازم يتحفظ من هنا عشان يتسجّل فعلًا.",
-                        TargetElementName = "SaveAttendanceButton",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 3
-                    }
-                }
-            },
-            new()
-            {
-                Title = "الجزاءات",
-                Description =
-                    "تسجيل جزاء (خصم يوم أو جزء منه) على عامل، بسبب مكتوب — غياب من غير عذر بيسجّل " +
-                    "جزاءه التلقائي هنا، وتقدر تضيف جزاءات يدوية لأسباب تانية.",
-                TourSteps = new List<AppTourStep>
-                {
-                    new()
-                    {
-                        Title = "تسجيل جزاء",
-                        Description = "مثال: عامل اتأخر ساعتين؟ اختاره من البحث، اختار مقدار الخصم (نص يوم مثلًا)، اكتب السبب \"اتأخر\"، ودوس تسجيل.",
-                        TargetElementName = "AddPenaltyButton",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 4
-                    },
-                    new()
-                    {
-                        Title = "جزاءات اليوم",
-                        Description = "كل جزاء اتسجّل النهارده — يدوي كان أو تلقائي من غياب من غير عذر — بتفاصيله وسببه.",
-                        TargetElementName = "PenaltiesGrid",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 4
-                    }
-                }
-            },
-            new()
-            {
-                Title = "السلف والحوافز",
-                Description =
-                    "سلفة (مبلغ بيتخصم من أجر العامل في كشف الفترة) أو حافز (مبلغ بيتزاد على أجره) " +
-                    "— بمبلغ بالجنيه وملاحظة اختيارية.",
-                TourSteps = new List<AppTourStep>
-                {
-                    new()
-                    {
-                        Title = "تسجيل سلفة أو حافز",
-                        Description = "مثال: عامل طلب سلفة 300 جنيه؟ اختاره، اختار النوع \"سلفة\"، اكتب 300، ودوس تسجيل — هتتخصم من كشفه في الفترة دي.",
-                        TargetElementName = "AddAdjustmentButton",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 5
-                    },
-                    new()
-                    {
-                        Title = "حركات اليوم",
-                        Description = "كل سلفة وحافز اتسجّل النهارده، بلون مختلف حسب النوع (السلفة والحافز واضحين من بعض بصريًا).",
-                        TargetElementName = "AdjustmentsGrid",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 5
-                    }
-                }
-            },
-            new()
-            {
-                Title = "الهالك",
-                Description =
-                    "قطع اتشالت ومش هتتكمّل. الهالك على آخر مرحلة بيتخصم من الإنتاج التام، واللي في " +
-                    "نص الخط بيتشال من الشغل الواقف (الرصيد الأولي) — مالوش أي تأثير على الأجور.",
-                TourSteps = new List<AppTourStep>
-                {
-                    new()
-                    {
-                        Title = "تسجيل هالك",
-                        Description = "مثال: 5 قطع اتعطبت في مرحلة الخياطة؟ اختار المرحلة، اكتب 5، والسبب \"عيب في القماش\" مثلًا.",
-                        TargetElementName = "AddScrapButton",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 6
-                    },
-                    new()
-                    {
-                        Title = "هالك اليوم",
-                        Description = "إجمالي الهالك وتفاصيل كل سجل — المنتج، المرحلة، العدد، والسبب.",
-                        TargetElementName = "ScrapGrid",
-                        Screen = TourScreen.DailyEntry,
-                        TabIndex = 6
                     }
                 }
             }
