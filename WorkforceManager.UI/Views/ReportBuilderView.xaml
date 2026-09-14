@@ -180,7 +180,7 @@
                                  التقارير تجميع بمستوى واحد، والاتنين دول
                                  سؤال خاص ("مين اشتغل على إيه") مش الحالة
                                  العادية. -->
-                            <CheckBox Content="تجميع متقدم (أكتر من مستوى)" FontSize="12" Margin="0,0,0,4"
+                            <CheckBox x:Name="AdvancedGroupingCheck" Content="تجميع متقدم (أكتر من مستوى)" FontSize="12" Margin="0,0,0,4"
                                       VerticalAlignment="Center" IsChecked="{Binding ShowThenBy}"
                                       Visibility="{Binding SupportsLevels, Converter={StaticResource BoolToVis}}" />
 
@@ -626,7 +626,7 @@
                              كل تقرير — يعني وإنت شايف جدول حضور أو هالك
                              قدامك يبقى جنبه زرار بيطلّع أجور، وهو شغال
                              فعلاً لأنه بيسأل PayrollService مباشرة. -->
-                        <Button Command="{Binding ExportPayslipStripsCommand}"
+                        <Button x:Name="ExportPayslipStripsButton" Command="{Binding ExportPayslipStripsCommand}"
                                 Style="{StaticResource PrimaryButton}" Padding="14,8" Margin="8,0,0,0"
                                 Visibility="{Binding IsWagesReport, Converter={StaticResource BoolToVis}}"
                                 ToolTip="ورقة A4 بالعرض فيها 4 قسايم — تتطبع وتتقص بالطول">
