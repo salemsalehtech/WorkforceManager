@@ -108,7 +108,7 @@
                         <!-- عمال إنتاجهم اليوم ده قلّ بشكل ملحوظ عن متوسط
                              آخر أيام شغلهم (ProductionTrendService) — نفس
                              علامة "يحتاج مراجعة" في شاشة العمال، هنا مجمّعة -->
-                        <Border Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8"
+                        <Border x:Name="DecliningWorkersCard" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8"
                                 Visibility="{Binding HasDecliningWorkers, Converter={StaticResource BoolToVis}}">
                             <StackPanel>
                                 <StackPanel Orientation="Horizontal">
@@ -272,7 +272,7 @@
                 </Border>
 
                 <!-- ===== الخلاصة: الإجمالي والمقارنة والهالك والمتوسط ===== -->
-                <Border Grid.Row="1" Style="{StaticResource Card}" Padding="14,10" Margin="0,8,0,8">
+                <Border x:Name="ChartTrendSummaryCard" Grid.Row="1" Style="{StaticResource Card}" Padding="14,10" Margin="0,8,0,8">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal"
                                     Visibility="{Binding HasChartTrend, Converter={StaticResource BoolToVis}}">
@@ -442,7 +442,7 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
+                <Border x:Name="WorkerAveragesToolbar" Grid.Row="0" Style="{StaticResource ToolbarCard}">
                     <DockPanel>
                         <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}"
                                 Command="{Binding ToggleSortCommand}">
