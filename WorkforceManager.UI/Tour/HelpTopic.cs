@@ -18,6 +18,15 @@ namespace WorkforceManager.UI.Tour
         public required string Description { get; init; }
         public required IReadOnlyList<AppTourStep> TourSteps { get; init; }
 
+        /// <summary>
+        /// فلوات تدريب تفاعلي حقيقي (وضع تجربة، بيانات وهمية) — فاضية
+        /// افتراضيًا، فباقي المواضيع مايتأثروش لحد ما يتضاف لهم فلو بنفس
+        /// الطريقة اللي اتعملت بيها "إضافة مهارة" في موضوع العمال.
+        /// </summary>
+        public IReadOnlyList<GuidedPracticeFlow> GuidedFlows { get; init; } = Array.Empty<GuidedPracticeFlow>();
+
+        public bool HasGuidedFlows => GuidedFlows.Count > 0;
+
         [ObservableProperty]
         private bool _isExpanded;
     }

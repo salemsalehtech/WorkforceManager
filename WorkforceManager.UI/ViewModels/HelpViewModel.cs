@@ -64,5 +64,18 @@ namespace WorkforceManager.UI.ViewModels
             if (Application.Current.MainWindow is MainWindow main)
                 await main.RunTourAsync(topic.TourSteps);
         }
+
+        /// <summary>
+        /// بيفتح وضع تجربة (بيانات وهمية) ويشغّل فلو تدريب تفاعلي حقيقي —
+        /// المستخدم بيدوس العنصر الحقيقي بنفسه، مش بس بيتفرّج (شوف
+        /// MainWindow.RunGuidedPracticeAsync).
+        /// </summary>
+        [RelayCommand]
+        private async Task TryGuidedPracticeAsync(GuidedPracticeFlow? flow)
+        {
+            if (flow is null) return;
+            if (Application.Current.MainWindow is MainWindow main)
+                await main.RunGuidedPracticeAsync(flow);
+        }
     }
 }

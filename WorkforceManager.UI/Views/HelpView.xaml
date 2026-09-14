@@ -118,6 +118,53 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+
+                            <!-- تمارين عملية: وضع تجربة تفاعلي حقيقي، مش مجرد سبوت لايت
+                                 شرح — بيظهر بس للمواضيع اللي عندها فلو تدريب فعلًا -->
+                            <StackPanel Visibility="{Binding HasGuidedFlows, Converter={StaticResource BoolToVis}}"
+                                        Margin="0,10,0,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <materialDesign:PackIcon Kind="HandBackRightOutline" Width="15" Height="15"
+                                                             VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
+                                    <TextBlock Text="تمارين عملية" FontWeight="Bold" FontSize="12.5"
+                                               Margin="6,0,0,0" Foreground="{DynamicResource GoldBrush}" />
+                                </StackPanel>
+
+                                <ItemsControl ItemsSource="{Binding GuidedFlows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{DynamicResource GoldTintBrush}"
+                                                    CornerRadius="{DynamicResource RadiusSmall}"
+                                                    Padding="10,8" Margin="0,0,0,6">
+                                                <DockPanel>
+                                                    <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                        <Button Style="{StaticResource GoldButton}" Padding="10,5"
+                                                                Command="{Binding DataContext.TryGuidedPracticeCommand,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl,
+                                                                        AncestorLevel=2}}"
+                                                                CommandParameter="{Binding}">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Kind="HandBackRightOutline" Width="13" Height="13"
+                                                                                         VerticalAlignment="Center" />
+                                                                <TextBlock Text="جرّبها بنفسك" Margin="4,0,0,0" FontSize="11.5" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                        <TextBlock Text="تمرين عملي على بيانات وهمية" FontSize="10"
+                                                                   HorizontalAlignment="Center" Margin="0,4,0,0"
+                                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="12.5"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                        <TextBlock Text="{Binding Description}" FontSize="11.5" TextWrapping="Wrap"
+                                                                   Margin="0,3,0,0" Foreground="{DynamicResource TextMutedBrush}" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </StackPanel>
