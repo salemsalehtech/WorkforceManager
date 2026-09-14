@@ -334,6 +334,42 @@ namespace WorkforceManager.UI.Tour
                                 TargetElementName = "AddFlowSessionButton",
                                 Screen = TourScreen.DailyEntry,
                                 TabIndex = 0
+                            },
+                            new()
+                            {
+                                Title = "التاريخ وحذف يوم كامل",
+                                Description =
+                                    "سهمي يوم فات/جاي، أو \"النهارده\" ترجع بضغطة — مشترك لكل التبويبات السبعة، مش بس " +
+                                    "التسجيل. \"حذف إنتاج اليوم\" جنبه بيشيل كل سجلات اليوم المفتوح دفعة واحدة (كلمة سر " +
+                                    "وسبب مطلوبين) — استخدمه لو غلطت في يوم كامل وعايز تبدأ تسجيله من الأول.",
+                                TargetElementName = "DeleteDayButton",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 0
+                            },
+                            new()
+                            {
+                                Title = "كرّر يوم فات",
+                                Description =
+                                    "جوّه كارت رحلة أي منتج، زرار \"كرّر يوم فات\" بيوريك قايمة الأيام اللي فيها إنتاج حقيقي " +
+                                    "على المنتج ده، وبيجيب نفس توزيع العمال على المراحل — من غير عدد القطع (بتكتبه انت " +
+                                    "تاني، عشان رقم قديم ماينسخش بالغلط). عمال مبقوش مؤهّلين أو موقوفين بيتخطّوا تلقائي " +
+                                    "وبيقولّك كام واحد اتخطّى.",
+                                TargetElementName = "AddFlowSessionButton",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 0
+                            },
+                            new()
+                            {
+                                Title = "نطاقات الإنتاج وتعارض التكليف",
+                                Description =
+                                    "القطع بتتكتب في نطاقات (\"من مرحلة كذا لكذا: N قطعة\") مش رقم واحد للخط كله — تقدر " +
+                                    "تضيف أكتر من نطاق لو الخط ماخلصش كله. لما تدوّر على عامل لمرحلة، لو هو متكلّف على " +
+                                    "منتج/مرحلة تانية النهارده بيبان تاج \"مكلّف على...\" جنب اسمه في القايمة قبل ما " +
+                                    "تختاره، وبيسألك تأكيد لو اخترته برضو. تقدر كمان تعلّم شريحة عامل كـ\"إعادة عمل\" — " +
+                                    "بياخد يوميته عادي بس قطعه مابتتحسبش في إنتاج الخط.",
+                                TargetElementName = "AddFlowSessionButton",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 0
                             }
                         }
                     },
@@ -361,6 +397,18 @@ namespace WorkforceManager.UI.Tour
                                 TargetElementName = "InitialBalanceHistoryToggle",
                                 Screen = TourScreen.DailyEntry,
                                 TabIndex = 1
+                            },
+                            new()
+                            {
+                                Title = "تعديل رصيد أو تحويله لهالك",
+                                Description =
+                                    "على كارت أي رصيد: تعديل الاسم/الكمية/النطاقات (الجزء المسحوب فعلًا مايقلّش عن حده)، " +
+                                    "\"سحب\" بيودّيك لتبويب التسجيل عشان تكمّل الشغل، و\"تحويل لهالك\" بيحوّل كمية تختارها " +
+                                    "من الرصيد لهالك مباشرة من غير ما تعدّي بتسجيل إنتاج وهمي. \"سحب الكل\" بيسحب كل " +
+                                    "نطاقات الرصيد دفعة واحدة.",
+                                TargetElementName = "InitialBalanceHistoryToggle",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 1
                             }
                         }
                     },
@@ -375,7 +423,10 @@ namespace WorkforceManager.UI.Tour
                             new()
                             {
                                 Title = "سجلات اليوم",
-                                Description = "مثال: سجّلت 50 قطعة غلط بدل 40؟ دوّر على السجل هنا وعدّله بزرار التعديل، من غير ما تحذف وتسجّل من الأول.",
+                                Description =
+                                    "مثال: سجّلت 50 قطعة غلط بدل 40؟ دوّر على السجل هنا وعدّله بزرار التعديل — من غير ما " +
+                                    "تحذف وتسجّل من الأول. نفس زرار التعديل ده كمان بينقلك السجل لعامل تاني لو الصح إنه " +
+                                    "هو اللي عمل الشغل مش اللي متسجّل عليه دلوقتي، مش بس تغيير العدد.",
                                 TargetElementName = "RecordsTabRoot",
                                 Screen = TourScreen.DailyEntry,
                                 TabIndex = 2
@@ -385,6 +436,16 @@ namespace WorkforceManager.UI.Tour
                                 Title = "فترة العرض",
                                 Description = "يوم، أسبوع، أو شهر — مستقلة تمامًا عن تاريخ التسجيل في باقي التبويبات، عشان تقدر تراجع أسبوع فات وانت لسه بتسجّل النهارده.",
                                 TargetElementName = "RecordsGrainRow",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 2
+                            },
+                            new()
+                            {
+                                Title = "تراجع (Ctrl+Z)",
+                                Description =
+                                    "زرار \"تراجع\" (أو Ctrl+Z وانت في التبويب ده) بيلغي آخر تعديل أو حذف بس — مش سجل " +
+                                    "تراجعات كامل، وبيضيع لو قفلت البرنامج. لخطأ لاحظته لسه، ده أسرع من التعديل اليدوي.",
+                                TargetElementName = "UndoButton",
                                 Screen = TourScreen.DailyEntry,
                                 TabIndex = 2
                             }
@@ -403,6 +464,17 @@ namespace WorkforceManager.UI.Tour
                             {
                                 Title = "ملخص الحضور",
                                 Description = "عدد الحاضرين والغائبين بعذر ومن غير عذر. دوس على رقم \"غايب من غير عذر\" مثلاً، والقايمة تحتيه بتتفلتر عليهم بس.",
+                                TargetElementName = "AttendanceSummaryRow",
+                                Screen = TourScreen.DailyEntry,
+                                TabIndex = 3
+                            },
+                            new()
+                            {
+                                Title = "الحاضر التلقائي",
+                                Description =
+                                    "عامل سجّلت له إنتاج النهارده بيتحدّد \"حاضر\" لوحده قبل ما تحفظ أصلًا. والعكس ممنوع: " +
+                                    "مينفعش تسجّل عامل \"غايب\" وهو عنده إنتاج مسجّل النهارده — البرنامج بيوقفك ويقولّك " +
+                                    "امسح السجل من تبويب \"سجلات اليوم\" الأول لو فعلًا مكانش لازم يتسجّل.",
                                 TargetElementName = "AttendanceSummaryRow",
                                 Screen = TourScreen.DailyEntry,
                                 TabIndex = 3
@@ -436,7 +508,10 @@ namespace WorkforceManager.UI.Tour
                             new()
                             {
                                 Title = "جزاءات اليوم",
-                                Description = "كل جزاء اتسجّل النهارده — يدوي كان أو تلقائي من غياب من غير عذر — بتفاصيله وسببه.",
+                                Description =
+                                    "كل جزاء اتسجّل النهارده — يدوي كان أو تلقائي من غياب من غير عذر — بتفاصيله وسببه. " +
+                                    "الجزاء اليدوي تقدر تعدّله، لكن الجزاء التلقائي (من غياب من غير عذر) مايتعدّلش من " +
+                                    "هنا — غيّر حالة الحضور نفسها من تبويب \"الحضور والغياب\" لو عايز تشيله.",
                                 TargetElementName = "PenaltiesGrid",
                                 Screen = TourScreen.DailyEntry,
                                 TabIndex = 4
@@ -454,7 +529,10 @@ namespace WorkforceManager.UI.Tour
                             new()
                             {
                                 Title = "تسجيل سلفة أو حافز",
-                                Description = "مثال: عامل طلب سلفة 300 جنيه؟ اختاره، اختار النوع \"سلفة\"، اكتب 300، ودوس تسجيل — هتتخصم من كشفه في الفترة دي.",
+                                Description =
+                                    "مثال: عامل طلب سلفة 300 جنيه؟ اختاره، اختار النوع \"سلفة\"، اكتب 300، ودوس تسجيل — " +
+                                    "هتتخصم من كشفه في الفترة دي. التبويب ده الوحيد اللي بيطلب كلمة سر العمليات على " +
+                                    "**كل** تسجيل، مش بس الحذف — لأنه حركة فلوس مباشرة.",
                                 TargetElementName = "AddAdjustmentButton",
                                 Screen = TourScreen.DailyEntry,
                                 TabIndex = 5

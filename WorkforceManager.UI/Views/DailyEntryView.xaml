@@ -22,7 +22,7 @@
             <DockPanel>
                 <!-- حذف إنتاج اليوم كله: كلمة سر + سبب مكتوب + حذف ناعم + إشعار،
                      كلهم في معاملة واحدة من الأنظمة المشتركة -->
-                <Button DockPanel.Dock="Left" Padding="12,7" Margin="8,0,0,0"
+                <Button x:Name="DeleteDayButton" DockPanel.Dock="Left" Padding="12,7" Margin="8,0,0,0"
                         Command="{Binding DeleteDayCommand}"
                         ToolTip="يشيل كل سجلات إنتاج اليوم (بكلمة سر وسبب)">
                     <Button.Style>
@@ -1063,7 +1063,7 @@
 
                             <!-- تراجع عن آخر تصحيح/نقل/حذف — بيظهر شغال بس لما يكون فيه
                                  حاجة نتراجع عنها فعلاً. نفس تأثير Ctrl+Z. -->
-                            <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}"
+                            <Button x:Name="UndoButton" DockPanel.Dock="Left" Style="{StaticResource GhostButton}"
                                     Command="{Binding UndoLastActionCommand}"
                                     ToolTip="{Binding UndoDescription}"
                                     Visibility="{Binding CanUndo, Converter={StaticResource BoolToVis}}"
