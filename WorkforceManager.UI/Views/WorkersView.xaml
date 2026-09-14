@@ -894,7 +894,7 @@
                             <!-- ===== المهارات: كارت لكل منتج، بيتفتح على مراحل الخط ===== -->
                             <DockPanel x:Name="SkillsSectionHeader" Margin="0,4,0,6">
                                 <!-- بيقلب بين "مهاراته" و"كل المنتجات" — مش بيفتح فورم تاني -->
-                                <Button DockPanel.Dock="Left" Padding="10,5"
+                                <Button x:Name="ToggleAddSkillsButton" DockPanel.Dock="Left" Padding="10,5"
                                         Command="{Binding DataContext.ToggleAddSkillsCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource QuietButton}">
@@ -1027,6 +1027,7 @@
                                 </TextBlock.Style>
                             </TextBlock>
 
+                            <Border x:Name="SkillsListPanel">
                             <ItemsControl ItemsSource="{Binding SkillProducts}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -1445,6 +1446,7 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            </Border>
 
 
                             <!-- ===== الهستوري الأسبوعي: كارت لكل أسبوع، بيتفتح على تفاصيله ===== -->
