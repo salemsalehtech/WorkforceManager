@@ -401,28 +401,42 @@ namespace WorkforceManager.UI
         /// </summary>
         public async Task RunGuidedPracticeAsync(Tour.GuidedPracticeFlow flow)
         {
-            await EnterSandboxModeAsync(flow.Screen);
+            // [RelayCommand] بتاع HelpViewModel بيستدعي الدالة دي من غير حد
+            // بينتظرها (زرار WPF)، فأي استثناء هنا كان هيضيع بصمت من غير
+            // أي رسالة أو تصرّف مرئي — نفس المشكلة اللي SafeAsync.Run
+            // (ViewModels\SafeAsync.cs) موجودة أصلًا عشانها في الشاشات
+            // التانية. try/catch هنا يضمن إن أي خطأ يبان للمستخدم، وإن
+            // وضع التجربة يتقفل صح حتى لو الفتح نفسه فشل في نص الطريق.
             try
             {
-                if (flow.SelectFirstWorker &&
-                    (MainContent.Content as FrameworkElement)?.DataContext is ViewModels.WorkersViewModel workersVm)
-                    workersVm.SelectedWorker = workersVm.Workers.FirstOrDefault();
-
-                await Task.Delay(flow.SelectFirstWorker ? 400 : 150);
-
-                TourOverlay.Visibility = Visibility.Visible;
-                var i = 0;
-                while (i >= 0 && i < flow.Steps.Count)
+                await EnterSandboxModeAsync(flow.Screen);
+                try
                 {
-                    var action = await RunGuidedStepAsync(flow.Steps[i], i + 1, flow.Steps.Count);
-                    if (action == TourAction.Skip) break;
-                    i += action == TourAction.Previous ? -1 : 1;
+                    if (flow.SelectFirstWorker &&
+                        (MainContent.Content as FrameworkElement)?.DataContext is ViewModels.WorkersViewModel workersVm)
+                        workersVm.SelectedWorker = workersVm.Workers.FirstOrDefault();
+
+                    await Task.Delay(flow.SelectFirstWorker ? 400 : 150);
+
+                    TourOverlay.Visibility = Visibility.Visible;
+                    var i = 0;
+                    while (i >= 0 && i < flow.Steps.Count)
+                    {
+                        var action = await RunGuidedStepAsync(flow.Steps[i], i + 1, flow.Steps.Count);
+                        if (action == TourAction.Skip) break;
+                        i += action == TourAction.Previous ? -1 : 1;
+                    }
+                }
+                finally
+                {
+                    TourOverlay.Visibility = Visibility.Collapsed;
+                    ExitSandboxMode();
                 }
             }
-            finally
+            catch (Exception ex)
             {
-                TourOverlay.Visibility = Visibility.Collapsed;
-                ExitSandboxMode();
+                ExitSandboxMode(); // ضمان إضافي لو الفشل حصل جوّه EnterSandboxModeAsync نفسها
+                Notify.Error($"مقدرناش نفتح وضع التجربة:\n\n{ex.Message}");
             }
         }
 
