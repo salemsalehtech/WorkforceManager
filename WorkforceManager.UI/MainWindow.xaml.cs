@@ -349,14 +349,27 @@ namespace WorkforceManager.UI
             _realContentBeforeSandbox = MainContent.Content; // عادة شاشة "الدليل" نفسها، هنرجعلها بعد التجربة
 
             NavigateToTourScreen(screen); // بيفتح الشاشة الحقيقية مؤقتًا (Checked handler عادي، هنستبدلها فورًا)
-            MainContent.Content = ResolveSandboxView(screen);
+            var view = ResolveSandboxView(screen);
+            MainContent.Content = view;
 
-            // الشاشة بتحمّل بياناتها في حدث Loaded (شوف WorkersView.xaml.cs)،
-            // وده مش مضمون يخلص قبل ما نكمّل — بنستنى التحميل هنا صراحةً
-            // بدل ما نعتمد على تايمر وهمي بعديه، عشان SelectFirstWorker
-            // بعد شوية مايلاقيش القايمة لسه فاضية
-            if ((MainContent.Content as FrameworkElement)?.DataContext is ViewModels.WorkersViewModel workersVm)
-                await workersVm.LoadAsync();
+            // الشاشة بتحمّل بياناتها لوحدها في حدث Loaded (شوف مثلًا
+            // WorkersView.xaml.cs: "Loaded += async (_, _) => await
+            // viewModel.LoadAsync();"). كنا بننادي LoadAsync() تاني هنا
+            // صراحةً فوق النداء ده — نداءين بيتسابقوا على نفس القايمة،
+            // والتاني لو خلص بعد ما SelectFirstWorker تحت حدّد عامل، بيعمل
+            // Workers.Clear() فبيصفّر التحديد من تحت الجولة (شوف الكومنت
+            // على OnSelectedWorkerChanged في WorkersViewModel.cs). الحل:
+            // نستنى نفس النداء الوحيد ده يخلص (Loaded يضمن إنه ابتدى،
+            // IsLoading يضمن إنه خلص) بدل ما نعمل نداء تاني يتسابق معاه.
+            if (view is FrameworkElement fe)
+            {
+                var loadedTcs = new TaskCompletionSource();
+                fe.Loaded += (_, _) => loadedTcs.TrySetResult();
+                await loadedTcs.Task;
+
+                if (fe.DataContext is ViewModels.WorkersViewModel workersVm)
+                    while (workersVm.IsLoading) await Task.Delay(30);
+            }
 
             _sandboxActive = true;
             SandboxBanner.Visibility = Visibility.Visible;
