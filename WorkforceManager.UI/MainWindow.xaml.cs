@@ -286,7 +286,15 @@ namespace WorkforceManager.UI
                     if (step.TabIndex is int tab)
                         _session.GetRequiredService<ViewModels.DailyEntryViewModel>().SelectedTabIndex = tab;
 
-                    await Task.Delay(150); // استقرار التخطيط بعد التنقّل/التبويب قبل ما نقيس مكان العنصر
+                    if (step.SelectFirstWorker)
+                    {
+                        var workersVm = _session.GetRequiredService<ViewModels.WorkersViewModel>();
+                        workersVm.SelectedWorker = workersVm.Workers.FirstOrDefault();
+                    }
+
+                    // تحديد عامل بيحمّل بروفايله (SelectedWorker/OnSelectedWorkerChanged) async
+                    // في الخلفية، فمحتاج وقت أطول من مجرد استقرار تخطيط الشاشة
+                    await Task.Delay(step.SelectFirstWorker ? 400 : 150);
 
                     if (FindTourTarget(step.TargetElementName) is not { } target ||
                         target.Visibility != Visibility.Visible || target.ActualWidth <= 0 || target.ActualHeight <= 0)

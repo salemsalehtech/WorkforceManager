@@ -36,5 +36,14 @@ namespace WorkforceManager.UI.Tour
         /// نفسها بتستخدمه (شوف OpenInitialBalanceTabCommand).
         /// </summary>
         public int? TabIndex { get; init; }
+
+        /// <summary>
+        /// خطوات بروفايل العامل (المهارات، النجوم، الهستوري الأسبوعي) مش
+        /// بتظهر أصلًا غير لما فيه عامل متحدد — من غير كده الهدف مش موجود
+        /// والخطوة هتتخطّى. نفس فكرة <see cref="TabIndex"/> بالظبط، بس
+        /// لشاشة العمال: أول عامل في القايمة بيتحدد تلقائيًا قبل ما ندوّر
+        /// على الهدف.
+        /// </summary>
+        public bool SelectFirstWorker { get; init; }
     }
 }
