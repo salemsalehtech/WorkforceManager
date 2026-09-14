@@ -262,6 +262,46 @@ Core  <----------------------- UI
   worked example (real values: "اختار أحمد، اكتب نص يوم، السبب...") after the first pass turned out to be
   correct but too abstract to actually teach the click-by-click "how" — found from real use, not a
   design guess up front.
+  **"الدليل" cards are feature accordions now, not one forced tour per card** — a screenshot of the
+  Workers screen's "أحسن 3 عمال" card made it clear one flat run-all-steps tour per topic still hid most
+  of a screen's real features behind whichever few steps existed. `HelpTopic` (`Tour/HelpTopic.cs`)
+  became an `ObservableObject` with `[ObservableProperty] IsExpanded`; its header `Button` now calls
+  `HelpViewModel.ToggleTopicCommand` (single-open accordion across **both** `MainTopics` and
+  `DailyEntryTopics` together, closing all others first — same pattern as
+  `WorkersViewModel.ToggleSkillGroup`), and the expanded body lists every one of the topic's
+  `AppTourStep`s as its own row with its own "جرّبها" button (`TryTourCommand`, now takes a single
+  `AppTourStep` and calls `RunTourAsync(new[] { step })` — the engine needed no change, a one-element
+  list just disables "السابق" and shows "1 من 1" automatically). `TryFullTourCommand` keeps the old
+  run-everything-in-order behavior available as a small button inside the expanded card, for anyone who
+  wants the guided walkthrough instead of picking one feature. `HelpView.xaml`'s topic `ItemsControl`s
+  dropped their 2-column `UniformGrid` panel for a plain single column — a `UniformGrid` sizes every cell
+  in a row to the tallest, so one expanded card in a 2-column row left an ugly empty gap next to it.
+  **`SelectFirstWorker` (`AppTourStep.cs`, bool)** exists because the Workers profile's skills/stars/
+  weekly-history steps only render once a worker is selected — same problem `TabIndex` solves for Daily
+  Entry's tabs, same fix shape: `RunTourAsync`, after `NavigateToTourScreen`, sets
+  `WorkersViewModel.SelectedWorker = Workers.FirstOrDefault()` when the step asks for it. Selecting a
+  worker triggers an **async** detail load (`OnSelectedWorkerChanged` → `SafeAsync.Run(LoadDetailAsync)`),
+  not a synchronous one, so these steps get a longer settle delay (400ms vs. the normal 150ms) before the
+  engine searches for the target — tune this first if a profile-dependent step ever flickers/misses its
+  target after a slower machine or a heavier profile load.
+  Workers topic went from 3 steps to 9 as the concrete example: `BestWorkerCardsRow` (new `x:Name` on the
+  Grid at `WorkersView.xaml`'s winners row) is reused for two different steps — what the ranking means,
+  and what clicking a card does (opens "ليه فاز؟" in week mode vs. the profile directly in month/custom
+  mode) — the same "same target, two steps with different text" pattern already used elsewhere rather
+  than adding a redundant second name. `SkillsSectionHeader` (new name on the skills section's `DockPanel`
+  header) is likewise reused for both "add a skill" and "star-rating logic," since the actual star
+  buttons live inside a per-stage `DataTemplate` and can't be individually named. `WeeklyHistoryHeader`
+  (new name on the section's static header `TextBlock`, not the `ItemsControl` below it) and
+  `OpenWorkerOrderButton` (new name on the existing "ترتيب العمال" header button) round out the new
+  targets. Worker reordering (`WorkerOrderDialog`) opens as a separate modal `Window`, which
+  `MainWindow`'s `TourOverlay` can't spotlight into — that step targets the trigger button only and
+  explains the dialog's three input methods (drag, up/down buttons, typed rank) in the description text
+  instead of demonstrating them live.
+  **Scope note**: this depth pass covered Workers only, as the concrete worked example — the other 14
+  topics (Products, Memory, Evaluation, Reports, ActivityLog, Settings, DepartmentAccounts, and the 7
+  Daily Entry tabs) still have their round-1 step counts and are candidates for the same "surface every
+  real feature separately" treatment in a follow-up round, now that the accordion structure they'd need
+  already exists generically.
   `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) is
   implemented as a **card list** (same `WorkerCard` style as the attendance screen), not a grid: summary
   bar (active / hourly / inactive + a "needs attention" button that filters to problem
