@@ -995,6 +995,27 @@ namespace WorkforceManager.UI.Tour
                         Description = "العنوان هنا بيوضّحلك: بتشوف كل الحسابات كمدير قسم، ولا بروفايلك أنت بس كرئيس قسم.",
                         TargetElementName = "ScreenTitleRow",
                         Screen = TourScreen.DepartmentAccounts
+                    },
+                    new()
+                    {
+                        Title = "بروفايل الحساب",
+                        Description =
+                            "زرار \"بروفايل\" على أي كارت بيفتح: آخر 30 يوم حضور/ساعات شغل، آخر سنة سلف وحوافز " +
+                            "(مدير القسم يقدر يضيف أو يحذف منها)، وزرار \"تصحيح يوم\" — بيصحّح حضور يوم معيّن أو " +
+                            "ساعات شغله (رئيس قسم مالوش خيار \"غايب من غير إذن\" في التصحيح، لأنه مفيش حد فوقه " +
+                            "يوافق على غيابه).",
+                        TargetElementName = "AccountsListCard",
+                        Screen = TourScreen.DepartmentAccounts
+                    },
+                    new()
+                    {
+                        Title = "تعديل بياناتي (قيود الحساب الذاتي)",
+                        Description =
+                            "لو أي حساب (غير مدير القسم) بيعدّل بياناته هو، المسمّى الوظيفي وسعر اليومية بيبقوا مقفولين " +
+                            "تمامًا — عشان محدش يقدر يزوّد راتب نفسه. وتغيير اسم الدخول أو كلمة السر بيتطلب كتابة " +
+                            "كلمة السر الحالية الأول، مش مجرد قيمة جديدة.",
+                        TargetElementName = "AccountsListCard",
+                        Screen = TourScreen.DepartmentAccounts
                     }
                 }
             }
