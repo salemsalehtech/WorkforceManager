@@ -8,7 +8,8 @@ namespace WorkforceManager.Core.Helpers
     /// وبيهملش الهمزات، فـ "احمد" لازم تلاقي "أحمد" و"لفه" تلاقي "لفة" —
     /// من غير كده البحث بيرجع فاضي والمستخدم يفتكر إن العامل مش موجود.
     ///
-    /// بتوحّد: ا/أ/إ/آ/ٱ، ه/ة، ي/ى/ئ، و/ؤ — وبتشيل التشكيل والتطويل.
+    /// بتوحّد: ا/أ/إ/آ/ٱ، ه/ة، ي/ى/ئ، و/ؤ — وبتشيل التشكيل والتطويل، وبتجمّع
+    /// أي تتابع مسافات (زيادة بين كلمتين، أو في البداية/النهاية) لمسافة واحدة.
     /// المقارنة نفسها OrdinalIgnoreCase عشان الأسماء اللاتينية لو وُجدت.
     ///
     /// عايشة في Core (مش في الواجهة) عشان تفضل قاعدة واحدة لو أي طبقة تانية
@@ -33,6 +34,13 @@ namespace WorkforceManager.Core.Helpers
                 if (ch >= FirstDiacritic && ch <= LastDiacritic) continue;
                 if (ch == Tatweel) continue;
 
+                if (char.IsWhiteSpace(ch))
+                {
+                    // مسافة واحدة بس لكل تتابع، ومفيش مسافة قبل أول حرف حقيقي
+                    if (sb.Length > 0 && sb[^1] != ' ') sb.Append(' ');
+                    continue;
+                }
+
                 sb.Append(ch switch
                 {
                     'أ' or 'إ' or 'آ' or 'ٱ' => 'ا',
@@ -42,6 +50,9 @@ namespace WorkforceManager.Core.Helpers
                     _ => ch
                 });
             }
+
+            // مسافة آخر النص (لو أصله انتهى بمسافات) مش لازمة
+            if (sb.Length > 0 && sb[^1] == ' ') sb.Length--;
 
             return sb.ToString();
         }

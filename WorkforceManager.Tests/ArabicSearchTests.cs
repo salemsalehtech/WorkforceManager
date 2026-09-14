@@ -81,5 +81,19 @@ namespace WorkforceManager.Tests
         [Fact]
         public void Normalize_leaves_latin_text_untouched() =>
             Assert.Equal("Ahmed", ArabicSearch.Normalize("Ahmed"));
+
+        // ---------- المسافات الزيادة/الناقصة ----------
+
+        [Fact]
+        public void Normalize_collapses_multiple_spaces_between_words() =>
+            Assert.Equal("محمد علي", ArabicSearch.Normalize("محمد   علي"));
+
+        [Fact]
+        public void Normalize_trims_leading_and_trailing_spaces() =>
+            Assert.Equal("محمد", ArabicSearch.Normalize("   محمد   "));
+
+        [Fact]
+        public void Contains_matches_despite_extra_spaces_on_either_side() =>
+            Assert.True(ArabicSearch.Contains("محمد   علي   حسن", "علي حسن"));
     }
 }
