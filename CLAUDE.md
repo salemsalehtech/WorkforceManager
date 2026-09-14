@@ -365,6 +365,86 @@ Core  <----------------------- UI
   automation/orchestration code that navigates to a screen and needs its data ready**: check
   whether the View already self-loads on `Loaded` before calling its load method again — if it
   does, wait for that one call instead of adding a competing one.
+  **"الدليل" redesigned into a card grid + full-width detail panel, deepened into a real
+  reference, and given an FAQ + a "تعلم مميزات التحديث" section** — the accordion-per-topic
+  layout from the previous round scaled badly once every topic's content got deep (round-1 only
+  covered Workers). `HelpTopic` gained `SubTopics` (`IReadOnlyList<HelpTopic>`, self-referential,
+  default empty) and `HelpTopics.MainTopics`/`DailyEntryTopics` (two separate lists) collapsed
+  into one `Topics` list of 9, in true sidebar order — Daily Entry is now **one** topic whose 7
+  old top-level topics became its `SubTopics`, not 7 separate cards; nothing about their
+  `AppTourStep`/`GuidedPracticeFlow` content changed, only the outer packaging. `HelpViewModel`
+  swapped `ToggleTopicCommand` for `SelectTopicCommand` (`SelectedTopic`, plain selection across
+  all 9 cards, not an accordion) plus `ToggleSubTopicCommand` (an accordion scoped to
+  `SelectedTopic.SubTopics` only — Daily Entry's own tabs, independent of card selection).
+  `HelpView.xaml`'s grid is an `ItemsControl` over a `WrapPanel`, not `UniformGrid` — the same
+  "one taller cell stretches the whole row" problem from the accordion-in-a-grid round would have
+  come right back, and `WrapPanel` handles a variable column count for free at 900px vs. a wider
+  window. Grid tiles reuse `CardButton` (`Themes/Core.xaml`, the existing "the whole card is a
+  button" style — gold ring on hover, darkens on press, no size growth) instead of a bespoke
+  template, and reuse `HelpTopic.IsExpanded` as the "this tile is selected" flag so the gold
+  border is a plain same-object `DataTrigger`, not a converter comparing against `SelectedTopic`.
+  Every new command binding in `HelpView.xaml` uses `RelativeSource AncestorType=UserControl`
+  instead of the old `AncestorType=ItemsControl, AncestorLevel=N` counting — `SubTopics`/
+  `LearnVersions`/`Faq` each add their own nesting level, and counting levels by hand does not
+  survive that. The staggered entrance animation (`HelpView.xaml.cs`, new code-behind file for
+  this View) is a **real per-tile `Storyboard`** built in `Loaded`, not a `Task.Delay` loop —
+  `ItemContainerGenerator.ContainerFromIndex` → `VisualTreeHelper.GetChild` finds each tile's
+  root element, then `DoubleAnimation`s on `Opacity` (0→1) and a `TranslateTransform.Y` (14→0)
+  run with `BeginTime = index * 60ms`; only the *construction* of that per-item `BeginTime`
+  happens in code, because WPF has no practical declarative way to stagger a `Style.Trigger`
+  animation per `ItemsControl` row by index.
+  **Content deepened per screen from live code+UI audits, not from `CLAUDE.md` alone** — this
+  file can drift from the real UI, so every gap list here was cross-checked against the actual
+  Views/ViewModels before writing a single new `AppTourStep`. New `x:Name`s were added strictly
+  on static chrome (never inside a `DataTemplate`), same rule as every prior round: e.g.
+  `SkillReviewCard`/`PeriodControlCard` (Workers), `AddRackingStageButton`/`NoStagesWarning`
+  (Products), `DecliningWorkersCard`/`WorkerAveragesToolbar` (Reports),
+  `AdvancedGroupingCheck`/`ExportPayslipStripsButton` (Report Builder — the payslip-strip export
+  flow had zero Guide coverage before this round despite being a fully separate workflow),
+  `ScrapReasonsCard`/`ReportIdentityCard`/`AppLogoCard`/`DarkModeCard`/`LogRetentionCard`
+  (Settings).
+  **`Tour/HelpFaq.cs`** (`FaqEntry`: plain `Question`/`Answer` text, no `TourSteps` — an FAQ
+  answer is prose, not a spotlight) + `HelpFaq.Entries`, rendered as one more single-open
+  accordion at the bottom of `HelpView.xaml` via `ToggleFaqCommand`. The draft list was written by
+  scanning likely real confusion points, then **shown to the user for review before shipping** —
+  one entry ("إمتى بيتقفل إنتاج اليوم؟") was pulled because it asked about day-closure, a feature
+  already removed outright (see the day-closure removal note elsewhere in this file); shipping a
+  guessed FAQ list unreviewed would have re-taught a dead concept.
+  **"تعلم مميزات التحديث"** is a new, separate, version-scoped reference — not a rename of the
+  "إيه الجديد؟" tour above and not sharing its tracking. `AppVersion.cs` (new,
+  `WorkforceManager.UI` root) extracts the version-reading logic
+  `SettingsViewModel.AppVersionText` already had inline
+  (`AssemblyInformationalVersionAttribute`, `+commitHash` stripped, falling back to
+  `AssemblyName.Version`) into `AppVersion.Current`, now the one shared source both
+  `AppVersionText` and this feature read — **deliberately the real build version, not
+  `AppTourContent.Version`** (that field is a manually-bumped content counter, decoupled from
+  `Directory.Build.props`, and the user explicitly asked for no number to remember to bump).
+  `Tour/LearnFeaturesContent.cs` holds `LearnFeaturesVersion { Version, Features:
+  IReadOnlyList<HelpTopic>, IsExpanded }` — each feature is a plain `HelpTopic` again, no third
+  content type, with a `GuidedPracticeFlow` only where the sandbox actually supports it today
+  (Workers) and a `TourSteps` spotlight otherwise. `AppSettingsStore.LastSeenLearnVersion` is a
+  **field deliberately separate from `LastSeenTourVersion`** — the two "what's new" offers are
+  independent, and conflating them would let seeing one silently suppress the other.
+  `App.OfferLearnFeaturesIfNew` mirrors `OfferAppTourIfNewAsync`'s shape (same startup dispatcher
+  chain, right after it) but is **synchronous**, not `async` — navigation here is synchronous, so
+  an `async Task` version would only be flagged CS1998 for having no `await`. It no-ops entirely
+  (no dialog at all) when no `LearnFeaturesVersion` exists yet for the current build. The
+  version-comparison itself is **not** inlined in that method — it is
+  `LearnFeaturesContent.ShouldOffer(string? lastSeenLearnVersion, string currentAppVersion)`, a
+  pure static predicate with no WPF/`Notify`/settings-file coupling, specifically so it is
+  directly unit-testable; `WorkforceManager.Tests` cannot reference `WorkforceManager.UI` (only
+  `WorkforceManager.UiTests` does), so its tests and a `HelpViewModel` accordion-command test
+  (`SelectTopic`/`ToggleSubTopic`/`ToggleFaq`/`ToggleLearnVersion`) live in
+  `WorkforceManager.UiTests`, not the main test project.
+  **Adding a future update's Learn content is a data change, not a plumbing change**: bump
+  `Directory.Build.props`'s `<Version>` the normal way for the release, then add one new
+  `LearnFeaturesVersion` at the **top** of `LearnFeaturesContent.Versions` (newest-first) with
+  that same version string and one `HelpTopic` per genuinely new, user-facing feature shipped in
+  it — no other code changes required. The first-launch offer, the version-match lookup, and the
+  permanently-browsable older-versions list all key off that list automatically. The very first
+  entry (matching the app's current build) retroactively bundles the user-facing features from
+  the whole development stretch this Guide redesign itself is part of, confirmed with the user
+  before any walkthrough content was written for it.
   `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) is
   implemented as a **card list** (same `WorkerCard` style as the attendance screen), not a grid: summary
   bar (active / hourly / inactive + a "needs attention" button that filters to problem
