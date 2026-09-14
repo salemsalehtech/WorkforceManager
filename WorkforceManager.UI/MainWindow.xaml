@@ -82,6 +82,17 @@
                     <!-- خط دهبي رفيع بيفصل الهوية عن التنقل -->
                     <Border Height="1" Margin="0,18,0,0" Opacity="0.35"
                             Background="{DynamicResource GoldGradientBrush}" />
+
+                    <!-- بحث سريع: عامل أو منتج، من أي شاشة، من غير ما تفتح شاشته الأول -->
+                    <Button x:Name="GlobalSearchButton" Margin="0,14,0,0" Padding="10,7" HorizontalContentAlignment="Left"
+                            Style="{StaticResource GhostButton}"
+                            Click="GlobalSearch_Click" ToolTip="بحث سريع عن عامل أو منتج"
+                            AutomationProperties.Name="بحث سريع">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Magnify" Width="16" Height="16" VerticalAlignment="Center" />
+                            <TextBlock Text="بحث سريع" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="12.5" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
 
                 <!-- توقيع نهاية اليوم — آخر عنصر في القائمة الجانبية
@@ -165,7 +176,7 @@
                         </StackPanel>
                     </RadioButton>
 
-                    <RadioButton Style="{StaticResource NavItem}"
+                    <RadioButton x:Name="NavProductsItem" Style="{StaticResource NavItem}"
                                  Checked="NavProducts_Checked" Click="NavProducts_Checked"
                                  AutomationProperties.Name="المنتجات والمراحل">
                         <StackPanel Orientation="Horizontal">

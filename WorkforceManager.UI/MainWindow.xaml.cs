@@ -5,6 +5,7 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 using WorkforceManager.UI.Views;
 
@@ -216,6 +217,35 @@ namespace WorkforceManager.UI
             MemoryBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        /// <summary>
+        /// بحث سريع عن عامل أو منتج من أي شاشة. القايمة بتتحمّل هنا (نفس
+        /// المستودعات اللي شاشتي العمال والمنتجات بتستخدمها أصلاً) وتتبعت
+        /// جاهزة للدايالوج، اللي مش محتاج DI خالص — شوف GlobalSearchDialog.
+        /// </summary>
+        private async void GlobalSearch_Click(object sender, RoutedEventArgs e)
+        {
+            var workers = await _session.GetRequiredService<IWorkerRepository>().GetActiveWithSkillsAsync();
+            var products = await _session.GetRequiredService<IProductRepository>().GetActiveWithStagesAsync();
+
+            var items = workers.Select(w => new GlobalSearchItem { Name = w.FullName, IsWorker = true })
+                .Concat(products.Select(p => new GlobalSearchItem { Name = p.Name, IsWorker = false }))
+                .OrderBy(i => i.Name)
+                .ToList();
+
+            var chosen = GlobalSearchDialog.Ask(this, items);
+            if (chosen is null) return;
+
+            // الترتيب مهم: نخلّي RadioButton الملاحة يحل الشاشة عادي الأول (زي أي تنقّل يدوي)،
+            // وبعدين بس نلاقي الـView/ViewModel اللي اتحطوا فعلًا في MainContent ونظبط البحث
+            // عليها — لو حلّينا View تانية بأنفسنا هنا كانت هتتكرّر (الشاشتين Transient)
+            if (chosen.IsWorker) NavWorkersItem.IsChecked = true;
+            else NavProductsItem.IsChecked = true;
+
+            if (MainContent?.Content is WorkersView { DataContext: ViewModels.WorkersViewModel workersVm })
+                workersVm.SearchText = chosen.Name;
+            else if (MainContent?.Content is ProductsView { DataContext: ViewModels.ProductsViewModel productsVm })
+                productsVm.SearchText = chosen.Name;
+        }
         /// <summary>
         /// اسم المصنع والقسم في رأس القايمة الجانبية وفي عنوان النافذة.
         ///
