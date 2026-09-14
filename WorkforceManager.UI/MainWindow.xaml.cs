@@ -351,6 +351,13 @@ namespace WorkforceManager.UI
             NavigateToTourScreen(screen); // بيفتح الشاشة الحقيقية مؤقتًا (Checked handler عادي، هنستبدلها فورًا)
             MainContent.Content = ResolveSandboxView(screen);
 
+            // الشاشة بتحمّل بياناتها في حدث Loaded (شوف WorkersView.xaml.cs)،
+            // وده مش مضمون يخلص قبل ما نكمّل — بنستنى التحميل هنا صراحةً
+            // بدل ما نعتمد على تايمر وهمي بعديه، عشان SelectFirstWorker
+            // بعد شوية مايلاقيش القايمة لسه فاضية
+            if ((MainContent.Content as FrameworkElement)?.DataContext is ViewModels.WorkersViewModel workersVm)
+                await workersVm.LoadAsync();
+
             _sandboxActive = true;
             SandboxBanner.Visibility = Visibility.Visible;
         }
