@@ -853,7 +853,7 @@
                                 </Button>
 
                                 <!-- مرة واحدة بس لكل منتج — بتختفي بعد ما تتضاف -->
-                                <Button Command="{Binding AddRackingStageCommand}"
+                                <Button x:Name="AddRackingStageButton" Command="{Binding AddRackingStageCommand}"
                                         Style="{StaticResource GhostButton}"
                                         Margin="0,0,6,6"
                                         Visibility="{Binding SelectedProduct.HasRackingStage, Converter={StaticResource InverseBoolToVis}}"
@@ -868,7 +868,7 @@
                                     </StackPanel>
                                 </Button>
 
-                                <Button Command="{Binding AddStageCommand}"
+                                <Button x:Name="AddStageButton" Command="{Binding AddStageCommand}"
                                         Style="{StaticResource SuccessButton}"
                                         Margin="0,0,0,6">
                                     <StackPanel Orientation="Horizontal">
@@ -883,7 +883,7 @@
                             </WrapPanel>
                         </StackPanel>
 
-                        <DockPanel Grid.Row="1"
+                        <DockPanel x:Name="ProductionLineHeader" Grid.Row="1"
                                 Margin="0,0,0,6">
                             <TextBlock Text="خط الإنتاج"
                                     FontWeight="Bold"
@@ -900,7 +900,7 @@
                                 VerticalScrollBarVisibility="Auto">
                             <StackPanel>
                                 <!-- رسالة لما المنتج لسه من غير مراحل -->
-                                <Border Background="{DynamicResource WarnBgBrush}"
+                                <Border x:Name="NoStagesWarning" Background="{DynamicResource WarnBgBrush}"
                                         CornerRadius="10"
                                         Padding="14,12">
                                     <Border.Style>
