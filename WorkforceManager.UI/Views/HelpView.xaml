@@ -261,6 +261,69 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
+
+                <!-- ═══ الأسئلة الشائعة ═══ -->
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,10">
+                    <materialDesign:PackIcon Kind="HelpBoxMultipleOutline" Width="18" Height="18"
+                                             VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
+                    <TextBlock Text="الأسئلة الشائعة" FontSize="14" FontWeight="Bold"
+                               Margin="8,0,0,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                </StackPanel>
+
+                <ItemsControl ItemsSource="{Binding Faq}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,8" Padding="14,11">
+                                <StackPanel>
+                                    <Button Cursor="Hand" HorizontalContentAlignment="Stretch"
+                                            Command="{Binding DataContext.ToggleFaqCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border Background="Transparent">
+                                                                <ContentPresenter />
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </Button.Style>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Question}" FontWeight="Bold" FontSize="13"
+                                                       TextWrapping="Wrap" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                                            <materialDesign:PackIcon Grid.Column="1" Kind="ChevronLeft" Width="16" Height="16"
+                                                                     Margin="8,0,0,0" VerticalAlignment="Center"
+                                                                     Foreground="{DynamicResource TextMutedBrush}">
+                                                <materialDesign:PackIcon.Style>
+                                                    <Style TargetType="materialDesign:PackIcon">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                                <Setter Property="Kind" Value="ChevronDown" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </materialDesign:PackIcon.Style>
+                                            </materialDesign:PackIcon>
+                                        </Grid>
+                                    </Button>
+                                    <TextBlock Text="{Binding Answer}" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
         </ScrollViewer>
     </Grid>

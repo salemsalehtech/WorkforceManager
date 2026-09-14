@@ -22,6 +22,7 @@ namespace WorkforceManager.UI.ViewModels
     public partial class HelpViewModel : ObservableObject
     {
         public IReadOnlyList<HelpTopic> Topics => HelpTopics.Topics;
+        public IReadOnlyList<FaqEntry> Faq => HelpFaq.Entries;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(HasSelectedTopic))]
@@ -93,6 +94,17 @@ namespace WorkforceManager.UI.ViewModels
             if (flow is null) return;
             if (Application.Current.MainWindow is MainWindow main)
                 await main.RunGuidedPracticeAsync(flow);
+        }
+
+        /// <summary>أكورديون سؤال واحد مفتوح بس في قسم الأسئلة الشائعة.</summary>
+        [RelayCommand]
+        private void ToggleFaq(FaqEntry? entry)
+        {
+            if (entry is null) return;
+
+            var opening = !entry.IsExpanded;
+            foreach (var other in Faq) other.IsExpanded = false;
+            entry.IsExpanded = opening;
         }
     }
 }
