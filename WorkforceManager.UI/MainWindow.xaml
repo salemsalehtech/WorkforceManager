@@ -191,6 +191,13 @@
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="18" Height="18" VerticalAlignment="Center" />
                             <TextBlock Text="الذاكرة" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <!-- عدد خطط الذاكرة المستحقة النهارده أو المتأخرة (نفس نمط شارة سجل العمليات تحت) -->
+                            <Border x:Name="MemoryBadge" Background="{DynamicResource DangerBgBrush}"
+                                    CornerRadius="8" Padding="6,1" Margin="6,0,0,0"
+                                    VerticalAlignment="Center" Visibility="Collapsed">
+                                <TextBlock x:Name="MemoryBadgeText" FontSize="10.5" FontWeight="Bold"
+                                           Foreground="{DynamicResource DangerBrush}" />
+                            </Border>
                         </StackPanel>
                     </RadioButton>
 

@@ -49,6 +49,7 @@ namespace WorkforceManager.UI
 
             ShowIdentity();
             RefreshActivityBadge();
+            RefreshMemoryBadge();
 
             // شريط عنوان النافذة بيتلوّن بعد ما الـ Handle يتعمل — قبل
             // كده مفيش نافذة فعلية تتلوّن
@@ -201,6 +202,21 @@ namespace WorkforceManager.UI
         }
 
         /// <summary>
+        /// بيحدّث شارة "خطط مستحقة" على زرار الذاكرة. نفس نمط
+        /// <see cref="RefreshActivityBadge"/> بالظبط — استعلام واحد رخيص
+        /// (GetDueAsync بيرجّع المستحق النهارده أو المتأخر بس).
+        /// </summary>
+        private async void RefreshMemoryBadge()
+        {
+            using var scope = App.AppHost.Services.CreateScope();
+            var memories = scope.ServiceProvider.GetRequiredService<ProductionMemoryService>();
+            var count = (await memories.GetDueAsync(DateTime.Today)).Count;
+
+            MemoryBadgeText.Text = count > 99 ? "٩٩+" : count.ToString();
+            MemoryBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>
         /// اسم المصنع والقسم في رأس القايمة الجانبية وفي عنوان النافذة.
         ///
         /// كان مكتوب "إدارة الإنتاج والأجور" — جملة بتوصف البرنامج
@@ -298,6 +314,7 @@ namespace WorkforceManager.UI
             if (MainContent is null) return; // بيحصل مرة واحدة أثناء تهيئة النافذة
             MainContent.Content = _session.GetRequiredService<WorkersView>();
             RefreshActivityBadge();
+            RefreshMemoryBadge();
         }
 
         private void NavProducts_Checked(object sender, RoutedEventArgs e)
@@ -305,6 +322,7 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
             MainContent.Content = _session.GetRequiredService<ProductsView>();
             RefreshActivityBadge();
+            RefreshMemoryBadge();
         }
 
         private void NavDailyEntry_Checked(object sender, RoutedEventArgs e)
@@ -312,6 +330,7 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
             MainContent.Content = _session.GetRequiredService<DailyEntryView>();
             RefreshActivityBadge();
+            RefreshMemoryBadge();
         }
 
         private void NavEvaluation_Checked(object sender, RoutedEventArgs e)
@@ -319,6 +338,7 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
             MainContent.Content = _session.GetRequiredService<ReportsView>();
             RefreshActivityBadge();
+            RefreshMemoryBadge();
         }
 
         private void NavReports_Checked(object sender, RoutedEventArgs e)
@@ -326,6 +346,7 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
             MainContent.Content = _session.GetRequiredService<ReportBuilderView>();
             RefreshActivityBadge();
+            RefreshMemoryBadge();
         }
 
         /// <summary>
@@ -342,6 +363,7 @@ namespace WorkforceManager.UI
             MainContent.Content = view;
             NavDailyEntryItem.IsChecked = true;
             RefreshActivityBadge();
+            RefreshMemoryBadge();
 
             await _session.GetRequiredService<ViewModels.DailyEntryViewModel>()
                 .StartFromMemoryAsync(memoryId, productId, stageOrder);
@@ -352,6 +374,7 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
             MainContent.Content = _session.GetRequiredService<MemoryView>();
             RefreshActivityBadge();
+            RefreshMemoryBadge();
         }
 
         private void NavActivityLog_Checked(object sender, RoutedEventArgs e)
@@ -361,6 +384,7 @@ namespace WorkforceManager.UI
             // فتح الشاشة بيصفّر آخر وقت مشاهدة جوه الـ ViewModel نفسها؛
             // الرجوع هنا بعد شوية (تنقّل تاني) هو اللي بيعرض الصفر فعليًا
             RefreshActivityBadge();
+            RefreshMemoryBadge();
         }
 
         private void NavSettings_Checked(object sender, RoutedEventArgs e)
@@ -368,6 +392,7 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
             MainContent.Content = _session.GetRequiredService<SettingsView>();
             RefreshActivityBadge();
+            RefreshMemoryBadge();
         }
 
         private void NavDepartmentAccounts_Checked(object sender, RoutedEventArgs e)
@@ -375,6 +400,7 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
             MainContent.Content = _session.GetRequiredService<DepartmentAccountsView>();
             RefreshActivityBadge();
+            RefreshMemoryBadge();
         }
 
         // ======================= توقيع نهاية اليوم =======================

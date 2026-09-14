@@ -296,10 +296,18 @@ namespace WorkforceManager.UI.ViewModels
                 return;
             }
 
-            // تأكيد بس لو المستخدم كتب حاجة فيها (عشان ميخسرش شغله بضغطة غلط)
-            if (session.HasUserInput &&
-                !Notify.Ask($"إزالة رحلة \"{session.SelectedProduct?.Name ?? "بدون منتج"}\"؟ اللي اتكتب فيها هيضيع (اللي اتحفظ قبل كده محفوظ عادي).", "تأكيد"))
-                return;
+            // تأكيد بس لو المستخدم كتب حاجة فيها (عشان ميخسرش شغله بضغطة غلط).
+            // لو الرحلة جاية من خطة ذاكرة، بنوضّح كمان إن الخطة هتفضل نشطة
+            // وهتتذكّرها تاني — مفيش خطر إنها تتعلّم منجزة غلط (شوف MarkStartedAsync)
+            if (session.HasUserInput)
+            {
+                var name = session.SelectedProduct?.Name ?? "بدون منتج";
+                var message = session.IsFromMemoryPlan
+                    ? $"إزالة رحلة \"{name}\"؟ اللي اتكتب فيها هيضيع (اللي اتحفظ قبل كده محفوظ عادي). خطتها في الذاكرة هتفضل نشطة وهتتذكّرها تاني."
+                    : $"إزالة رحلة \"{name}\"؟ اللي اتكتب فيها هيضيع (اللي اتحفظ قبل كده محفوظ عادي).";
+
+                if (!Notify.Ask(message, "تأكيد")) return;
+            }
 
             FlowSessions.Remove(session);
         }

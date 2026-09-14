@@ -236,6 +236,16 @@ namespace WorkforceManager.Tests
 
             Assert.Single(await EventsOfAsync(ActivityEventType.ProductionMemoryEdited));
 
+            // استرجاع خطة اتعلّمت منجزة غلط بيتسجّل كمان — نفس نوع التعديل
+            using (var scope = _db.CreateScope())
+            {
+                var service = _db.GetService<ProductionMemoryService>(scope);
+                await service.MarkStartedAsync(memoryId);
+                await service.ReactivateAsync(memoryId);
+            }
+
+            Assert.Equal(2, (await EventsOfAsync(ActivityEventType.ProductionMemoryEdited)).Count);
+
             using (var scope = _db.CreateScope())
                 await _db.GetService<ProductionMemoryService>(scope).DeleteAsync(memoryId);
 

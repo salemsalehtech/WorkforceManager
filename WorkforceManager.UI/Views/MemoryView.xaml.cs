@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using WorkforceManager.Business.DTOs;
 using WorkforceManager.UI.ViewModels;
 
 namespace WorkforceManager.UI.Views
@@ -7,9 +8,9 @@ namespace WorkforceManager.UI.Views
     /// <summary>
     /// شاشة "الذاكرة" — خطط الإنتاج المتأجّلة.
     ///
-    /// الكود هنا بيعمل حاجة واحدة بس: يفتح نافذة الترتيب. الدايالوج
-    /// محتاج نافذة أب (Owner) والـ ViewModel مالوش وصول لنوافذ — فالشاشة
-    /// بتجيب المدخلات منه، تعرض النافذة، وترجّعله النتيجة.
+    /// الكود هنا بيعمل حاجتين محتاجين نافذة أب (Owner) والـ ViewModel
+    /// مالوش وصول لنوافذ: ترتيب المراحل، وتأجيل سريع من الكارت. الشاشة
+    /// بتجيب المدخلات من الـ ViewModel، تعرض النافذة، وترجّعله النتيجة.
     /// </summary>
     public partial class MemoryView : UserControl
     {
@@ -35,6 +36,16 @@ namespace WorkforceManager.UI.Views
 
             // null = المستخدم لغى، فالترتيب القديم يفضل زي ما هو
             if (chosen is not null) _viewModel.ApplyStageOrder(chosen);
+        }
+
+        private async void Postpone_Click(object sender, RoutedEventArgs e)
+        {
+            if (((FrameworkElement)sender).DataContext is not ProductionMemoryDto memory) return;
+
+            var picked = MemoryPostponeDialog.Ask(Window.GetWindow(this), memory.RemindOn);
+            if (picked is null) return; // لغى اختيار اليوم
+
+            await _viewModel.PostponeAsync(memory.Id, picked.Value);
         }
     }
 }

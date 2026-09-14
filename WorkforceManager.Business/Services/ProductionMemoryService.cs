@@ -151,6 +151,28 @@ namespace WorkforceManager.Business.Services
             await _memories.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// خطة اتعلّمت منجزة غلط — بترجعها نشطة تاني. الحالة المتوقعة:
+        /// الشاشة اتفتحت من تذكيرها بس المستخدم ماسجّلش إنتاج فعلي
+        /// (شوف كومنت MarkStartedAsync). مسموحة على أي خطة منجزة، مش
+        /// بس اللي اتعلّمت بالغلط تحديدًا — مفيش فرق يتفرّق تقنيًا.
+        /// </summary>
+        public async Task ReactivateAsync(int id)
+        {
+            var memory = await _memories.GetWithStagesAsync(id)
+                ?? throw new InvalidOperationException("الخطة المحددة مش موجودة");
+
+            if (memory.CompletedAt is null)
+                throw new InvalidOperationException("الخطة دي نشطة أصلاً");
+
+            memory.CompletedAt = null;
+            await _memories.SaveChangesAsync();
+
+            await _log.LogAsync(
+                ActivityEventType.ProductionMemoryEdited, "ProductionMemory", memory.Id,
+                entityName: memory.Product?.Name ?? "(منتج متشال)", details: "رجعت لقايمة النشطة");
+        }
+
         public async Task DeleteAsync(int id)
         {
             var memory = await _memories.GetWithStagesAsync(id)

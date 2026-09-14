@@ -33,6 +33,12 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>عكس <see cref="CanStart"/> — عشان الواجهة تعرض سبب المنع من غير محوّل</summary>
         public bool IsBlocked => BlockedReason is not null;
+
+        /// <summary>الخطة لسه نشطة وتاريخ تذكيرها فات — نفس تعريف "مستحق" في GetDueAsync</summary>
+        public bool IsOverdue => CompletedAt is null && RemindOn.Date < DateTime.Today;
+
+        /// <summary>الخطة لسه نشطة وتاريخ تذكيرها النهارده بالظبط</summary>
+        public bool IsDueToday => CompletedAt is null && RemindOn.Date == DateTime.Today;
     }
 
     /// <summary>مرحلة واحدة في خطة، بموقعها المخطط</summary>

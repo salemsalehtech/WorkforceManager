@@ -460,7 +460,9 @@ namespace WorkforceManager.UI
         /// القايمة بتتقرا مرة واحدة في الأول: لو المستخدم دوس "ابدأ الآن"
         /// على أول خطة، إحنا بنسيب الباقي لأن الشاشة اتفتحت خلاص على شغل
         /// تاني — التذكيرات المتبقية هتظهر تاني أول تشغيل جاي زي أي
-        /// تذكير متأخر.
+        /// تذكير متأخر (وإشعار بسيط بيقول عددها، عشان المستخدم يعرف إنها
+        /// لسه موجودة مش ضاعت — شارة العدد على أيقونة "الذاكرة" كمان
+        /// بتعكس نفس الرقم لحد ما التشغيلة الجاية).
         /// </summary>
         private static async Task ShowDueMemoryRemindersAsync(Window owner)
         {
@@ -470,8 +472,9 @@ namespace WorkforceManager.UI
                 due = (await scope.ServiceProvider.GetRequiredService<ProductionMemoryService>()
                     .GetDueAsync(DateTime.Today)).ToList();
 
-            foreach (var memory in due)
+            for (var i = 0; i < due.Count; i++)
             {
+                var memory = due[i];
                 var dialog = Views.MemoryReminderDialog.Show(owner, memory);
 
                 if (dialog.Choice == Views.MemoryReminderChoice.Postpone)
@@ -483,6 +486,12 @@ namespace WorkforceManager.UI
                 }
 
                 if (dialog.Choice != Views.MemoryReminderChoice.Start) continue;
+
+                // باقي التذكيرات هتستخبى لحد التشغيلة الجاية (كومنت الميثود
+                // فوق) — نطمّن المستخدم إنها لسه موجودة، مش ضاعت
+                var remaining = due.Count - i - 1;
+                if (remaining > 0)
+                    Notify.Info($"في {remaining} خطة كمان مستنياك في الذاكرة", "تذكيرات تانية");
 
                 await StartMemorySessionAsync(memory);
                 return; // الشاشة اتفتحت — باقي التذكيرات لبكرة

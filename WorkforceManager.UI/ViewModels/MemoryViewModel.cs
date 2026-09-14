@@ -25,11 +25,19 @@ namespace WorkforceManager.UI.ViewModels
             _scopeFactory = scopeFactory;
         }
 
-        /// <summary>الخطط اللي لسه ما اتنفّذتش</summary>
+        /// <summary>الخطط اللي لسه ما اتنفّذتش (بعد فلترة البحث)</summary>
         public ObservableCollection<ProductionMemoryDto> Active { get; } = new();
 
-        /// <summary>اللي اتبدأ فعلاً — للمرجع بس، مفيش تعديل عليها</summary>
+        /// <summary>اللي اتبدأ فعلاً — للمرجع بس، مفيش تعديل عليها (بعد فلترة البحث)</summary>
         public ObservableCollection<ProductionMemoryDto> Completed { get; } = new();
+
+        /// <summary>كل الخطط قبل الفلترة — بترجع منها Active/Completed كل ما البحث يتغيّر</summary>
+        private List<ProductionMemoryDto> _allActive = new();
+        private List<ProductionMemoryDto> _allCompleted = new();
+
+        [ObservableProperty] private string _searchText = string.Empty;
+
+        partial void OnSearchTextChanged(string value) => ApplyFilter();
 
         /// <summary>منتجات ينفع تتعمل عليها خطة (نشطة وليها مراحل)</summary>
         public ObservableCollection<MemoryProductOption> Products { get; } = new();
@@ -54,11 +62,39 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsEditing))]
         [NotifyPropertyChangedFor(nameof(SaveButtonText))]
+        [NotifyPropertyChangedFor(nameof(FormTitle))]
         private int? _editingId;
 
         public bool IsEditing => EditingId is not null;
 
         public string SaveButtonText => IsEditing ? "احفظ التعديل" : "أضف للذاكرة";
+
+        /// <summary>عنوان الفورم — كان نص ثابت "خطة جديدة" حتى وانت بتعدّل خطة موجودة، ده كان بيلخبط</summary>
+        public string FormTitle => IsEditing ? "تعديل خطة" : "خطة جديدة";
+
+        /// <summary>
+        /// لقطة الفورم وقت آخر مرة اتحمّل فيها (فتح تعديل، أو ClearForm) —
+        /// بنقارن بيها عشان نعرف لو المستخدم غيّر حاجة لسه ماحفظهاش، قبل
+        /// ما نفقدها بالتنقل لخطة تانية أو الإلغاء.
+        /// </summary>
+        private int? _snapshotProductId;
+        private string _snapshotNotes = string.Empty;
+        private DateTime _snapshotRemindOn;
+        private List<int> _snapshotStageOrder = new();
+
+        private void TakeSnapshot()
+        {
+            _snapshotProductId = SelectedProduct?.ProductId;
+            _snapshotNotes = Notes;
+            _snapshotRemindOn = RemindOn;
+            _snapshotStageOrder = new List<int>(StageOrder);
+        }
+
+        private bool HasUnsavedFormChanges =>
+            SelectedProduct?.ProductId != _snapshotProductId ||
+            Notes != _snapshotNotes ||
+            RemindOn != _snapshotRemindOn ||
+            !StageOrder.SequenceEqual(_snapshotStageOrder);
 
         public string StageOrderSummary
         {
@@ -119,17 +155,36 @@ namespace WorkforceManager.UI.ViewModels
         {
             var service = scope.ServiceProvider.GetRequiredService<ProductionMemoryService>();
 
-            Active.Clear();
-            foreach (var memory in await service.GetActiveAsync()) Active.Add(memory);
-
-            Completed.Clear();
-            foreach (var memory in await service.GetCompletedAsync()) Completed.Add(memory);
+            _allActive = (await service.GetActiveAsync()).ToList();
+            _allCompleted = (await service.GetCompletedAsync()).ToList();
+            ApplyFilter();
         }
 
         private async Task ReloadListsAsync()
         {
             using var scope = _scopeFactory.CreateScope();
             await ReloadListsAsync(scope);
+        }
+
+        /// <summary>بيبني Active/Completed المعروضتين من القايمتين الكاملتين حسب نص البحث — نفس نمط ProductsViewModel.ApplyFilter</summary>
+        private void ApplyFilter()
+        {
+            var query = SearchText.Trim();
+
+            IEnumerable<ProductionMemoryDto> active = _allActive;
+            IEnumerable<ProductionMemoryDto> completed = _allCompleted;
+
+            if (query.Length > 0)
+            {
+                active = active.Where(m => m.ProductName.Contains(query, StringComparison.OrdinalIgnoreCase));
+                completed = completed.Where(m => m.ProductName.Contains(query, StringComparison.OrdinalIgnoreCase));
+            }
+
+            Active.Clear();
+            foreach (var memory in active) Active.Add(memory);
+
+            Completed.Clear();
+            foreach (var memory in completed) Completed.Add(memory);
         }
 
         /// <summary>
@@ -184,6 +239,13 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (memory is null) return;
 
+            // تبديل لخطة تانية وانت لسه في نص تعديل خطة ماحفظتهاش بيفقد
+            // اللي اتغيّر من غير تحذير — نفس الحماية اللي في شاشة التسجيل
+            // اليومي (FlowSessionViewModel.HasUserInput)
+            if (IsEditing && EditingId != memory.Id && HasUnsavedFormChanges &&
+                !Notify.Ask("عندك تعديلات لسه ماحفظتهاش على الخطة دي، هتضيع لو فتحت خطة تانية. متأكد؟", "تأكيد"))
+                return;
+
             EditingId = memory.Id;
             SelectedProduct = Products.FirstOrDefault(p => p.ProductId == memory.ProductId);
 
@@ -191,12 +253,59 @@ namespace WorkforceManager.UI.ViewModels
             StageOrder = memory.Stages.Select(s => s.ProductionStageId).ToList();
             Notes = memory.Notes;
             RemindOn = memory.RemindOn;
+
+            TakeSnapshot();
         }
 
         [RelayCommand]
-        private void CancelEdit() => ClearForm();
+        private void CancelEdit()
+        {
+            if (HasUnsavedFormChanges &&
+                !Notify.Ask("عندك تعديلات لسه ماحفظتهاش، هتضيع لو ألغيت. متأكد؟", "تأكيد"))
+                return;
 
-        [RelayCommand]
+            ClearForm();
+        }
+
+        /// <summary>بدء تنفيذ الخطة من كارتها في الشاشة مباشرة — بدل ما يستنى تذكير بدء التشغيل</summary>
+        [RelayCommand(AllowConcurrentExecutions = false)]
+        private async Task StartNowAsync(ProductionMemoryDto? memory)
+        {
+            if (memory is null || !memory.CanStart) return;
+
+            await App.StartMemorySessionAsync(memory);
+            await ReloadListsAsync();
+        }
+
+        /// <summary>تأجيل سريع من الكارت — بينادى من MemoryView.xaml.cs بعد ما نافذة اختيار التاريخ ترجّع قيمة</summary>
+        public async Task PostponeAsync(int id, DateTime newRemindOn)
+        {
+            using (var scope = _scopeFactory.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<ProductionMemoryService>()
+                    .PostponeAsync(id, newRemindOn);
+
+            await ReloadListsAsync();
+            Notify.Success("اتأجّل التذكير");
+        }
+
+        /// <summary>
+        /// خطة اتعلّمت منجزة غلط (مثلاً فتح شاشتها من التذكير من غير ما يتسجّل
+        /// فيها إنتاج فعلي) — بترجعها نشطة تاني.
+        /// </summary>
+        [RelayCommand(AllowConcurrentExecutions = false)]
+        private async Task ReactivateAsync(ProductionMemoryDto? memory)
+        {
+            if (memory is null) return;
+
+            using (var scope = _scopeFactory.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<ProductionMemoryService>()
+                    .ReactivateAsync(memory.Id);
+
+            await ReloadListsAsync();
+            Notify.Success("الخطة رجعت نشطة");
+        }
+
+        [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task DeleteAsync(ProductionMemoryDto? memory)
         {
             if (memory is null) return;
@@ -222,6 +331,8 @@ namespace WorkforceManager.UI.ViewModels
             StageOrder = new List<int>();
             Notes = string.Empty;
             RemindOn = DateTime.Today.AddDays(1);
+
+            TakeSnapshot();
         }
     }
 

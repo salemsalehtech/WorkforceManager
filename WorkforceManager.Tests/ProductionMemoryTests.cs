@@ -195,6 +195,33 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task ReactivatingADoneplan_MovesItBackToActive()
+        {
+            using var scope = _db.CreateScope();
+
+            var id = await Memories(scope).CreateAsync(
+                TestDatabase.ProductBagId, RealBagOrder, "", Today);
+            await Memories(scope).MarkStartedAsync(id);
+
+            await Memories(scope).ReactivateAsync(id);
+
+            Assert.Single(await Memories(scope).GetActiveAsync());
+            Assert.Empty(await Memories(scope).GetCompletedAsync());
+        }
+
+        [Fact]
+        public async Task ReactivatingAnAlreadyActivePlan_IsRefused()
+        {
+            using var scope = _db.CreateScope();
+
+            var id = await Memories(scope).CreateAsync(
+                TestDatabase.ProductBagId, RealBagOrder, "", Today);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => Memories(scope).ReactivateAsync(id));
+        }
+
+        [Fact]
         public async Task Postponing_keeps_everything_else_and_fires_again_on_the_new_day()
         {
             using var scope = _db.CreateScope();

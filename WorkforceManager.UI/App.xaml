@@ -39,6 +39,8 @@
             <!-- محوّل بولياني → ظهور/إخفاء (لعناصر بتظهر بس لما يبقى فيه بيانات) -->
             <sys:BooleanToVisibilityConverter x:Key="BoolToVis" />
             <vm:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
+            <!-- بيقارن معرّف الكارت بمعرّف الخطة اللي بتتعدّل دلوقتي (شاشة الذاكرة) -->
+            <vm:EditingCardBorderConverter x:Key="EditingCardBorder" />
 
             <!-- ======================================================
                  نظام التصميم الموحد (Design System)
