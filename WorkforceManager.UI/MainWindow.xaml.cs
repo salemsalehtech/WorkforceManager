@@ -35,6 +35,11 @@ namespace WorkforceManager.UI
         /// </summary>
         private readonly IServiceProvider _session;
 
+        // ======================= وضع التجربة (Sandbox) =======================
+        private Sandbox.SandboxSession? _sandbox;
+        private object? _realContentBeforeSandbox;
+        private bool _sandboxActive;
+
         public MainWindow(CurrentUserContext currentUser, IServiceProvider session)
         {
             _currentUser = currentUser;
@@ -67,6 +72,9 @@ namespace WorkforceManager.UI
             // الحاوية بتفك تسجيلها مع النافذة: الجلسة بتتقفل فعليًا عند
             // تسجيل الخروج، والـ static كان هيفضل ماسك حاوية ميتة
             Closed += (_, _) => Toasts.Unregister();
+
+            // قفل غير طبيعي للنافذة وسط وضع تجربة مايسيبش ملف SQLite مؤقت معلّق
+            Closed += (_, _) => _sandbox?.Dispose();
 
             // التخطيط بيتصغّر لو الشاشة أضيق من مساحة التصميم — شوف ApplyUiScale
             SizeChanged += (_, _) => ApplyUiScale();
@@ -324,6 +332,64 @@ namespace WorkforceManager.UI
             }
         }
 
+        // ======================= وضع التجربة (Sandbox) =======================
+
+        /// <summary>
+        /// بيفتح جلسة تجربة معزولة (Sandbox\SandboxSession) ويستبدل محتوى
+        /// الشاشة الحقيقي بنسخة من نفس الشاشة متحلّة من مزوّد التجربة —
+        /// FindTourTarget بيدوّر على MainContent.Content زي ما هو دايمًا،
+        /// فمحرك السبوت لايت مش محتاج يعرف إنه في تجربة أصلًا.
+        /// </summary>
+        private async Task EnterSandboxModeAsync(Tour.TourScreen screen)
+        {
+            if (_sandbox is not null) return;
+
+            _sandbox = await Sandbox.SandboxSession.CreateAsync();
+            _realContentBeforeSandbox = MainContent.Content; // عادة شاشة "الدليل" نفسها، هنرجعلها بعد التجربة
+
+            NavigateToTourScreen(screen); // بيفتح الشاشة الحقيقية مؤقتًا (Checked handler عادي، هنستبدلها فورًا)
+            MainContent.Content = ResolveSandboxView(screen);
+
+            _sandboxActive = true;
+            SandboxBanner.Visibility = Visibility.Visible;
+        }
+
+        private void ExitSandboxMode()
+        {
+            if (_sandbox is null) return;
+
+            MainContent.Content = _realContentBeforeSandbox;
+            _sandboxActive = false;
+            SandboxBanner.Visibility = Visibility.Collapsed;
+
+            _sandbox.Dispose();
+            _sandbox = null;
+            _realContentBeforeSandbox = null;
+        }
+
+        /// <summary>
+        /// بينادى من أول سطر في كل NavXxx_Checked. دوسة على أي عنصر تنقّل
+        /// وانت في وضع تجربة = خروج من التجربة (زي "تخطي الكل" بالظبط) —
+        /// الدوسة التانية (لما الوضع يبقى مقفول) هي اللي فعليًا بتنقّل.
+        /// أبسط وأأمن من محاولة ننقّل ونطلّع من التجربة في نفس اللحظة.
+        /// </summary>
+        /// <returns>true لو الهاندلر لازم يوقف هنا من غير ما ينقّل فعليًا</returns>
+        private bool ExitSandboxOnRealNavigation()
+        {
+            if (!_sandboxActive) return false;
+            _tourStepTcs?.TrySetResult(TourAction.Skip);
+            return true;
+        }
+
+        private object ResolveSandboxView(Tour.TourScreen screen) => screen switch
+        {
+            Tour.TourScreen.Workers => _sandbox!.Services.GetRequiredService<WorkersView>(),
+            _ => throw new ArgumentOutOfRangeException(nameof(screen), screen, "مفيش شاشة تجربة لسه للشاشة دي")
+        };
+
+        private void SandboxExit_Click(object sender, RoutedEventArgs e) =>
+            _tourStepTcs?.TrySetResult(TourAction.Skip);
+
         private void NavigateToTourScreen(Tour.TourScreen screen)
         {
             switch (screen)
@@ -497,6 +563,7 @@ namespace WorkforceManager.UI
         private void NavWorkers_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return; // بيحصل مرة واحدة أثناء تهيئة النافذة
+            if (ExitSandboxOnRealNavigation()) return;
             MainContent.Content = _session.GetRequiredService<WorkersView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
@@ -505,6 +572,7 @@ namespace WorkforceManager.UI
         private void NavProducts_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
+            if (ExitSandboxOnRealNavigation()) return;
             MainContent.Content = _session.GetRequiredService<ProductsView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
@@ -513,6 +581,7 @@ namespace WorkforceManager.UI
         private void NavDailyEntry_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
+            if (ExitSandboxOnRealNavigation()) return;
             MainContent.Content = _session.GetRequiredService<DailyEntryView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
@@ -521,6 +590,7 @@ namespace WorkforceManager.UI
         private void NavEvaluation_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
+            if (ExitSandboxOnRealNavigation()) return;
             MainContent.Content = _session.GetRequiredService<ReportsView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
@@ -529,6 +599,7 @@ namespace WorkforceManager.UI
         private void NavReports_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
+            if (ExitSandboxOnRealNavigation()) return;
             MainContent.Content = _session.GetRequiredService<ReportBuilderView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
@@ -557,6 +628,7 @@ namespace WorkforceManager.UI
         private void NavMemory_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
+            if (ExitSandboxOnRealNavigation()) return;
             MainContent.Content = _session.GetRequiredService<MemoryView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
@@ -565,6 +637,7 @@ namespace WorkforceManager.UI
         private void NavActivityLog_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
+            if (ExitSandboxOnRealNavigation()) return;
             MainContent.Content = _session.GetRequiredService<ActivityLogView>();
             // فتح الشاشة بيصفّر آخر وقت مشاهدة جوه الـ ViewModel نفسها؛
             // الرجوع هنا بعد شوية (تنقّل تاني) هو اللي بيعرض الصفر فعليًا
@@ -575,6 +648,7 @@ namespace WorkforceManager.UI
         private void NavSettings_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
+            if (ExitSandboxOnRealNavigation()) return;
             MainContent.Content = _session.GetRequiredService<SettingsView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
@@ -583,6 +657,7 @@ namespace WorkforceManager.UI
         private void NavDepartmentAccounts_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
+            if (ExitSandboxOnRealNavigation()) return;
             MainContent.Content = _session.GetRequiredService<DepartmentAccountsView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
@@ -591,6 +666,7 @@ namespace WorkforceManager.UI
         private void NavHelp_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return;
+            if (ExitSandboxOnRealNavigation()) return;
             MainContent.Content = _session.GetRequiredService<HelpView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();

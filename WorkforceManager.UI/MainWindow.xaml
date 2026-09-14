@@ -292,13 +292,36 @@
 
         <!-- ══════════ منطقة المحتوى ══════════ -->
         <Grid Grid.Column="1">
-            <Border Background="{DynamicResource GroundBrush}">
-                <ContentControl x:Name="MainContent" Margin="20,18" />
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- بانر وضع التجربة (Sandbox): صف مقفول بيدّي ارتفاع صفر لما
+                 مش في تجربة، فمفيش فراغ زيادة في الاستخدام العادي -->
+            <Border x:Name="SandboxBanner" Grid.Row="0" Visibility="Collapsed"
+                    Background="{DynamicResource GoldTintBrush}" Padding="14,9">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}" Padding="12,5"
+                            Content="إنهاء التجربة" Click="SandboxExit_Click" />
+                    <materialDesign:PackIcon DockPanel.Dock="Left" Kind="FlaskOutline" Width="17" Height="17"
+                                             Margin="0,0,8,0" VerticalAlignment="Center"
+                                             Foreground="{DynamicResource GoldBrush}" />
+                    <TextBlock VerticalAlignment="Center" FontSize="12.5"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Text="وضع تجربة تفاعلي — البيانات هنا وهمية للتدريب بس، مش بيانات مصنعك الحقيقية" />
+                </DockPanel>
             </Border>
 
-            <!-- الإشعارات فوق المحتوى: بتظهر في الركن وبتروح لوحدها،
-                 والشغل تحتها مبيتوقفش -->
-            <views:ToastHost x:Name="Toasts" />
+            <Grid Grid.Row="1">
+                <Border Background="{DynamicResource GroundBrush}">
+                    <ContentControl x:Name="MainContent" Margin="20,18" />
+                </Border>
+
+                <!-- الإشعارات فوق المحتوى: بتظهر في الركن وبتروح لوحدها،
+                     والشغل تحتها مبيتوقفش -->
+                <views:ToastHost x:Name="Toasts" />
+            </Grid>
         </Grid>
 
         <!-- ══════════ جولة "إيه الجديد" (Spotlight) ══════════
