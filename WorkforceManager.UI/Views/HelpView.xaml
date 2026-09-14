@@ -8,32 +8,121 @@
 
     <!-- كارت الموضوع نفسه Resource مشترك بين القايمتين تحت (المواضيع
          العادية وتبويبات التسجيل اليومي) — نفس الشكل بالظبط، مفيش داعي
-         يتكرر مرتين -->
+         يتكرر مرتين.
+
+         أكورديون: دوسة على الهيدر بتفتح/تقفل قايمة ميزات الموضوع
+         (TourSteps)، كل ميزة بزرار "جرّبها" بيشغّل سبوت لايت لها لوحدها
+         (خطوة واحدة بس) — المستخدم يختار هو عايز يتعلم إيه بالظبط، بدل
+         جولة طويلة مفروضة عليه بالترتيب. عمود واحد مش عمودين عشان لما
+         كارت يتمدد ميسيبش فراغ فاضي جنبه في العمود التاني. -->
     <UserControl.Resources>
         <DataTemplate x:Key="HelpTopicCard">
-            <Border Style="{StaticResource Card}" Margin="0,0,10,10">
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
                 <StackPanel>
-                    <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="Bold"
-                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                    <TextBlock Text="{Binding Description}" FontSize="12.5" TextWrapping="Wrap"
-                               Margin="0,8,0,0" Foreground="{DynamicResource TextMutedBrush}" />
-                    <Button HorizontalAlignment="Left" Margin="0,12,0,0"
-                            Style="{StaticResource GhostButton}" Padding="12,6"
-                            Command="{Binding DataContext.TryTourCommand,
+                    <Button Cursor="Hand" HorizontalContentAlignment="Stretch"
+                            Command="{Binding DataContext.ToggleTopicCommand,
                                 RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                             CommandParameter="{Binding}">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="TelevisionPlay" Width="14" Height="14"
-                                                     VerticalAlignment="Center" />
-                            <TextBlock Text="جرّبها معايا" Margin="5,0,0,0" FontSize="12.5" />
-                        </StackPanel>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <ContentPresenter />
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="Bold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8"
+                                            Padding="7,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock FontSize="10.5" Foreground="{DynamicResource TextMutedBrush}">
+                                            <Run Text="{Binding TourSteps.Count, Mode=OneWay}" />
+                                            <Run Text=" ميزات" />
+                                        </TextBlock>
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Description}" FontSize="12.5" TextWrapping="Wrap"
+                                           Margin="0,8,0,0" Foreground="{DynamicResource TextMutedBrush}" />
+                            </StackPanel>
+
+                            <materialDesign:PackIcon Grid.Column="1" Kind="ChevronLeft" Width="18" Height="18"
+                                                     Margin="10,2,0,0" Foreground="{DynamicResource TextMutedBrush}">
+                                <materialDesign:PackIcon.Style>
+                                    <Style TargetType="materialDesign:PackIcon">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                <Setter Property="Kind" Value="ChevronDown" />
+                                                <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </materialDesign:PackIcon.Style>
+                            </materialDesign:PackIcon>
+                        </Grid>
                     </Button>
+
+                    <Border Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}"
+                            Margin="0,12,0,0" Padding="0,10,0,0"
+                            BorderThickness="0,1,0,0" BorderBrush="{DynamicResource LineBrush}">
+                        <StackPanel>
+                            <Button HorizontalAlignment="Left" Margin="0,0,0,10"
+                                    Style="{StaticResource GhostButton}" Padding="10,5"
+                                    Command="{Binding DataContext.TryFullTourCommand,
+                                        RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                    CommandParameter="{Binding}">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="PlaylistPlay" Width="14" Height="14"
+                                                             VerticalAlignment="Center" />
+                                    <TextBlock Text="شغّل كل الميزات بالترتيب" Margin="5,0,0,0" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+
+                            <ItemsControl ItemsSource="{Binding TourSteps}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{DynamicResource SurfaceAltBrush}"
+                                                CornerRadius="{DynamicResource RadiusSmall}"
+                                                Padding="10,8" Margin="0,0,0,6">
+                                            <DockPanel>
+                                                <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}"
+                                                        Padding="10,4" VerticalAlignment="Center"
+                                                        Command="{Binding DataContext.TryTourCommand,
+                                                            RelativeSource={RelativeSource AncestorType=ItemsControl,
+                                                                AncestorLevel=2}}"
+                                                        CommandParameter="{Binding}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="TelevisionPlay" Width="13" Height="13"
+                                                                                 VerticalAlignment="Center" />
+                                                        <TextBlock Text="جرّبها" Margin="4,0,0,0" FontSize="11.5" />
+                                                    </StackPanel>
+                                                </Button>
+                                                <StackPanel Margin="0,0,10,0">
+                                                    <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="12.5"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    <TextBlock Text="{Binding Description}" FontSize="11.5" TextWrapping="Wrap"
+                                                               Margin="0,3,0,0" Foreground="{DynamicResource TextMutedBrush}" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Border>
         </DataTemplate>
-        <ItemsPanelTemplate x:Key="TwoColumnPanel">
-            <UniformGrid Columns="2" />
-        </ItemsPanelTemplate>
     </UserControl.Resources>
 
     <Grid Margin="14">
@@ -51,13 +140,12 @@
             </StackPanel>
             <TextBlock TextWrapping="Wrap" FontSize="12.5" Margin="0,6,0,0"
                        Foreground="{DynamicResource TextMutedBrush}"
-                       Text="شرح مختصر لكل شاشة في البرنامج. لو مش عارف تستخدم حاجة، دوس &quot;جرّبها معايا&quot; وهنوريك مكانها بالظبط." />
+                       Text="شرح مختصر لكل شاشة في البرنامج. دوس على أي شاشة تحتها عشان تشوف ميزاتها واحدة واحدة، واختار اللي عايز تتعلمه ودوس &quot;جرّبها&quot; وهنوريك مكانه بالظبط." />
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <ItemsControl ItemsSource="{Binding MainTopics}"
-                              ItemsPanel="{StaticResource TwoColumnPanel}"
                               ItemTemplate="{StaticResource HelpTopicCard}" />
 
                 <!-- عنوان قسم فوق التبويبات السبعة بتاعة التسجيل اليومي —
@@ -71,7 +159,6 @@
                 </StackPanel>
 
                 <ItemsControl ItemsSource="{Binding DailyEntryTopics}"
-                              ItemsPanel="{StaticResource TwoColumnPanel}"
                               ItemTemplate="{StaticResource HelpTopicCard}" />
             </StackPanel>
         </ScrollViewer>
