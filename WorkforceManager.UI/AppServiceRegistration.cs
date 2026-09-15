@@ -80,6 +80,7 @@ namespace WorkforceManager.UI
             services.AddScoped<ProductionTrendService>();
             services.AddScoped<GlobalSearchService>();
             services.AddScoped<SearchIntentService>();
+            services.AddScoped<HomeSummaryService>();
             // الهوية المشتركة: مصدر واحد لـ"مين عمل كده" — الحذف الناعم
             // وسجل العمليات الاتنين بيقروا منه
             services.AddSingleton<CurrentUserContext>();
@@ -102,6 +103,10 @@ namespace WorkforceManager.UI
             // جوّه الجلسة الواحدة Scoped بتتصرف زي Singleton
             // بالظبط، فسلوك التنقّل الموثّق تحت مابيتغيرش.
             services.AddScoped<MainWindow>();
+            // الشاشة الافتراضية بعد تسجيل الدخول — Transient زي باقي
+            // الشاشات الداخلية، فأرقامها بتتحدّث طازة مع كل رجوع ليها
+            services.AddTransient<Views.HomeView>();
+            services.AddTransient<ViewModels.HomeViewModel>();
             // الشاشات الداخلية Transient: نسخة جديدة نظيفة مع كل تنقّل
             services.AddTransient<Views.WorkersView>();
             services.AddTransient<ViewModels.WorkersViewModel>();

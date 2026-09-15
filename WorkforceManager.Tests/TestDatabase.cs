@@ -136,6 +136,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<DepartmentAttendanceService>();
             services.AddScoped<WorkerRecognitionService>();
             services.AddScoped<ProductionTrendService>();
+            services.AddScoped<HomeSummaryService>();
             var reportTemplatesPath = _reportTemplatesPath;
             services.AddScoped<GlobalSearchService>(sp => new GlobalSearchService(
                 sp.GetRequiredService<IWorkerRepository>(),
