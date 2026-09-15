@@ -402,7 +402,22 @@
         <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
         <Setter Property="Margin" Value="10,2" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="UseLayoutRounding" Value="True" />
+        <!-- {x:Null} هنا كان مسيب المربع المنقّط الافتراضي بتاع WPF يبان لما
+             العنصر ياخد تركيز الكيبورد (Tab/دوسة) — قالب فاضي تمامًا بدل
+             null بيقفله فعليًا، أوثق عبر إصدارات WPF المختلفة -->
+        <Setter Property="FocusVisualStyle">
+            <Setter.Value>
+                <Style>
+                    <Setter Property="Control.Template">
+                        <Setter.Value>
+                            <ControlTemplate />
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Setter.Value>
+        </Setter>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
