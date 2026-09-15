@@ -670,6 +670,17 @@ Core  <----------------------- UI
   driven by the same `IsActive` flag) and the compact `NeedsAttention`/`AttentionText` warning row (a
   product with no active stages or an uncovered stage is a real, actionable problem — losing that on a
   screen whose whole job is surfacing it would have been a regression, not a simplification).
+  **A follow-up pass added three small, low-risk improvements the user explicitly asked for as
+  suggestions**, each reusing something that already existed rather than inventing new data:
+  `ProductRow.ActivityText` (already computed, already feeds the "شغّالين" filter chip) was completely
+  invisible on the card before this — it now renders as a second neutral badge next to the stage-count
+  one whenever `IsActive`, so the tile finally shows what this whole period-driven screen is actually
+  about ("5,000 قطعة في 12 يوم" or "مفيش شغل في الفترة دي") without adding any new field. The description
+  `TextBlock` gained a `ToolTip` bound to the same untruncated `Description`, so the `CharacterEllipsis`
+  trimming that shortens it on the card no longer means the full text is unreachable. A new
+  `ProductRow.HasDescription` (mirroring `HasImage`'s exact shape) collapses that `TextBlock` entirely
+  for a product with no description filled in, instead of leaving an empty gap where a blank line used
+  to sit.
   **Selection needed a new mechanism, mirroring `HelpTopic.IsExpanded`'s reasoning exactly**: the grid
   is a plain `ItemsControl`+`WrapPanel` (`ProductsGrid` — same structure as `TopicsGrid`), not a
   `ListBox`, so there's no `SelectedItem` a tile could compare itself against without converter/binding

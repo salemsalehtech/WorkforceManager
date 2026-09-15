@@ -564,8 +564,12 @@
 
                                             <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13.5" Margin="0,8,0,0"
                                                        TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <!-- مخفي تمامًا لو مفيش وصف، بدل سطر فاضي — ولها ToolTip
+                                                 بالنص الكامل عشان القطع بالنقط ميضيّعش المعلومة -->
                                             <TextBlock Text="{Binding Description}" FontSize="11" Margin="0,4,0,0"
                                                        TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding Description}"
+                                                       Visibility="{Binding HasDescription, Converter={StaticResource BoolToVis}}"
                                                        Foreground="{DynamicResource TextMutedBrush}"/>
 
                                             <!-- تنبيه المنتج — نفس معلومة الكارت القديم، مضغوطة -->
@@ -579,13 +583,25 @@
                                                            Foreground="{DynamicResource WarnBrush}"/>
                                             </StackPanel>
 
-                                            <!-- بادج عدد المراحل (نشط) — نفس مكان بادج "N ميزة" في الدليل -->
-                                            <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8"
-                                                    Padding="7,1" Margin="0,8,0,0" HorizontalAlignment="Left"
-                                                    Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}">
-                                                <TextBlock Text="{Binding StagesCountText}" FontSize="10"
-                                                           Foreground="{DynamicResource TextMutedBrush}"/>
-                                            </Border>
+                                            <!-- بادج عدد المراحل + بادج النشاط في الفترة (نشط) — نفس
+                                                 مكان بادج "N ميزة" في الدليل، مع بادج إضافي مقترح:
+                                                 ProductRow.ActivityText موجودة أصلًا (بتغذّي فلتر
+                                                 "شغّالين" في الشاشة) بس مكانتش ظاهرة على الكارت خالص -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                                        Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}">
+                                                <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8"
+                                                        Padding="7,1">
+                                                    <TextBlock Text="{Binding StagesCountText}" FontSize="10"
+                                                               Foreground="{DynamicResource TextMutedBrush}"/>
+                                                </Border>
+                                                <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8"
+                                                        Padding="7,1" Margin="5,0,0,0">
+                                                    <TextBlock Text="{Binding ActivityText}" FontSize="10"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               MaxWidth="130"
+                                                               Foreground="{DynamicResource TextMutedBrush}"/>
+                                                </Border>
+                                            </StackPanel>
                                             <!-- بادج "موقوف" بدل عدد المراحل لمنتج متوقف — نفس
                                                  المعلومة اللي كانت في الكارت القديم -->
                                             <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="8"

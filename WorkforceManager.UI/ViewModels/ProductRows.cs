@@ -82,6 +82,9 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>عنده صورة؟ (لو لأ بتظهر دايرة الحروف الأولى مكانها)</summary>
         public bool HasImage => ImageData is { Length: > 0 };
 
+        /// <summary>عنده وصف مكتوب؟ — بيحدد ظهور سطر الوصف في كارت الشبكة، بدل ما يسيب فراغ فاضي لمنتج من غير وصف</summary>
+        public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
+
         public string StatusText => IsActive ? "نشط" : "موقوف";
 
         /// <summary>عدد مراحل خط الإنتاج الحقيقية — مرحلة الرص مستبعدة (شوف ProductionLine.Active)</summary>
