@@ -35,7 +35,22 @@ namespace WorkforceManager.Business.DTOs
         BottomWorker,
 
         /// <summary>"مين شغال على [منتج أو مرحلة]" — العمال المؤهلين، مرتبين بالنجوم</summary>
-        ProductWorkers
+        ProductWorkers,
+
+        /// <summary>
+        /// "أضيف مرحلة لـ[منتج]" — فعل، مش سؤال. AnswerAsync بيحدد المنتج
+        /// بس، مايفتحش أي ديالوج ولا يكتب حاجة (Business ممنوع يعرف عن
+        /// WPF) — الهبوط في MainWindow هو اللي بيفتح StageEditDialog
+        /// الموجود، بنفس منطق AddStageCommand بالظبط.
+        /// </summary>
+        AddStage,
+
+        /// <summary>
+        /// "أضيف مهارة لـ[عامل]" — نفس فعل "عيّن عامل على مرحلة" بالظبط
+        /// (AssignSkillAsync هو نفسه). AnswerAsync بيحدد العامل بس؛ الهبوط
+        /// بيفعّل ToggleAddSkillsCommand الموجود على شاشة العمال.
+        /// </summary>
+        AssignSkill
     }
 
     /// <summary>ناتج تفكيك عبارة البحث لنية + اسم مرشّح — منطق نقي، مفيش قاعدة بيانات هنا</summary>

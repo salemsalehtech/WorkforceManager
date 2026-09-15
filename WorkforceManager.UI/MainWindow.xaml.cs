@@ -651,13 +651,65 @@ namespace WorkforceManager.UI
                     break;
 
                 case SearchCategory.IntentAnswer:
-                    // نفس هبوط فئتي Worker/Product بالظبط، بس بالاسم الصافي
-                    // (IntentAnswer.Name)، مش عنوان البطاقة الكامل (PrimaryText
-                    // هنا = نفس الاسم الصافي أصلًا، شوف SearchAllCategoriesAsync)
-                    if (chosen.WorkerId is not null) await LandOnWorkerAsync(chosen.PrimaryText, chosen.WorkerId);
+                    // فعل ("أضيف مرحلة/مهارة") لازم هبوط خاص بيفتح نفس
+                    // الديالوج/اللوحة اللي المستخدم كان هيفتحها بإيده —
+                    // مش مجرد تنقّل زي باقي إجابات النية
+                    if (chosen.IntentAnswer?.Kind == SearchIntentKind.AddStage)
+                        await LandOnAddStageAsync(chosen);
+                    else if (chosen.IntentAnswer?.Kind == SearchIntentKind.AssignSkill)
+                        await LandOnAssignSkillAsync(chosen);
+                    // باقي إجابات النية: نفس هبوط فئتي Worker/Product بالظبط،
+                    // بس بالاسم الصافي (IntentAnswer.Name)، مش عنوان البطاقة
+                    // الكامل (PrimaryText هنا = نفس الاسم الصافي أصلًا، شوف
+                    // SearchAllCategoriesAsync)
+                    else if (chosen.WorkerId is not null) await LandOnWorkerAsync(chosen.PrimaryText, chosen.WorkerId);
                     else if (chosen.ProductId is not null) LandOnProduct(chosen.PrimaryText);
                     break;
             }
+        }
+
+        /// <summary>
+        /// "أضيف مرحلة" — بيهبط على المنتج بنفس منطق فئة Product العادي،
+        /// وبعدين بينادي نفس AddStageCommand اللي زرار "إضافة مرحلة" في
+        /// الشاشة نفسها بينادّيه — StageEditDialog بيفتح فاضي، والمستخدم
+        /// بيملاه ويحفظ زي العادة تمامًا (مفيش كتابة تلقائية من هنا).
+        /// </summary>
+        private async Task LandOnAddStageAsync(GlobalSearchResult chosen)
+        {
+            NavProductsItem.IsChecked = true;
+            if (MainContent?.Content is not ProductsView { DataContext: ViewModels.ProductsViewModel productsVm }) return;
+
+            productsVm.SearchText = chosen.PrimaryText;
+            await Task.Delay(SearchLandingSettleDelayMs);
+
+            var row = productsVm.Products.FirstOrDefault(p => p.ProductId == chosen.ProductId);
+            if (row is null) return;
+
+            productsVm.SelectProductCommand.Execute(row);
+            productsVm.AddStageCommand.Execute(null);
+        }
+
+        /// <summary>
+        /// "أضيف مهارة" — بيهبط على العامل بنفس منطق فئة Worker العادي،
+        /// وبعدين بيفتح "وضع الإضافة" على كارته — تأخير تاني بعد تحديد
+        /// العامل لازم هنا (عكس هبوط Worker العادي): SelectedWorker بيحمّل
+        /// Detail بشكل غير متزامن (WorkersViewModel.OnSelectedWorkerChanged
+        /// → LoadDetailAsync)، وToggleAddSkillsCommand محتاج Detail جاهز.
+        /// </summary>
+        private async Task LandOnAssignSkillAsync(GlobalSearchResult chosen)
+        {
+            NavWorkersItem.IsChecked = true;
+            if (MainContent?.Content is not WorkersView { DataContext: ViewModels.WorkersViewModel workersVm }) return;
+
+            workersVm.SearchText = chosen.PrimaryText;
+            await Task.Delay(SearchLandingSettleDelayMs);
+
+            workersVm.SelectedWorker = workersVm.Workers.FirstOrDefault(w => w.WorkerId == chosen.WorkerId);
+            if (workersVm.SelectedWorker is null) return;
+
+            await Task.Delay(SearchLandingSettleDelayMs);
+            if (workersVm.Detail is not null && !workersVm.Detail.IsAddingSkills)
+                workersVm.ToggleAddSkillsCommand.Execute(null);
         }
 
         /// <summary>هبوط على عامل بعينه — مشترك بين فئة Worker العادية وإجابة نية عن عامل</summary>

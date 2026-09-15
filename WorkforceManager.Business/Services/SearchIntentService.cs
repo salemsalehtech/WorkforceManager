@@ -99,7 +99,20 @@ namespace WorkforceManager.Business.Services
             ["شغال"] = SearchIntentKind.ProductWorkers,
             ["شغالين"] = SearchIntentKind.ProductWorkers,
             ["الشغالين"] = SearchIntentKind.ProductWorkers,
+
+            // AddStage/AssignSkill: مباشرة هنا (مش placeholder) بس لازمين
+            // AddMarkerWords كمان (شوف الحارس في ParseIntent) — "مرحلة دبلة"
+            // لوحدها من غير "أضيف" مش نية، عشان محدش يفتكر بحث نصي عادي عن
+            // كلمة "مرحلة" بقى فعل إضافة
+            ["مرحله"] = SearchIntentKind.AddStage,
+            ["المرحله"] = SearchIntentKind.AddStage,
+
+            ["مهاره"] = SearchIntentKind.AssignSkill,
+            ["المهاره"] = SearchIntentKind.AssignSkill,
         };
+
+        /// <summary>لازمة مع "مرحلة"/"مهارة" عشان تتحول لفعل حقيقي (AddStage/AssignSkill) — شوف الحارس في ParseIntent</summary>
+        private static readonly HashSet<string> AddMarkerWords = new() { "اضيف", "ضيف", "اضافه", "الاضافه" };
 
         /// <summary>"متوسط" لوحدها مش نية — لازم تترافق مع "انتاج" (بأي ترتيب) عشان تبقى AverageProduction</summary>
         private static readonly HashSet<string> AverageMarkerWords = new() { "متوسط", "المتوسط" };
@@ -182,6 +195,7 @@ namespace WorkforceManager.Business.Services
             var hasAverageMarker = words.RemoveAll(w => AverageMarkerWords.Contains(w)) > 0;
             var hasTopMarker = words.RemoveAll(w => TopMarkerWords.Contains(w)) > 0;
             var hasBottomMarker = words.RemoveAll(w => BottomMarkerWords.Contains(w)) > 0;
+            var hasAddMarker = words.RemoveAll(w => AddMarkerWords.Contains(w)) > 0;
 
             SearchIntentKind? kind = null;
             for (var i = 0; i < words.Count; i++)
@@ -212,6 +226,12 @@ namespace WorkforceManager.Business.Services
                 if (kind != SearchIntentKind.Production) return null;
                 kind = SearchIntentKind.BottomProduction;
             }
+
+            // "مرحلة"/"مهارة" لوحدهم مش فعل — لازم "أضيف"/"ضيف" معاهم، وإلا
+            // ده بحث نصي عادي عن الكلمة دي (زي بحث عن مرحلة اسمها "مرحلة
+            // التشطيب" مثلًا)، مش نية إضافة
+            if (kind is SearchIntentKind.AddStage or SearchIntentKind.AssignSkill && !hasAddMarker)
+                return null;
 
             ReportPeriodKind? period = null;
             for (var i = 0; i < words.Count; i++)
@@ -341,8 +361,16 @@ namespace WorkforceManager.Business.Services
             if (parsed.Kind == SearchIntentKind.ProductWorkers)
                 return await BuildWhoCanDoAnswerAsync(parsed);
 
+            // فعل — الاسم منتج بس، مفيش داعي نحمّل/نطابق عمال خالص
+            if (parsed.Kind == SearchIntentKind.AddStage)
+                return await BuildAddStageAnswerAsync(parsed);
+
             var workers = await _workers.GetAllWithSkillsAsync();
             var (worker, workerScore) = BestWorkerMatch(parsed.CandidateName, workers);
+
+            // فعل — نفس مصدر "غياب"/"راتب" لتحديد العامل، بس مفيش تقرير مطلوب
+            if (parsed.Kind == SearchIntentKind.AssignSkill)
+                return worker is null ? null : BuildAssignSkillAnswer(worker);
 
             if (parsed.Kind is not (SearchIntentKind.Production or SearchIntentKind.AverageProduction))
                 return worker is null ? null : await BuildWorkerAnswerAsync(parsed, worker);
@@ -996,6 +1024,43 @@ namespace WorkforceManager.Business.Services
                 Lines = ranked.Select(r => new SearchIntentAnswerLine { Label = r.WorkerName, Value = r.StarsText }).ToList()
             };
         }
+
+        /// <summary>
+        /// "أضيف مرحلة" — فعل، مش إجابة. بتحدد المنتج بس؛ **مفيش نداء
+        /// لـ ProductManagementService.AddStageAsync هنا خالص** — Business
+        /// ممنوع يفتح ديالوج WPF، فالكتابة الفعلية بتحصل بعد ما المستخدم
+        /// يدوس على النتيجة ويراجع StageEditDialog ويحفظ بنفسه (شوف الهبوط
+        /// في MainWindow.LandOnSearchResultAsync).
+        /// </summary>
+        private async Task<SearchIntentAnswer?> BuildAddStageAnswerAsync(ParsedIntentQuery parsed)
+        {
+            var products = await _products.GetAllWithStagesAsync();
+            var (product, _) = BestProductMatch(parsed.CandidateName, products);
+            if (product is null) return null;
+
+            return new SearchIntentAnswer
+            {
+                Kind = SearchIntentKind.AddStage,
+                Title = $"أضيف مرحلة — {product.Name}",
+                Name = product.Name,
+                ProductId = product.Id
+            };
+        }
+
+        /// <summary>
+        /// "أضيف مهارة" — فعل، مش إجابة. بتحدد العامل بس (مفيش تقرير
+        /// مطلوب فمفيش نداء DB إضافي هنا)؛ **مفيش نداء لـ
+        /// WorkerManagementService.AssignSkillAsync هنا خالص**، نفس سبب
+        /// BuildAddStageAnswerAsync بالظبط — الكتابة الفعلية بتحصل بعد ما
+        /// المستخدم يفتح "وضع الإضافة" على كارت العامل ويختار المرحلة ويحفظ.
+        /// </summary>
+        private static SearchIntentAnswer BuildAssignSkillAnswer(Worker worker) => new()
+        {
+            Kind = SearchIntentKind.AssignSkill,
+            Title = $"أضيف مهارة — {worker.FullName}",
+            Name = worker.FullName,
+            WorkerId = worker.Id
+        };
 
         private async Task<SearchIntentAnswer> BuildStandingAnswerAsync(Worker worker)
         {

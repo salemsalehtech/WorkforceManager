@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
@@ -296,6 +297,55 @@ namespace WorkforceManager.Tests
         public void Product_workers_keyword_alone_without_a_name_has_no_intent()
         {
             Assert.Null(SearchIntentService.ParseIntent("مين شغال"));
+        }
+
+        [Theory]
+        [InlineData("ضيف مرحلة دبلة")]
+        [InlineData("دبلة اضيف مرحلة")]
+        public void Add_stage_keyword_requires_the_add_marker_and_keeps_the_product_name(string query)
+        {
+            var parsed = SearchIntentService.ParseIntent(query);
+
+            Assert.NotNull(parsed);
+            Assert.Equal(SearchIntentKind.AddStage, parsed!.Kind);
+            Assert.Equal("دبله", parsed.CandidateName);
+        }
+
+        [Fact]
+        public void Add_stage_keeps_the_attached_lam_preposition_but_still_fuzzy_matches_later()
+        {
+            // "لدبلة" مكتوبة كلمة واحدة (اللام ملزوقة، زي العربي العادي) —
+            // ParseIntent مش بيشيل اللام صراحة، لكن حرف واحد زيادة لسه جوه
+            // مدى SearchMatcher الفَزّي (مسافة تحرير 1)، فالمطابقة بعدين
+            // بتنجح برضه — شوف Add_stage_intent_resolves_the_product_... تحت
+            var parsed = SearchIntentService.ParseIntent("اضيف مرحلة لدبلة");
+
+            Assert.NotNull(parsed);
+            Assert.Equal(SearchIntentKind.AddStage, parsed!.Kind);
+            Assert.Equal("لدبله", parsed.CandidateName);
+        }
+
+        [Fact]
+        public void Stage_keyword_without_the_add_marker_is_not_a_supported_intent()
+        {
+            // "مرحلة دبلة" لوحدها من غير "أضيف"/"ضيف" — بحث نصي عادي، مش فعل
+            Assert.Null(SearchIntentService.ParseIntent("مرحلة دبلة"));
+        }
+
+        [Fact]
+        public void Assign_skill_keyword_requires_the_add_marker_and_keeps_the_worker_name()
+        {
+            var parsed = SearchIntentService.ParseIntent("ضيف مهارة أحمد");
+
+            Assert.NotNull(parsed);
+            Assert.Equal(SearchIntentKind.AssignSkill, parsed!.Kind);
+            Assert.Equal("احمد", parsed.CandidateName);
+        }
+
+        [Fact]
+        public void Skill_keyword_without_the_add_marker_is_not_a_supported_intent()
+        {
+            Assert.Null(SearchIntentService.ParseIntent("مهارة أحمد"));
         }
     }
 
@@ -786,6 +836,56 @@ namespace WorkforceManager.Tests
             using var scope = _db.CreateScope();
 
             var answer = await Intent(scope).AnswerAsync("شغال على حاجة مش موجودة خالص");
+
+            Assert.Null(answer);
+        }
+
+        [Fact]
+        public async Task Add_stage_intent_resolves_the_product_without_writing_anything()
+        {
+            using var scope = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(scope);
+            var stagesBefore = await db.ProductionStages.CountAsync();
+
+            var answer = await Intent(scope).AnswerAsync("اضيف مرحلة لدبلة");
+
+            Assert.NotNull(answer);
+            Assert.Equal(SearchIntentKind.AddStage, answer!.Kind);
+            Assert.Equal(TestDatabase.ProductRingId, answer.ProductId);
+            Assert.Equal(stagesBefore, await db.ProductionStages.CountAsync()); // مفيش كتابة فعلية من AnswerAsync
+        }
+
+        [Fact]
+        public async Task Add_stage_intent_with_no_matching_product_returns_null()
+        {
+            using var scope = _db.CreateScope();
+
+            var answer = await Intent(scope).AnswerAsync("اضيف مرحلة لمنتج مش موجود خالص");
+
+            Assert.Null(answer);
+        }
+
+        [Fact]
+        public async Task Assign_skill_intent_resolves_the_worker_without_writing_anything()
+        {
+            using var scope = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(scope);
+            var skillsBefore = await db.WorkerSkills.CountAsync();
+
+            var answer = await Intent(scope).AnswerAsync("اضيف مهارة لأحمد");
+
+            Assert.NotNull(answer);
+            Assert.Equal(SearchIntentKind.AssignSkill, answer!.Kind);
+            Assert.Equal(TestDatabase.WorkerAhmedId, answer.WorkerId);
+            Assert.Equal(skillsBefore, await db.WorkerSkills.CountAsync()); // مفيش كتابة فعلية من AnswerAsync
+        }
+
+        [Fact]
+        public async Task Assign_skill_intent_with_no_matching_worker_returns_null()
+        {
+            using var scope = _db.CreateScope();
+
+            var answer = await Intent(scope).AnswerAsync("اضيف مهارة لمصطفى_مش_موجود_خالص");
 
             Assert.Null(answer);
         }
