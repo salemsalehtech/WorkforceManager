@@ -650,11 +650,51 @@ Core  <----------------------- UI
   lose?" includes the piece thrown away at stage one. Subtracting the early scrap too would double-count
   it: it never reached the last stage, so it was never in that number.
   `ReportBuilderView` (nav: "التقارير") is the document factory — see the report engine below.
-  `ProductsView` is implemented with the same card language as the workers/attendance screens: summary bar,
-  instant search (product or stage name), `FilterChip` filters, and product cards showing stage count
-  only — a `TotalQuota` stat (sum of every active stage's `PiecesPerWorkday`) was removed on purpose:
-  summing quotas across sequential stages measures nothing, since a piece passes through the stages in
-  order rather than in parallel, so the number just grew with stage count. Don't reintroduce it.
+  `ProductsView` has the summary bar / instant search (product or stage name) / `FilterChip` filters
+  toolbar the workers/attendance screens also use, unchanged by the card-grid redesign below — a
+  `TotalQuota` stat (sum of every active stage's `PiecesPerWorkday`) was removed on purpose: summing
+  quotas across sequential stages measures nothing, since a piece passes through the stages in order
+  rather than in parallel, so the number just grew with stage count. Don't reintroduce it.
+  **Product cards were redesigned to match "الدليل"'s tile-grid shape** (user request: "convert the
+  product cards to the Guide page's card look, same animation, professionally"), replacing the old
+  narrow `ListBox` of `WorkerCard`-styled rows sitting beside a permanent detail column. This wasn't a
+  blind copy — `HelpView`'s `TopicTile` binds to static content (`Title`/`Description`/`Icon`/
+  `FeatureCount`) that `ProductRow` doesn't have the same shape of, so each slot was mapped deliberately:
+  the product's existing avatar/initials circle (`ProductRow.Initials`/`Image`/`HasImage`, already this
+  app's product-identity visual everywhere else) takes the icon's spot instead of a generic
+  `PackIconKind` — products have no meaningful per-item icon, and inventing one would say less than the
+  avatar already does. The stage-count badge reuses the *already-computed* `ProductRow.StagesCountText`
+  ("N مرحلة") in exactly `TopicTile`'s `FeatureCount` badge position — no new field needed. Two things
+  the old row showed that `TopicTile` has no equivalent for were kept rather than dropped for a cleaner
+  look: the inactive "موقوف" pill (now shown *instead of* the stage-count badge, in the same badge slot,
+  driven by the same `IsActive` flag) and the compact `NeedsAttention`/`AttentionText` warning row (a
+  product with no active stages or an uncovered stage is a real, actionable problem — losing that on a
+  screen whose whole job is surfacing it would have been a regression, not a simplification).
+  **Selection needed a new mechanism, mirroring `HelpTopic.IsExpanded`'s reasoning exactly**: the grid
+  is a plain `ItemsControl`+`WrapPanel` (`ProductsGrid` — same structure as `TopicsGrid`), not a
+  `ListBox`, so there's no `SelectedItem` a tile could compare itself against without converter/binding
+  gymnastics. `ProductRow` became an `ObservableObject` with `[ObservableProperty] IsSelected`, driving
+  the same gold-2px-border `DataTrigger` `TopicTile` uses (this also *simplifies* on the old design: the
+  previous "gold rail on the trailing edge instead of a ring" workaround existed specifically because a
+  ring's corner radius had to match `WorkerCard`'s exactly — moving to `CardButton`/`Card`-styled tiles
+  removes that constraint, so the literal gold-border technique from the Guide could be reused as-is).
+  `ProductsViewModel.OnSelectedProductChanged` sets `IsSelected` across **`_allProducts`, not just the
+  filtered `Products`** — so a selection made before a filter narrows it away still clears correctly the
+  moment it would reappear, since `Products` and `_allProducts` share the same row instances (`ApplyFilter`
+  filters/sorts, never copies). A new `SelectProductCommand` (`[RelayCommand] SelectProduct(ProductRow?)`)
+  replaces the old two-way `SelectedItem` binding, matching `HelpViewModel.SelectTopicCommand`'s shape.
+  **The staggered entrance animation is `HelpView.AnimateTilesIn` moved into a new `ProductsView.xaml.cs`**
+  (this view had no code-behind before), same mechanism exactly — `ItemContainerGenerator.ContainerFromIndex`
+  → real `Storyboard` per tile, `index × 60ms` stagger, 280ms fade + 14px slide-up, `CubicEase EaseOut`.
+  **One necessary adaptation**: Help's `Topics` is static content loaded once, but `Products` is rebuilt
+  by `ApplyFilter()` on every search/filter/period change, so replaying the animation only on `Loaded`
+  would mean it never runs again after the first paint. `ProductsView` instead subscribes to
+  `Products.CollectionChanged` and re-triggers the animation on every change — but `ApplyFilter()`'s
+  `Clear()` + N×`Add()` each raise their own `CollectionChanged`, so a naive subscription would replay
+  the stagger once per row. A `_tileAnimationPending` guard collapses any burst of changes within one
+  `Dispatcher.BeginInvoke(DispatcherPriority.Loaded)` into a single animation pass, which also gives the
+  `WrapPanel` a chance to finish laying out its new row count first (same reason `AnimateTilesIn` itself
+  calls `UpdateLayout()` before walking containers).
   **The screen is driven by a period**, defaulting to the current work week and served by
   `ProductActivityService` (which delegates to `WeeklySummaryService.GetWorkWeekRange` — do not define a
   second "this week" anywhere). The period controls the filter and the stats together, so the number on
