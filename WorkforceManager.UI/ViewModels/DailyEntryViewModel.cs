@@ -667,7 +667,16 @@ namespace WorkforceManager.UI.ViewModels
                 FlowSessions.Add(session);
             }
 
-            await session.PrepareWithdrawalAsync(balance, ranges);
+            try
+            {
+                await session.PrepareWithdrawalAsync(balance, ranges);
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "مش هينفع");
+                return;
+            }
+
             SelectedTabIndex = 0;
         }
 
@@ -1830,8 +1839,16 @@ namespace WorkforceManager.UI.ViewModels
 
             if (gate is null) return;
 
-            using (var scope = _scopeFactory.CreateScope())
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
                 await scope.ServiceProvider.GetRequiredService<ScrapService>().RemoveAsync(row.Id);
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "مش هينفع");
+                return;
+            }
 
             await LoadScrapAsync();
             await LoadDaySummaryAsync();
