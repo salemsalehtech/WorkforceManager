@@ -465,6 +465,40 @@ Core  <----------------------- UI
     `Ctrl+K` → the same `GlobalSearch_Click` handler the sidebar button calls, so the dialog opens without
     reaching for the mouse.
 
+  **A fourth round added two action intents — "أضيف مرحلة"/"أضيف مهارة" — the first time بحث سريع
+  writes anything, and it still doesn't, on purpose.** The request was for search to trigger real
+  mutations ("أضيف/أعدّل من صندوق البحث نفسه"), which is a different kind of feature from every intent
+  before it (all read-only) and was deliberately deferred to its own round for that reason. Investigation
+  turned the scope into something much smaller than it sounded, though: **"add a skill for a worker" and
+  "qualify/assign a worker on a stage" are literally the same action already** —
+  `WorkerManagementService.AssignSkillAsync` + `SkillRatingService.SetStarsAsync`, both already called
+  from the inline "وضع الإضافة" panel on a worker's profile card (`WorkersViewModel.ToggleAddSkillsCommand`
+  toggles it; no dialog exists here at all, or ever needed one) — so there was one intent to add, not two.
+  Similarly, "add a stage" is `ProductsViewModel.AddStageCommand`, which already opens `StageEditDialog`
+  and calls `ProductManagementService.AddStageAsync`. **Neither intent writes anything itself.**
+  `SearchIntentService` lives in `WorkforceManager.Business`, which must never reference WPF — so
+  `BuildAddStageAnswerAsync`/`BuildAssignSkillAnswer` only resolve *which* product or worker was meant
+  (`ProductId`/`WorkerId` on the usual `SearchIntentAnswer`, verified by a test asserting the relevant
+  table's row count is unchanged after `AnswerAsync`) and return a plain answer, same shape as every
+  other intent. The actual mutation only happens after the user picks the result, sees the *exact same*
+  `StageEditDialog`/add-skill panel they'd have reached by clicking through manually, and confirms it
+  themselves — search shortens the navigation, not the review. `MainWindow.LandOnSearchResultAsync`'s
+  `IntentAnswer` case special-cases these two kinds ahead of the generic Worker/Product landing:
+  `LandOnAddStageAsync` lands on the product then calls `SelectProductCommand` and `AddStageCommand`
+  itself — the identical two calls a manual click on "إضافة مرحلة" would make.
+  `LandOnAssignSkillAsync` needs a **second** settle delay beyond the one `LandOnWorkerAsync` already
+  waits for selecting the worker: `WorkersViewModel.OnSelectedWorkerChanged` kicks off `LoadDetailAsync`
+  as fire-and-forget, so `Detail` (which `ToggleAddSkillsCommand` needs) isn't populated the instant
+  `SelectedWorker` is set — same "screen hasn't finished its own async load yet" shape as every other
+  settle-delay landing already documented above, just needing it twice in a row here. Both new
+  `SearchIntentKind` values (`AddStage`, `AssignSkill`) require an explicit `اضيف`/`ضيف` marker word
+  paired with `مرحلة`/`مهارة` (same paired-marker mechanism as `متوسط انتاج`) — "مرحلة دبلة" alone, with
+  no add-marker, stays plain text search rather than silently becoming an action. Each intent resolves
+  only **one** name (a product for `AddStage`, a worker for `AssignSkill`) rather than parsing two names
+  out of one phrase (which stage, which worker) — the second selection happens visually, inside the real
+  dialog/panel the user lands on, which is both simpler to parse and safer than guessing a stage name out
+  of free text.
+
   **"إيه الجديد؟" spotlight tour** (`Tour/AppTourStep.cs`, `Tour/AppTourContent.cs`,
   `MainWindow.RunTourAsync`/`PositionTourStep`): a real coach-mark tour, not a changelog dialog — each
   step navigates to the right screen (reusing the same `NavXItem.IsChecked = true` pattern as the global
