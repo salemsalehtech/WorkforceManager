@@ -977,8 +977,19 @@ Core  <----------------------- UI
   "the calm one" against a sidebar that's otherwise gold throughout. `NavItem`'s base `Foreground` is now
   `GoldBrush`; its `IsChecked` trigger sets `SidebarInkBrush` — the same near-white "ink" token already
   used elsewhere for body text on the dark sidebar (`CLAUDE.md`'s own "ink `#EDEDED`, never `#FFFFFF`"
-  rule elsewhere in this file), reused rather than hardcoding a new white. The nav icons follow along for
-  free (`PackIcon` has no explicit `Foreground` in the templates, so it inherits from the `RadioButton`).
+  rule elsewhere in this file), reused rather than hardcoding a new white.
+  **The nav icons did *not* follow along for free — another instance of this file's own "never rely on
+  ambient `Foreground` inheritance" rule biting back.** The first attempt left each `PackIcon` with no
+  explicit `Foreground`, assuming it would inherit from the `RadioButton`; it visibly didn't (icons stayed
+  the old muted ink colour while the text went gold), matching the exact failure mode already documented
+  above for this app's button/icon templates. Fixed the way that rule prescribes — explicitly, per
+  element — but since the colour here must also *track the RadioButton's own selection state* (gold
+  default, ink when checked) rather than stay one fixed value, a literal `DynamicResource` on each icon
+  isn't enough by itself; each of the ten `PackIcon`s now binds
+  `Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"` — an
+  explicit data binding to the ancestor `RadioButton`'s own `Foreground` DP, which *does* reliably reflect
+  whatever the base `Style` `Setter` or the `IsChecked` `Trigger` currently has it set to (a real binding
+  doesn't share ambient property-value-inheritance's reliability problem in this codebase's templates).
   **Contrast, verified not eyeballed for both states** (same WCAG relative-luminance method this file
   already uses elsewhere): default gold-on-sidebar is `GoldBrush` on `SidebarBrush` — 5.42:1 (light:
   `#C2A14D` on `#342E28`) and 12.70:1 (dark: `#E8C57A` on `#000000`). Selected ink-on-alt-fill is

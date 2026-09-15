@@ -189,7 +189,8 @@
                                  Checked="NavWorkers_Checked" Click="NavWorkers_Checked"
                                  AutomationProperties.Name="العمال">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="AccountGroup" Width="18" Height="18" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="AccountGroup" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
                             <TextBlock Text="العمال" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -198,7 +199,8 @@
                                  Checked="NavProducts_Checked" Click="NavProducts_Checked"
                                  AutomationProperties.Name="المنتجات والمراحل">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="PackageVariantClosed" Width="18" Height="18" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="PackageVariantClosed" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
                             <TextBlock Text="المنتجات والمراحل" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -207,7 +209,8 @@
                                  Checked="NavDailyEntry_Checked" Click="NavDailyEntry_Checked"
                                  AutomationProperties.Name="تسجيل الإنتاج اليومي">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ClipboardEditOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="ClipboardEditOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
                             <TextBlock Text="تسجيل الإنتاج اليومي" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -218,7 +221,8 @@
                                  Checked="NavMemory_Checked" Click="NavMemory_Checked"
                                  AutomationProperties.Name="الذاكرة">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
                             <TextBlock Text="الذاكرة" Margin="10,0,0,0" VerticalAlignment="Center" />
                             <!-- عدد خطط الذاكرة المستحقة النهارده أو المتأخرة (نفس نمط شارة سجل العمليات تحت) -->
                             <Border x:Name="MemoryBadge" Background="{DynamicResource DangerBgBrush}"
@@ -238,7 +242,8 @@
                                  Checked="NavEvaluation_Checked" Click="NavEvaluation_Checked"
                                  AutomationProperties.Name="التقييم والمتابعة">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ChartBar" Width="18" Height="18" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="ChartBar" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
                             <TextBlock Text="التقييم والمتابعة" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -247,7 +252,8 @@
                                  Checked="NavReports_Checked" Click="NavReports_Checked"
                                  AutomationProperties.Name="التقارير">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
                             <TextBlock Text="التقارير" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -256,7 +262,8 @@
                                  Checked="NavActivityLog_Checked" Click="NavActivityLog_Checked"
                                  AutomationProperties.Name="سجل العمليات">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
                             <TextBlock Text="سجل العمليات" Margin="10,0,0,0" VerticalAlignment="Center" />
                             <!-- عدد العمليات اللي اتسجّلت من آخر مرة الحساب ده فتح
                                  السجل — بتتصفّر أول ما الشاشة تتفتح (ActivityLogViewModel.LoadAsync) -->
@@ -276,7 +283,8 @@
                                  Checked="NavSettings_Checked" Click="NavSettings_Checked"
                                  AutomationProperties.Name="الإعدادات والنسخ">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
                             <TextBlock Text="الإعدادات والنسخ" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -287,7 +295,8 @@
                                  Checked="NavDepartmentAccounts_Checked" Click="NavDepartmentAccounts_Checked"
                                  AutomationProperties.Name="الحسابات الإدارية">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="AccountTie" Width="18" Height="18" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="AccountTie" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
                             <TextBlock Text="الحسابات الإدارية" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -298,7 +307,8 @@
                                  Checked="NavHelp_Checked" Click="NavHelp_Checked"
                                  AutomationProperties.Name="الدليل">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="HelpCircleOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="HelpCircleOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
                             <TextBlock Text="الدليل" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
