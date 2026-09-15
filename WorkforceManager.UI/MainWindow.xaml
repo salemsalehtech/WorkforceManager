@@ -190,7 +190,7 @@
                                  AutomationProperties.Name="العمال">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="AccountGroup" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                                     Foreground="{DynamicResource GoldBrush}" />
                             <TextBlock Text="العمال" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -200,7 +200,7 @@
                                  AutomationProperties.Name="المنتجات والمراحل">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="PackageVariantClosed" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                                     Foreground="{DynamicResource GoldBrush}" />
                             <TextBlock Text="المنتجات والمراحل" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -210,7 +210,7 @@
                                  AutomationProperties.Name="تسجيل الإنتاج اليومي">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ClipboardEditOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                                     Foreground="{DynamicResource GoldBrush}" />
                             <TextBlock Text="تسجيل الإنتاج اليومي" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -222,7 +222,7 @@
                                  AutomationProperties.Name="الذاكرة">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                                     Foreground="{DynamicResource GoldBrush}" />
                             <TextBlock Text="الذاكرة" Margin="10,0,0,0" VerticalAlignment="Center" />
                             <!-- عدد خطط الذاكرة المستحقة النهارده أو المتأخرة (نفس نمط شارة سجل العمليات تحت) -->
                             <Border x:Name="MemoryBadge" Background="{DynamicResource DangerBgBrush}"
@@ -243,7 +243,7 @@
                                  AutomationProperties.Name="التقييم والمتابعة">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ChartBar" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                                     Foreground="{DynamicResource GoldBrush}" />
                             <TextBlock Text="التقييم والمتابعة" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -253,7 +253,7 @@
                                  AutomationProperties.Name="التقارير">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                                     Foreground="{DynamicResource GoldBrush}" />
                             <TextBlock Text="التقارير" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -263,7 +263,7 @@
                                  AutomationProperties.Name="سجل العمليات">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                                     Foreground="{DynamicResource GoldBrush}" />
                             <TextBlock Text="سجل العمليات" Margin="10,0,0,0" VerticalAlignment="Center" />
                             <!-- عدد العمليات اللي اتسجّلت من آخر مرة الحساب ده فتح
                                  السجل — بتتصفّر أول ما الشاشة تتفتح (ActivityLogViewModel.LoadAsync) -->
@@ -284,7 +284,7 @@
                                  AutomationProperties.Name="الإعدادات والنسخ">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                                     Foreground="{DynamicResource GoldBrush}" />
                             <TextBlock Text="الإعدادات والنسخ" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -296,7 +296,7 @@
                                  AutomationProperties.Name="الحسابات الإدارية">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="AccountTie" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                                     Foreground="{DynamicResource GoldBrush}" />
                             <TextBlock Text="الحسابات الإدارية" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
@@ -308,7 +308,7 @@
                                  AutomationProperties.Name="الدليل">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="HelpCircleOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" />
+                                                     Foreground="{DynamicResource GoldBrush}" />
                             <TextBlock Text="الدليل" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </RadioButton>
