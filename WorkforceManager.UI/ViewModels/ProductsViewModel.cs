@@ -307,8 +307,22 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private ProductRow? _selectedProduct;
 
+        /// <summary>
+        /// دوسة كارت في الشبكة — بديل SelectedItem بتاع ListBox القديمة،
+        /// بما إن الشبكة بقت ItemsControl عادي (نفس نمط
+        /// HelpViewModel.SelectTopic بالظبط، شوف WrapPanel في ProductsView.xaml).
+        /// </summary>
+        [RelayCommand]
+        private void SelectProduct(ProductRow? product) => SelectedProduct = product;
+
         partial void OnSelectedProductChanged(ProductRow? value)
         {
+            // الحد الدهبي على كارت الشبكة (شوف ProductRow.IsSelected) — بيتظبط
+            // على _allProducts كلها مش بس Products المفلترة، عشان لو المنتج
+            // المختار خرج برّه الفلتر الحالي يفضل علمه اتشال صح لما يرجع تاني
+            // (نفس العناصر بالمرجع بين القايمتين، شوف ApplyFilter)
+            foreach (var row in _allProducts) row.IsSelected = ReferenceEquals(row, value);
+
             // تحديث لوحة المراحل فورًا عند تغيير المنتج المحدد
             Stages.Clear();
             if (value is null)

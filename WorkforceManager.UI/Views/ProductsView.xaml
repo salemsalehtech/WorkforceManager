@@ -461,23 +461,17 @@
             </Grid>
         </Grid>
 
-        <Grid Grid.Row="2">
-            <!-- نسبي مش ثابت: العمود ده كان Width="500" مسمّرة، فعلى شاشة
-                 عريضة كان بيسيب المساحة الزيادة كلها لقايمة المنتجات وهو
-                 قافل على 500 مهما كبرت الشاشة. النسبة 5:4 بتدّيه نفس الـ500
-                 تقريبًا عند مساحة التصميم وبتوسّعه بعد كده. الحد الأدنى هو
-                 اللي بيمنعه ينكمش تحت عرض صف الأزرار جوّاه (462 + الحشو). -->
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="5*"
-                        MinWidth="380"/>
-                <ColumnDefinition Width="4*"
-                        MinWidth="500"/>
-            </Grid.ColumnDefinitions>
+        <!-- شبكة كروت المنتجات + لوحة تفاصيل تحتها بعرض كامل — نفس هيكل
+             صفحة "الدليل" حرفيًا (ScrollViewer واحد رأسي، مش عمودين جنب
+             لبعض زي التصميم القديم) -->
+        <ScrollViewer Grid.Row="2"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled">
+        <StackPanel>
 
-            <!-- قائمة المنتجات: بطاقة لكل منتج -->
-            <Border Grid.Column="0"
-                    Style="{StaticResource Card}"
-                    Padding="10">
+            <!-- شبكة كروت المنتجات -->
+            <Border Style="{StaticResource Card}"
+                    Padding="14">
                 <Grid>
                     <StackPanel HorizontalAlignment="Center"
                             VerticalAlignment="Center">
@@ -506,201 +500,121 @@
                                    Foreground="{DynamicResource TextMutedBrush}"/>
                     </StackPanel>
 
-                    <ListBox ItemsSource="{Binding Products}"
-                             SelectedItem="{Binding SelectedProduct}"
-                             Background="Transparent"
-                            BorderThickness="0"
-                             HorizontalContentAlignment="Stretch"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Padding"
-                                        Value="0"/>
-                                <Setter Property="Margin"
-                                        Value="0,0,0,7"/>
-                                <Setter Property="Background"
-                                        Value="Transparent"/>
-                                <Setter Property="BorderThickness"
-                                        Value="0"/>
-                                <Setter Property="FocusVisualStyle"
-                                        Value="{x:Null}"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <!--
-                                                كان في إطار (SelectionRing) بيلف حوالين الكارت
-                                                ويستنوّر لما المنتج يتختار — لازم استدارته تطابق
-                                                استدارة WorkerCard اللي جواه بالظبط، وأي تعديل
-                                                على استدارة واحد فيهم من غير التاني بيبين كإطار
-                                                "مش متناسق مع الكارت". شاشة العمال حلّت نفس
-                                                المشكلة بشريط دهبي على الحرف بدل الإطار (شوف
-                                                تعليقها هناك: "الإطار بيزوّد خط رابع حوالين كل
-                                                كارت")، فمفيش استدارة تتطابق أصلاً. نفس الحل هنا.
-                                            -->
-                                            <Grid>
-                                                <Border x:Name="Rail"
-                                                        Width="3"
-                                                        CornerRadius="2"
-                                                        HorizontalAlignment="Right"
-                                                        Margin="0,10,0,10"
-                                                        Background="{DynamicResource GoldBrush}"
-                                                        Opacity="0"/>
-                                                <ContentPresenter/>
-                                            </Grid>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsSelected"
-                                                        Value="True">
-                                                    <Setter TargetName="Rail"
-                                                            Property="Opacity"
-                                                            Value="1"/>
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-
-                        <ListBox.ItemTemplate>
+                    <!-- شبكة الكروت — نفس بنية TopicsGrid بتاعة "الدليل" بالظبط
+                         (ItemsControl عادي + WrapPanel، مش ListBox) -->
+                    <ItemsControl x:Name="ProductsGrid" ItemsSource="{Binding Products}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Style="{StaticResource WorkerCard}">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
+                                <!-- 250 مش 220 (عرض كارت الدليل): كارت المنتج بيحمل معلومة
+                                     أكتر (أفاتار + بادج حالة + وصف + تنبيه محتمل) فمحتاج
+                                     مساحة أوسع شوية عشان يفضل مقروء -->
+                                <Button Style="{StaticResource CardButton}" Width="250" Margin="0,0,10,10"
+                                        Opacity="0"
+                                        Command="{Binding DataContext.SelectProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}">
+                                    <Button.RenderTransform>
+                                        <TranslateTransform Y="14"/>
+                                    </Button.RenderTransform>
+                                    <Border Padding="14,12">
+                                        <Border.Style>
+                                            <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource GoldBrush}"/>
+                                                        <Setter Property="BorderThickness" Value="2"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <!-- الأفاتار مكان أيقونة الموضوع في كارت الدليل —
+                                                 المنتج مالوش أيقونة، والأفاتار أصلًا هويته
+                                                 البصرية في كل الشاشة -->
+                                            <Border Width="44" Height="44" CornerRadius="12"
+                                                    Background="{DynamicResource SubtleBgBrush}"
+                                                    HorizontalAlignment="Left">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Initials}" FontSize="15.5" FontWeight="Bold"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource BrandBrush}">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding HasImage}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                    <Image Source="{Binding Image}" Stretch="UniformToFill"
+                                                           Visibility="{Binding HasImage, Converter={StaticResource BoolToVis}}">
+                                                        <Image.Clip>
+                                                            <RectangleGeometry Rect="0,0,44,44" RadiusX="11" RadiusY="11"/>
+                                                        </Image.Clip>
+                                                    </Image>
+                                                </Grid>
+                                            </Border>
 
-                                        <!-- الصورة أو الحروف الأولى — نفس المربع بالظبط،
-                                             فالمنتج اللي مالوش صورة مبيسيبش فراغ -->
-                                        <Border Grid.Column="0"
-                                                Width="44"
-                                                Height="44"
-                                                CornerRadius="12"
-                                                Background="{DynamicResource SubtleBgBrush}"
-                                                VerticalAlignment="Center"
-                                                Margin="0,0,14,0">
-                                            <Grid>
-                                                <TextBlock Text="{Binding Initials}"
-                                                        FontSize="15.5"
-                                                        FontWeight="Bold"
-                                                           HorizontalAlignment="Center"
-                                                        VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource BrandBrush}">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Visibility"
-                                                                    Value="Visible"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding HasImage}"
-                                                                        Value="True">
-                                                                    <Setter Property="Visibility"
-                                                                            Value="Collapsed"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-
-                                                <Image Source="{Binding Image}"
-                                                        Stretch="UniformToFill"
-                                                       Visibility="{Binding HasImage, Converter={StaticResource BoolToVis}}">
-                                                    <Image.Clip>
-                                                        <RectangleGeometry Rect="0,0,44,44"
-                                                                RadiusX="11"
-                                                                RadiusY="11"/>
-                                                    </Image.Clip>
-                                                </Image>
-                                            </Grid>
-                                        </Border>
-
-                                        <StackPanel Grid.Column="1"
-                                                VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Name}"
-                                                        FontSize="14.5"
-                                                        FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                                           VerticalAlignment="Center"
-                                                        TextWrapping="Wrap"/>
-                                                <Border Background="{DynamicResource DangerBgBrush}"
-                                                        CornerRadius="7"
-                                                        Padding="8,2"
-                                                        Margin="9,0,0,0"
-                                                        VerticalAlignment="Center">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="Visibility"
-                                                                    Value="Collapsed"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsActive}"
-                                                                        Value="False">
-                                                                    <Setter Property="Visibility"
-                                                                            Value="Visible"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                    <TextBlock Text="موقوف"
-                                                            FontSize="11"
-                                                            FontWeight="Medium"
-                                                               Foreground="{DynamicResource DangerBrush}"/>
-                                                </Border>
-                                            </StackPanel>
-
-                                            <TextBlock Text="{Binding Description}"
-                                                    FontSize="11.5"
-                                                    Margin="0,3,0,0"
-                                                       TextWrapping="Wrap"
-                                                    MaxHeight="32"
+                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13.5" Margin="0,8,0,0"
+                                                       TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding Description}" FontSize="11" Margin="0,4,0,0"
+                                                       TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource TextMutedBrush}"/>
 
-                                            <!-- تنبيه المنتج -->
-                                            <StackPanel Orientation="Horizontal"
-                                                    Margin="0,5,0,0"
+                                            <!-- تنبيه المنتج — نفس معلومة الكارت القديم، مضغوطة -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
                                                         Visibility="{Binding NeedsAttention, Converter={StaticResource BoolToVis}}">
-                                                <materialDesign:PackIcon Kind="AlertOutline"
-                                                        Width="13"
-                                                        Height="13"
-                                                                         VerticalAlignment="Center"
-                                                                         Foreground="{DynamicResource WarnBrush}"/>
-                                                <TextBlock Text="{Binding AttentionText}"
-                                                        FontSize="11.5"
-                                                        Margin="4,0,0,0"
-                                                           VerticalAlignment="Center"
-                                                        FontWeight="Medium"
+                                                <materialDesign:PackIcon Kind="AlertOutline" Width="13" Height="13"
+                                                                         VerticalAlignment="Center" Foreground="{DynamicResource WarnBrush}"/>
+                                                <TextBlock Text="{Binding AttentionText}" FontSize="10.5" Margin="4,0,0,0"
+                                                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center" FontWeight="Medium"
                                                            Foreground="{DynamicResource WarnBrush}"/>
                                             </StackPanel>
-                                        </StackPanel>
 
-                                        <StackPanel Grid.Column="2"
-                                                Orientation="Horizontal"
-                                                VerticalAlignment="Center"
-                                                    Margin="14,0,0,0">
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding ActiveStagesCount}"
-                                                        FontSize="17"
-                                                        FontWeight="Bold"
-                                                           HorizontalAlignment="Center"
-                                                           Foreground="{DynamicResource BrandBrush}"/>
-                                                <TextBlock Text="مرحلة"
-                                                        FontSize="10.5"
-                                                        HorizontalAlignment="Center"
+                                            <!-- بادج عدد المراحل (نشط) — نفس مكان بادج "N ميزة" في الدليل -->
+                                            <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8"
+                                                    Padding="7,1" Margin="0,8,0,0" HorizontalAlignment="Left"
+                                                    Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock Text="{Binding StagesCountText}" FontSize="10"
                                                            Foreground="{DynamicResource TextMutedBrush}"/>
-                                            </StackPanel>
+                                            </Border>
+                                            <!-- بادج "موقوف" بدل عدد المراحل لمنتج متوقف — نفس
+                                                 المعلومة اللي كانت في الكارت القديم -->
+                                            <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="8"
+                                                    Padding="7,1" Margin="0,8,0,0" HorizontalAlignment="Left">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="موقوف" FontSize="10" FontWeight="Medium"
+                                                           Foreground="{DynamicResource DangerBrush}"/>
+                                            </Border>
                                         </StackPanel>
-                                    </Grid>
-                                </Border>
+                                    </Border>
+                                </Button>
                             </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </Grid>
             </Border>
 
             <!-- لوحة مراحل المنتج المحدد -->
-            <Border Grid.Column="1"
-                    Style="{StaticResource Card}"
-                    Margin="10,0,0,0">
+            <Border Style="{StaticResource Card}"
+                    Margin="0,10,0,0">
                 <Grid>
                     <!-- رسالة لما مفيش منتج محدد -->
                     <TextBlock Text="اختار منتج من القائمة لعرض مراحله"
@@ -1225,6 +1139,8 @@
                     </Grid>
                 </Grid>
             </Border>
-        </Grid>
+
+        </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>

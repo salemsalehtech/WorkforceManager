@@ -27,8 +27,16 @@ namespace WorkforceManager.UI.ViewModels
 
     public record VolumeFilterOption(ProductVolumeSort Sort, string Display);
 
-    /// <summary>منتج واحد في قائمة الشاشة، بمراحله المحمّلة معاه</summary>
-    public class ProductRow
+    /// <summary>
+    /// منتج واحد في قائمة الشاشة، بمراحله المحمّلة معاه.
+    ///
+    /// <see cref="ObservableObject"/> بس عشان <see cref="IsSelected"/> — نفس
+    /// السبب اللي خلّى HelpTopic.IsExpanded كذلك: الشبكة الجديدة (شوف
+    /// ProductsView.xaml) بقت ItemsControl عادي بدل ListBox، فمفيش
+    /// SelectedItem جاهز يقارن بيه كل كارت نفسه؛ علم على العنصر نفسه أبسط
+    /// من converter/binding بيقارن مرجع مع ProductsViewModel.SelectedProduct.
+    /// </summary>
+    public partial class ProductRow : ObservableObject
     {
         public int ProductId { get; init; }
         public string Name { get; init; } = "";
@@ -97,6 +105,10 @@ namespace WorkforceManager.UI.ViewModels
             : UncoveredStagesCount > 0
                 ? $"{UncoveredStagesCount} مرحلة مفيش حد مؤهل ليها"
                 : "";
+
+        /// <summary>الكارت ده هو المختار دلوقتي في الشبكة؟ — بيحدد الحد الدهبي، شوف ProductsViewModel.SelectProduct</summary>
+        [ObservableProperty]
+        private bool _isSelected;
     }
 
     /// <summary>مرحلة واحدة في خط إنتاج المنتج المحدد</summary>
