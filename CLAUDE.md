@@ -1298,6 +1298,139 @@ Core  <----------------------- UI
   `AccountCard`/`FinalSaveButton` — which *do* have `LearnFeaturesContent.cs` steps describing them as
   "the bottom of the sidebar" — stay exactly where they were relative to each other; only the date card
   left that region, so that wording is still accurate.
+  **A later, separate prompt made the whole sidebar collapsible** — confirmed against the actual XAML
+  first (everything above was already shipped by this point) rather than assumed. Collapsing hides
+  **everything**: logo, quick search, date card, nav list, final-save button, account row — down to a
+  ~52px strip holding only the toggle, per an explicit confirmation (the alternative — nav list only,
+  header/footer staying visible — was ruled out since the whole sidebar is one width-constrained column;
+  there's no way to keep header/footer at full width while only the middle shrinks).
+  **`ColumnDefinition.Width` (a `GridLength`) has no native `DoubleAnimation`, so the animated width had
+  to move off the grid column entirely.** `SidebarColumn` is now `Width="Auto"`; the real, animatable
+  width lives on `SidebarBorder.Width` (a plain `double`), and the `Auto` column just follows whatever
+  that reports. `ApplySidebarWidth` (unchanged ratio math, `CLAUDE.md`'s own `SidebarRatio`/`SidebarMin`/
+  `SidebarMax`) now branches on collapse state: collapsed pins `SidebarBorder.Width` to a fixed
+  `SidebarCollapsedWidth` regardless of window size (so a resize while collapsed stays collapsed instead
+  of snapping back open), expanded computes the ratio exactly as before via the extracted
+  `ExpandedSidebarWidth` helper — one calculation, read from both the resize path and the toggle path,
+  not two copies that could drift. **The toggle button itself lives outside `SidebarContent`** (a sibling
+  `Border` in the same `Grid`, positioned with a fixed `Margin` regardless of state) specifically so it
+  never disappears along with everything it controls — a collapse control that collapses itself would
+  strand the user.
+  **The transition is a real two-animation `Storyboard`**, not a discrete flip: a `DoubleAnimation` on
+  `SidebarBorder.Width` (220ms, `CubicEase EaseOut`, matching every other easing curve in this file) runs
+  alongside a `DoubleAnimation` on `SidebarContent.Opacity`, offset so content fades out **before** the
+  width finishes shrinking (avoids text visibly clipping mid-collapse) and fades in **after** the width
+  has started growing (avoids text appearing in a still-too-narrow strip). **The `Completed` handler calls
+  `BeginAnimation(WidthProperty, null)` before setting a plain `.Width`** — a `DoubleAnimation`'s final
+  value is still an *animated* value even after the clock stops (default `HoldEnd`), and a plain property
+  `set` from `ApplySidebarWidth` on the next window resize cannot override an animated value; skipping
+  this step would freeze the sidebar at whatever width the last toggle animation happened to leave it at.
+  **Persisted the same way `DarkMode` already is**: `AppSettingsStore.SidebarCollapsed` (`WorkforceManager.
+  Data`), read once at startup (`ApplyInitialSidebarState`, applied with **no** animation — the Storyboard
+  is only for a live click) and written on every toggle.
+  **The tour/guided-practice engines needed one change, not a rewrite**: `RunTourAsync`/
+  `RunGuidedStepAsync` already skip any step whose target isn't actually visible (`ActualWidth/Height <=
+  0`), so a step targeting a now-hidden sidebar element (`LearnFeaturesContent.cs` has four:
+  `GlobalSearchButton` ×2, `FinalSaveButton`, `AccountCard`, `NavHelpItem`) would already fail safely
+  rather than crash. Safe wasn't good enough, though — a silently-skipped step is a step the user never
+  sees. `FindTourTarget` grew an async sibling, `FindTourTargetAsync`, that auto-expands the sidebar
+  (`SidebarContent.IsAncestorOf(target)`) and awaits the same animation duration before returning, so a
+  tour step always finds its target regardless of the sidebar's current state. Quick search's landing
+  (`NavXItem.IsChecked = true`) deliberately got **no** such treatment — it's a plain property set that
+  works identically whether the sidebar is visible or not, and the user's goal when landing from search is
+  the content, not the sidebar. `Ctrl+K` (added in an earlier search round) also needed no change — it's
+  bound to `Window.PreviewKeyDown`, never to the now-collapsible `GlobalSearchButton` itself.
+  **A follow-up pass fixed one real bug and closed one real accessibility gap the user found/I found by
+  self-review, plus added four small discoverability touches — all requested together in one batch:**
+  - **Toggle button was overlapping the logo** (caught from a user screenshot). Root cause: the Window is
+    `FlowDirection="RightToLeft"`, which mirrors `HorizontalAlignment.Left`/`Right` for children — the
+    toggle's `HorizontalAlignment="Left"` was actually rendering on the visual **right**, exactly where the
+    RTL-first-child logo sits. Fixed by swapping to `HorizontalAlignment="Right"` (relying on the same
+    mirroring to land it correctly at the true visual-left/inner edge this time) rather than fighting
+    `FlowDirection` with an override — one property, no new coordinate system for this one element.
+  - **`Opacity="0"` does not disable hit-testing or Tab-focus in WPF** — while visually collapsed, every
+    control inside `SidebarContent` stayed clickable and reachable by keyboard. Fixed with
+    `SidebarContent.IsEnabled`, which natively disables both for the whole subtree in one property.
+    Sequenced around the animation deliberately: set `false` **immediately** on collapse (before the
+    Storyboard starts, so nothing is interactive while fading out) but set `true` only in the `Completed`
+    handler on expand (after the content is fully visible again) — collapsing something that's about to be
+    invisible is safe immediately; enabling something still fading in is not.
+  - **`Ctrl+B`** toggles the sidebar from anywhere, mirroring `Ctrl+K` for search — same
+    `Window.PreviewKeyDown` handler, same `Handled = true` pattern.
+  - **Bigger click target**: the toggle `Button` grew from 30×30 to 36×36. Considered adding a second
+    `MouseLeftButtonDown` handler on the toggle's outer decorative `Border` for an even larger effective
+    target, but rejected it — `Border.MouseLeftButtonDown` fires on press, `Button.Click` fires on release,
+    so the same physical click would expand-then-immediately-re-collapse. Enlarging the `Button`'s own
+    bounds avoids the double-fire entirely.
+  - **Badge dot**: a small `DangerBrush` dot (`SidebarToggleBadgeDot`) appears on the toggle whenever
+    `ActivityBadge` or `MemoryBadge` would be visible, so a pending alert isn't invisible just because the
+    sidebar is collapsed. `RefreshSidebarToggleBadge()` runs from the tail of both existing badge-refresh
+    methods rather than duplicating their count logic.
+  - **First-run hint pulse**: a three-cycle scale pulse (`ScaleTransform` + `DoubleAnimation`,
+    `AutoReverse`, `RepeatBehavior(2)`) plays once on the toggle button, gated on a new
+    `AppSettings.SidebarToggleHintShown` bool — same "show once, then persist" shape as
+    `LastSeenTourVersion`/`LastSeenLearnVersion`, checked in `ApplyInitialSidebarState` and only fired when
+    the sidebar starts expanded (no point pulsing a control the user can't see).
+- **`HomeView` is the landing screen shown right after login, and the permanent `NavHomeItem` entry to
+  return to it** — a later, separate prompt. **The startup sequence in `App.xaml.cs` did not change at
+  all**: the late sign-off catch-up dialog, memory reminders, and the "إيه الجديد"/"تعلم مميزات التحديث"
+  offers are all top-level dialogs shown on top of `MainWindow` regardless of what `MainContent` holds —
+  moving the default `MainContent` from `WorkersView` to `HomeView` (`MainWindow`'s constructor,
+  `NavHomeItem.IsChecked="True"` first in the nav rail) doesn't touch their order or their
+  un-skippable guarantees, it just changes what's *behind* them.
+  **Every number on the screen is a pass-through, never a new calculation** — `HomeSummaryService`
+  (`WorkforceManager.Business`) orchestrates three existing services
+  (`WeeklySummaryService.GetTeamSummaryForRangeAsync`, `InitialBalanceService.GetAllAsync`,
+  `ProductionMemoryService.GetDueAsync`) and does nothing but `Sum`/`Count`/`Where` over their results
+  into `HomeSummaryDto` — the same "one number, one source" rule the report engine follows. The one
+  piece of actual filtering logic (a balance is "stale" once `Status != Completed` and its `OriginalDate`
+  is `HomeSummaryService.StaleInitialBalanceDays` (7, confirmed with the user) or more days old) lives in
+  this one orchestration point, not duplicated in the ViewModel, and is the only thing
+  `HomeSummaryServiceTests` needs to cover beyond passthrough sanity checks.
+  **Content is deliberately narrower than every idea considered**: weekly totals (pieces, active
+  workers, net workdays), the rank-1 best worker only (not the 3-card layout `WorkersView` uses — the
+  user confirmed a single prominent highlight instead), and a "محتاج انتباهك" section with exactly two
+  items — stale initial balances and due memory reminders. **"Unsigned past days" was considered and
+  explicitly rejected**: the mandatory catch-up dialog already surfaces that exact data on every login,
+  so repeating it here would be noise, not a nudge. No separate "mark attendance" shortcut either — this
+  app has no standalone attendance screen; `DailyEntryView` already covers both, so the one CTA
+  ("بداية إنتاج يوم جديد") is the only shortcut needed.
+  **Navigation off the screen reuses the existing sidebar, not a new mechanism**: `HomeView.xaml.cs`'s
+  three click handlers all do `((MainWindow)Window.GetWindow(this)).NavXItem.IsChecked = true` — the
+  exact same code-behind pattern `OfferLearnFeaturesIfNew` already uses to jump to `NavHelpItem`. Setting
+  `IsChecked` (not swapping `MainContent` directly) is what keeps the sliding gold nav indicator and
+  badge refresh in sync automatically, for free.
+  **The weekly-stats row is a compact chip layout (bold number + label per chip), not three boxed
+  tiles** — deliberately matching `WorkersView`'s own header-stats convention over the tile layout first
+  sketched during planning, because that file already carries an explicit warning against one number per
+  big box ("مربع لكل واحدة كان بياخد ربع الشاشة من غير ما يضيف"). It is a `WrapPanel`, not a horizontal
+  `StackPanel` — a second, later prompt added two more conditional chips (top product, attendance rate)
+  to the same row, and a horizontal `StackPanel` would have silently clipped them off-screen at the
+  900px minimum width with no build error and no visual cue, exactly the documented `ProductsView`
+  failure mode above.
+  **A follow-up prompt added three more numbers (still zero new business logic) and motion.** New
+  `HomeSummaryDto` fields — `PreviousWeekTotalPieces` (same `WeeklySummaryService.GetTeamSummaryForRangeAsync`
+  call shifted 7 days back, for a week-over-week % chip), `TopProductName`/`TopProductPieces` (from
+  `ProductActivityService.GetAsync`, the same service `ProductsView` already reads, highest
+  `CompletedPieces` among `WorkedInPeriod` products), and `AttendanceRatePercent` (`PresentDays` ÷ total
+  recorded attendance days across the team, `null` — not zero — when nobody has an attendance record yet,
+  since 0% would misleadingly read as "bad week" rather than "no data"). The percent-change chip is
+  likewise `null`, not `0%`, when the previous week had zero pieces — the ratio is mathematically
+  undefined there, not "no change".
+  **All motion lives in `HomeView.xaml.cs`, never in `HomeViewModel`** — a purely cosmetic concern has no
+  business reason to reach the ViewModel layer, and nothing here is under test. Three techniques, each
+  picked for what it targets: (1) the three cards and the CTA button start `Opacity="0"` with a
+  `TranslateTransform Y="14"` and animate in with a 90ms stagger once `LoadAsync` finishes, so nothing
+  animates in still empty; (2) the headline numbers count up via a plain `DispatcherTimer` easing
+  `Run.Text` from 0 to the final value over 650ms — deliberately **not** a `Storyboard`, because a
+  `Run`'s text is a CLR string, not an animatable `DependencyProperty`, so there is nothing for
+  `BeginAnimation` to attach to; (3) the primary button's hover-grow is a `Style.Triggers` `Storyboard`
+  whose `DoubleAnimation`s omit `Storyboard.TargetName` and instead use a composed
+  `Storyboard.TargetProperty` path (`(UIElement.RenderTransform).(TransformGroup.Children)[1].(ScaleTransform.ScaleX)`)
+  — `Storyboard.TargetName` inside a plain `Style.Triggers` throws `MC4011` at compile time (it only
+  resolves names inside a `ControlTemplate`'s namescope), and the property-path form is the standard
+  WPF workaround. The trophy icon gets a bounded two-cycle pulse (not an infinite loop — a landing screen
+  the user looks at daily should not keep moving forever) only when a best worker actually exists.
 - **Dialogs take their scale from `MainWindow.CurrentScale`, because they are outside its visual tree.**
   The `LayoutTransform` above lives on `MainWindow`'s root grid, so it reaches every screen but **no
   dialog** — each is its own top-level `Window`. Scaling up therefore left dialogs at their authored size
