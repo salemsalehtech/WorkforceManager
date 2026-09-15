@@ -58,6 +58,12 @@
     <SolidColorBrush x:Key="InkBrush" Color="{DynamicResource InkColor}" />
     <Color x:Key="InkSoftColor">#625C56</Color>
     <SolidColorBrush x:Key="InkSoftBrush" Color="{DynamicResource InkSoftColor}" />
+    <!-- أغمق من InkSoft (8:1 على SurfaceAlt، 9.4:1 على الأبيض بدل 5.6:1) —
+         لبادچات/وصف كروت الشبكة (شوف ProductsView.xaml's ProductTile):
+         عدد كبير من الكروت مع بعض خلّى InkSoft العادي يبان باهت أكتر مما
+         المفروض. الثيم الغامق مش محتاج نسخة أغمق — InkSoft هناك أصلًا 8:1 -->
+    <Color x:Key="CardBadgeInkColor">#4B453F</Color>
+    <SolidColorBrush x:Key="CardBadgeTextBrush" Color="{DynamicResource CardBadgeInkColor}" />
     <!-- 4.6:1 على الأرضية الدافية -->
     <Color x:Key="InkFaintColor">#756D65</Color>
     <SolidColorBrush x:Key="InkFaintBrush" Color="{DynamicResource InkFaintColor}" />

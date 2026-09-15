@@ -38,6 +38,23 @@ namespace WorkforceManager.UI.Views
         }
 
         /// <summary>
+        /// دوسة على كارت منتج في الشبكة: بيحدد المنتج (نفس أمر التحديد
+        /// القديم) وبيفتح تفاصيله Modal دايركت — بدل ما تنزل تحت الشبكة
+        /// زي التصميم القديم. الـ Dialog بياخد نفس الـ ViewModel (مش نسخة
+        /// تانية) عشان كل أوامره تفضل شغالة زي ما هي.
+        /// </summary>
+        private void ProductTile_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { DataContext: ProductRow product }) return;
+            if (DataContext is not ProductsViewModel viewModel) return;
+
+            viewModel.SelectProductCommand.Execute(product);
+
+            var dialog = new ProductDetailDialog(viewModel) { Owner = Window.GetWindow(this) };
+            dialog.ShowDialog();
+        }
+
+        /// <summary>
         /// بيجمّع كل تغييرات Products المتتالية (Clear ثم عدة Add) في تشغيلة
         /// حركة واحدة بس — بيأجّل التنفيذ لخطوة Dispatcher تالية (أولوية
         /// Loaded، بعد التخطيط) عشان WrapPanel يكون خلّص ترتيب صفوفه الجديد

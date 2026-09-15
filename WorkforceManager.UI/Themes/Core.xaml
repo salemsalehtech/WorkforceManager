@@ -124,6 +124,9 @@
         <Setter Property="CornerRadius" Value="{DynamicResource RadiusCard}" />
         <Setter Property="Padding" Value="16" />
         <Setter Property="Effect" Value="{DynamicResource CardShadow}" />
+        <!-- من غيرها الحد الشعري 1px بيرسم على إحداثيات كسرية فيبان أغمق/مغبّش
+             بدل حرف حاد، خصوصًا تحت تكبير الشاشة (MainWindow.CurrentScale) -->
+        <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
 
     <!-- ============ كارت كله زرار ============

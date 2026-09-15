@@ -461,15 +461,14 @@
             </Grid>
         </Grid>
 
-        <!-- شبكة كروت المنتجات + لوحة تفاصيل تحتها بعرض كامل — نفس هيكل
-             صفحة "الدليل" حرفيًا (ScrollViewer واحد رأسي، مش عمودين جنب
-             لبعض زي التصميم القديم) -->
+        <!-- شبكة كروت المنتجات — نفس هيكل شبكة صفحة "الدليل". التفاصيل بقت
+             بتفتح Modal (ProductDetailDialog) عند الدوسة على كارت، مش لوحة
+             تحت الشبكة زي قبل كده — شوف ProductTile_Click في
+             ProductsView.xaml.cs -->
         <ScrollViewer Grid.Row="2"
                 VerticalScrollBarVisibility="Auto"
                 HorizontalScrollBarVisibility="Disabled">
-        <StackPanel>
 
-            <!-- شبكة كروت المنتجات -->
             <Border Style="{StaticResource Card}"
                     Padding="14">
                 <Grid>
@@ -515,14 +514,22 @@
                                      مساحة أوسع شوية عشان يفضل مقروء -->
                                 <Button Style="{StaticResource CardButton}" Width="250" Margin="0,0,10,10"
                                         Opacity="0"
-                                        Command="{Binding DataContext.SelectProductCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                        CommandParameter="{Binding}">
+                                        Click="ProductTile_Click">
                                     <Button.RenderTransform>
                                         <TranslateTransform Y="14"/>
                                     </Button.RenderTransform>
                                     <Border Padding="14,12">
                                         <Border.Style>
+                                            <!-- Effect={x:Null} بيلغي ظل Card الموروث: DropShadowEffect على عنصر
+                                                 بيجبر WPF يرسمه في طبقة Bitmap منفصلة، وده بيلغي ClearType
+                                                 ويخلي النص جوّاه Grayscale AA (أعمى/مغبّش) — مبيبان بالكاد على
+                                                 كارت واحد، لكن على شبكة فيها 15-20 كارت بنفس الستايل كل النصوص
+                                                 في الشاشة بتبقى أقل وضوحًا دفعة واحدة. الحلقة الدهبية عند
+                                                 الهوفر (CardButton.Ring) كفاية كإحساس "ارتفاع" للكارت، فمفيش
+                                                 داعي للظل أصلًا هنا -->
                                             <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                                                <Setter Property="Effect" Value="{x:Null}"/>
+                                                <Setter Property="SnapsToDevicePixels" Value="True"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                         <Setter Property="BorderBrush" Value="{DynamicResource GoldBrush}"/>
@@ -570,7 +577,7 @@
                                                        TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                                                        ToolTip="{Binding Description}"
                                                        Visibility="{Binding HasDescription, Converter={StaticResource BoolToVis}}"
-                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                                       Foreground="{DynamicResource CardBadgeTextBrush}"/>
 
                                             <!-- تنبيه المنتج — نفس معلومة الكارت القديم، مضغوطة -->
                                             <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
@@ -592,14 +599,14 @@
                                                 <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8"
                                                         Padding="7,1">
                                                     <TextBlock Text="{Binding StagesCountText}" FontSize="10"
-                                                               Foreground="{DynamicResource TextMutedBrush}"/>
+                                                               Foreground="{DynamicResource CardBadgeTextBrush}"/>
                                                 </Border>
                                                 <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8"
                                                         Padding="7,1" Margin="5,0,0,0">
                                                     <TextBlock Text="{Binding ActivityText}" FontSize="10"
                                                                TextTrimming="CharacterEllipsis"
                                                                MaxWidth="130"
-                                                               Foreground="{DynamicResource TextMutedBrush}"/>
+                                                               Foreground="{DynamicResource CardBadgeTextBrush}"/>
                                                 </Border>
                                             </StackPanel>
                                             <!-- بادج "موقوف" بدل عدد المراحل لمنتج متوقف — نفس
@@ -628,535 +635,6 @@
                 </Grid>
             </Border>
 
-            <!-- لوحة مراحل المنتج المحدد -->
-            <Border Style="{StaticResource Card}"
-                    Margin="0,10,0,0">
-                <Grid>
-                    <!-- رسالة لما مفيش منتج محدد -->
-                    <TextBlock Text="اختار منتج من القائمة لعرض مراحله"
-                               HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                               Foreground="{DynamicResource TextMutedBrush}"
-                            FontSize="14">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Visibility"
-                                        Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedProduct}"
-                                            Value="{x:Null}">
-                                        <Setter Property="Visibility"
-                                                Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-
-                    <Grid>
-                        <Grid.Style>
-                            <Style TargetType="Grid">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding SelectedProduct}"
-                                            Value="{x:Null}">
-                                        <Setter Property="Visibility"
-                                                Value="Collapsed"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Grid.Style>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-
-                        <!-- رأس المنتج + أزرار الإدارة -->
-                        <StackPanel Grid.Row="0">
-                            <DockPanel>
-                                <!-- صورة المنتج أكبر شوية هنا (بتظهر بس لو موجودة) -->
-                                <Border DockPanel.Dock="Left"
-                                        Width="64"
-                                        Height="64"
-                                        CornerRadius="14"
-                                        Background="{DynamicResource SubtleBgBrush}"
-                                        Margin="0,0,14,0"
-                                        VerticalAlignment="Top"
-                                        Visibility="{Binding SelectedProduct.HasImage, Converter={StaticResource BoolToVis}}">
-                                    <Image Source="{Binding SelectedProduct.Image}"
-                                            Stretch="UniformToFill">
-                                        <Image.Clip>
-                                            <RectangleGeometry Rect="0,0,64,64"
-                                                    RadiusX="13"
-                                                    RadiusY="13"/>
-                                        </Image.Clip>
-                                    </Image>
-                                </Border>
-
-                                <StackPanel>
-                                    <TextBlock Text="{Binding SelectedProduct.Name}"
-                                            Style="{StaticResource HeadingText}"
-                                               TextWrapping="Wrap"/>
-                                    <TextBlock Text="{Binding SelectedProduct.Description}"
-                                            FontSize="12"
-                                               Foreground="{DynamicResource TextMutedBrush}"
-                                               TextWrapping="Wrap"
-                                            Margin="0,2,0,0"/>
-                                </StackPanel>
-                            </DockPanel>
-                            <!-- WrapPanel مش StackPanel أفقي: عمود التفاصيل
-                                 ثابت على 500px، والخمس أزرار دول محتاجين
-                                 ~587px لما "إضافة مرحلة الرص" تبان (منتج لسه
-                                 مالوش مرحلة رص). الـ StackPanel الأفقي مبيلفّش
-                                 ومبيضغطش — كان بيقص الزرار الدهبي الأخير عند
-                                 حرف البطاقة من غير أي علامة. الـ 6 السفلية على
-                                 كل زرار عشان السطرين ميلزقوش لما الصف يلف -->
-                            <WrapPanel Margin="0,8,0,4">
-                                <Button Command="{Binding EditProductCommand}"
-                                        Style="{StaticResource GhostButton}"
-                                        Margin="0,0,6,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="PencilOutline"
-                                                Width="14"
-                                                Height="14"
-                                                VerticalAlignment="Center"/>
-                                        <TextBlock Text="تعديل"
-                                                Margin="5,0,0,0"/>
-                                    </StackPanel>
-                                </Button>
-                                <Button Margin="0,0,6,6"
-                                        Command="{Binding ToggleProductActiveCommand}">
-                                    <Button.Style>
-                                        <Style TargetType="Button"
-                                                BasedOn="{StaticResource GhostButton}">
-                                            <Setter Property="Foreground"
-                                                    Value="{DynamicResource DangerBrush}"/>
-                                            <Setter Property="Content">
-                                                <Setter.Value>
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Kind="PackageVariantRemove"
-                                                                Width="14"
-                                                                Height="14"
-                                                                VerticalAlignment="Center"/>
-                                                        <TextBlock Text="إيقاف المنتج"
-                                                                Margin="5,0,0,0"/>
-                                                    </StackPanel>
-                                                </Setter.Value>
-                                            </Setter>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SelectedProduct.IsActive}"
-                                                        Value="False">
-                                                    <Setter Property="Foreground"
-                                                            Value="{DynamicResource SuccessBrush}"/>
-                                                    <Setter Property="Content">
-                                                        <Setter.Value>
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <materialDesign:PackIcon Kind="Restore"
-                                                                        Width="14"
-                                                                        Height="14"
-                                                                        VerticalAlignment="Center"/>
-                                                                <TextBlock Text="إعادة تفعيل"
-                                                                        Margin="5,0,0,0"/>
-                                                            </StackPanel>
-                                                        </Setter.Value>
-                                                    </Setter>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-
-                                <!-- الحذف غير الإيقاف: بيمر على كلمة سر العمليات وبيتسجّل -->
-                                <Button Command="{Binding DeleteProductCommand}"
-                                        Margin="0,0,6,6"
-                                        Style="{StaticResource GhostButton}"
-                                        Foreground="{DynamicResource DangerBrush}"
-                                        ToolTip="شيل المنتج من النظام نهائيًا — سجلات إنتاجه القديمة بتفضل محفوظة">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="DeleteOutline"
-                                                Width="14"
-                                                Height="14"
-                                                VerticalAlignment="Center"/>
-                                        <TextBlock Text="حذف"
-                                                Margin="5,0,0,0"/>
-                                    </StackPanel>
-                                </Button>
-
-                                <!-- مرة واحدة بس لكل منتج — بتختفي بعد ما تتضاف -->
-                                <Button x:Name="AddRackingStageButton" Command="{Binding AddRackingStageCommand}"
-                                        Style="{StaticResource GhostButton}"
-                                        Margin="0,0,6,6"
-                                        Visibility="{Binding SelectedProduct.HasRackingStage, Converter={StaticResource InverseBoolToVis}}"
-                                        ToolTip="مرحلة آخر الخط لعامل الرص — من غير يومية ومن غير قطع في التسجيل">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="PackageVariantClosed"
-                                                Width="14"
-                                                Height="14"
-                                                VerticalAlignment="Center"/>
-                                        <TextBlock Text="إضافة مرحلة الرص"
-                                                Margin="5,0,0,0"/>
-                                    </StackPanel>
-                                </Button>
-
-                                <Button x:Name="AddStageButton" Command="{Binding AddStageCommand}"
-                                        Style="{StaticResource SuccessButton}"
-                                        Margin="0,0,0,6">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Plus"
-                                                Width="15"
-                                                Height="15"
-                                                VerticalAlignment="Center"/>
-                                        <TextBlock Text="إضافة مرحلة"
-                                                Margin="5,0,0,0"/>
-                                    </StackPanel>
-                                </Button>
-                            </WrapPanel>
-                        </StackPanel>
-
-                        <DockPanel x:Name="ProductionLineHeader" Grid.Row="1"
-                                Margin="0,0,0,6">
-                            <TextBlock Text="خط الإنتاج"
-                                    FontWeight="Bold"
-                                    VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="الترتيب مهم — نطاقات التسجيل بتتحسب بيه"
-                                    FontSize="11"
-                                       VerticalAlignment="Center"
-                                    Margin="10,0,0,0"
-                                       Foreground="{DynamicResource TextMutedBrush}"/>
-                        </DockPanel>
-
-                        <!-- خط الإنتاج: مرحلة تحت التانية بترتيبها الفعلي -->
-                        <ScrollViewer Grid.Row="2"
-                                VerticalScrollBarVisibility="Auto">
-                            <StackPanel>
-                                <!-- رسالة لما المنتج لسه من غير مراحل -->
-                                <Border x:Name="NoStagesWarning" Background="{DynamicResource WarnBgBrush}"
-                                        CornerRadius="10"
-                                        Padding="14,12">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Visibility"
-                                                    Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Stages.Count}"
-                                                        Value="0">
-                                                    <Setter Property="Visibility"
-                                                            Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="AlertOutline"
-                                                Width="18"
-                                                Height="18"
-                                                                 VerticalAlignment="Center"
-                                                                 Foreground="{DynamicResource WarnBrush}"/>
-                                        <TextBlock Text="المنتج ده لسه من غير مراحل — ضيف مرحلة عشان ينفع يتسجل عليه إنتاج"
-                                                   FontSize="12.5"
-                                                Margin="8,0,0,0"
-                                                TextWrapping="Wrap"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource WarnBrush}"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <ItemsControl x:Name="ProductStagesList" ItemsSource="{Binding Stages}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Border Style="{StaticResource WorkerCard}"
-                                                    Margin="0,0,0,6"
-                                                    Padding="12,10">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <!-- أزرار ترتيب المرحلة في الخط -->
-                                                    <StackPanel Grid.Column="0"
-                                                            VerticalAlignment="Center"
-                                                            Margin="0,0,8,0">
-                                                        <Button Style="{StaticResource IconButton}"
-                                                                Padding="3"
-                                                                ToolTip="تحريك لفوق في الخط"
-                                                                Command="{Binding DataContext.MoveStageUpCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}">
-                                                            <materialDesign:PackIcon Kind="ChevronUp"
-                                                                    Width="15"
-                                                                    Height="15"
-                                                                    Foreground="{DynamicResource GoldBrush}"/>
-                                                        </Button>
-                                                        <Button Style="{StaticResource IconButton}"
-                                                                Padding="3"
-                                                                ToolTip="تحريك لتحت في الخط"
-                                                                Command="{Binding DataContext.MoveStageDownCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}">
-                                                            <materialDesign:PackIcon Kind="ChevronDown"
-                                                                    Width="15"
-                                                                    Height="15"
-                                                                    Foreground="{DynamicResource GoldBrush}"/>
-                                                        </Button>
-                                                    </StackPanel>
-
-                                                    <!-- رقم المرحلة في الخط.
-                                                         كانت BrandBrush (= InkColor، بتتقلب مع الثيم) كخلفية
-                                                         مع SidebarInkBrush (فاتحة في الثيمين، مخصوصة للسايدبار
-                                                         الغامق دايمًا) كنص — في الثيم الأسود الاتنين بيبقوا فاتحين
-                                                         قريبين من بعض فالرقم بيختفي. GoldBrush/InkOnAccentBrush
-                                                         هو الزوج المضمون تباينه في الثيمين (نفس زرار Primary). -->
-                                                    <Border Grid.Column="1"
-                                                            Width="32"
-                                                            Height="32"
-                                                            CornerRadius="16"
-                                                            VerticalAlignment="Center"
-                                                            Margin="0,0,12,0">
-                                                        <Border.Style>
-                                                            <Style TargetType="Border">
-                                                                <Setter Property="Background"
-                                                                        Value="{DynamicResource GoldBrush}"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding IsActive}"
-                                                                            Value="False">
-                                                                        <Setter Property="Background"
-                                                                                Value="{DynamicResource SurfaceAltBrush}"/>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Border.Style>
-                                                        <TextBlock Text="{Binding DisplayOrder}"
-                                                                FontSize="13.5"
-                                                                FontWeight="Bold"
-                                                                   HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground"
-                                                                            Value="{DynamicResource InkOnAccentBrush}"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding IsActive}"
-                                                                                Value="False">
-                                                                            <Setter Property="Foreground"
-                                                                                    Value="{DynamicResource TextMutedBrush}"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-                                                    </Border>
-
-                                                    <!-- اسم المرحلة + اليومية + العمال المؤهلين -->
-                                                    <StackPanel Grid.Column="2"
-                                                            VerticalAlignment="Center">
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <TextBlock Text="{Binding StageName}"
-                                                                    FontSize="13.5"
-                                                                    FontWeight="SemiBold"
-                                                                       VerticalAlignment="Center"
-                                                                    TextWrapping="Wrap"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                            <Border Background="{DynamicResource DangerBgBrush}"
-                                                                    CornerRadius="6"
-                                                                    Padding="7,2"
-                                                                    Margin="8,0,0,0"
-                                                                    VerticalAlignment="Center">
-                                                                <Border.Style>
-                                                                    <Style TargetType="Border">
-                                                                        <Setter Property="Visibility"
-                                                                                Value="Collapsed"/>
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding IsActive}"
-                                                                                    Value="False">
-                                                                                <Setter Property="Visibility"
-                                                                                        Value="Visible"/>
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </Border.Style>
-                                                                <TextBlock Text="موقوفة"
-                                                                        FontSize="10.5"
-                                                                        FontWeight="Medium"
-                                                                           Foreground="{DynamicResource DangerBrush}"/>
-                                                            </Border>
-
-                                                            <!-- مرحلة إدارية برّه خط الإنتاج — شوف ProductionStage.IsRackingStage -->
-                                                            <Border Background="{DynamicResource InfoTintBrush}"
-                                                                    CornerRadius="6"
-                                                                    Padding="7,2"
-                                                                    Margin="8,0,0,0"
-                                                                    VerticalAlignment="Center"
-                                                                    Visibility="{Binding IsRackingStage, Converter={StaticResource BoolToVis}}">
-                                                                <TextBlock Text="رص"
-                                                                        FontSize="10.5"
-                                                                        FontWeight="Medium"
-                                                                           Foreground="{DynamicResource InfoBrush}"/>
-                                                            </Border>
-                                                        </StackPanel>
-
-                                                        <StackPanel Orientation="Horizontal"
-                                                                Margin="0,4,0,0">
-                                                            <materialDesign:PackIcon Kind="Speedometer"
-                                                                    Width="13"
-                                                                    Height="13"
-                                                                                     VerticalAlignment="Center"
-                                                                                     Foreground="{DynamicResource TextMutedBrush}"/>
-                                                            <TextBlock Text="{Binding QuotaText}"
-                                                                    FontSize="11.5"
-                                                                    Margin="4,0,14,0"
-                                                                       VerticalAlignment="Center"
-                                                                       Foreground="{DynamicResource TextMutedBrush}"/>
-
-                                                            <!-- عدد المؤهلين: بيتلون تحذير لو صفر. مش موجود خالص
-                                                                 لمرحلة الرص — التأهيل هناك بدور العامل (HourlyRole)
-                                                                 مش بربط مهارة، فـ"مفيش عمال مؤهلين" هنا معناها غلط:
-                                                                 عمال الرص فعلاً بيشتغلوا عليها بس بطريقة مختلفة -->
-                                                            <materialDesign:PackIcon Kind="AccountGroupOutline"
-                                                                    Width="13"
-                                                                    Height="13"
-                                                                                     VerticalAlignment="Center"
-                                                                                     Visibility="{Binding IsRackingStage, Converter={StaticResource InverseBoolToVis}}">
-                                                                <materialDesign:PackIcon.Style>
-                                                                    <Style TargetType="materialDesign:PackIcon">
-                                                                        <Setter Property="Foreground"
-                                                                                Value="{DynamicResource TextMutedBrush}"/>
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding HasNoQualifiedWorkers}"
-                                                                                    Value="True">
-                                                                                <Setter Property="Foreground"
-                                                                                        Value="{DynamicResource WarnBrush}"/>
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </materialDesign:PackIcon.Style>
-                                                            </materialDesign:PackIcon>
-                                                            <TextBlock Text="{Binding WorkersText}"
-                                                                    FontSize="11.5"
-                                                                    Margin="4,0,0,0"
-                                                                       VerticalAlignment="Center"
-                                                                       Visibility="{Binding IsRackingStage, Converter={StaticResource InverseBoolToVis}}">
-                                                                <TextBlock.Style>
-                                                                    <Style TargetType="TextBlock">
-                                                                        <Setter Property="Foreground"
-                                                                                Value="{DynamicResource TextMutedBrush}"/>
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding HasNoQualifiedWorkers}"
-                                                                                    Value="True">
-                                                                                <Setter Property="Foreground"
-                                                                                        Value="{DynamicResource WarnBrush}"/>
-                                                                                <Setter Property="FontWeight"
-                                                                                        Value="SemiBold"/>
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </TextBlock.Style>
-                                                            </TextBlock>
-
-                                                            <!-- بيبان بس لو معامل الصعوبة مختلف عن العادي — للترتيب الأسبوعي/الشهري بس -->
-                                                            <materialDesign:PackIcon Kind="WeightLifter"
-                                                                    Width="13"
-                                                                    Height="13"
-                                                                                     Margin="14,0,0,0"
-                                                                    VerticalAlignment="Center"
-                                                                                     Foreground="{DynamicResource TextMutedBrush}"
-                                                                                     Visibility="{Binding HasCustomDifficulty, Converter={StaticResource BoolToVis}}"/>
-                                                            <TextBlock Text="{Binding DifficultyText}"
-                                                                    FontSize="11.5"
-                                                                    Margin="4,0,0,0"
-                                                                       VerticalAlignment="Center"
-                                                                       Foreground="{DynamicResource TextMutedBrush}"
-                                                                       Visibility="{Binding HasCustomDifficulty, Converter={StaticResource BoolToVis}}"/>
-                                                        </StackPanel>
-                                                    </StackPanel>
-
-                                                    <!-- مين مؤهل / تعديل / إيقاف -->
-                                                    <StackPanel Grid.Column="3"
-                                                            Orientation="Horizontal"
-                                                            VerticalAlignment="Center">
-                                                        <!-- بيفتح قايمة المؤهلين بتقييماتهم — نفس ترتيب شاشة التسجيل.
-                                                             مش موجود لمرحلة الرص: التأهيل هناك بدور العامل مش بربط
-                                                             مهارة، فالقايمة هتفضل فاضية دايمًا برغم إن عمال الرص
-                                                             فعلاً بيشتغلوا عليها -->
-                                                        <Button Margin="0,0,4,0"
-                                                                Style="{StaticResource IconButton}"
-                                                                ToolTip="مين يعرف يعمل المرحلة دي؟"
-                                                                Visibility="{Binding IsRackingStage, Converter={StaticResource InverseBoolToVis}}"
-                                                                Command="{Binding DataContext.ShowQualifiedWorkersCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}">
-                                                            <materialDesign:PackIcon Kind="AccountSearchOutline"
-                                                                    Width="15"
-                                                                    Height="15"
-                                                                    Foreground="{DynamicResource GoldBrush}"/>
-                                                        </Button>
-                                                        <Button Margin="0,0,4,0"
-                                                                Style="{StaticResource IconButton}"
-                                                                ToolTip="تعديل المرحلة"
-                                                                Command="{Binding DataContext.EditStageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}">
-                                                            <materialDesign:PackIcon Kind="PencilOutline"
-                                                                    Width="14"
-                                                                    Height="14"
-                                                                    Foreground="{DynamicResource GoldBrush}"/>
-                                                        </Button>
-                                                        <Button Command="{Binding DataContext.ToggleStageActiveCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}">
-                                                            <Button.Style>
-                                                                <Style TargetType="Button"
-                                                                        BasedOn="{StaticResource IconButton}">
-                                                                    <Setter Property="Foreground"
-                                                                            Value="{DynamicResource GoldBrush}"/>
-                                                                    <Setter Property="Content">
-                                                                        <Setter.Value>
-                                                                            <materialDesign:PackIcon Kind="PauseCircleOutline"
-                                                                                    Width="14"
-                                                                                    Height="14"/>
-                                                                        </Setter.Value>
-                                                                    </Setter>
-                                                                    <Setter Property="ToolTip"
-                                                                            Value="إيقاف المرحلة"/>
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding IsActive}"
-                                                                                Value="False">
-                                                                            <Setter Property="Content">
-                                                                                <Setter.Value>
-                                                                                    <materialDesign:PackIcon Kind="Restore"
-                                                                                            Width="14"
-                                                                                            Height="14"/>
-                                                                                </Setter.Value>
-                                                                            </Setter>
-                                                                            <Setter Property="ToolTip"
-                                                                                    Value="إعادة تفعيل"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Button.Style>
-                                                        </Button>
-
-                                                        <!-- حذف المرحلة: بكلمة سر وسبب مسجّلين -->
-                                                        <Button Command="{Binding DataContext.DeleteStageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                CommandParameter="{Binding}"
-                                                                Style="{StaticResource IconButton}"
-                                                                Foreground="{DynamicResource DangerBrush}"
-                                                                ToolTip="حذف المرحلة نهائيًا">
-                                                            <materialDesign:PackIcon Kind="DeleteOutline"
-                                                                    Width="14"
-                                                                    Height="14"/>
-                                                        </Button>
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </ScrollViewer>
-
-                    </Grid>
-                </Grid>
-            </Border>
-
-        </StackPanel>
         </ScrollViewer>
     </Grid>
 </UserControl>
