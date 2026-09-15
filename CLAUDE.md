@@ -186,17 +186,101 @@ Core  <----------------------- UI
   `EntryDate`, reusing the existing `OnEntryDateChanged` → `ReloadForDateAsync` pipeline; no new loading
   logic.
   **`GlobalSearchDialog`** (`Views/GlobalSearchDialog.xaml`, opened from a "بحث سريع" button always
-  visible at the top of the sidebar in `MainWindow.xaml`) is a lightweight quick-search over active
-  workers + active products, same non-MVVM dialog pattern as `MemoryPostponeDialog`. It does not carry
-  its own database logic: `MainWindow.GlobalSearch_Click` loads the two lists up front with the exact
-  same repository calls `WorkersViewModel`/`MemoryViewModel.LoadAsync` already use
-  (`IWorkerRepository.GetActiveWithSkillsAsync`, `IProductRepository.GetActiveWithStagesAsync`), and on a
-  pick, **checks the corresponding nav `RadioButton` first** (`NavWorkersItem`/`NavProductsItem`, letting
-  the existing `NavWorkers_Checked`/`NavProducts_Checked` handlers resolve the (Transient) view+ViewModel
-  the normal way) **before** reading `MainContent.Content`'s `DataContext` and setting its `SearchText` —
-  resolving the view a second time here directly would create a throwaway duplicate instance instead of
-  the one actually on screen. `WorkersView`/`ProductsView` reuse the DTO the search dialog created and end
-  up filtered to the picked name on arrival for free, off their own existing `SearchText` filtering.
+  visible at the top of the sidebar in `MainWindow.xaml`) grew from a worker+product-only quick filter
+  into a **universal, fully local, non-AI search over 10 categories**: workers, products, production
+  stages, initial balances, memory plans, activity log entries, report templates, department accounts,
+  settings, and the Guide (topics + FAQ). "Local, non-AI" was an explicit constraint — factory data must
+  never leave the machine and the app must work fully offline, so this is normalized-text + bounded-
+  edit-distance matching, not an LLM or cloud call.
+  **Matching is two layered primitives in Core** (`Core/Helpers`, zero DB/UI dependency, same reasoning
+  `ArabicSearch` already established — one rule any layer can reuse, covered by tests with no database).
+  `ArabicSearch.Normalize` (pre-existing, used by the Workers screen's own instant search) unifies
+  أ/إ/آ/ٱ→ا, ة→ه, ى/ئ→ي, ؤ→و, strips diacritics/tatweel, and now also **collapses any run of whitespace**
+  to one space and trims the ends — extended for this feature, additive and backward-safe for every
+  existing caller since it only makes matching *more* forgiving. **`SearchMatcher`** (new) tiers on top of
+  it: exact → prefix (a word starts with the query) → substring (`ArabicSearch.Contains`) → a bounded
+  Damerau-Levenshtein **fuzzy** fallback (transposition counts as one edit step, not two, via a 3-row DP
+  with early-exit once a row's minimum distance exceeds the budget) that only runs once the cheaper tiers
+  miss. Fuzzy is skipped entirely below `SearchMatcher.MinQueryLengthForFuzzy` (3 chars — under that, "one
+  edit away" matches almost anything and the results are noise, not search) and the allowed distance is 1
+  for queries ≤ `FuzzyShortQueryLength` (6 chars) or 2 above it — a typo's *proportion* of the word matters
+  more than its raw character count. This tiering is also the performance story: an ordinary substring
+  search never touches the expensive tier at all, so most queries stay exactly as fast as the old dialog's
+  plain `.Contains`.
+  **`GlobalSearchService`** (`Business/Services`, new) is the orchestrator for the eight database-backed
+  categories: loads each **in parallel** (`Task.WhenAll`), builds per-item candidates, matches every
+  relevant field through `SearchMatcher`, and returns one list ranked and **capped per category**
+  (`MaxResultsPerCategory = 8`, so activity log — the one category that can genuinely have thousands of
+  rows — can't drown out the other nine in the results list). Field weighting (`BestMatch`, `public`
+  specifically so the two UI-only categories below reuse the identical rule) takes the best-scoring field
+  per item, primary field (name) at full weight, a secondary field (notes/description/context) at 0.6 —
+  so a strong match on a note still loses to a decent match on the name, but can still surface something a
+  name-only search would miss entirely. **Most categories load their whole table once per search** (small,
+  factory-sized data — same "load once, filter in memory" reasoning `WorkersViewModel` already uses), with
+  one addition and one deliberate exception:
+  - `InitialBalanceService.GetAllAsync()` is new — every prior query in that service was scoped to one
+    product (`GetAllForProductAsync` etc.), because nothing needed "every balance across every product" at
+    once before. Same query shape, just without the `ProductId` filter.
+  - **Activity log is the one category loaded with a bounded query, not a full-table read**
+    (`GetByRangeAsync(today.AddDays(-ActivityLogSearchWindowDays), today)`, 400 days) — this is the only
+    table that can genuinely grow unbounded over years (`PendingWorkService` already hit a 432k-row version
+    of this problem once). It isn't actually unbounded in practice, though: the app's own retention policy
+    (`AppSettings.ActivityLogRetentionDays`/`ActivityLogFinancialRetentionDays`, 90/365 days by default)
+    already purges anything older than 365 days on every startup, so 400 days is a safety margin over the
+    real live-table ceiling, not an arbitrary cutoff — same "bounded by a date range" discipline every other
+    query in the app already follows.
+  **Settings and the Guide are UI-only content, assembled in `MainWindow`, not the service** — neither is a
+  database row. `SearchableSettings` (`UI/Tour`, new, same static-content-list pattern as `HelpTopics`) is
+  a hand-authored `{ Title, Description, TargetElementName }` list, since there's no repository that could
+  ever return "the setting labelled الوضع الليلي." The Guide's own already-existing static content
+  (`HelpTopics.Topics`, flattened with `SubTopics`, plus `HelpFaq.Entries`) is matched the same way, reusing
+  `GlobalSearchService.BestMatch`/weights directly so the ranking rule stays one place even though this
+  path never touches the service class.
+  **`GlobalSearchResult`** (`Business/DTOs`, new) is the one shape every category returns: `Category`
+  (`SearchCategory` enum, 10 values), display text, `Score`, and a handful of nullable ID fields — only the
+  ones a given category needs are populated, the rest stay `null`. Two of those fields
+  (`SettingTargetElementName`, `IsFaqEntry`) exist purely for the two UI-only categories and are never
+  touched by `GlobalSearchService` itself — kept on the shared DTO rather than a second wrapper type so
+  exactly one shape flows end-to-end from matching through display through landing, instead of a UI type
+  re-declaring every field `GlobalSearchResult` already has.
+  **Landing** (`MainWindow.LandOnSearchResultAsync`) replaced the old two-branch "check the nav
+  RadioButton, then set SearchText" logic with one switch over all 10 categories, reusing whatever
+  mechanism each screen already had rather than inventing new ones: `SelectedWorker`/`SelectedProduct`
+  (Workers/Products — same properties the screens' own selection already drives),
+  `OpenInitialBalanceTabCommand` + `SelectedTabIndex` (the same lever `AppTourStep.TabIndex` already uses
+  to land the tour on a Daily Entry tab), `EditCommand` (Memory — opens the plan's edit form directly,
+  refetched fresh via `ProductionMemoryService.GetAsync` since the search result only carries an ID),
+  `OpenProfileCommand` (Department Accounts — opens the profile dialog directly), `SelectedTemplate`
+  (Report Builder), `element.BringIntoView()` (Settings — WPF scrolls the one page-level `ScrollViewer`
+  itself, no manual offset math needed since the screen isn't virtualized), and `SelectTopicCommand`/
+  `ToggleSubTopicCommand`/`ToggleFaqCommand` (Guide — already built for the "الدليل" redesign). Production
+  stages get a small addition on top of product landing: `ProductsView` gained
+  `x:Name="ProductStagesList"` on its stages `ItemsControl` purely so landing can find a specific stage's
+  container (`ItemContainerGenerator.ContainerFromItem` + `BringIntoView`, same technique
+  `DailyEntryView.xaml.cs`'s `ScrollStageToTop` already uses) and highlight it after selecting the parent
+  product — matching a stage searches its name only, never the parent product's name too (that would just
+  re-surface every stage of a product whenever someone searched the product itself).
+  **Screens that self-load asynchronously on `Loaded` needed one of two safe patterns, never a second
+  competing `LoadAsync()` call** (the exact bug class documented above under the sandbox/guided-practice
+  debugging note): a screen driven by a plain `SearchText`/`FromDate`/`ToDate` property
+  (Workers/Products/Activity Log) gets that property **pre-set before the screen's own `Loaded` fires**,
+  so its one natural load call picks up the value itself — this is provably safe because the assignment
+  happens synchronously right after `NavXItem.IsChecked = true`, strictly before WPF's `Loaded` event can
+  fire. A screen whose landing action needs an actual loaded *object* (a specific `WorkerRow`, a stage's
+  container, a fully-populated memory-plan edit form) can't be pre-seeded this way, so it instead awaits a
+  short settle delay (`MainWindow.SearchLandingSettleDelayMs`, 300ms) before acting — the same fixed-delay
+  technique `RunTourAsync` already uses (150-400ms) for the identical "screen hasn't finished its own async
+  load yet" problem. Report templates are the one exception needing neither: `ReportTemplateStore.Load()`
+  runs synchronously in `ReportBuilderViewModel`'s constructor, so `Templates` is already populated the
+  instant the screen is resolved.
+  **Maintenance — how a new feature registers itself as searchable**: for a category backed by a database
+  table, add its loading call to `GlobalSearchService.SearchAsync` (parallel with the others) and a
+  `MatchXxx` method that builds `GlobalSearchResult`s via `BestMatch`, then add a landing case to
+  `MainWindow.LandOnSearchResultAsync`. For a category that's static UI content (like Settings), add a new
+  hand-authored list following `SearchableSettings`'s shape and merge it into
+  `MainWindow.SearchAllCategoriesAsync` the same way Settings/Guide already are, plus a landing case. Either
+  way, nothing about `GlobalSearchDialog` itself ever needs to change — it only ever sees the merged,
+  already-ranked `GlobalSearchResult` list.
   **"إيه الجديد؟" spotlight tour** (`Tour/AppTourStep.cs`, `Tour/AppTourContent.cs`,
   `MainWindow.RunTourAsync`/`PositionTourStep`): a real coach-mark tour, not a changelog dialog — each
   step navigates to the right screen (reusing the same `NavXItem.IsChecked = true` pattern as the global
