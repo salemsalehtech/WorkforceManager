@@ -916,6 +916,95 @@ Core  <----------------------- UI
   margins 12+12, item padding 16+16, icon 18 plus its 10 gap) = 203, with the selected item's SemiBold
   measuring the same to a tenth. Re-measure before lowering it, and re-measure if a longer nav label is
   ever added.
+  **Sidebar visual redesign (font, gold sliding indicator, hover-grow, date card position)**:
+  gold text on the selected nav item, a shared indicator that slides between items instead of each item
+  flashing its own, a more polished sidebar-only font, a hover "grow" language unified across the
+  sidebar's interactive cards, and moving the day/date card from the bottom stack to just under the logo.
+  **Font: `IBM Plex Sans Arabic`, not the first choice (`Cairo`)** — `SidebarFont`/`SidebarFontSemiBold`/
+  `SidebarFontBold` (`Themes/Core.xaml`, `pack://application:,,,/Fonts/#IBM Plex Sans Arabic...`), scoped
+  to the sidebar only via `TextElement.FontFamily` set once on the sidebar's root `Border` in
+  `MainWindow.xaml` (a plain `Border` has no `FontFamily` property of its own, so the attached-property
+  form is required for inheritance to reach its children at all) — every other screen stays on
+  `AppFont`/Tajawal. Cairo was the original proposal but turned out to ship **only as a variable font**
+  now, even from the designer's own repository — no static per-weight files anywhere. That is exactly
+  the problem Tajawal was bundled as discrete static weights to avoid in the first place (a variable
+  font's non-default weight renders as WPF's synthetic/fake bold, not the real outline), so using it would
+  have reintroduced the exact defect this redesign's gold-SemiBold selected state was trying to render
+  correctly. IBM Plex Sans Arabic still ships real static weights from the same Google Fonts source.
+  **Each weight is its own separate font family, not one family with sub-styles** (`IBM Plex Sans Arabic`,
+  `...SemiBold`, `...Bold` are three distinct `name`-table families) — WPF cannot pick the right physical
+  file from `FontWeight` alone here the way it more commonly can, so every place that wants a real
+  non-regular weight sets `FontFamily` **and** `FontWeight` together, explicitly, rather than trusting
+  weight-matching within one family reference: `NavItem`'s `IsChecked` trigger sets both
+  `SidebarFontSemiBold` and `FontWeight="SemiBold"`, and `FactoryText`/`TodayText` (already-existing Bold/
+  SemiBold text in the sidebar, unrelated to this redesign's own new behavior but touched here so they
+  don't regress into a *new* fake-bold once the base family changed) do the same with their own weight's
+  family. Only three weights are bundled (Regular/SemiBold/Bold — what the sidebar actually uses), not
+  every weight the font ships; its OFL license lives in `Fonts/OFL-IBMPlexSansArabic.txt`, kept separate
+  from Tajawal's `Fonts/OFL.txt` since they are two different fonts under two (identically-typed but
+  separately-attributed) licenses.
+  **Re-measured, confirmed unchanged**: the same `FormattedText`-based measurement method this file already
+  documents for the 210 floor above, re-run against IBM Plex Sans Arabic at the same 14pt/SemiBold —
+  118.7-118.8 DIP width for the same longest label, 16.8 DIP line height, both figures matching Tajawal's
+  own measurement close enough that neither `SidebarMin` (210) nor `DesignHeight` (760, see
+  `MainWindow.xaml.cs`) needed to change. Moving the date card (see below) doesn't change `DesignHeight`
+  either — it's the same cards, reordered, and reordering doesn't change their total summed height.
+  **Gold sliding indicator**: `NavItem`'s old per-item `Border x:Name="Mark"` (a 3px gold bar each
+  `RadioButton` faded in/out on its own, `Opacity` 0↔1, no motion) is gone, replaced by one shared
+  `Border x:Name="NavIndicator"` overlaid on top of the nav list (`MainWindow.xaml`'s `Grid
+  x:Name="NavIndicatorHost"` wraps the existing `ScrollViewer`, indicator as a sibling in the same cell)
+  with a `TranslateTransform` moved by `MainWindow.PositionNavIndicator`. Position comes from
+  `item.TransformToAncestor(NavIndicatorHost)` — the same technique `PositionTourStep` already uses for
+  the exact same "where is this element relative to that container" question, which also means it
+  correctly accounts for the nav list's own scroll offset without extra code. A second `Checked` listener
+  is added programmatically to all ten `RadioButton`s in `InitializeNavIndicator` (called from the
+  constructor) **alongside**, not instead of, each one's existing `NavX_Checked` handler — both fire on
+  the same event with no conflict, keeping the indicator's concern fully separate from navigation itself.
+  **The artificial first `Checked`** (`NavWorkersItem IsChecked="True"` firing during
+  `InitializeComponent`, before the window has ever laid out) is handled the same way this file's other
+  "screen not ready yet" cases are: not skipped outright, but deferred — if `IsLoaded` is still false, the
+  handler hooks the window's own `Loaded` event once and positions the indicator (snapped directly, no
+  animation — there is no meaningful "previous position" to slide from) only once that fires, instead of
+  computing a bogus pre-layout transform. Every later `Checked` runs a real `Storyboard`/`DoubleAnimation`
+  on the `TranslateTransform.Y` (and the indicator's `Height`, so it visually matches whichever item's
+  height it's pointing at) over 0.2s with `EaseOut`; a new selection mid-animation just starts a fresh
+  `Storyboard` on the same properties, which WPF retargets smoothly on its own — no manual cancel-and-
+  requeue needed.
+  **Contrast, verified not eyeballed** (same WCAG relative-luminance method this file already uses
+  elsewhere): the selected item's gold text is `GoldBrush` on `SidebarBrush` — already correct before this
+  redesign touched anything, confirmed at 5.42:1 (light: `#C2A14D` on `#342E28`) and 12.70:1 (dark:
+  `#E8C57A` on `#000000`), both comfortably above the 4.5:1 text minimum. **`GoldDeepBrush` would have been
+  the *wrong* choice here** despite reading as "the more readable gold" elsewhere in this file — it's
+  tuned for light surfaces, and on the sidebar's dark background it measures only 2.74:1 (light theme),
+  an actual regression. (Separately noted, not changed: gold text over the hover/selected fill
+  `SidebarAltBrush` measures 4.20:1 in light theme — just under the normal-text AA minimum though above
+  the large-text one, and this is pre-existing behavior unrelated to this redesign, not something it
+  introduced or was asked to fix.)
+  **Unified hover-grow language — reused, not invented**: the app already had a "grow slightly on hover"
+  idiom (`BaseActionButton`/`GhostButton` in `App.xaml`: a `TransformGroup` of `ScaleTransform
+  x:Name="RootScale"` + `TranslateTransform x:Name="RootLift"` on `RenderTransform`, animated via
+  `Trigger.EnterActions`/`ExitActions` to `~1.03` scale and `-1` lift over 0.16s in / 0.20s out with the
+  shared `EaseOut` `CubicEase`) — `GlobalSearchButton` already uses it today via `GhostButton`. `NavItem`
+  now carries the identical pattern directly in its `ControlTemplate` (named targets, exactly like
+  `GhostButton`, since a `ControlTemplate` gives named children a real `Storyboard.TargetName`-reachable
+  namescope). `DateCard`/`AccountCard` are plain `Border`s with no `ControlTemplate`, so they share one new
+  `Style x:Key="HoverGrowCard" TargetType="Border"` instead — a **plain `Style`'s `Setter.Value` does not
+  register `x:Name`d sub-objects in a namescope the way a `ControlTemplate` does**, so naming a nested
+  `ScaleTransform` there would leave `Storyboard.TargetName` unable to find it; the workaround is
+  targeting the styled element itself (the default when `Storyboard.TargetName` is omitted inside that
+  element's own trigger) with an **indexed property path**, `RenderTransform.Children[0].ScaleX` /
+  `Children[1].Y`, reaching into the unnamed `TransformGroup` by position instead of by name. Same
+  scale/lift/duration/easing numbers as `NavItem`, so the whole sidebar reads as one interaction system.
+  Hover-grow is orthogonal to the "selected item's text goes gold" rule — a hovered, unselected item grows
+  without going gold, and the selected item's gold text is unaffected by hover.
+  **Date card moved**: from the bottom-docked stack (where it sat directly above `AccountCard`) to inside
+  the top identity `StackPanel`, right after the gold hairline divider and before "بحث سريع" — logo →
+  hairline → date card → search. It gained `x:Name="DateCard"` (previously anonymous) for the hover style
+  above; grepping every `Tour/*.cs` file first confirmed nothing targeted it by name before the move (it
+  couldn't have been a tour/help target at all without one), so the move is not a tour-breaking change.
+  `AccountCard`/`FinalSaveButton` — which *do* have `LearnFeaturesContent.cs` steps describing them as
+  "the bottom of the sidebar" — stay exactly where they were relative to each other; only the date card
+  left that region, so that wording is still accurate.
 - **Dialogs take their scale from `MainWindow.CurrentScale`, because they are outside its visual tree.**
   The `LayoutTransform` above lives on `MainWindow`'s root grid, so it reaches every screen but **no
   dialog** — each is its own top-level `Window`. Scaling up therefore left dialogs at their authored size
