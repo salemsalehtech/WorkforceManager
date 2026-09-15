@@ -12,156 +12,136 @@
     <Grid Margin="14,10,14,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- ===== شريط الملخص ===== -->
-        <Border Grid.Row="0"
-                Style="{StaticResource Card}"
-                Padding="18,14"
-                Margin="0,0,0,10">
-            <DockPanel>
-                <Button x:Name="AddProductButton" DockPanel.Dock="Left"
-                        Command="{Binding AddProductCommand}"
-                        Style="{StaticResource PrimaryButton}"
-                        VerticalAlignment="Center"
-                        Padding="18,10">
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="PackageVariantClosedPlus"
-                                Width="17"
-                                Height="17"
-                                VerticalAlignment="Center"/>
-                        <TextBlock Text="إضافة منتج"
-                                Margin="7,0,0,0"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- تنبيه المنتجات اللي فيها مشكلة -->
-                <Button DockPanel.Dock="Right"
-                        Command="{Binding ShowNeedsAttentionCommand}"
-                        VerticalAlignment="Center"
-                        Margin="16,0,0,0"
-                        ToolTip="اعرض المنتجات دي بس">
-                    <Button.Style>
-                        <Style TargetType="Button"
-                                BasedOn="{StaticResource GhostButton}">
-                            <Setter Property="Foreground"
-                                    Value="{DynamicResource WarnBrush}"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding NeedsAttentionCount}"
-                                        Value="0">
-                                    <Setter Property="Visibility"
-                                            Value="Collapsed"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="AlertOutline"
-                                Width="16"
-                                Height="16"
-                                VerticalAlignment="Center"/>
-                        <TextBlock Margin="6,0,0,0"
-                                VerticalAlignment="Center">
-                            <Run Text="{Binding NeedsAttentionCount, Mode=OneWay}"
-                                    FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/><Run Text=" منتج فيه مشكلة"/>
-                        </TextBlock>
-                    </StackPanel>
-                </Button>
-
-                <!-- ===== إحصائيات النشاط =====
-                     "الإجمالي" و"إجمالي المراحل" اتشالوا: رقمين ثابتين تقريبًا
-                     ومحدش بياخد قرار بناءً عليهم. مكانهم بقى أكتر وأقل منتج
-                     إنتاجًا فعليًا — دول اللي بيقولوا فين الشغل وفين الوقفة.
-                     كل إحصائية مكتوب تحتها الفترة اللي بتقيسها. -->
-                <StackPanel Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        Margin="24,0,0,0">
-                    <StackPanel Style="{StaticResource SummaryStat}">
-                        <TextBlock Text="{Binding WorkedProductsCount}"
-                                Style="{StaticResource SummaryNumber}"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <TextBlock Text="منتج شغّال"
-                                Style="{StaticResource SummaryLabel}"/>
-                    </StackPanel>
-
-                    <Border Style="{StaticResource SummaryDivider}"/>
-
-                    <StackPanel VerticalAlignment="Center"
-                            Margin="0,0,16,0"
-                            MaxWidth="170">
-                        <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Right">
-                            <materialDesign:PackIcon Kind="TrendingUp"
-                                    Width="14"
-                                    Height="14"
-                                                     VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource SuccessBrush}"/>
-                            <TextBlock Text="{Binding MostActiveName}"
-                                    FontSize="13"
-                                    FontWeight="Bold"
-                                       Margin="5,0,0,0"
-                                    VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        </StackPanel>
-                        <TextBlock Text="{Binding MostActivePieces}"
-                                FontSize="10.5"
-                                HorizontalAlignment="Right"
-                                   Foreground="{DynamicResource SuccessBrush}"/>
-                        <TextBlock Text="أكتر منتج إنتاجًا"
-                                Style="{StaticResource SummaryLabel}"
-                                   HorizontalAlignment="Right"/>
-                    </StackPanel>
-
-                    <StackPanel VerticalAlignment="Center"
-                            Margin="0,0,10,0"
-                            MaxWidth="170">
-                        <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Right">
-                            <materialDesign:PackIcon Kind="TrendingDown"
-                                    Width="14"
-                                    Height="14"
-                                                     VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource WarnBrush}"/>
-                            <TextBlock Text="{Binding LeastActiveName}"
-                                    FontSize="13"
-                                    FontWeight="Bold"
-                                       Margin="5,0,0,0"
-                                    VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        </StackPanel>
-                        <TextBlock Text="{Binding LeastActivePieces}"
-                                FontSize="10.5"
-                                HorizontalAlignment="Right"
-                                   Foreground="{DynamicResource WarnBrush}"/>
-                        <TextBlock Text="أقل منتج إنتاجًا"
-                                Style="{StaticResource SummaryLabel}"
-                                   HorizontalAlignment="Right"/>
-                    </StackPanel>
+        <!-- ===== الصف الموحّد: ملخص + بحث + فلاتر + مدة ===== =====
+             كانا صفّين منفصلين (بطاقة ملخص، وصف تحكّم تحتها) — اتدمجوا في
+             WrapPanel واحد. WrapPanel مش Grid بأعمدة Auto ثابتة: Grid كان
+             ممكن يدفع آخر عنصر برّه حافة الشاشة بصمت لو العرض الكلي زاد عن
+             المتاح (نفس المشكلة اللي اتصلحت في شاشة العمال) — أي عنصر هنا
+             مايلاقيش مكان بيلف لسطر تاني بدل ما يختفي. -->
+        <WrapPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+            <Button x:Name="AddProductButton"
+                    Command="{Binding AddProductCommand}"
+                    Style="{StaticResource PrimaryButton}"
+                    VerticalAlignment="Center"
+                    Padding="18,10" Margin="0,0,16,8">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="PackageVariantClosedPlus"
+                            Width="17"
+                            Height="17"
+                            VerticalAlignment="Center"/>
+                    <TextBlock Text="إضافة منتج"
+                            Margin="7,0,0,0"/>
                 </StackPanel>
-            </DockPanel>
-        </Border>
+            </Button>
 
-        <!-- ===== صف التحكّم الوحيد: بحث + شرايط + عدّاد + فلاتر + المدة =====
-             كان تلات صفوف فوق بعض والمدة مكتوبة فيهم أربع مرات. -->
-        <Grid Grid.Row="1"
-                Margin="2,0,2,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="290"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+            <!-- تنبيه المنتجات اللي فيها مشكلة -->
+            <Button Command="{Binding ShowNeedsAttentionCommand}"
+                    VerticalAlignment="Center"
+                    Margin="0,0,16,8"
+                    ToolTip="اعرض المنتجات دي بس">
+                <Button.Style>
+                    <Style TargetType="Button"
+                            BasedOn="{StaticResource GhostButton}">
+                        <Setter Property="Foreground"
+                                Value="{DynamicResource WarnBrush}"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding NeedsAttentionCount}"
+                                    Value="0">
+                                <Setter Property="Visibility"
+                                        Value="Collapsed"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="AlertOutline"
+                            Width="16"
+                            Height="16"
+                            VerticalAlignment="Center"/>
+                    <TextBlock Margin="6,0,0,0"
+                            VerticalAlignment="Center">
+                        <Run Text="{Binding NeedsAttentionCount, Mode=OneWay}"
+                                FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/><Run Text=" منتج فيه مشكلة"/>
+                    </TextBlock>
+                </StackPanel>
+            </Button>
 
-            <Border Grid.Column="0"
-                    Background="{DynamicResource CardBgBrush}"
+            <!-- ===== إحصائيات النشاط =====
+                 "الإجمالي" و"إجمالي المراحل" اتشالوا: رقمين ثابتين تقريبًا
+                 ومحدش بياخد قرار بناءً عليهم. مكانهم بقى أكتر وأقل منتج
+                 إنتاجًا فعليًا — دول اللي بيقولوا فين الشغل وفين الوقفة.
+                 كل إحصائية مكتوب تحتها الفترة اللي بتقيسها. -->
+            <StackPanel Style="{StaticResource SummaryStat}" Margin="0,0,16,8">
+                <TextBlock Text="{Binding WorkedProductsCount}"
+                        Style="{StaticResource SummaryNumber}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="منتج شغّال"
+                        Style="{StaticResource SummaryLabel}"/>
+            </StackPanel>
+
+            <StackPanel VerticalAlignment="Center"
+                    Margin="0,0,16,8"
+                    MaxWidth="170">
+                <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                    <materialDesign:PackIcon Kind="TrendingUp"
+                            Width="14"
+                            Height="14"
+                                             VerticalAlignment="Center"
+                                             Foreground="{DynamicResource SuccessBrush}"/>
+                    <TextBlock Text="{Binding MostActiveName}"
+                            FontSize="13"
+                            FontWeight="Bold"
+                               Margin="5,0,0,0"
+                            VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </StackPanel>
+                <TextBlock Text="{Binding MostActivePieces}"
+                        FontSize="10.5"
+                        HorizontalAlignment="Right"
+                           Foreground="{DynamicResource SuccessBrush}"/>
+                <TextBlock Text="أكتر منتج إنتاجًا"
+                        Style="{StaticResource SummaryLabel}"
+                           HorizontalAlignment="Right"/>
+            </StackPanel>
+
+            <StackPanel VerticalAlignment="Center"
+                    Margin="0,0,20,8"
+                    MaxWidth="170">
+                <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                    <materialDesign:PackIcon Kind="TrendingDown"
+                            Width="14"
+                            Height="14"
+                                             VerticalAlignment="Center"
+                                             Foreground="{DynamicResource WarnBrush}"/>
+                    <TextBlock Text="{Binding LeastActiveName}"
+                            FontSize="13"
+                            FontWeight="Bold"
+                               Margin="5,0,0,0"
+                            VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                </StackPanel>
+                <TextBlock Text="{Binding LeastActivePieces}"
+                        FontSize="10.5"
+                        HorizontalAlignment="Right"
+                           Foreground="{DynamicResource WarnBrush}"/>
+                <TextBlock Text="أقل منتج إنتاجًا"
+                        Style="{StaticResource SummaryLabel}"
+                           HorizontalAlignment="Right"/>
+            </StackPanel>
+
+            <Border Background="{DynamicResource CardBgBrush}"
                     BorderBrush="{DynamicResource CardBorderBrush}"
                     BorderThickness="1.4"
                     CornerRadius="10"
+                    Width="230"
+                    Margin="0,0,16,8"
                     Padding="12,7">
                 <Grid>
                     <DockPanel>
@@ -224,9 +204,8 @@
 
             <!-- كانت "شغّالين الأسبوع ده على" — والمدة مكتوبة على زرارها
                  جنبه على طول، فمكانش ليها لزوم تتكرر جوّه الشريط كمان -->
-            <StackPanel Grid.Column="1"
-                    Orientation="Horizontal"
-                    Margin="12,0,0,0"
+            <StackPanel Orientation="Horizontal"
+                    Margin="0,0,14,8"
                     VerticalAlignment="Center">
                 <RadioButton Content="شغّالين"
                         Style="{StaticResource Chip}"
@@ -246,12 +225,11 @@
                         CommandParameter="inactive"/>
             </StackPanel>
 
-            <TextBlock Grid.Column="2"
-                    Text="{Binding ResultsText}"
+            <TextBlock Text="{Binding ResultsText}"
                     FontSize="12.5"
                     FontWeight="SemiBold"
                        VerticalAlignment="Center"
-                    Margin="14,0,0,0"
+                    Margin="0,0,20,8"
                        Foreground="{DynamicResource TextPrimaryBrush}"/>
 
             <!-- ===== زرار الفلاتر =====
@@ -259,8 +237,7 @@
                  الشاشة طول الوقت في صف لوحدهم. بقوا جوّه، والرقم على
                  الزرار بيقول كام واحد شغّال دلوقتي — عشان المستخدم
                  ميبصّش على قايمة ناقصة ومايعرفش ليه. -->
-            <Grid Grid.Column="3"
-                    VerticalAlignment="Center">
+            <Grid VerticalAlignment="Center" Margin="0,0,8,8">
                 <ToggleButton x:Name="FilterToggle"
                         Style="{StaticResource ToolbarToggle}"
                               IsChecked="{Binding IsFilterMenuOpen, Mode=TwoWay}">
@@ -359,9 +336,8 @@
                  + اسم الشريط. بقت مكتوبة مرة على الزرار، والتفاصيل
                  (والمدة المخصصة) جوّه. المدة بتحكم "شغّال ولا لأ"
                  والإحصائيات فوق مع بعض. -->
-            <Grid Grid.Column="4"
-                    VerticalAlignment="Center"
-                    Margin="8,0,0,0">
+            <Grid VerticalAlignment="Center"
+                    Margin="0,0,0,8">
                 <ToggleButton x:Name="PeriodToggle"
                         Style="{StaticResource ToolbarToggle}"
                               IsChecked="{Binding IsPeriodMenuOpen, Mode=TwoWay}">
@@ -459,13 +435,13 @@
                     </Border>
                 </Popup>
             </Grid>
-        </Grid>
+        </WrapPanel>
 
         <!-- شبكة كروت المنتجات — نفس هيكل شبكة صفحة "الدليل". التفاصيل بقت
              بتفتح Modal (ProductDetailDialog) عند الدوسة على كارت، مش لوحة
              تحت الشبكة زي قبل كده — شوف ProductTile_Click في
              ProductsView.xaml.cs -->
-        <ScrollViewer Grid.Row="2"
+        <ScrollViewer Grid.Row="1"
                 VerticalScrollBarVisibility="Auto"
                 HorizontalScrollBarVisibility="Disabled">
 
