@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using MaterialDesignThemes.Wpf;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
@@ -69,8 +70,11 @@ namespace WorkforceManager.UI
             // كده مفيش نافذة فعلية تتلوّن
             SourceInitialized += (_, _) => WindowChromeColors.Apply(this);
 
-            // الشاشة الافتراضية عند فتح البرنامج: شاشة العمال
-            MainContent.Content = _session.GetRequiredService<WorkersView>();
+            // الشاشة الافتراضية عند فتح البرنامج: الرئيسية — شوف
+            // HomeView/HomeSummaryService. البدء نفسه في App.xaml.cs متغيّرش:
+            // ديالوج التوقيع المتأخر، تذكيرات الذاكرة، وعروض الجولة/التعلّم
+            // كلهم Dialogs مستقلة فوق النافذة دي مهما كان محتواها الحالي
+            MainContent.Content = _session.GetRequiredService<HomeView>();
 
             // مايتقفلش من غير توقيع نهاية اليوم — شوف MainWindow_Closing
             Closing += MainWindow_Closing;
@@ -81,6 +85,11 @@ namespace WorkforceManager.UI
 
             // قفل غير طبيعي للنافذة وسط وضع تجربة مايسيبش ملف SQLite مؤقت معلّق
             Closed += (_, _) => _sandbox?.Dispose();
+
+            // حالة الطي المحفوظة من آخر مرة — من غير حركة، الحركة بس
+            // لدوسة المستخدم الحية. قبل أول ApplyUiScale عشان الـResize
+            // الأول (عند فتح النافذة) يحترم الحالة دي من غير وميض
+            ApplyInitialSidebarState();
 
             // التخطيط بيتصغّر لو الشاشة أضيق من مساحة التصميم — شوف ApplyUiScale
             SizeChanged += (_, _) => ApplyUiScale();
@@ -107,7 +116,7 @@ namespace WorkforceManager.UI
         {
             foreach (var item in new[]
             {
-                NavWorkersItem, NavProductsItem, NavDailyEntryItem, NavMemoryItem, NavEvaluationItem,
+                NavHomeItem, NavWorkersItem, NavProductsItem, NavDailyEntryItem, NavMemoryItem, NavEvaluationItem,
                 NavReportsItem, NavActivityLogItem, NavSettingsItem, NavDepartmentAccountsItem, NavHelpItem
             })
             {
@@ -275,12 +284,155 @@ namespace WorkforceManager.UI
         // فوق كده الشريط بيبقى مساحة ضايعة مش قايمة تنقل
         private const double SidebarMax = 320;
 
+        // عرض الشريط وهو مطوي — بالظبط عرض زرار الطي (30) + هامشيه (9+9
+        // تقريبًا) عشان يفضل الزرار واقف في مكان معقول، مش ملزوق في الحرف
+        private const double SidebarCollapsedWidth = 52;
+
+        private const int SidebarToggleAnimationMs = 220;
+
+        private bool _isSidebarCollapsed;
+
+        // آخر عرض منطقي وصل من ApplyUiScale — لازم نحتفظ بيه عشان زرار
+        // الطي يقدر يحسب عرض حالة الفتح الصح لحظة الدوسة، من غير ما يستنى
+        // Resize جديد. القيمة الافتراضية معقولة لحد أول SizeChanged.
+        private double _lastLogicalWidth = 1244;
+
         private void ApplySidebarWidth(double logicalWidth)
         {
-            if (SidebarColumn is null) return;
+            if (SidebarBorder is null) return;
 
-            SidebarColumn.Width = new GridLength(
-                Math.Clamp(logicalWidth * SidebarRatio, SidebarMin, SidebarMax));
+            _lastLogicalWidth = logicalWidth;
+
+            // مطوي: العرض ثابت (SidebarCollapsedWidth)، مايتجاوبش مع نسبة
+            // الشاشة خالص — Resize والشريط مطوي المفروض يفضل مطوي بعرضه
+            // الثابت، مش يرجع يتمدد لوحده
+            if (_isSidebarCollapsed)
+            {
+                SidebarBorder.Width = SidebarCollapsedWidth;
+                return;
+            }
+
+            // SidebarColumn بقى Auto (شوف MainWindow.xaml) — عرض الشريط
+            // الفعلي بقى خاصية Width على SidebarBorder نفسه (double عادي،
+            // قابل للتحريك بـDoubleAnimation)، مش GridLength بتاع العمود
+            SidebarBorder.Width = ExpandedSidebarWidth(logicalWidth);
+        }
+
+        private static double ExpandedSidebarWidth(double logicalWidth) =>
+            Math.Clamp(logicalWidth * SidebarRatio, SidebarMin, SidebarMax);
+
+        /// <summary>
+        /// حالة الطي المحفوظة من آخر تشغيل — بتتطبّق فورًا من غير أي حركة
+        /// (الحركة بس لدوسة المستخدم الحية جوّه AnimateSidebarCollapse).
+        /// </summary>
+        private void ApplyInitialSidebarState()
+        {
+            _isSidebarCollapsed = AppSettingsStore.Load().SidebarCollapsed;
+            SidebarToggleIcon.Kind = _isSidebarCollapsed ? PackIconKind.ChevronDoubleLeft : PackIconKind.ChevronDoubleRight;
+            SidebarContent.Opacity = _isSidebarCollapsed ? 0 : 1;
+            // IsEnabled=false بيوقف الـHit-testing وTab-focus مع بعض على
+            // كل المحتوى اللي جواه — Opacity=0 لوحدها بتخفي بصريًا بس
+            // تسيب العناصر قابلة للدوسة/التنقل بالكيبورد وهي مش باينة
+            SidebarContent.IsEnabled = !_isSidebarCollapsed;
+            SidebarToggleButton.ToolTip = _isSidebarCollapsed ? "فتح القائمة الجانبية" : "طي القائمة الجانبية";
+            // العرض الفعلي بيتظبط في أول ApplyUiScale (SizeChanged عند فتح
+            // النافذة) — مفيش داعي نكرره هنا
+
+            if (!_isSidebarCollapsed && !AppSettingsStore.Load().SidebarToggleHintShown)
+                PlaySidebarToggleHintPulse();
+        }
+
+        /// <summary>
+        /// نبضة بسيطة (تكبير/تصغير خفيف) على زرار الطي أول مرة البرنامج
+        /// يتفتح فيها بعد إضافة الميزة — عشان تلفت النظر للزرار الجديد.
+        /// بتتعرض مرة واحدة بس (نفس نمط LastSeenTourVersion) ثم تتسجل.
+        /// </summary>
+        private void PlaySidebarToggleHintPulse()
+        {
+            var scaleTransform = new ScaleTransform(1, 1);
+            SidebarToggleButton.RenderTransformOrigin = new Point(0.5, 0.5);
+            SidebarToggleButton.RenderTransform = scaleTransform;
+
+            var pulse = new DoubleAnimation
+            {
+                From = 1, To = 1.3,
+                Duration = TimeSpan.FromMilliseconds(280),
+                AutoReverse = true,
+                RepeatBehavior = new RepeatBehavior(2),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
+            };
+
+            scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
+            scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
+
+            var settings = AppSettingsStore.Load();
+            settings.SidebarToggleHintShown = true;
+            AppSettingsStore.Save(settings);
+        }
+
+        private void SidebarToggle_Click(object sender, RoutedEventArgs e) => AnimateSidebarCollapse(!_isSidebarCollapsed);
+
+        /// <summary>
+        /// Storyboard حقيقي (مش قفزة فورية): العرض بيتحرك من الحالي للهدف،
+        /// والمحتوى (SidebarContent، كل حاجة ماعدا زرار الطي نفسه) بيختفي/
+        /// يظهر بالتوازي — بيختفي بدري شوية عند الطي (عشان النص ميتقصّش
+        /// وهو لسه باين وسط الضغط) وبيتأخر شوية عند الفتح (يظهر بعد ما
+        /// المساحة تبقى كافية ليه).
+        ///
+        /// **بعد Completed**: BeginAnimation(WidthProperty, null) بيشيل
+        /// الحركة القديمة عن الخاصية — وإلا ApplySidebarWidth (بينادى تاني
+        /// عند أي Resize بعد كده) مش هيقدر يكتب فوق قيمة لسه متحكم فيها من
+        /// Storyboard قديم، والشريط هيتجمّد على آخر عرض اتحرك ليه.
+        /// </summary>
+        private void AnimateSidebarCollapse(bool collapse)
+        {
+            _isSidebarCollapsed = collapse;
+            SidebarToggleIcon.Kind = collapse ? PackIconKind.ChevronDoubleLeft : PackIconKind.ChevronDoubleRight;
+            SidebarToggleButton.ToolTip = collapse ? "فتح القائمة الجانبية" : "طي القائمة الجانبية";
+            // بيتقفل فورًا وقت الطي (قبل الحركة) عشان محدش يقدر يدوس على
+            // عنصر لسه شبه باين وسط التصغير؛ بيترجع يتفتح بعد الفتح كامل
+            // (جوّه Completed) عشان ميبقاش قابل للتفاعل قبل ما يكون باين خالص
+            if (collapse) SidebarContent.IsEnabled = false;
+
+            var fromWidth = SidebarBorder.ActualWidth > 0 ? SidebarBorder.ActualWidth : SidebarBorder.Width;
+            var toWidth = collapse ? SidebarCollapsedWidth : ExpandedSidebarWidth(_lastLogicalWidth);
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+            var widthAnimation = new DoubleAnimation
+            {
+                From = fromWidth, To = toWidth,
+                Duration = TimeSpan.FromMilliseconds(SidebarToggleAnimationMs),
+                EasingFunction = ease
+            };
+            Storyboard.SetTarget(widthAnimation, SidebarBorder);
+            Storyboard.SetTargetProperty(widthAnimation, new PropertyPath(WidthProperty));
+
+            var contentOpacity = new DoubleAnimation
+            {
+                From = collapse ? 1 : 0, To = collapse ? 0 : 1,
+                Duration = TimeSpan.FromMilliseconds(collapse ? 140 : 160),
+                BeginTime = collapse ? TimeSpan.Zero : TimeSpan.FromMilliseconds(80),
+                EasingFunction = ease
+            };
+            Storyboard.SetTarget(contentOpacity, SidebarContent);
+            Storyboard.SetTargetProperty(contentOpacity, new PropertyPath(OpacityProperty));
+
+            var storyboard = new Storyboard();
+            storyboard.Children.Add(widthAnimation);
+            storyboard.Children.Add(contentOpacity);
+            storyboard.Completed += (_, _) =>
+            {
+                SidebarBorder.BeginAnimation(WidthProperty, null);
+                SidebarBorder.Width = toWidth;
+                SidebarContent.BeginAnimation(OpacityProperty, null);
+                SidebarContent.Opacity = collapse ? 0 : 1;
+                if (!collapse) SidebarContent.IsEnabled = true;
+            };
+            storyboard.Begin();
+
+            var settings = AppSettingsStore.Load();
+            settings.SidebarCollapsed = collapse;
+            AppSettingsStore.Save(settings);
         }
 
         /// <summary>
@@ -317,6 +469,7 @@ namespace WorkforceManager.UI
 
             ActivityBadgeText.Text = count > 99 ? "٩٩+" : count.ToString();
             ActivityBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            RefreshSidebarToggleBadge();
         }
 
         /// <summary>
@@ -332,6 +485,21 @@ namespace WorkforceManager.UI
 
             MemoryBadgeText.Text = count > 99 ? "٩٩+" : count.ToString();
             MemoryBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            RefreshSidebarToggleBadge();
+        }
+
+        /// <summary>
+        /// نقطة صغيرة على زرار طي الشريط بتبان لو فيه تنبيه معلّق (عمليات
+        /// جديدة أو خطط ذاكرة مستحقة) — عشان التنبيه ميضيعش لمجرد إن
+        /// المستخدم طاوي الشريط ومابيشوفش ActivityBadge/MemoryBadge نفسهم.
+        /// بتتنادى من ذيل RefreshActivityBadge/RefreshMemoryBadge الاتنين.
+        /// </summary>
+        private void RefreshSidebarToggleBadge()
+        {
+            SidebarToggleBadgeDot.Visibility =
+                ActivityBadge.Visibility == Visibility.Visible || MemoryBadge.Visibility == Visibility.Visible
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
         }
 
         /// <summary>
@@ -783,7 +951,7 @@ namespace WorkforceManager.UI
                     // في الخلفية، فمحتاج وقت أطول من مجرد استقرار تخطيط الشاشة
                     await Task.Delay(step.SelectFirstWorker ? 400 : 150);
 
-                    if (FindTourTarget(step.TargetElementName) is not { } target ||
+                    if (await FindTourTargetAsync(step.TargetElementName) is not { } target ||
                         target.Visibility != Visibility.Visible || target.ActualWidth <= 0 || target.ActualHeight <= 0)
                     {
                         i += delta; // موجود جوه الشجرة بس مخفي فعليًا دلوقتي، أو مش موجود أصلًا
@@ -943,7 +1111,7 @@ namespace WorkforceManager.UI
         private async Task<TourAction> RunGuidedStepAsync(Tour.GuidedPracticeStep step, int stepNumber, int totalSteps)
         {
             var vm = (MainContent.Content as FrameworkElement)?.DataContext;
-            if (vm is null || FindTourTarget(step.TargetElementName) is not { } target ||
+            if (vm is null || await FindTourTargetAsync(step.TargetElementName) is not { } target ||
                 target.Visibility != Visibility.Visible || target.ActualWidth <= 0 || target.ActualHeight <= 0)
                 return TourAction.Next; // هدف مش موجود = تعدّى، زي RunTourAsync بالظبط
 
@@ -1010,6 +1178,25 @@ namespace WorkforceManager.UI
         }
 
         /// <summary>
+        /// نفس FindTourTarget، بس لو الهدف جوّه الشريط الجانبي (SidebarContent)
+        /// والشريط مطوي، بتفتحه الأول وتستنى الحركة تخلص — وإلا الخطوة كانت
+        /// هتتخطى بصمت (FindTourTarget's caller بيشيل أي هدف Visibility != Visible)
+        /// زي أي هدف مش موجود أصلًا، والجولة تفضل ناقصة من غير أي تفسير.
+        /// </summary>
+        private async Task<FrameworkElement?> FindTourTargetAsync(string name)
+        {
+            var target = FindTourTarget(name);
+
+            if (target is not null && _isSidebarCollapsed && SidebarContent.IsAncestorOf(target))
+            {
+                AnimateSidebarCollapse(false);
+                await Task.Delay(SidebarToggleAnimationMs + 50);
+            }
+
+            return target;
+        }
+
+        /// <summary>
         /// بيحسب مكان العنصر بالنسبة لـ TourOverlay (إحداثيات فعلية —
         /// شوف كومنت FlowDirection على TourOverlay في XAML)، ويبني ثقب
         /// السبوت لايت والفقاعة حواليه.
@@ -1059,7 +1246,8 @@ namespace WorkforceManager.UI
         /// Escape يقفل الجولة لو شغّالة (بيتحقق من الظهور هنا عشان مايتصادمش
         /// مع أي استخدام تاني لـEscape في البرنامج)، وCtrl+K بيفتح "بحث سريع"
         /// من أي مكان — بديل لدوسة الماوس على الزرار، نفس فكرة أي اختصار
-        /// بحث معروف. الديالوج Modal فمفيش خطر يتفتح مرتين مع بعض.
+        /// بحث معروف. الديالوج Modal فمفيش خطر يتفتح مرتين مع بعض. Ctrl+B
+        /// بيطوي/يفتح الشريط الجانبي — نفس فعل زرار الطي بالظبط.
         /// </summary>
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
@@ -1070,6 +1258,12 @@ namespace WorkforceManager.UI
             {
                 e.Handled = true;
                 GlobalSearch_Click(this, e);
+            }
+
+            if (e.Key == Key.B && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                e.Handled = true;
+                AnimateSidebarCollapse(!_isSidebarCollapsed);
             }
         }
 
@@ -1165,6 +1359,15 @@ namespace WorkforceManager.UI
 
         private static bool HasArabic(string text) =>
             text.Any(c => c >= '؀' && c <= 'ۿ');
+
+        private void NavHome_Checked(object sender, RoutedEventArgs e)
+        {
+            if (MainContent is null) return; // بيحصل مرة واحدة أثناء تهيئة النافذة
+            if (ExitSandboxOnRealNavigation()) return;
+            MainContent.Content = _session.GetRequiredService<HomeView>();
+            RefreshActivityBadge();
+            RefreshMemoryBadge();
+        }
 
         private void NavWorkers_Checked(object sender, RoutedEventArgs e)
         {

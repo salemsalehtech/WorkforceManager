@@ -61,6 +61,21 @@ namespace WorkforceManager.Data
         /// </summary>
         public bool DarkMode { get; set; }
 
+        /// <summary>
+        /// القائمة الجانبية مطوية؟ بيتطبّق فورًا (من غير حركة) عند فتح
+        /// النافذة، والحركة بس لدوسة المستخدم الحية — شوف MainWindow.
+        /// ApplyInitialSidebarState/AnimateSidebarCollapse.
+        /// </summary>
+        public bool SidebarCollapsed { get; set; }
+
+        /// <summary>
+        /// اتعرضت نبضة التعريف بزرار الطي قبل كده؟ نفس نمط
+        /// LastSeenTourVersion — بيتعرض مرة واحدة بس (أول مرة البرنامج
+        /// يتفتح فيها بعد إضافة الميزة) ثم يتسجّل عشان مايزعجش المستخدم
+        /// في كل تشغيل.
+        /// </summary>
+        public bool SidebarToggleHintShown { get; set; }
+
         // ------- هوية التقارير المطبوعة -------
 
         /// <summary>

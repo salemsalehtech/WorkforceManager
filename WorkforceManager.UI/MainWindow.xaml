@@ -49,7 +49,9 @@
              عريض على دي ورفيع على دي. النسبة بتخليه متسق، والمساحة
              الزيادة على الشاشة الكبيرة بتروح للمحتوى مش للشريط. -->
         <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="SidebarColumn" Width="248" />
+            <!-- Auto: العرض الفعلي بقى خاصية Width على SidebarBorder نفسه
+                 (double عادي، قابل للتحريك)، مش هنا — شوف تعليق SidebarBorder -->
+            <ColumnDefinition x:Name="SidebarColumn" Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -63,9 +65,18 @@
              الوراثة، شوف Core.xaml). Border مش Control/TextElement فمالوش
              خاصية FontFamily بتاعته — لازم الصيغة المرفقة (Attached Property)
              عشان الوراثة تشتغل من عنصر مش قابل للكتابة عادي. -->
-        <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}"
+        <!-- Width صريح هنا (مش عرض عمود Grid) عشان يبقى قابل للتحريك
+             بـDoubleAnimation عادي — GridLength (لو العمود هو اللي بيحمل
+             العرض) مالهوش حركة مباشرة في WPF. SidebarColumn بقى Auto
+             وبيتبع عرض الـBorder ده تلقائيًا. القيمة هنا (248) ابتدائية
+             بس — ApplySidebarWidth بيظبطها فورًا عند فتح النافذة. -->
+        <Border x:Name="SidebarBorder" Grid.Column="0" Width="248" Background="{DynamicResource SidebarBrush}"
                 TextElement.FontFamily="{DynamicResource SidebarFont}">
-            <DockPanel>
+            <Grid>
+            <!-- كل محتوى الشريط القديم — عنصر واحد قابل للإخفاء ككل عند
+                 الطي (Opacity)، بدل أجزاء منفصلة. زرار الطي نفسه تحت،
+                 برّه العنصر ده عمدًا، عشان يفضل ظاهر في الحالتين -->
+            <DockPanel x:Name="SidebarContent">
                 <!-- الهوية -->
                 <StackPanel DockPanel.Dock="Top" Margin="20,24,20,20">
                     <StackPanel Orientation="Horizontal">
@@ -185,7 +196,17 @@
                     <!-- التنقل بـ Checked + Click مع بعض عن قصد:
                          Checked للتنقل الفعلي والكيبورد، وClick لإعادة تحميل الشاشة
                          المفتوحة أصلًا (Checked مبيتنفذش لو الزرار متعلم بالفعل) -->
-                    <RadioButton x:Name="NavWorkersItem" Style="{StaticResource NavItem}" IsChecked="True"
+                    <RadioButton x:Name="NavHomeItem" Style="{StaticResource NavItem}" IsChecked="True"
+                                 Checked="NavHome_Checked" Click="NavHome_Checked"
+                                 AutomationProperties.Name="الرئيسية">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="HomeOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource GoldBrush}" />
+                            <TextBlock Text="الرئيسية" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <RadioButton x:Name="NavWorkersItem" Style="{StaticResource NavItem}"
                                  Checked="NavWorkers_Checked" Click="NavWorkers_Checked"
                                  AutomationProperties.Name="العمال">
                         <StackPanel Orientation="Horizontal">
@@ -330,6 +351,38 @@
                 </Border>
                 </Grid>
             </DockPanel>
+
+            <!-- زرار طي/فتح الشريط — ثابت في نفس المكان دايمًا (الحافة
+                 الداخلية، جنب حد المحتوى)، برّه SidebarContent فمايختفيش
+                 معاه. **HorizontalAlignment="Right" مقصودة** — الـGrid
+                 الأب موروث FlowDirection=RightToLeft من النافذة، فـWPF
+                 بيعكس معنى Left/Right وقت حل التخطيط: "Right" هنا فعليًا
+                 بتترسم عند الحافة اليسرى الحقيقية (بعيد عن اللوجو اللي في
+                 أول الصف الأفقي، يعني الحافة اليمنى). "Left" كانت بتتحط
+                 فوق اللوجو بالظبط لنفس السبب بالعكس — شوف تعليق CLAUDE.md.
+                 الأيقونة بتتقلب في الكود (SidebarToggle_Click) —
+                 ChevronDoubleLeft وهو مطوي (دوس تفتح لجوّه)، ChevronDoubleRight
+                 وهو مفتوح (دوس تقفل لبرّه) -->
+            <Border Width="36" Height="36" CornerRadius="18"
+                    Background="{DynamicResource SidebarAltBrush}"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,26,10,0">
+                <Grid>
+                    <Button x:Name="SidebarToggleButton" Click="SidebarToggle_Click" Style="{StaticResource IconButton}" Padding="0"
+                            Width="36" Height="36" ToolTip="طي القائمة الجانبية"
+                            AutomationProperties.Name="طي أو فتح القائمة الجانبية">
+                        <materialDesign:PackIcon x:Name="SidebarToggleIcon" Kind="ChevronDoubleRight"
+                                                  Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                    </Button>
+                    <!-- نقطة تنبيه صغيرة — بتبان لو فيه بادچ معلّق (سجل عمليات/
+                         ذاكرة مستحقة) وقت ما الشريط يكون مطوي، عشان تنبيه
+                         مهم ميضيعش لمجرد إن المستخدم طاوي الشريط -->
+                    <Border x:Name="SidebarToggleBadgeDot" Width="9" Height="9" CornerRadius="4.5"
+                            Background="{DynamicResource DangerBrush}"
+                            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-1,-1,0"
+                            IsHitTestVisible="False" Visibility="Collapsed" />
+                </Grid>
+            </Border>
+            </Grid>
         </Border>
 
         <!-- ══════════ منطقة المحتوى ══════════ -->
