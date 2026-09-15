@@ -43,8 +43,11 @@ namespace WorkforceManager.UI.ViewModels
     /// المعروضة حاليًا (WorkersViewModel.PeriodGrain — أسبوع/شهر/مدة
     /// مخصوصة). الأسماء لسه فيها "Week" بس القيمة بقت لأي فترة مختارة.
     /// </summary>
-    public class WorkerRow
+    public partial class WorkerRow : ObservableObject
     {
+        /// <summary>الكارت ده هو اللي مفتوح حاليًا في اللوحة الجانبية — بيتظبط من WorkersViewModel.OnSelectedWorkerChanged، مش هنا</summary>
+        [ObservableProperty] private bool _isSelected;
+
         public int WorkerId { get; init; }
         public string FullName { get; init; } = "";
         public bool IsActive { get; init; }
@@ -190,8 +193,10 @@ namespace WorkforceManager.UI.ViewModels
         public string FullName { get; init; } = "";
         public byte[]? PhotoData { get; init; }
         public int Rank { get; init; }
+        public decimal Score { get; init; }
 
         public string Initials => NameInitials.From(FullName);
+        public string ScoreText => $"درجة التقييم: {Score:0.0}";
     }
 
     /// <summary>تفاصيل العامل المعروضة في اللوحة الجانبية (البروفايل)</summary>

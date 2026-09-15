@@ -26,6 +26,13 @@ namespace WorkforceManager.UI.ViewModels
         public string HireDateText { get; init; } = "";
         public bool IsActive { get; init; }
 
+        /// <summary>"—" هو الرمز الثابت لغياب البيانات (شوف WorkersViewModel.LoadDetailAsync)</summary>
+        public bool HasPhoneNumber => PhoneNumber != "—";
+        public bool HasHireDate => HireDateText != "—";
+
+        /// <summary>التليفون وتاريخ الالتحاق الاتنين فاضيين — بانر تذكير واحد بدل بندين منفصلين</summary>
+        public bool IsMissingContactInfo => !HasPhoneNumber && !HasHireDate;
+
         /// <summary>صورة العامل (null = تتعرض الحروف الأولى بدلها)</summary>
         public byte[]? PhotoData { get; init; }
 
@@ -193,6 +200,14 @@ namespace WorkforceManager.UI.ViewModels
         public string CoverageText => $"{RtlSafeText.Ratio(KnownCount, ActiveCount)} مرحلة";
 
         /// <summary>
+        /// تغطية ضعيفة جدًا (أقل من 30% من المراحل النشطة) — بيبان بتلوين
+        /// تحذيري خفيف على حافة الكارت عشان يتلاحظ من نظرة واحدة، مش بس
+        /// من قراءة الرقم. عن قصد أقل من CoversWholeLine (تغطية كاملة) —
+        /// الاتنين حالتين متطرفتين مختلفتين، مش نقيض بعض.
+        /// </summary>
+        public bool IsLowCoverage => ActiveCount > 0 && KnownCount > 0 && (decimal)KnownCount / ActiveCount < 0.3m;
+
+        /// <summary>
         /// شرح شارة التغطية. بتحمل رسالة نجمة "بيغطي الخط كله" اللي اتشالت
         /// من جنب اسم المنتج — الشارة بتخضرّ في نفس الحالة، فالأيقونة كانت
         /// بتقول نفس الكلام مرتين وبتاخد مساحة.
@@ -232,6 +247,9 @@ namespace WorkforceManager.UI.ViewModels
         public string StarsText => HasRating
             ? RtlSafeText.Stars(RoundedStars)
             : "";
+
+        /// <summary>المتوسط الرقمي جنب النجوم — عاملين متشابهين في عدد النجوم المقرّب ممكن يبقى تقييمهم مختلف فعليًا</summary>
+        public string AverageStarsText => HasRating ? $"{AverageStars:0.#}" : "";
 
         /// <summary>"ممتاز" / "كويس جدًا" / … — النص من SkillRatingService</summary>
         public string RatingLabel => HasRating ? SkillRatingService.StarsLabel(RoundedStars) : "";
@@ -276,6 +294,7 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(HasRating));
             OnPropertyChanged(nameof(RoundedStars));
             OnPropertyChanged(nameof(StarsText));
+            OnPropertyChanged(nameof(AverageStarsText));
             OnPropertyChanged(nameof(RatingLabel));
             OnPropertyChanged(nameof(RatingColor));
             OnPropertyChanged(nameof(RatingBackground));
@@ -313,6 +332,7 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(CoverageText));
             OnPropertyChanged(nameof(CoverageTooltip));
             OnPropertyChanged(nameof(CoversWholeLine));
+            OnPropertyChanged(nameof(IsLowCoverage));
             OnPropertyChanged(nameof(InactiveSkillCount));
             OnPropertyChanged(nameof(HasInactiveSkills));
             OnPropertyChanged(nameof(InactiveSkillsText));

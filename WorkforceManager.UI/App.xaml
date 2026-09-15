@@ -41,6 +41,8 @@
             <vm:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis" />
             <!-- بيقارن معرّف الكارت بمعرّف الخطة اللي بتتعدّل دلوقتي (شاشة الذاكرة) -->
             <vm:EditingCardBorderConverter x:Key="EditingCardBorder" />
+            <!-- عرض كارت شبكة يضمن عدد أعمدة ثابت من عرض الحاوية الفعلي (شاشة العمال) -->
+            <vm:GridColumnWidthConverter x:Key="GridColumnWidth" />
 
             <!-- ======================================================
                  نظام التصميم الموحد (Design System)

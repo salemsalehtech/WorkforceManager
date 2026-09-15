@@ -1,0 +1,1093 @@
+<Window x:Class="WorkforceManager.UI.Views.WorkerDetailDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:ui="clr-namespace:WorkforceManager.UI"
+        mc:Ignorable="d"
+        Title="تفاصيل العامل" Width="820" Height="680"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
+
+    <!-- بروفايل عامل واحد (هيدر + أزرار الإدارة + المهارات + الهستوري) — نفس
+         المحتوى اللي كان "لوحة تفاصيل" تحت شبكة الكروت في WorkersView بالظبط،
+         منقول هنا Modal بناءً على طلب المستخدم (يفتح مباشرة عند الدوسة على
+         الكارت بدل عمود 380px محجوز دايمًا حتى لو مفيش عامل متحدد — العمود
+         ده اتشال، فالشبكة بقت تاخد العرض كله). نفس فكرة ProductDetailDialog
+         بالحرف. الـ DataContext نفس WorkersViewModel المشترك — بيتظبط من
+         WorkersView.xaml.cs وقت الفتح، مش نسخة تانية، عشان كل الأوامر
+         (تعديل/إيقاف/حذف/مهارات/هستوري) تفضل شغالة زي ما هي من غير أي تغيير
+         في الـ ViewModel. كل أوامر المهارات هنا كانت RelativeSource
+         AncestorType=UserControl وقت ما كانت جوه WorkersView مباشرة —
+         اتحولت لـ AncestorType=Window عشان دلوقتي بقت جوه Window مش
+         UserControl (14 استخدام). -->
+    <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
+        </Border.Effect>
+        <DockPanel>
+            <Border DockPanel.Dock="Top" Background="{DynamicResource SidebarBrush}"
+                    CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Foreground="{DynamicResource SidebarInkBrush}"
+                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
+                            ToolTip="إغلاق">
+                        <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
+                    </Button>
+                    <TextBlock Text="{Binding SelectedWorker.FullName}"
+                               Foreground="{DynamicResource SidebarInkBrush}" FontSize="15.5" FontWeight="Bold" />
+                </DockPanel>
+            </Border>
+
+            <Grid Margin="18,16,18,18">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- رأس البروفايل + أزرار الإدارة — ثابتين، مش بيتمرروا مع
+                     المهارات/الهستوري تحت (نفس فكرة هيدر ProductDetailDialog) -->
+                <StackPanel Grid.Row="0" DataContext="{Binding Detail}">
+                            <TextBlock Text="{Binding FullName}" Style="{DynamicResource Title}"
+                                       TextWrapping="Wrap" />
+
+                            <!-- بانر تذكير لو التليفون وتاريخ الالتحاق الاتنين فاضيين —
+                                 نفس شكل بانر "مراجعة التقييمات الشهرية" في شاشة العمال -->
+                            <Border Margin="0,6,0,6" Padding="12,9"
+                                    CornerRadius="{DynamicResource RadiusCard}"
+                                    Background="{DynamicResource GoldTintBrush}"
+                                    BorderBrush="{DynamicResource GoldLineBrush}" BorderThickness="1"
+                                    Visibility="{Binding IsMissingContactInfo, Converter={StaticResource BoolToVis}}">
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Left"
+                                            Command="{Binding DataContext.EditWorkerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Style="{DynamicResource GoldButton}" VerticalAlignment="Center">
+                                        <TextBlock Text="أكمل البيانات" />
+                                    </Button>
+                                    <TextBlock Text="مفيش تليفون ولا تاريخ التحاق مسجّلين للعامل ده"
+                                               FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource GoldDeepBrush}" />
+                                </DockPanel>
+                            </Border>
+
+                            <!-- تليفون/تاريخ التحاق: نص عادي لو موجودين، رابط "إضافة" صغير
+                                 لو فاضيين — Run/Hyperlink (Inline) مالهمش خاصية Visibility
+                                 أصلًا (مش UIElement)، فالإخفاء الشرطي محتاج عناصر حقيقية
+                                 (TextBlock/Button) مش Runs جوّه TextBlock واحد -->
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,4">
+                                <TextBlock Text="تليفون: " FontSize="12" Foreground="{DynamicResource InkSoftBrush}" />
+                                <TextBlock Text="{Binding PhoneNumber, Mode=OneWay}" FontSize="12"
+                                           Foreground="{DynamicResource InkSoftBrush}"
+                                           Visibility="{Binding HasPhoneNumber, Converter={StaticResource BoolToVis}}" />
+                                <Button Command="{Binding DataContext.EditWorkerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        Style="{DynamicResource IconButton}" Padding="0" FontSize="12"
+                                        Foreground="{DynamicResource GoldDeepBrush}"
+                                        Visibility="{Binding HasPhoneNumber, Converter={StaticResource InverseBoolToVis}}">
+                                    <TextBlock Text="إضافة رقم" TextDecorations="Underline" />
+                                </Button>
+
+                                <TextBlock Text="   التحق: " FontSize="12" Foreground="{DynamicResource InkSoftBrush}" />
+                                <TextBlock Text="{Binding HireDateText, Mode=OneWay}" FontSize="12"
+                                           Foreground="{DynamicResource InkSoftBrush}"
+                                           Visibility="{Binding HasHireDate, Converter={StaticResource BoolToVis}}" />
+                                <Button Command="{Binding DataContext.EditWorkerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        Style="{DynamicResource IconButton}" Padding="0" FontSize="12"
+                                        Foreground="{DynamicResource GoldDeepBrush}"
+                                        Visibility="{Binding HasHireDate, Converter={StaticResource InverseBoolToVis}}">
+                                    <TextBlock Text="إضافة تاريخ الالتحاق" TextDecorations="Underline" />
+                                </Button>
+                            </StackPanel>
+
+                            <!-- سعر اليومية: أخضر لو متحدد، تحذير أصفر لو لأ -->
+                            <Border CornerRadius="6" Padding="8,3" HorizontalAlignment="Right" Margin="0,0,0,4">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{DynamicResource GoodTintBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasNoWage}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource WarnTintBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding WageText}" FontSize="12.5" FontWeight="SemiBold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasNoWage}" Value="True">
+                                                    <Setter Property="Foreground" Value="{DynamicResource WarnBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Border>
+
+                            <!-- شارة العامل بالساعة (بتظهر بس لو ليه دور بالساعة) -->
+                            <Border Background="{DynamicResource WarnTintBrush}" CornerRadius="6" Padding="8,3"
+                                    HorizontalAlignment="Right" Margin="0,0,0,8">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsHourly}" Value="False">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ClockOutline" Width="14" Height="14" VerticalAlignment="Center" />
+                                    <TextBlock FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource WarnBrush}" Margin="4,0,0,0">
+                                        <Run Text="{Binding HourlyRoleText, Mode=OneWay}" /><Run Text=" — بيتحاسب بالساعة" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel x:Name="WorkerActionsRow" Orientation="Horizontal" Margin="0,0,0,10">
+                                <Button Command="{Binding DataContext.EditWorkerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        Style="{DynamicResource QuietButton}" Margin="0,0,6,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="PencilOutline" Width="14" Height="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="تعديل" Margin="5,0,0,0" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding DataContext.ToggleActiveCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                                    <!--
+                                      BasedOn لازم StaticResource: هي خاصية CLR عادية على
+                                      Style مش DependencyProperty، وDynamicResource عليها
+                                      بيرمي وقت التحميل مش وقت البناء. وده مش بيكسر تبديل
+                                      الثيم — الألوان جوه النمط الأساسي نفسها DynamicResource.
+
+                                      WarnBrush مش DangerBrush: قرار قابل للتراجع (إعادة
+                                      التفعيل سهلة)، مش خطير زي الحذف — التدرّج اللوني بين
+                                      الأزرار الثلاثة لازم يعكس ده (تعديل عادي، إيقاف تحذير
+                                      خفيف، حذف خطر حقيقي).
+                                    -->
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource QuietButton}">
+                                            <Setter Property="Foreground" Value="{DynamicResource WarnBrush}" />
+                                            <Setter Property="Content">
+                                                <Setter.Value>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="AccountOff" Width="14" Height="14" VerticalAlignment="Center" />
+                                                        <TextBlock Text="إيقاف العامل" Margin="5,0,0,0" />
+                                                    </StackPanel>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsActive}" Value="False">
+                                                    <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                                                    <Setter Property="Content">
+                                                        <Setter.Value>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Kind="Restore" Width="14" Height="14" VerticalAlignment="Center" />
+                                                                <TextBlock Text="إعادة تفعيل" Margin="5,0,0,0" />
+                                                            </StackPanel>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <!-- أيقونة بس من غير نص، وأهدأ من "تعديل"/"إيقاف" —
+                                     فعل خطير ونادر مايستاهلش نفس الوزن البصري اللي
+                                     بيخلي الدوسة بالغلط أسهل. الحذف غير الإيقاف: بيمر
+                                     على كلمة سر العمليات وبيتسجّل -->
+                                <Button Command="{Binding DataContext.DeleteWorkerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        Style="{DynamicResource IconButton}" Padding="6,6" Margin="6,0,0,0"
+                                        Foreground="{DynamicResource DangerBrush}"
+                                        ToolTip="حذف نهائي — سجلاته التاريخية بتفضل محفوظة"
+                                        AutomationProperties.Name="حذف العامل">
+                                    <materialDesign:PackIcon Kind="DeleteOutline" Width="15" Height="15" />
+                                </Button>
+                            </StackPanel>
+                </StackPanel>
+
+                <!-- المهارات + الهستوري الأسبوعي — بيتمرروا هنا بس، الرأس فوق ثابت -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" DataContext="{Binding Detail}">
+                    <StackPanel>
+                            <DockPanel x:Name="SkillsSectionHeader" Margin="0,4,0,6">
+                                <!-- بيقلب بين "مهاراته" و"كل المنتجات" — مش بيفتح فورم تاني -->
+                                <Button x:Name="ToggleAddSkillsButton" DockPanel.Dock="Left" Padding="10,5"
+                                        Command="{Binding DataContext.ToggleAddSkillsCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource QuietButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsAddingSkills}" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource InkBrush}" />
+                                                    <Setter Property="Foreground" Value="White" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Width="14" Height="14" VerticalAlignment="Center">
+                                            <materialDesign:PackIcon.Style>
+                                                <Style TargetType="materialDesign:PackIcon">
+                                                    <Setter Property="Kind" Value="Plus" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsAddingSkills}" Value="True">
+                                                            <Setter Property="Kind" Value="Check" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </materialDesign:PackIcon.Style>
+                                        </materialDesign:PackIcon>
+                                        <TextBlock Margin="4,0,0,0" FontSize="12">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="إضافة مهارات" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsAddingSkills}" Value="True">
+                                                            <Setter Property="Text" Value="خلصت" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock Text="المهارات (المراحل اللي بيعرف يعملها)" FontWeight="Bold"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            </DockPanel>
+
+                            <!-- شريط أدوات: بحث في مهاراته + فتح/قفل الكل -->
+                            <DockPanel Margin="0,0,0,7" Visibility="{Binding HasSkills, Converter={StaticResource BoolToVis}}">
+                                <Button DockPanel.Dock="Left" Style="{DynamicResource IconButton}" Padding="7,5"
+                                        ToolTip="فتح أو قفل كل المنتجات"
+                                        Command="{Binding DataContext.ToggleAllSkillGroupsCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                                    <materialDesign:PackIcon Width="17" Height="17">
+                                        <materialDesign:PackIcon.Style>
+                                            <Style TargetType="materialDesign:PackIcon">
+                                                <Setter Property="Kind" Value="UnfoldMoreHorizontal" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AllExpanded}" Value="True">
+                                                        <Setter Property="Kind" Value="UnfoldLessHorizontal" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </materialDesign:PackIcon.Style>
+                                    </materialDesign:PackIcon>
+                                </Button>
+                                <Border Background="{DynamicResource SurfaceBrush}"
+                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1.2"
+                                        CornerRadius="8" Padding="9,5" Margin="0,0,6,0">
+                                    <Grid>
+                                        <DockPanel>
+                                            <materialDesign:PackIcon DockPanel.Dock="Left" Kind="Magnify"
+                                                                    Width="14" Height="14" VerticalAlignment="Center"
+                                                                    Foreground="{DynamicResource InkSoftBrush}" />
+                                            <TextBox Text="{Binding SkillSearch, UpdateSourceTrigger=PropertyChanged}"
+                                                     Margin="6,0,0,0" BorderThickness="0" FontSize="12"
+                                                     VerticalAlignment="Center" Background="Transparent" />
+                                        </DockPanel>
+                                        <TextBlock Text="{Binding SkillSearchHint}" Margin="24,0,0,0" IsHitTestVisible="False"
+                                                   VerticalAlignment="Center" FontSize="12"
+                                                   Foreground="{DynamicResource InkSoftBrush}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SkillSearch}" Value="">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </Border>
+                            </DockPanel>
+
+                            <!-- رسالة لما مفيش مهارات مربوطة خالص -->
+                            <Border Background="{DynamicResource WarnTintBrush}" CornerRadius="8" Padding="10,7" Margin="0,0,0,6">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasAnySkill}" Value="False">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="مفيش مهارات مربوطة — العامل ده مش هيظهر في أي رحلة إنتاج"
+                                           FontSize="11.5" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource WarnBrush}" />
+                            </Border>
+
+                            <!-- كان هنا كارت أزرق فيه سطر شرح + زرار "خلصت إضافة" +
+                                 عدّاد باللي اتضاف. اتشال كله: الزرار كان مكرر (زرار
+                                 "خلصت" فوق جنب العنوان بيعمل نفس الحاجة)، والشرح
+                                 والعدّاد كانوا بياخدوا مساحة من الكروت نفسها من غير
+                                 ما يضيفوا قرار. -->
+
+                            <!-- البحث مالوش نتيجة (مختلف عن "مفيش مهارات خالص") -->
+                            <TextBlock Text="مفيش منتج أو مرحلة بالاسم ده" FontSize="12" Margin="2,4,0,6"
+                                       Foreground="{DynamicResource InkSoftBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding HasSkills}" Value="True" />
+                                                    <Condition Binding="{Binding HasVisibleSkills}" Value="False" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <Border x:Name="SkillsListPanel">
+                            <ItemsControl ItemsSource="{Binding SkillProducts}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border CornerRadius="{DynamicResource RadiusSmall}" Margin="0,0,0,7" BorderThickness="1.4"
+                                                Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <!-- كانت White ثابتة — كارت المنتج بيبقى أبيض مهما كان
+                                                         الثيم، والنص جواه (InkBrush) اللي بيتفتح مع الثيم
+                                                         بيتكسف عليه في الأسود. CardBgBrush هي نفس سطح أي
+                                                         كارت تاني في البرنامج. -->
+                                                    <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+                                                    <Style.Triggers>
+                                                        <!-- منتج مالوش فيه ولا مهارة (بيبان في وضع الإضافة بس) -->
+                                                        <DataTrigger Binding="{Binding IsUntouched}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource GoldTintBrush}" />
+                                                        </DataTrigger>
+                                                        <!-- تغطية ضعيفة جدًا (أقل من 30%) — حد تحذيري يلفت
+                                                             النظر من غير ما تفتح الكارت وتعدّ المراحل -->
+                                                        <DataTrigger Binding="{Binding IsLowCoverage}" Value="True">
+                                                            <Setter Property="BorderBrush" Value="{DynamicResource WarnBrush}" />
+                                                            <Setter Property="BorderThickness" Value="1.6" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <!-- ===== رأس الكارت: دوسة عليه بتفتح الخط ===== -->
+                                                <Button Command="{Binding DataContext.ToggleSkillGroupCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"
+                                                        HorizontalContentAlignment="Stretch" Cursor="Hand"
+                                                        BorderThickness="0" Padding="11,9" Background="Transparent">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <!-- RenderTransformOrigin+ScaleTransform على Bg نفسها —
+                                                                             تكبير خفيف عند المرور يوضّح إن الكارت قابل للدوسة،
+                                                                             زي فكرة تكبير زرار الرئيسية بس هنا Storyboard.TargetName
+                                                                             شغالة عادي لأننا جوّه ControlTemplate.Triggers مش
+                                                                             Style.Triggers مباشرة (MC4011 بيمنعها في التانية بس) -->
+                                                                        <Border x:Name="Bg" Background="Transparent" CornerRadius="{DynamicResource RadiusSmall}"
+                                                                                Padding="{TemplateBinding Padding}" RenderTransformOrigin="0.5,0.5">
+                                                                            <Border.RenderTransform>
+                                                                                <ScaleTransform />
+                                                                            </Border.RenderTransform>
+                                                                            <ContentPresenter />
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter TargetName="Bg" Property="Background"
+                                                                                        Value="{DynamicResource SurfaceAltBrush}" />
+                                                                                <Trigger.EnterActions>
+                                                                                    <BeginStoryboard>
+                                                                                        <Storyboard>
+                                                                                            <DoubleAnimation Storyboard.TargetName="Bg"
+                                                                                                Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                                                To="1.02" Duration="0:0:0.1" />
+                                                                                            <DoubleAnimation Storyboard.TargetName="Bg"
+                                                                                                Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                                                To="1.02" Duration="0:0:0.1" />
+                                                                                        </Storyboard>
+                                                                                    </BeginStoryboard>
+                                                                                </Trigger.EnterActions>
+                                                                                <Trigger.ExitActions>
+                                                                                    <BeginStoryboard>
+                                                                                        <Storyboard>
+                                                                                            <DoubleAnimation Storyboard.TargetName="Bg"
+                                                                                                Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                                                To="1" Duration="0:0:0.1" />
+                                                                                            <DoubleAnimation Storyboard.TargetName="Bg"
+                                                                                                Storyboard.TargetProperty="(Border.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                                                To="1" Duration="0:0:0.1" />
+                                                                                        </Storyboard>
+                                                                                    </BeginStoryboard>
+                                                                                </Trigger.ExitActions>
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Style>
+                                                    </Button.Style>
+
+                                                    <!-- ترتيب رأس الكارت (Grid مش DockPanel عن قصد):
+                                                         الأعمدة بتتقري من اليمين لأن اللوحة RTL، فالترتيب
+                                                         اللي المستخدم بيشوفه = اسم المنتج ← عدد المراحل ←
+                                                         تقييمه ← سهم الفتح. الـ DockPanel كان بيرتّبهم حسب
+                                                         ترتيب الـ Dock بعد المرايا، وده صعب يتقري من الكود. -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- 1. اسم المنتج -->
+                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding ProductName}" FontWeight="Bold" FontSize="13"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           Foreground="{DynamicResource InkBrush}" />
+                                                                <!-- بيعرف الخط كله — نفس معلومة تلوين شارة التغطية
+                                                                     الخضراء، بس علامة إضافية بتتلقط بنظرة أسرع -->
+                                                                <materialDesign:PackIcon Kind="CheckCircle" Width="13" Height="13"
+                                                                                         Margin="5,0,0,0" VerticalAlignment="Center"
+                                                                                         ToolTip="بيعرف كل مراحل الخط"
+                                                                                         Foreground="{DynamicResource GoodBrush}"
+                                                                                         Visibility="{Binding CoversWholeLine, Converter={StaticResource BoolToVis}}" />
+                                                                <!-- المنتج نفسه موقوف -->
+                                                                <Border Background="{DynamicResource DangerTintBrush}" CornerRadius="4"
+                                                                        Padding="5,1" Margin="5,0,0,0" VerticalAlignment="Center"
+                                                                        Visibility="{Binding IsProductInactive, Converter={StaticResource BoolToVis}}">
+                                                                    <TextBlock Text="منتج موقوف" FontSize="10"
+                                                                               Foreground="{DynamicResource DangerBrush}" />
+                                                                </Border>
+                                                            </StackPanel>
+                                                            <!-- مهارات على مراحل موقوفة -->
+                                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0"
+                                                                        Visibility="{Binding HasInactiveSkills, Converter={StaticResource BoolToVis}}">
+                                                                <materialDesign:PackIcon Kind="AlertOutline" Width="11" Height="11"
+                                                                                        VerticalAlignment="Center"
+                                                                                        Foreground="{DynamicResource WarnBrush}" />
+                                                                <TextBlock Text="{Binding InactiveSkillsText}" FontSize="10.5" Margin="3,0,0,0"
+                                                                           Foreground="{DynamicResource WarnBrush}" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+
+                                                        <!-- 2. التغطية: كام مرحلة من كام.
+                                                             بتخضرّ لما يغطي الخط كله — دي كانت رسالة النجمة
+                                                             اللي اتشالت، فالمعلومة مضاعتش. -->
+                                                        <Border Grid.Column="1" CornerRadius="6" Padding="7,2"
+                                                                VerticalAlignment="Center"
+                                                                ToolTip="{Binding CoverageTooltip}">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding CoversWholeLine}" Value="True">
+                                                                            <Setter Property="Background" Value="{DynamicResource GoodTintBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="{Binding CoverageText}" FontSize="11" FontWeight="Medium">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource InkSoftBrush}" />
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding CoversWholeLine}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Border>
+
+                                                        <!-- 3. تقييمه على المنتج ده — اللون بيتغيّر مع
+                                                             المستوى عشان العين تقراه من غير ما تعدّ نجوم -->
+                                                        <Border Grid.Column="2" CornerRadius="6" Padding="7,2" Margin="5,0,0,0"
+                                                                VerticalAlignment="Center"
+                                                                ToolTip="{Binding RatingTooltip}"
+                                                                ui:ThemeBrush.BackgroundKey="{Binding RatingBackground}"
+                                                                Visibility="{Binding HasRating, Converter={StaticResource BoolToVis}}">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding StarsText}" FontSize="10.5"
+                                                                           VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
+                                                                <TextBlock Text="{Binding RatingLabel}" FontSize="11" FontWeight="Medium"
+                                                                           Margin="4,0,0,0" VerticalAlignment="Center"
+                                                                           ui:ThemeBrush.ForegroundKey="{Binding RatingColor}" />
+                                                                <!-- الرقم جنب الكلمة — عاملين "عادي" ممكن يكون
+                                                                     تقييمهم الفعلي مختلف (3.1 و3.9 مثلًا) -->
+                                                                <TextBlock Text="{Binding AverageStarsText}" FontSize="10"
+                                                                           Margin="4,0,0,0" VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkSoftBrush}" />
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <!-- 4. سهم الفتح: بيلف لتحت وهو مفتوح -->
+                                                        <materialDesign:PackIcon Grid.Column="3" Kind="ChevronLeft"
+                                                                                Width="19" Height="19" VerticalAlignment="Center"
+                                                                                Margin="7,0,0,0"
+                                                                                RenderTransformOrigin="0.5,0.5"
+                                                                                Foreground="{DynamicResource InkSoftBrush}">
+                                                            <materialDesign:PackIcon.RenderTransform>
+                                                                <RotateTransform x:Name="Chevron" Angle="0" />
+                                                            </materialDesign:PackIcon.RenderTransform>
+                                                            <materialDesign:PackIcon.Style>
+                                                                <Style TargetType="materialDesign:PackIcon">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                                            <Setter Property="Kind" Value="ChevronDown" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </materialDesign:PackIcon.Style>
+                                                        </materialDesign:PackIcon>
+                                                    </Grid>
+                                                </Button>
+
+                                                <!-- ===== جسم الكارت: مراحل الخط بترتيبها ===== -->
+                                                <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="0,0,9,9"
+                                                        Padding="9,7" Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                                  <StackPanel>
+                                                    <ItemsControl ItemsSource="{Binding Stages}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Border CornerRadius="7" Padding="7,5" Margin="0,1.5"
+                                                                        Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
+                                                                    <Border.Style>
+                                                                        <Style TargetType="Border">
+                                                                            <!-- مش بيعرفها: باهتة وبإطار متقطّع الإحساس -->
+                                                                            <Setter Property="Background" Value="Transparent" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsKnown}" Value="True">
+                                                                                    <!-- كانت White ثابتة: في الثيم الأسود كده اللون
+                                                                                         الفاتح فوق أبيض ثابت بيختفي تمامًا. GoldTintBrush
+                                                                                         سطح فاتح في الفاتح وغامق دافي في الأسود، فبيفضل
+                                                                                         يعمل كنترست صح مع InkBrush في الحالتين -->
+                                                                                    <Setter Property="Background" Value="{DynamicResource GoldTintBrush}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Border.Style>
+
+                                                                    <DockPanel>
+                                                                        <!-- زرار واحد: يشيل المهارة أو يضيفها -->
+                                                                        <Button DockPanel.Dock="Left"
+                                                                                Command="{Binding DataContext.ToggleSkillCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                CommandParameter="{Binding}">
+                                                                            <Button.Style>
+                                                                                <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource GoodBrush}" />
+                                                                                    <Setter Property="ToolTip" Value="ضيف المهارة دي للعامل" />
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding IsKnown}" Value="True">
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                                                            <Setter Property="ToolTip" Value="شيل المهارة دي من العامل" />
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </Button.Style>
+                                                                            <materialDesign:PackIcon Width="13" Height="13">
+                                                                                <materialDesign:PackIcon.Style>
+                                                                                    <Style TargetType="materialDesign:PackIcon">
+                                                                                        <Setter Property="Kind" Value="Plus" />
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsKnown}" Value="True">
+                                                                                                <Setter Property="Kind" Value="Close" />
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </materialDesign:PackIcon.Style>
+                                                                            </materialDesign:PackIcon>
+                                                                        </Button>
+
+                                                                        <!-- رقم المرحلة في الخط.
+                                                                             كانت InkBrush (بتتقلب مع الثيم) كخلفية مع
+                                                                             SidebarInkBrush (فاتحة في الثيمين) كنص — نفس
+                                                                             باغ دائرة ترتيب المرحلة في شاشة المنتجات:
+                                                                             في الأسود الاتنين بيبقوا فاتحين فالرقم بيختفي. -->
+                                                                        <Border DockPanel.Dock="Right" Width="21" Height="21" CornerRadius="10.5"
+                                                                                VerticalAlignment="Center" Margin="0,0,7,0">
+                                                                            <Border.Style>
+                                                                                <Style TargetType="Border">
+                                                                                    <Setter Property="Background" Value="{DynamicResource LineBrush}" />
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding IsKnown}" Value="True">
+                                                                                            <Setter Property="Background" Value="{DynamicResource GoldBrush}" />
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </Border.Style>
+                                                                            <TextBlock Text="{Binding Position}" FontSize="10.5" FontWeight="Bold"
+                                                                                       HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <Setter Property="Foreground" Value="{DynamicResource SidebarInkBrush}"/>
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsKnown}" Value="True">
+                                                                                                <Setter Property="Foreground" Value="{DynamicResource InkOnAccentBrush}" />
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                        </Border>
+
+                                                                        <!-- ===== تقييم المدير بالنجوم ===== -->
+                                                                        <!-- بيظهر للمهارات اللي بيعرفها (عشان يعدّل)، وكمان في
+                                                                             وضع الإضافة للمراحل الجديدة: ساعتها الضغط على نجمة
+                                                                             بيضيف المهارة بالمستوى ده على طول -->
+                                                                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
+                                                                                    VerticalAlignment="Center" Margin="6,0,0,0"
+                                                                                    ToolTip="{Binding RatingTooltip}"
+                                                                                    Visibility="{Binding ShowStars, Converter={StaticResource BoolToVis}}">
+                                                                            <StackPanel.Resources>
+                                                                                <!-- نجمة واحدة: مليانة لو ضمن التقييم، فاضية لو لأ -->
+                                                                                <Style x:Key="StarButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                                                                    <Setter Property="Padding" Value="1,0" />
+                                                                                    <Setter Property="Width" Value="18" />
+                                                                                    <Setter Property="Height" Value="18" />
+                                                                                </Style>
+                                                                            </StackPanel.Resources>
+
+                                                                            <Button Style="{StaticResource StarButton}"
+                                                                                    Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                    CommandParameter="{Binding Star1Param}">
+                                                                                <materialDesign:PackIcon Width="14" Height="14">
+                                                                                    <materialDesign:PackIcon.Style>
+                                                                                        <Style TargetType="materialDesign:PackIcon">
+                                                                                            <Setter Property="Kind" Value="StarOutline" />
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource LineBrush}" />
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding Star1}" Value="True">
+                                                                                                    <Setter Property="Kind" Value="Star" />
+                                                                                                    <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </materialDesign:PackIcon.Style>
+                                                                                </materialDesign:PackIcon>
+                                                                            </Button>
+
+                                                                            <Button Style="{StaticResource StarButton}"
+                                                                                    Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                    CommandParameter="{Binding Star2Param}">
+                                                                                <materialDesign:PackIcon Width="14" Height="14">
+                                                                                    <materialDesign:PackIcon.Style>
+                                                                                        <Style TargetType="materialDesign:PackIcon">
+                                                                                            <Setter Property="Kind" Value="StarOutline" />
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource LineBrush}" />
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding Star2}" Value="True">
+                                                                                                    <Setter Property="Kind" Value="Star" />
+                                                                                                    <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </materialDesign:PackIcon.Style>
+                                                                                </materialDesign:PackIcon>
+                                                                            </Button>
+
+                                                                            <Button Style="{StaticResource StarButton}"
+                                                                                    Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                    CommandParameter="{Binding Star3Param}">
+                                                                                <materialDesign:PackIcon Width="14" Height="14">
+                                                                                    <materialDesign:PackIcon.Style>
+                                                                                        <Style TargetType="materialDesign:PackIcon">
+                                                                                            <Setter Property="Kind" Value="StarOutline" />
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource LineBrush}" />
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding Star3}" Value="True">
+                                                                                                    <Setter Property="Kind" Value="Star" />
+                                                                                                    <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </materialDesign:PackIcon.Style>
+                                                                                </materialDesign:PackIcon>
+                                                                            </Button>
+
+                                                                            <Button Style="{StaticResource StarButton}"
+                                                                                    Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                    CommandParameter="{Binding Star4Param}">
+                                                                                <materialDesign:PackIcon Width="14" Height="14">
+                                                                                    <materialDesign:PackIcon.Style>
+                                                                                        <Style TargetType="materialDesign:PackIcon">
+                                                                                            <Setter Property="Kind" Value="StarOutline" />
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource LineBrush}" />
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding Star4}" Value="True">
+                                                                                                    <Setter Property="Kind" Value="Star" />
+                                                                                                    <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </materialDesign:PackIcon.Style>
+                                                                                </materialDesign:PackIcon>
+                                                                            </Button>
+
+                                                                            <Button Style="{StaticResource StarButton}"
+                                                                                    Command="{Binding DataContext.SetSkillStarsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                    CommandParameter="{Binding Star5Param}">
+                                                                                <materialDesign:PackIcon Width="14" Height="14">
+                                                                                    <materialDesign:PackIcon.Style>
+                                                                                        <Style TargetType="materialDesign:PackIcon">
+                                                                                            <Setter Property="Kind" Value="StarOutline" />
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource LineBrush}" />
+                                                                                            <Style.Triggers>
+                                                                                                <DataTrigger Binding="{Binding Star5}" Value="True">
+                                                                                                    <Setter Property="Kind" Value="Star" />
+                                                                                                    <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
+                                                                                                </DataTrigger>
+                                                                                            </Style.Triggers>
+                                                                                        </Style>
+                                                                                    </materialDesign:PackIcon.Style>
+                                                                                </materialDesign:PackIcon>
+                                                                            </Button>
+
+                                                                            <!-- نسبة تقييمه بالنجوم جنب النجوم نفسها -->
+                                                                            <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="4"
+                                                                                    Padding="5,1" Margin="5,0,0,0" VerticalAlignment="Center">
+                                                                                <TextBlock Text="{Binding StarsPercentText}" FontSize="10"
+                                                                                           Foreground="{DynamicResource InkSoftBrush}" />
+                                                                            </Border>
+
+                                                                            <!-- تنبيه إن تقييمك بعيد عن أداؤه الفعلي -->
+                                                                            <materialDesign:PackIcon Kind="AlertCircleOutline" Width="13" Height="13"
+                                                                                                     VerticalAlignment="Center" Margin="4,0,0,0"
+                                                                                                     Foreground="{DynamicResource WarnBrush}"
+                                                                                                     ToolTip="تقييمك بعيد عن إنتاجه الفعلي — راجعه"
+                                                                                                     Visibility="{Binding HasGapWithReality, Converter={StaticResource BoolToVis}}" />
+                                                                        </StackPanel>
+
+                                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                            <TextBlock Text="{Binding StageName}" FontSize="12" TextWrapping="Wrap">
+                                                                                <TextBlock.Style>
+                                                                                    <Style TargetType="TextBlock">
+                                                                                        <!-- فجوة: باهت وعادي. مهارة: غامق ومتوسط -->
+                                                                                        <Setter Property="Foreground" Value="{DynamicResource InkSoftBrush}" />
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsKnown}" Value="True">
+                                                                                                <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+                                                                                                <Setter Property="FontWeight" Value="Medium" />
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </TextBlock.Style>
+                                                                            </TextBlock>
+                                                                            <Border Background="{DynamicResource WarnTintBrush}" CornerRadius="4"
+                                                                                    Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                                                    ToolTip="المرحلة دي موقوفة — المهارة عليها مش هتنفع في أي رحلة إنتاج"
+                                                                                    Visibility="{Binding IsStageInactive, Converter={StaticResource BoolToVis}}">
+                                                                                <TextBlock Text="موقوفة" FontSize="10"
+                                                                                           Foreground="{DynamicResource WarnBrush}" />
+                                                                            </Border>
+                                                                        </StackPanel>
+                                                                    </DockPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+
+                                                    <!-- إضافة جماعية: خط من 14 مرحلة كان محتاج 14 دوسة -->
+                                                    <Button Style="{DynamicResource QuietButton}" Margin="0,7,0,0"
+                                                            HorizontalAlignment="Stretch" Padding="8,6"
+                                                            Command="{Binding DataContext.AddAllStagesCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"
+                                                            Visibility="{Binding HasMissing, Converter={StaticResource BoolToVis}}">
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                            <materialDesign:PackIcon Kind="PlaylistPlus" Width="15" Height="15"
+                                                                                    VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding AddAllText}" Margin="6,0,0,0" FontSize="12" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            </Border>
+
+
+                            <!-- ===== الهستوري الأسبوعي: كارت لكل أسبوع، بيتفتح على تفاصيله ===== -->
+                            <TextBlock x:Name="WeeklyHistoryHeader" Text="الهستوري الأسبوعي (آخر 8 أسابيع)" FontWeight="Bold" Margin="0,10,0,6"  Foreground="{DynamicResource TextPrimaryBrush}"/>
+
+                            <!-- شريط سريع: عمود لكل أسبوع بارتفاع متناسب مع صافي يوميّاته
+                                 (BarHeight — محسوبة نسبيًا لأعلى أسبوع، شوف WorkersViewModel.
+                                 LoadDetailAsync) — نظرة واحدة على الاتجاه العام قبل ما تنزل
+                                 تفتح كارت بعينه. نفس ترتيب الكروت تحت بالظبط عشان يتقارنوا بسهولة. -->
+                            <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="{DynamicResource RadiusSmall}"
+                                    Padding="10,8" Margin="0,0,0,10">
+                                <ItemsControl ItemsSource="{Binding WeeklyHistory}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Width="26" Margin="0,0,6,0" VerticalAlignment="Bottom"
+                                                        ToolTip="{Binding WeekTitle}">
+                                                <Border Height="{Binding BarHeight}" CornerRadius="3" VerticalAlignment="Bottom">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{DynamicResource GoldBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsEmptyWeek}" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource LineBrush}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding IsBest}" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource GoodBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+
+                            <ItemsControl ItemsSource="{Binding WeeklyHistory}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border CornerRadius="{DynamicResource RadiusSmall}" Margin="0,0,0,6" Background="{DynamicResource SurfaceBrush}"
+                                                BorderBrush="{DynamicResource LineBrush}" BorderThickness="1.4">
+                                            <StackPanel>
+                                                <!-- ===== رأس الكارت ===== -->
+                                                <Button Command="{Binding DataContext.ToggleWeekCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"
+                                                        HorizontalContentAlignment="Stretch" Padding="11,9">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Cursor" Value="Hand" />
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border x:Name="Bg" Background="Transparent" CornerRadius="{DynamicResource RadiusSmall}"
+                                                                                Padding="{TemplateBinding Padding}">
+                                                                            <ContentPresenter />
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter TargetName="Bg" Property="Background"
+                                                                                        Value="{DynamicResource SurfaceAltBrush}" />
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                            <Style.Triggers>
+                                                                <!-- أسبوع فاضي: مفيش تفاصيل تتفتح -->
+                                                                <DataTrigger Binding="{Binding IsEmptyWeek}" Value="True">
+                                                                    <Setter Property="Cursor" Value="Arrow" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+
+                                                    <DockPanel>
+                                                        <materialDesign:PackIcon DockPanel.Dock="Left" Width="18" Height="18"
+                                                                                VerticalAlignment="Center"
+                                                                                Foreground="{DynamicResource InkSoftBrush}">
+                                                            <materialDesign:PackIcon.Style>
+                                                                <Style TargetType="materialDesign:PackIcon">
+                                                                    <Setter Property="Kind" Value="ChevronLeft" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                                            <Setter Property="Kind" Value="ChevronDown" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding IsEmptyWeek}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Hidden" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </materialDesign:PackIcon.Style>
+                                                        </materialDesign:PackIcon>
+
+                                                        <!-- الأجر: الرقم اللي بيتسأل عنه -->
+                                                        <TextBlock DockPanel.Dock="Left" Margin="7,0,0,0" VerticalAlignment="Center"
+                                                                   FontSize="13.5" FontWeight="Bold"
+                                                                   Foreground="{DynamicResource GoodBrush}"
+                                                                   Text="{Binding WageText}"
+                                                                   Visibility="{Binding HasWage, Converter={StaticResource BoolToVis}}" />
+
+                                                        <StackPanel VerticalAlignment="Center" Margin="8,0,0,0">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <materialDesign:PackIcon Kind="Star" Width="14" Height="14"
+                                                                                        VerticalAlignment="Center" Margin="0,0,4,0"
+                                                                                        ToolTip="أحسن عامل في الأسبوع ده"
+                                                                                        Foreground="{DynamicResource GoldBrush}"
+                                                                                        Visibility="{Binding IsBest, Converter={StaticResource BoolToVis}}" />
+                                                                <TextBlock Text="{Binding WeekTitle}" FontSize="12.5" FontWeight="SemiBold"
+                                                                           VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkBrush}" />
+                                                                <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="4"
+                                                                        Padding="5,1" Margin="5,0,0,0" VerticalAlignment="Center"
+                                                                        Visibility="{Binding HasRelativeLabel, Converter={StaticResource BoolToVis}}">
+                                                                    <TextBlock Text="{Binding RelativeLabel}" FontSize="10"
+                                                                               Foreground="{DynamicResource InkBrush}" />
+                                                                </Border>
+                                                            </StackPanel>
+
+                                                            <!-- سطر الصافي: الرقم الحقيقي اللي بيتحاسب عليه -->
+                                                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                                                <TextBlock Text="صافي" FontSize="11"
+                                                                           Foreground="{DynamicResource InkSoftBrush}"
+                                                                           VerticalAlignment="Center" />
+                                                                <TextBlock Text="{Binding NetText}" FontSize="12.5" FontWeight="Bold"
+                                                                           Margin="4,0,0,0" VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkBrush}" />
+                                                                <TextBlock Text="يومية" FontSize="11" Margin="3,0,0,0"
+                                                                           Foreground="{DynamicResource InkSoftBrush}"
+                                                                           VerticalAlignment="Center" />
+                                                                <TextBlock Text="مفيش شغل الأسبوع ده" FontSize="11" Margin="8,0,0,0"
+                                                                           VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkSoftBrush}"
+                                                                           Visibility="{Binding IsEmptyWeek, Converter={StaticResource BoolToVis}}" />
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </DockPanel>
+                                                </Button>
+
+                                                <!-- ===== جسم الكارت ===== -->
+                                                <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="0,0,9,9"
+                                                        Padding="10,8"
+                                                        Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                                    <StackPanel>
+                                                        <!-- الحسبة: أنتج − غياب − جزاءات = صافي -->
+                                                        <UniformGrid Columns="4" Margin="0,0,0,8">
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding ProducedText}" FontSize="14" FontWeight="Bold"
+                                                                           HorizontalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkBrush}" />
+                                                                <TextBlock Text="أنتج" FontSize="10.5" HorizontalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkSoftBrush}" />
+                                                            </StackPanel>
+                                                            <StackPanel>
+                                                                <TextBlock FontSize="14" FontWeight="Bold" HorizontalAlignment="Center">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Text" Value="0" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource InkSoftBrush}" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding HasAbsence}" Value="True">
+                                                                                    <Setter Property="Text" Value="{Binding AbsenceText}" />
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <TextBlock Text="غياب" FontSize="10.5" HorizontalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkSoftBrush}" />
+                                                            </StackPanel>
+                                                            <StackPanel>
+                                                                <TextBlock FontSize="14" FontWeight="Bold" HorizontalAlignment="Center">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Text" Value="0" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource InkSoftBrush}" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding HasPenaltyDeduction}" Value="True">
+                                                                                    <Setter Property="Text" Value="{Binding PenaltyText}" />
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <TextBlock Text="جزاءات" FontSize="10.5" HorizontalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkSoftBrush}" />
+                                                            </StackPanel>
+                                                            <StackPanel>
+                                                                <TextBlock Text="{Binding NetText}" FontSize="14" FontWeight="Bold"
+                                                                           HorizontalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkBrush}" />
+                                                                <TextBlock Text="الصافي" FontSize="10.5" HorizontalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkSoftBrush}" />
+                                                            </StackPanel>
+                                                        </UniformGrid>
+
+                                                        <!-- اشتغل على: صف لكل مرحلة، الأعلى إنتاجًا فوق -->
+                                                        <StackPanel Visibility="{Binding HasBreakdown, Converter={StaticResource BoolToVis}}">
+                                                            <TextBlock Text="اشتغل على" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"
+                                                                       Foreground="{DynamicResource InkSoftBrush}" />
+                                                            <ItemsControl ItemsSource="{Binding Breakdown}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6" Padding="7,4" Margin="0,1.5">
+                                                                            <DockPanel>
+                                                                                <TextBlock DockPanel.Dock="Left" Text="{Binding PiecesText}"
+                                                                                           FontSize="11.5" FontWeight="Bold"
+                                                                                           VerticalAlignment="Center"
+                                                                                           Foreground="{DynamicResource InkBrush}" />
+                                                                                <StackPanel Orientation="Horizontal" Margin="8,0,0,0">
+                                                                                    <TextBlock Text="{Binding StageName}" FontSize="11.5"
+                                                                                               VerticalAlignment="Center"
+                                                                                               Foreground="{DynamicResource InkBrush}" />
+                                                                                    <TextBlock Text="{Binding ProductName}" FontSize="10.5"
+                                                                                               Margin="5,0,0,0" VerticalAlignment="Center"
+                                                                                               Foreground="{DynamicResource InkSoftBrush}" />
+                                                                                </StackPanel>
+                                                                            </DockPanel>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+
+                                                        <!-- الجزاءات بأسبابها -->
+                                                        <StackPanel Margin="0,8,0,0"
+                                                                    Visibility="{Binding HasPenalties, Converter={StaticResource BoolToVis}}">
+                                                            <TextBlock Text="جزاءات الأسبوع" FontSize="11" FontWeight="Bold" Margin="0,0,0,4"
+                                                                       Foreground="{DynamicResource DangerBrush}" />
+                                                            <ItemsControl ItemsSource="{Binding Penalties}">
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <Border Background="{DynamicResource DangerTintBrush}" CornerRadius="6"
+                                                                                Padding="7,4" Margin="0,1.5">
+                                                                            <DockPanel>
+                                                                                <TextBlock DockPanel.Dock="Left" Text="{Binding DeductionName}"
+                                                                                           FontSize="11" FontWeight="Bold"
+                                                                                           VerticalAlignment="Center"
+                                                                                           Foreground="{DynamicResource DangerBrush}" />
+                                                                                <StackPanel Orientation="Horizontal" Margin="8,0,0,0">
+                                                                                    <TextBlock Text="{Binding Reason}" FontSize="11.5"
+                                                                                               TextWrapping="Wrap" VerticalAlignment="Center"
+                                                                                               Foreground="{DynamicResource InkBrush}" />
+                                                                                    <TextBlock Text="{Binding DateText}" FontSize="10.5"
+                                                                                               Margin="5,0,0,0" VerticalAlignment="Center"
+                                                                                               Foreground="{DynamicResource InkSoftBrush}" />
+                                                                                </StackPanel>
+                                                                            </DockPanel>
+                                                                        </Border>
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </DockPanel>
+    </Border>
+</Window>

@@ -42,12 +42,6 @@ namespace WorkforceManager.UI.ViewModels
         private readonly List<WorkerRow> _allWorkers = new();
 
         /// <summary>
-        /// إعادة تحميل القائمة شغالة دلوقتي — التحديد اللي بيتصفّر جوّاها
-        /// لحظي ومش خروج من البروفايل. شوف <see cref="OnSelectedWorkerChanged"/>.
-        /// </summary>
-        private bool _reloadingRows;
-
-        /// <summary>
         /// فيه مهارات اتغيّرت والقائمة لسه ما اتحدّثتش.
         ///
         /// وهو في وضع الإضافة المستخدم بيضيف عشر مهارات ورا بعض، وكل
@@ -147,6 +141,15 @@ namespace WorkforceManager.UI.ViewModels
         private bool _isFilterMenuOpen;
 
         /// <summary>
+        /// لوحة اختيار الفترة (أسبوع/شهر/مدة مخصوصة) مفتوحة — نفس نمط
+        /// IsFilterMenuOpen بالظبط. بطاقة الفترة المنفصلة (PeriodControlCard)
+        /// كانت صف كامل لوحدها فوق الشبكة؛ اتحولت لزرار Popup مدموج في
+        /// الصف الموحّد فوق، توفيرًا للمساحة الرأسية.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isPeriodMenuOpen;
+
+        /// <summary>
         /// كام فلتر شغّال دلوقتي — بيتعرض كرقم على زرار الفلاتر.
         ///
         /// الفلاتر بقت جوّه لوحة، فمن غير الرقم ده المستخدم ممكن يبص على
@@ -204,6 +207,16 @@ namespace WorkforceManager.UI.ViewModels
 
         [ObservableProperty]
         private bool _isLoading;
+
+        /// <summary>
+        /// كارت "أحسن 3 عمال" مطوي افتراضيًا — كان بياخد مساحة رأسية ثابتة
+        /// فوق الشبكة طول الوقت حتى لو المستخدم مش محتاجه دلوقتي. حالة عرض
+        /// بحتة زي IsExpanded بتاعة كروت المهارات بالظبط، مش محفوظة بين
+        /// الجلسات (مفيش AppSettingsStore هنا عن قصد — مالهاش نفس وزن قرار
+        /// طي الشريط الجانبي).
+        /// </summary>
+        [ObservableProperty]
+        private bool _isBestWorkersExpanded;
 
         [ObservableProperty]
         private WorkerRow? _selectedWorker;
@@ -374,6 +387,7 @@ namespace WorkforceManager.UI.ViewModels
                     WorkerId = s.WorkerId,
                     FullName = s.WorkerName,
                     Rank = s.RecognitionRank ?? 0,
+                    Score = s.RecognitionScore ?? 0,
                     PhotoData = _allWorkers.FirstOrDefault(w => w.WorkerId == s.WorkerId)?.PhotoData
                 })
                 .ToList();
@@ -400,6 +414,14 @@ namespace WorkforceManager.UI.ViewModels
                 onOpenProfile: OpenWorkerProfile);
         }
 
+        /// <summary>
+        /// بيفتح بروفايل العامل الكامل (WorkerDetailDialog Modal) — من كارت بوديوم
+        /// "أحسن 3 عمال" في وضع شهر/مدة مخصوصة، أو من زرار "فتح بروفايل العامل
+        /// الكامل" جوّه "ليه فاز؟". قبل ما الـDialog اتحول لـModal، مجرّد تحديد
+        /// SelectedWorker كان كافي (اللوحة كانت جزء من نفس الشاشة) — دلوقتي لازم
+        /// فتح الـDialog صراحة زي WorkerTile_Click بالظبط، وإلا التحديد بيحصل
+        /// بصمت من غير ما أي حاجة تظهر للمستخدم.
+        /// </summary>
         private void OpenWorkerProfile(int workerId)
         {
             var worker = _allWorkers.FirstOrDefault(w => w.WorkerId == workerId);
@@ -415,6 +437,9 @@ namespace WorkforceManager.UI.ViewModels
             }
 
             SelectedWorker = worker;
+
+            var dialog = new WorkerDetailDialog(this) { Owner = Application.Current.MainWindow };
+            dialog.ShowDialog();
         }
 
         /// <summary>عدد النتايج المعروضة دلوقتي (بيظهر جنب البحث)</summary>
@@ -502,15 +527,72 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(NoResults));
         }
 
+        /// <summary>
+        /// بديل يدوي لتحديد ItemsControl.SelectedItem (اللي مبقاش موجود بعد
+        /// التحويل من ListBox لـItemsControl+WrapPanel — شوف CLAUDE.md قسم
+        /// شاشة العمال) — نفس أسلوب ProductsViewModel.SelectProduct بالحرف.
+        /// </summary>
+        [RelayCommand]
+        private void SelectWorker(WorkerRow? worker) => SelectedWorker = worker;
+
+        [RelayCommand]
+        private void ToggleBestWorkers() => IsBestWorkersExpanded = !IsBestWorkersExpanded;
+
+        /// <summary>
+        /// كروت أصغر وأكتر في الصف بدل الحجم "المريح" الافتراضي — حالة عرض
+        /// بحتة زي IsBestWorkersExpanded، مش محفوظة بين الجلسات. المستخدم
+        /// اللي طلب تكبير الخط هو نفسه اللي طلب زرار التحكم ده، فالتكبير
+        /// يفضل الافتراضي والمستخدم يبدّل لحظيًا لو عايز يشوف عدد أكتر.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isCompactGrid;
+
+        [RelayCommand]
+        private void ToggleGridDensity() => IsCompactGrid = !IsCompactGrid;
+
+        // ------- قائمة سياقية سريعة على الكارت (زرار يمين) -------
+        // تعديل/إيقاف/حذف من غير فتح الديالوج بالكامل. الأوامر تحت
+        // (EditWorkerAsync إلخ) بتشتغل على SelectedWorker/Detail الحاليين،
+        // مش على الصف الممرر — فلازم نحدد العامل ونستنى تحميل بروفايله
+        // الأول (await LoadDetailAsync صريح، مش الاستدعاء التلقائي المؤجّل
+        // في OnSelectedWorkerChanged، اللي Fire-and-forget ومش مضمون يخلص
+        // قبل ما الأمر يتنفذ) قبل ما ننادي المنطق الأصلي.
+
+        [RelayCommand]
+        private async Task EditWorkerFromCardAsync(WorkerRow? worker)
+        {
+            if (worker is null) return;
+            SelectedWorker = worker;
+            await LoadDetailAsync(worker);
+            await EditWorkerAsync();
+        }
+
+        [RelayCommand]
+        private async Task ToggleActiveFromCardAsync(WorkerRow? worker)
+        {
+            if (worker is null) return;
+            SelectedWorker = worker;
+            await LoadDetailAsync(worker);
+            await ToggleActiveAsync();
+        }
+
+        [RelayCommand]
+        private async Task DeleteWorkerFromCardAsync(WorkerRow? worker)
+        {
+            if (worker is null) return;
+            SelectedWorker = worker;
+            await LoadDetailAsync(worker);
+            await DeleteWorkerAsync();
+        }
+
         // لما العامل المحدد يتغير، حمّل تفاصيله في اللوحة الجانبية
         partial void OnSelectedWorkerChanged(WorkerRow? value)
         {
-            // إعادة تحميل القائمة بتنادي Workers.Clear()، وWPF بيصفّر
-            // التحديد أول ما الصف يتشال. ده مش خروج من البروفايل — الصف
-            // بيترجع بعدها بسطرين. من غير الحارس ده كان Detail بيتمسح في
-            // اللحظة دي، فلقطة حالة اللوحة (الكارت المفتوح + وضع الإضافة)
-            // بتضيع واللوحة بتتبني من الأول مقفولة.
-            if (_reloadingRows && value is null) return;
+            // الحد الدهبي على كارت الشبكة (شوف WorkerRow.IsSelected) — بيتظبط
+            // على _allWorkers كلها مش بس Workers المفلترة، عشان لو العامل
+            // المختار خرج برّه الفلتر الحالي يفضل علمه اتشال صح لما يرجع تاني
+            // (نفس العناصر بالمرجع بين القايمتين، شوف ApplyFilters)
+            foreach (var row in _allWorkers) row.IsSelected = ReferenceEquals(row, value);
 
             // تحميل بروفايل العامل المحدد (وأي خطأ بيظهر مش بيضيع بصمت)
             SafeAsync.Run(() => LoadDetailAsync(value));
@@ -563,6 +645,14 @@ namespace WorkforceManager.UI.ViewModels
             IsLoading = true;
             try
             {
+                // العامل المحدد (لو موجود) بيتحفظ بـWorkerId ويترجع بعد إعادة
+                // البناء — ItemsControl (بعد التحويل من ListBox، شوف CLAUDE.md)
+                // مالوش Selector يفضّل التحديد لوحده زي ما كان بيحصل، فـ
+                // SelectedWorker لازم يتظبط يدويًا هنا وإلا هيفضل ماسك مرجع
+                // لصف قديم اتشال من القايمة (مش هيبان عليه حد ذهبي، والبانل
+                // هيعرض بيانات قديمة). شوف WorkerRow.WorkerId
+                var selectedWorkerId = SelectedWorker?.WorkerId;
+
                 using var scope = _scopeFactory.CreateScope();
                 var workerRepo = scope.ServiceProvider.GetRequiredService<IWorkerRepository>();
                 var weeklyService = scope.ServiceProvider.GetRequiredService<WeeklySummaryService>();
@@ -664,6 +754,12 @@ namespace WorkforceManager.UI.ViewModels
 
                 ApplyFilters();
                 RefreshSummary();
+
+                // برجّع التحديد لنفس العامل (لو لسه موجود بعد الفلترة الحالية) —
+                // بيطلق OnSelectedWorkerChanged تلقائيًا فيظبط IsSelected على
+                // الصف الجديد ويحدّث لوحة التفاصيل ببيانات طازة
+                if (selectedWorkerId is not null)
+                    SelectedWorker = Workers.FirstOrDefault(w => w.WorkerId == selectedWorkerId.Value);
             }
             finally
             {
@@ -726,6 +822,49 @@ namespace WorkforceManager.UI.ViewModels
 
             var skillGroups = BuildSkillGroups(products, ownedStageIds, ratingByStage);
 
+            var weeklyHistory = new ObservableCollection<WeekHistoryItem>(history.Select(h => new WeekHistoryItem
+            {
+                WeekTitle = $"{h.WeekStart:dd/MM} — {h.WeekEnd:dd/MM}",
+                RelativeLabel = DescribeWeek(h.WeekStart, h.WeekEnd),
+                Produced = h.ProducedWorkdays,
+                AbsenceDeduction = h.AbsenceDeduction,
+                PenaltyDeduction = h.PenaltyDeduction,
+                Net = h.NetWorkdays,
+                // أجر الأسبوع بالجنيه (بيظهر بس لو ليه سعر يومية)
+                WageText = h.DailyWageEgp > 0 ? $"{h.NetWageEgp:N0} ج" : "",
+                IsBest = h.IsBestWorkerOfWeek,
+                // تفاصيل كصفوف مش كسطر نص — عشان تتقرا وتتحاذى
+                Breakdown = new ObservableCollection<WeekStageRow>(
+                    h.Breakdown
+                     .OrderByDescending(b => b.PieceCount)
+                     .Select(b => new WeekStageRow
+                     {
+                         ProductName = b.ProductName,
+                         StageName = b.StageName,
+                         PieceCount = b.PieceCount
+                     })),
+                Penalties = new ObservableCollection<WeekPenaltyRow>(
+                    h.Penalties.Select(p => new WeekPenaltyRow
+                    {
+                        Reason = p.Reason,
+                        DeductionName = p.DeductionName,
+                        DateText = $"{p.Date:dd/MM}"
+                    }))
+            }));
+
+            // ارتفاع أعمدة شريط الهستوري السريع — نسبي لأعلى صافي بين الأسابيع
+            // المعروضة كلها، فمحتاج شوف الأسابيع مع بعض مش وهو بيتبني واحد واحد.
+            // الصافي السالب بيتعامل معاه كصفر (عمود فاضي) — عمود بارتفاع سالب مالوش معنى بصري.
+            // بيتحسب هنا كبكسل جاهز مباشرة (4-36) بدل نسبة 0-1، عشان الـXAML
+            // يربط Height من غير Converter جديد لحساب حسابي بسيط زي ده
+            const double minBarHeight = 4, maxBarHeight = 36;
+            var maxNet = weeklyHistory.Count > 0 ? weeklyHistory.Max(w => Math.Max(w.Net, 0)) : 0;
+            foreach (var week in weeklyHistory)
+            {
+                var fraction = maxNet > 0 ? (double)(Math.Max(week.Net, 0) / maxNet) : 0;
+                week.BarHeight = minBarHeight + fraction * (maxBarHeight - minBarHeight);
+            }
+
             Detail = new WorkerDetail
             {
                 WorkerId = worker.Id,
@@ -741,35 +880,7 @@ namespace WorkforceManager.UI.ViewModels
                     ? $"سعر اليومية: {worker.DailyWageEgp:N0} جنيه"
                     : "سعر اليومية: لم يُحدد",
                 AllGroups = skillGroups,
-                WeeklyHistory = new ObservableCollection<WeekHistoryItem>(history.Select(h => new WeekHistoryItem
-                {
-                    WeekTitle = $"{h.WeekStart:dd/MM} — {h.WeekEnd:dd/MM}",
-                    RelativeLabel = DescribeWeek(h.WeekStart, h.WeekEnd),
-                    Produced = h.ProducedWorkdays,
-                    AbsenceDeduction = h.AbsenceDeduction,
-                    PenaltyDeduction = h.PenaltyDeduction,
-                    Net = h.NetWorkdays,
-                    // أجر الأسبوع بالجنيه (بيظهر بس لو ليه سعر يومية)
-                    WageText = h.DailyWageEgp > 0 ? $"{h.NetWageEgp:N0} ج" : "",
-                    IsBest = h.IsBestWorkerOfWeek,
-                    // تفاصيل كصفوف مش كسطر نص — عشان تتقرا وتتحاذى
-                    Breakdown = new ObservableCollection<WeekStageRow>(
-                        h.Breakdown
-                         .OrderByDescending(b => b.PieceCount)
-                         .Select(b => new WeekStageRow
-                         {
-                             ProductName = b.ProductName,
-                             StageName = b.StageName,
-                             PieceCount = b.PieceCount
-                         })),
-                    Penalties = new ObservableCollection<WeekPenaltyRow>(
-                        h.Penalties.Select(p => new WeekPenaltyRow
-                        {
-                            Reason = p.Reason,
-                            DeductionName = p.DeductionName,
-                            DateText = $"{p.Date:dd/MM}"
-                        }))
-                }))
+                WeeklyHistory = weeklyHistory
             };
 
             Detail.ApplyGroupMode();
@@ -1296,8 +1407,8 @@ namespace WorkforceManager.UI.ViewModels
         }
 
         /// <summary>
-        /// يعيد تحميل القائمة من غير ما يضيّع العامل المحدد ولا يقفل
-        /// لوحة التفاصيل (LoadAsync لوحدها بتصفّر الاختيار).
+        /// يعيد تحميل القائمة — LoadAsync نفسها بترجّع التحديد لنفس العامل
+        /// (بـWorkerId) بعد إعادة البناء، فمفيش حاجة إضافية لازم تتعمل هنا.
         ///
         /// في وضع الإضافة بيتأجّل بالكامل — شوف <see cref="_skillRowsStale"/>.
         /// </summary>
@@ -1309,14 +1420,7 @@ namespace WorkforceManager.UI.ViewModels
                 return;
             }
 
-            var selectedId = SelectedWorker?.WorkerId;
-
-            _reloadingRows = true;
-            try { await LoadAsync(); }
-            finally { _reloadingRows = false; }
-
-            if (selectedId is null) return;
-            SelectedWorker = Workers.FirstOrDefault(w => w.WorkerId == selectedId.Value);
+            await LoadAsync();
         }
 
         /// <summary>

@@ -65,6 +65,15 @@ namespace WorkforceManager.UI.ViewModels
 
         [ObservableProperty]
         private bool _isExpanded;
+
+        /// <summary>
+        /// ارتفاع عمود الأسبوع ده بالبكسل في شريط الهستوري السريع (4-36)،
+        /// نسبي لأعلى صافي بين الـ8 أسابيع المعروضة — بيتظبط مرة واحدة
+        /// بعد بناء WeeklyHistory كلها (شوف WorkersViewModel.LoadDetailAsync)،
+        /// مش هنا، لأن الصف الواحد مالوش رؤية على باقي الأسابيع. 4 بكسل
+        /// أدنى (أسبوع فاضي لسه بيبان كخط رفيع مش بيختفي خالص).
+        /// </summary>
+        public double BarHeight { get; set; } = 4;
     }
 
     /// <summary>سطر إنتاج واحد جوّه كارت الأسبوع (منتج / مرحلة / قطع)</summary>
