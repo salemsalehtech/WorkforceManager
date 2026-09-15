@@ -119,5 +119,8 @@ namespace WorkforceManager.Data
 
         /// <summary>ملف إعدادات البرنامج (JSON)</summary>
         public static string SettingsPath => Path.Combine(DataFolder, "settings.json");
+
+        /// <summary>ملف تاريخ اختيارات "بحث سريع" (JSON) — لترتيب النتايج بالاستخدام، شوف SearchRankingStore</summary>
+        public static string SearchRankingPath => Path.Combine(DataFolder, "search-ranking.json");
     }
 }
