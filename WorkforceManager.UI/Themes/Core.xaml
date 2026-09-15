@@ -36,6 +36,27 @@
     -->
     <FontFamily x:Key="AppFont">pack://application:,,,/Fonts/#Tajawal, Segoe UI, Tahoma</FontFamily>
 
+    <!--
+      IBM Plex Sans Arabic — خط القايمة الجانبية بس (الشاشات الرئيسية لسه على
+      AppFont/Tajawal، شوف MainWindow.xaml). أُختير بدل Cairo (الاقتراح الأول)
+      لأن Cairo بقى متاح كـ variable font بس (حتى من مستودع المصمّم نفسه) —
+      نفس مشكلة "WPF بيزيّف الأوزان غير الافتراضية" اللي Tajawal فوق أصلًا
+      اتبنى بأوزان ثابتة عشان يتجنّبها. القياس الفعلي (WPF FormattedText، نفس
+      أسلوب قياس عرض 210 القايمة فوق) أكّد إن العرض/الارتفاع لأطول تسمية
+      ("تسجيل الإنتاج اليومي") مطابق لـTajawal تقريبًا حرفيًا (118.7-118.8 DIP
+      عرض، 16.8 DIP ارتفاع سطر في الاتنين) — يعني ثوابت عرض/ارتفاع القايمة
+      الجانبية (SidebarMin=210، DesignHeight=760 في MainWindow.xaml.cs)
+      اتفحصت وفضلت صح من غير أي تغيير.
+      **كل وزن هنا عائلة خط منفصلة باسمها بالظبط** (مش عائلة واحدة بأوزان
+      فرعية) — WPF ميعرفش يختار الملف الصح من FontWeight بس، فكل استخدام
+      لوزن غير العادي لازم يحدد اسم العائلة المطلوبة صراحة (شوف
+      SidebarFontSemiBold/SidebarFontBold تحت) بدل ما يعتمد على تخمين WPF
+      ويرسم وزن مزيّف.
+    -->
+    <FontFamily x:Key="SidebarFont">pack://application:,,,/Fonts/#IBM Plex Sans Arabic, Segoe UI, Tahoma</FontFamily>
+    <FontFamily x:Key="SidebarFontSemiBold">pack://application:,,,/Fonts/#IBM Plex Sans Arabic SemiBold, Segoe UI, Tahoma</FontFamily>
+    <FontFamily x:Key="SidebarFontBold">pack://application:,,,/Fonts/#IBM Plex Sans Arabic Bold, Segoe UI, Tahoma</FontFamily>
+
     <!-- ============ الزوايا ============ -->
     <CornerRadius x:Key="RadiusSmall">8</CornerRadius>
     <CornerRadius x:Key="RadiusCard">14</CornerRadius>
@@ -371,7 +392,7 @@
 
     <!-- ============ بند القايمة الجانبية ============ -->
     <Style x:Key="NavItem" TargetType="RadioButton">
-        <Setter Property="FontFamily" Value="{DynamicResource AppFont}" />
+        <Setter Property="FontFamily" Value="{DynamicResource SidebarFont}" />
         <Setter Property="FontSize" Value="{DynamicResource FontBase}" />
         <Setter Property="Foreground" Value="{DynamicResource SidebarInkBrush}" />
         <Setter Property="Margin" Value="10,2" />
@@ -380,7 +401,18 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Grid>
+                    <!-- تكبير خفيف عند التمرير — نفس لغة GhostButton/BaseActionButton
+                         بالظبط (RootScale/RootLift، نفس القيم ونفس EaseOut) عشان
+                         القايمة الجانبية تحس بنظام تفاعل واحد متّسق مع باقي البرنامج،
+                         مش لغة بصرية جديدة -->
+                    <Grid RenderTransformOrigin="0.5,0.5">
+                        <Grid.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1" />
+                                <TranslateTransform x:Name="RootLift" Y="0" />
+                            </TransformGroup>
+                        </Grid.RenderTransform>
+
                         <Border x:Name="Bd" CornerRadius="{DynamicResource RadiusSmall}"
                                 Background="Transparent" Padding="14,11" />
 
@@ -395,28 +427,111 @@
                             </Border.Background>
                         </Border>
 
-                        <!-- الشريط الدهبي على حرف البند النشط -->
-                        <Border x:Name="Mark" Width="3" HorizontalAlignment="Right"
-                                Margin="0,9" CornerRadius="2"
-                                Background="{DynamicResource GoldGradientBrush}" Opacity="0" />
+                        <!-- الشريط الدهبي على حرف البند النشط بقى عنصر واحد
+                             مشترك بيتحرك (NavIndicator في MainWindow.xaml)
+                             بدل شريط منفصل لكل بند — شوف MainWindow.xaml.cs's
+                             PositionNavIndicator للانزلاق الحقيقي بين البنود -->
 
                         <ContentPresenter Margin="14,11" VerticalAlignment="Center" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                         To="1.03" Duration="0:0:0.16"
+                                                         EasingFunction="{StaticResource EaseOut}" />
+                                        <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                         To="1.03" Duration="0:0:0.16"
+                                                         EasingFunction="{StaticResource EaseOut}" />
+                                        <DoubleAnimation Storyboard.TargetName="RootLift" Storyboard.TargetProperty="Y"
+                                                         To="-1" Duration="0:0:0.16"
+                                                         EasingFunction="{StaticResource EaseOut}" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX"
+                                                         To="1" Duration="0:0:0.20"
+                                                         EasingFunction="{StaticResource EaseOut}" />
+                                        <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY"
+                                                         To="1" Duration="0:0:0.20"
+                                                         EasingFunction="{StaticResource EaseOut}" />
+                                        <DoubleAnimation Storyboard.TargetName="RootLift" Storyboard.TargetProperty="Y"
+                                                         To="0" Duration="0:0:0.20"
+                                                         EasingFunction="{StaticResource EaseOut}" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarAltBrush}" />
                             <Setter TargetName="Glow" Property="Opacity" Value="1" />
-                            <Setter TargetName="Mark" Property="Opacity" Value="1" />
                             <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
+                            <!-- عائلة الوزن الحقيقية، مش نفس عائلة النص العادي بـFontWeight بس —
+                                 كل وزن في IBM Plex Sans Arabic عائلة خط منفصلة، شوف تعليق
+                                 SidebarFontSemiBold في أول الملف ده -->
+                            <Setter Property="FontFamily" Value="{DynamicResource SidebarFontSemiBold}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!--
+      نفس لغة التكبير عند التمرير اللي فوق (NavItem) — بس لكروت Border عادية
+      (بطاقة اليوم، بطاقة الحساب) مش Button ليها ControlTemplate. مفيش
+      x:Name هنا للـScaleTransform/TranslateTransform جوّه Setter.Value —
+      عكس ControlTemplate، Style عادي مابيسجّلش أسماء العناصر الفرعية في
+      NameScope يوصله Storyboard.TargetName، فالحركة هنا بتستهدف العنصر
+      نفسه (بدون TargetName = هدف افتراضي هو العنصر اللي الـTrigger عليه)
+      بمسار خاصية مفهرس RenderTransform.Children[0]/[1] بدل اسم.
+    -->
+    <Style x:Key="HoverGrowCard" TargetType="Border">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <TransformGroup>
+                    <ScaleTransform ScaleX="1" ScaleY="1" />
+                    <TranslateTransform Y="0" />
+                </TransformGroup>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Children[0].ScaleX"
+                                             To="1.03" Duration="0:0:0.16" EasingFunction="{StaticResource EaseOut}" />
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Children[0].ScaleY"
+                                             To="1.03" Duration="0:0:0.16" EasingFunction="{StaticResource EaseOut}" />
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Children[1].Y"
+                                             To="-1" Duration="0:0:0.16" EasingFunction="{StaticResource EaseOut}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Children[0].ScaleX"
+                                             To="1" Duration="0:0:0.20" EasingFunction="{StaticResource EaseOut}" />
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Children[0].ScaleY"
+                                             To="1" Duration="0:0:0.20" EasingFunction="{StaticResource EaseOut}" />
+                            <DoubleAnimation Storyboard.TargetProperty="RenderTransform.Children[1].Y"
+                                             To="0" Duration="0:0:0.20" EasingFunction="{StaticResource EaseOut}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <!-- ============ خانة الإدخال ============ -->

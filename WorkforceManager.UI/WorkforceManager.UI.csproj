@@ -60,17 +60,33 @@
     <!-- الأيقونة كـ Resource عشان تتستخدم كأيقونة النافذة (شريط المهام) كمان -->
     <Resource Include="Assets\app.ico" />
     <!--
-      خط الواجهة (Tajawal) مدموج جوه الـ exe كـ Resource مش متثبت على الجهاز —
+      خطوط الواجهة مدموجة جوه الـ exe كـ Resource مش متثبتة على الجهاز —
       البرنامج محمول ولازم يطلع بنفس الشكل على أي ويندوز من غير تثبيت خطوط.
-      خمس أوزان ثابتة (مش variable font) عن قصد: WPF بيدعم الأوزان الثابتة صح،
-      أما المتغيرة فبيرسم منها الوزن الافتراضي بس ويزوّر الباقي (synthetic bold)
-      وشكله وحش. الأوزان دي بتغطي كل ما تستخدمه الشاشات:
-      Light=300 / Regular=400 / Medium=500 / Bold=700 / ExtraBold=800.
-      الإجمالي ~300 كيلو، والترخيص OFL (نسخته في Fonts\OFL.txt).
+      أوزان ثابتة (مش variable font) عن قصد لكل الخطوط هنا: WPF بيدعم الأوزان
+      الثابتة صح، أما المتغيرة فبيرسم منها الوزن الافتراضي بس ويزوّر الباقي
+      (synthetic bold) وشكله وحش — نفس السبب اللي خلّى IBM Plex Sans Arabic
+      (خط القايمة الجانبية، شوف SidebarFont في Core.xaml) يتقدّم على Cairo:
+      Cairo بقى متاح كـ variable font بس دلوقتي (حتى من مستودع المصمّم نفسه)،
+      وPlex لسه عنده أوزان ثابتة حقيقية.
+      Tajawal (خط التطبيق العام): Light=300 / Regular=400 / Medium=500 /
+      Bold=700 / ExtraBold=800، الترخيص OFL في Fonts\OFL.txt.
+      IBM Plex Sans Arabic (خط القايمة الجانبية بس): Regular=400 / SemiBold=600 /
+      Bold=700 — الأوزان التلاتة اللي القايمة الجانبية فعليًا بتستخدمها (النص
+      العادي، العنصر المختار، اسم/شعار المصنع)، مش كل أوزان الخط. **كل وزن ملف
+      عائلة خط منفصلة باسمها الخاص** (IBM Plex Sans Arabic / ...Medium إلخ لو
+      اتضافوا لاحقًا)، مش عائلة واحدة بأوزان فرعية زي Tajawal — WPF ميقدرش يختار
+      الملف الصح لوحده من FontWeight بس هنا، فكل استخدام بوزن مختلف عن العادي
+      (شوف SidebarFontSemiBold/SidebarFontBold في Core.xaml) بيحدد اسم العائلة
+      المطلوبة صراحة، مش يعتمد على تخمين WPF. ترخيصه OFL منفصل في
+      Fonts\OFL-IBMPlexSansArabic.txt (خط مختلف، ترخيص منفصل عن بتاع Tajawal
+      حتى لو نفس نوع الرخصة).
     -->
     <Resource Include="Fonts\*.ttf" />
-    <!-- نص الترخيص بيتشحن جنب البرنامج (شرط الـ OFL) مش جوه الـ exe -->
+    <!-- نص كل ترخيص بيتشحن جنب البرنامج (شرط الـ OFL) مش جوه الـ exe -->
     <Content Include="Fonts\OFL.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Fonts\OFL-IBMPlexSansArabic.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

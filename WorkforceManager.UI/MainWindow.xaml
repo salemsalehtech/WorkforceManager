@@ -58,7 +58,13 @@
              اللي تحت على خلفيتين مختلفتين، فالشريط الدهبي بتاع البند
              النشط بيبان بقوّتين حسب مكانه. اللون الواحد بيخلي كل بند
              يتعامل مع نفس الأرضية. -->
-        <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}">
+        <!-- TextElement.FontFamily هنا بس، مش على كل عنصر لوحده — بتتوارث لكل
+             حاجة تحتها (ماعدا NavItem style اللي عنده Setter صريح بيكسر
+             الوراثة، شوف Core.xaml). Border مش Control/TextElement فمالوش
+             خاصية FontFamily بتاعته — لازم الصيغة المرفقة (Attached Property)
+             عشان الوراثة تشتغل من عنصر مش قابل للكتابة عادي. -->
+        <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}"
+                TextElement.FontFamily="{DynamicResource SidebarFont}">
             <DockPanel>
                 <!-- الهوية -->
                 <StackPanel DockPanel.Dock="Top" Margin="20,24,20,20">
@@ -72,6 +78,7 @@
                                  الإعدادات. لو مفيش اسم بيرجع للاسم
                                  العام بدل سطر فاضي. -->
                             <TextBlock x:Name="FactoryText" Text="WMS" FontSize="17" FontWeight="Bold"
+                                       FontFamily="{DynamicResource SidebarFontBold}"
                                        Foreground="{DynamicResource GoldBrush}"
                                        TextTrimming="CharacterEllipsis" MaxWidth="160" />
                             <TextBlock x:Name="DepartmentText" FontSize="11"
@@ -83,6 +90,23 @@
                     <!-- خط دهبي رفيع بيفصل الهوية عن التنقل -->
                     <Border Height="1" Margin="0,18,0,0" Opacity="0.35"
                             Background="{DynamicResource GoldGradientBrush}" />
+
+                    <!-- بطاقة اليوم — أول عنصر محتوى بعد الهوية مباشرة
+                         (كانت آخر عنصر تحت القايمة، اتنقلت هنا) -->
+                    <Border x:Name="DateCard" Margin="0,14,0,0" Padding="13,11"
+                            CornerRadius="{DynamicResource RadiusSmall}"
+                            Background="{DynamicResource SidebarAltBrush}"
+                            Style="{StaticResource HoverGrowCard}">
+                        <StackPanel>
+                            <!-- التاريخ بالعربي بيتكتب من الكود عند فتح النافذة -->
+                            <TextBlock x:Name="TodayText" FontSize="12.5" FontWeight="SemiBold"
+                                       FontFamily="{DynamicResource SidebarFontSemiBold}"
+                                       Foreground="{DynamicResource SidebarInkBrush}" />
+                            <TextBlock Text="أسبوع العمل: الخميس ← الأربعاء" FontSize="10.5"
+                                       Margin="0,3,0,0"
+                                       Foreground="{DynamicResource SidebarInkSoftBrush}" />
+                        </StackPanel>
+                    </Border>
 
                     <!-- بحث سريع: عامل أو منتج، من أي شاشة، من غير ما تفتح شاشته الأول -->
                     <Button x:Name="GlobalSearchButton" Margin="0,14,0,0" Padding="10,7" HorizontalContentAlignment="Left"
@@ -123,7 +147,8 @@
                      يوزر وباسورد لوحدها). -->
                 <Border x:Name="AccountCard" DockPanel.Dock="Bottom" Margin="16,0,16,10" Padding="12,9"
                         CornerRadius="{DynamicResource RadiusSmall}"
-                        Background="{DynamicResource SidebarAltBrush}">
+                        Background="{DynamicResource SidebarAltBrush}"
+                        Style="{StaticResource HoverGrowCard}">
                     <DockPanel>
                         <Button DockPanel.Dock="Left" Click="Logout_Click"
                                 Style="{StaticResource IconButton}" Padding="6,4"
@@ -137,20 +162,6 @@
                     </DockPanel>
                 </Border>
 
-                <!-- بطاقة اليوم في آخر القائمة -->
-                <Border DockPanel.Dock="Bottom" Margin="16,0,16,18" Padding="13,11"
-                        CornerRadius="{DynamicResource RadiusSmall}"
-                        Background="{DynamicResource SidebarAltBrush}">
-                    <StackPanel>
-                        <!-- التاريخ بالعربي بيتكتب من الكود عند فتح النافذة -->
-                        <TextBlock x:Name="TodayText" FontSize="12.5" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource SidebarInkBrush}" />
-                        <TextBlock Text="أسبوع العمل: الخميس ← الأربعاء" FontSize="10.5"
-                                   Margin="0,3,0,0"
-                                   Foreground="{DynamicResource SidebarInkSoftBrush}" />
-                    </StackPanel>
-                </Border>
-
                 <!-- عناصر التنقل -->
                 <!--
                   ScrollViewer حوالين قايمة التنقل: القايمة آخر عنصر في
@@ -162,7 +173,12 @@
                   مش بديل عن ظبط مساحة التصميم (شوف DesignHeight) — ده
                   الحزام اللي بيمنع الاختفاء الصامت لو الاتنين اختلفوا.
                 -->
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                <!-- Grid ملفوف حوالين الـScrollViewer عشان NavIndicator (الشريط
+                     الدهبي المشترك اللي بينزلق بين البنود، شوف MainWindow.xaml.cs's
+                     PositionNavIndicator) يقدر يتراكب فوق القايمة من غير ما
+                     يبقى جزء من محتواها القابل للتمرير -->
+                <Grid x:Name="NavIndicatorHost">
+                <ScrollViewer x:Name="NavScrollViewer" VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="12,4,12,0">
                     <!-- التنقل بـ Checked + Click مع بعض عن قصد:
@@ -287,6 +303,21 @@
                     </RadioButton>
                 </StackPanel>
                 </ScrollViewer>
+
+                <!-- المؤشر الدهبي المشترك للبند المختار — عنصر واحد بينزلق
+                     بدل ما كل بند يفعّل شريطه الخاص لوحده (كان كده قبل كده،
+                     Opacity 0↔1 بلا حركة). موضعه بيتظبط برمجيًا
+                     (PositionNavIndicator) بـTranslateTransform، مش Margin —
+                     أرخص للحركة ومايأثرش على تخطيط باقي البنود. IsHitTestVisible
+                     False عشان ميحجبش دوسة على أي بند. -->
+                <Border x:Name="NavIndicator" Width="3" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        CornerRadius="2" Background="{DynamicResource GoldGradientBrush}"
+                        IsHitTestVisible="False" Opacity="0">
+                    <Border.RenderTransform>
+                        <TranslateTransform x:Name="NavIndicatorTransform" />
+                    </Border.RenderTransform>
+                </Border>
+                </Grid>
             </DockPanel>
         </Border>
 

@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
@@ -82,6 +83,101 @@ namespace WorkforceManager.UI
             // التخطيط بيتصغّر لو الشاشة أضيق من مساحة التصميم — شوف ApplyUiScale
             SizeChanged += (_, _) => ApplyUiScale();
             ClampRestoreSizeToScreen();
+
+            InitializeNavIndicator();
+        }
+
+        // ======================= المؤشر الدهبي المنزلق (القايمة الجانبية) =======================
+
+        /// <summary>
+        /// true بعد أول تموضع حقيقي (بعد ما النافذة تحمّل فعليًا) — أي
+        /// Checked بعده بيتحرك بانزلاق (Storyboard)، مش بيتحط فجأة.
+        /// </summary>
+        private bool _navIndicatorPositioned;
+
+        /// <summary>
+        /// بيوصّل مستمع Checked مشترك على كل بنود التنقل العشرة — **زيادة
+        /// على** الـhandlers الموجودة (NavWorkers_Checked إلخ)، مش بديل
+        /// عنهم؛ الاتنين بيشتغلوا مع بعض على نفس الحدث من غير تعارض. غرضه
+        /// الوحيد تحريك NavIndicator، منفصل تمامًا عن منطق التنقل نفسه.
+        /// </summary>
+        private void InitializeNavIndicator()
+        {
+            foreach (var item in new[]
+            {
+                NavWorkersItem, NavProductsItem, NavDailyEntryItem, NavMemoryItem, NavEvaluationItem,
+                NavReportsItem, NavActivityLogItem, NavSettingsItem, NavDepartmentAccountsItem, NavHelpItem
+            })
+            {
+                item.Checked += NavItem_Checked;
+            }
+        }
+
+        /// <summary>
+        /// أول Checked بيحصل مصطنع جوّه InitializeComponent (IsChecked="True"
+        /// على NavWorkersItem في الـXAML) قبل ما النافذة تتحمّل فعليًا —
+        /// التخطيط وقتها مش جاهز، فـTransformToAncestor هيرجّع إحداثيات
+        /// غلط. بدل ما نتجاهله (زي حراس NavX_Checked اللي بتشيك MainContent)،
+        /// بنأجّل التموضع الأول لحدث Loaded بالظبط — نفس مبدأ "استنى
+        /// التحميل الطبيعي بدل نداء ينافسه" المستخدم في أكتر من مكان في
+        /// المشروع — من غير حركة (تموضع مباشر، مش انزلاق، أول مرة بس).
+        /// </summary>
+        private void NavItem_Checked(object sender, RoutedEventArgs e)
+        {
+            if (sender is not RadioButton item) return;
+
+            if (!IsLoaded)
+            {
+                RoutedEventHandler? deferred = null;
+                deferred = (_, _) =>
+                {
+                    Loaded -= deferred;
+                    PositionNavIndicator(item, animate: false);
+                    _navIndicatorPositioned = true;
+                };
+                Loaded += deferred;
+                return;
+            }
+
+            PositionNavIndicator(item, animate: _navIndicatorPositioned);
+            _navIndicatorPositioned = true;
+        }
+
+        /// <summary>
+        /// بيحرّك NavIndicator لموضع البند المختار. `TransformToAncestor`
+        /// نفس تقنية PositionTourStep الموجودة فعلًا في محرك الجولة —
+        /// بيحسب الموضع الحقيقي بغض النظر عن التمرير جوّه NavScrollViewer.
+        /// انزلاق جاري وسط تحديد جديد بيتلغي/يتستبدل لوحده (سلوك WPF
+        /// الطبيعي لـStoryboard جديدة على نفس الخاصية)، فمفيش تكديس أو قفزة.
+        /// </summary>
+        private void PositionNavIndicator(RadioButton item, bool animate)
+        {
+            var targetY = item.TransformToAncestor(NavIndicatorHost).Transform(new Point(0, 0)).Y;
+            var targetHeight = item.ActualHeight;
+
+            if (!animate)
+            {
+                NavIndicatorTransform.Y = targetY;
+                NavIndicator.Height = targetHeight;
+                NavIndicator.Opacity = 1;
+                return;
+            }
+
+            var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
+            var duration = TimeSpan.FromSeconds(0.2);
+
+            var moveAnimation = new DoubleAnimation { To = targetY, Duration = duration, EasingFunction = easing };
+            Storyboard.SetTarget(moveAnimation, NavIndicatorTransform);
+            Storyboard.SetTargetProperty(moveAnimation, new PropertyPath(TranslateTransform.YProperty));
+
+            var heightAnimation = new DoubleAnimation { To = targetHeight, Duration = duration, EasingFunction = easing };
+            Storyboard.SetTarget(heightAnimation, NavIndicator);
+            Storyboard.SetTargetProperty(heightAnimation, new PropertyPath(FrameworkElement.HeightProperty));
+
+            var storyboard = new Storyboard();
+            storyboard.Children.Add(moveAnimation);
+            storyboard.Children.Add(heightAnimation);
+            storyboard.Begin();
         }
 
         // مساحة التصميم اللي كل الشاشات مبنية عليها — المرجع اللي المقياس
@@ -102,11 +198,17 @@ namespace WorkforceManager.UI
         private const double DesignWidth = 1200;
 
         // **الرقم ده مقيس مش مختار.** الشريط الجانبي هو اللي بيحدده: هو
-        // العنصر الوحيد اللي لازم يظهر بالكامل من غير تمرير، وقياسه الفعلي
-        // 706 (9 بنود تنقل + بطاقة اليوم + بطاقة الحساب + زرار الحفظ
-        // النهائي). كان محطوط 700 بالتخمين، فـ"الحسابات الإدارية" كانت
-        // بتتقص بـ6 بكسل وتختفي بالكامل على الشاشات الكبيرة — لأن التكبير
-        // بيقلّل الارتفاع المنطقي (1020 ÷ 1.457 = 700).
+        // العنصر الوحيد اللي لازم يظهر بالكامل من غير تمرير. قياسه الأصلي
+        // كان 706 (9 بنود تنقل + بطاقة اليوم + بطاقة الحساب + زرار الحفظ
+        // النهائي، قبل ما شاشة "الدليل" تتضاف كبند عاشر). كان محطوط 700
+        // بالتخمين، فـ"الحسابات الإدارية" كانت بتتقص بـ6 بكسل وتختفي
+        // بالكامل على الشاشات الكبيرة — لأن التكبير بيقلّل الارتفاع
+        // المنطقي (1020 ÷ 1.457 = 700).
+        // إعادة القياس عند تصميم القايمة الجانبية الجديدة (خط IBM Plex Sans
+        // Arabic، نقل بطاقة اليوم) أكّدت إن العدد الحالي (10 بنود) لسه
+        // داخل نفس الرقم — نفس ارتفاع السطر تقريبًا حرفيًا بين الخطين
+        // (16.8 DIP في الاتنين عند نفس المقاس)، ونقل البطاقة بترتيب بس
+        // من غير تغيير المجموع الكلي. شوف CLAUDE.md لتفاصيل القياس.
         //
         // الفرق (54) مساحة بند تنقل إضافي تقريبًا. لو اتضاف بند جديد،
         // الـ ScrollViewer في الـ XAML هيمنع الاختفاء الصامت — بس الصح
