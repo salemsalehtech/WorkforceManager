@@ -53,5 +53,18 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>قوالب التقارير متعرّفة بالاسم، مش رقم — نفس مفتاح ReportTemplateStore</summary>
         public string? ReportTemplateName { get; init; }
+
+        /// <summary>
+        /// **الاتنين دول بس بتتملى من الواجهة، مش من GlobalSearchService** —
+        /// فئتي الإعدادات والدليل محتوى ثابت في الواجهة (HelpTopics/HelpFaq/
+        /// SearchableSettings)، مش صفوف قاعدة بيانات، فالخدمة نفسها ماعندهاش
+        /// داعي تعرف عنهم حاجة. موجودين هنا (مش في نوع واجهة منفصل) عشان
+        /// GlobalSearchResult يفضل الشكل الوحيد اللي بيتحرك من المطابقة
+        /// للعرض للهبوط، بدل نوع تغليف تاني يكرر نفس الحقول.
+        /// </summary>
+        public string? SettingTargetElementName { get; init; }
+
+        /// <summary>true لسؤال في الأسئلة الشائعة، false (الافتراضي) لموضوع دليل عادي — يفرّق شكل الهبوط بس</summary>
+        public bool IsFaqEntry { get; init; }
     }
 }

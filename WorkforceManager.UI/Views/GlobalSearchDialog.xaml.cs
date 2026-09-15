@@ -1,44 +1,59 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Threading;
+using WorkforceManager.Business.DTOs;
 
 namespace WorkforceManager.UI.Views
 {
-    /// <summary>نتيجة بحث واحدة — عامل أو منتج، بالاسم بس (كل التفاصيل تتحمّل بعد التنقّل للشاشة نفسها)</summary>
-    public class GlobalSearchItem
-    {
-        public string Name { get; init; } = "";
-        public bool IsWorker { get; init; }
-    }
-
     /// <summary>
-    /// بحث سريع عن عامل أو منتج من أي شاشة، من غير ما تفتح شاشته الأول.
+    /// بحث سريع شامل — بيغطي كل الفئات العشرة الموثّقة في CLAUDE.md (عمال،
+    /// منتجات، مراحل، رصيد أولي، خطط ذاكرة، سجل عمليات، قوالب تقارير،
+    /// حسابات إدارية، إعدادات، الدليل)، بمطابقة عربية متسامحة مع الأخطاء
+    /// الإملائية.
     ///
-    /// القايمة بتتحمّل عند المنادي **قبل** الفتح (نفس سبب أي دايالوج خفيف
-    /// هنا — تحميل async جوه Constructor نافذة خطر Deadlock)، وده كافي
-    /// لحجم بيانات المصنع (عمال ومنتجات مش آلاف)، فالفلترة كلها محلية
-    /// في الذاكرة زي بحث شاشة العمال/المنتجات نفسها.
+    /// **الديالوج نفسه مالوش أي منطق مطابقة** — بينادي <see cref="_search"/>
+    /// (delegate من المنادي، MainWindow.GlobalSearch_Click) اللي بيجمّع
+    /// نتايج GlobalSearchService (الفئات الثمانية المرتبطة بقاعدة
+    /// البيانات) مع فئتي الإعدادات والدليل الثابتين — نفس مبدأ "منطق
+    /// المطابقة في Business/helper، أبدًا جوّه code-behind الديالوج".
+    ///
+    /// **البحث مؤجّل ~250ms بعد آخر حرف** (`_debounce`)، عشان الكتابة
+    /// السريعة ما تشغّلش خط أنابيب كامل — بما فيه مطابقة فَزّي محتملة على
+    /// آلاف صفوف سجل العمليات — على كل حرف؛ الفئات الأصغر (عمال، منتجات...)
+    /// كانت سريعة كفاية من غيره، لكن الفئة الأكبر حجمًا لأ.
+    /// `_searchGeneration` بيرمي أي نتيجة بحث سابق توصل متأخرة بعد بحث
+    /// أحدث منها (نفس فكرة `_previewGeneration` في محرك التقارير).
     /// </summary>
     public partial class GlobalSearchDialog : Window
     {
-        private readonly IReadOnlyList<GlobalSearchItem> _all;
+        private readonly Func<string, Task<IReadOnlyList<GlobalSearchResult>>> _search;
+        private readonly DispatcherTimer _debounce;
+        private int _searchGeneration;
 
-        public GlobalSearchItem? Chosen { get; private set; }
+        public GlobalSearchResult? Chosen { get; private set; }
 
-        private GlobalSearchDialog(IReadOnlyList<GlobalSearchItem> items)
+        private GlobalSearchDialog(Func<string, Task<IReadOnlyList<GlobalSearchResult>>> search)
         {
             InitializeComponent();
 
-            _all = items;
-            ResultsList.ItemsSource = _all;
+            _search = search;
+            _debounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            _debounce.Tick += async (_, _) =>
+            {
+                _debounce.Stop();
+                await RunSearchAsync(SearchBox.Text.Trim());
+            };
 
             Loaded += (_, _) => SearchBox.Focus();
         }
 
         /// <summary>بيعرض النافذة ويرجّع اللي المستخدم اختاره، أو null لو لغى</summary>
-        public static GlobalSearchItem? Ask(Window? owner, IReadOnlyList<GlobalSearchItem> items)
+        public static GlobalSearchResult? Ask(
+            Window? owner, Func<string, Task<IReadOnlyList<GlobalSearchResult>>> search)
         {
-            var dialog = new GlobalSearchDialog(items);
+            var dialog = new GlobalSearchDialog(search);
             if (owner is not null) dialog.Owner = owner;
 
             return dialog.ShowDialog() == true ? dialog.Chosen : null;
@@ -46,14 +61,42 @@ namespace WorkforceManager.UI.Views
 
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            var query = SearchBox.Text.Trim();
+            _debounce.Stop();
+            _debounce.Start();
+        }
 
-            var filtered = query.Length == 0
-                ? _all
-                : _all.Where(i => i.Name.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+        private async Task RunSearchAsync(string query)
+        {
+            var generation = ++_searchGeneration;
 
-            ResultsList.ItemsSource = filtered;
-            EmptyText.Visibility = filtered.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (query.Length == 0)
+            {
+                ResultsList.ItemsSource = null;
+                EmptyText.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            IReadOnlyList<GlobalSearchResult> results;
+            try
+            {
+                results = await _search(query);
+            }
+            catch (Exception ex)
+            {
+                // فشل البحث نفسه (استثناء حقيقي، مش "مفيش نتائج") لازم يوصل
+                // للمستخدم — سكوت هنا كان هيخلي الديالوج يقعد فاضي من غير تفسير
+                Notify.Error("حصلت مشكلة أثناء البحث: " + ex.Message);
+                return;
+            }
+
+            if (generation != _searchGeneration) return; // نتيجة بحث سابق وصلت متأخرة — اتجاوزها
+
+            var view = CollectionViewSource.GetDefaultView(results);
+            view.GroupDescriptions.Clear();
+            view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(GlobalSearchResult.Category)));
+
+            ResultsList.ItemsSource = view;
+            EmptyText.Visibility = results.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -81,7 +124,7 @@ namespace WorkforceManager.UI.Views
 
         private void Confirm()
         {
-            if (ResultsList.SelectedItem is not GlobalSearchItem item) return;
+            if (ResultsList.SelectedItem is not GlobalSearchResult item) return;
 
             Chosen = item;
             DialogResult = true;

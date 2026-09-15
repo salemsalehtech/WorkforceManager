@@ -3,9 +3,11 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
+using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Interfaces;
@@ -229,33 +231,252 @@ namespace WorkforceManager.UI
         }
 
         /// <summary>
-        /// بحث سريع عن عامل أو منتج من أي شاشة. القايمة بتتحمّل هنا (نفس
-        /// المستودعات اللي شاشتي العمال والمنتجات بتستخدمها أصلاً) وتتبعت
-        /// جاهزة للدايالوج، اللي مش محتاج DI خالص — شوف GlobalSearchDialog.
+        /// وقت استقرار الشاشة بعد التنقّل قبل ما كود الهبوط يلمس عنصر
+        /// جواها — بعض الشاشات بتحمّل بياناتها async على Loaded (نفس
+        /// السبب اللي RunTourAsync مستخدم تأخير مشابه له، 150-400ms، لنفس
+        /// المشكلة بالظبط). مش كل فئة محتاجاه: أي حاجة بتتبنى على خاصية
+        /// SearchText بسيطة (العمال/المنتجات) بتتظبط **قبل** التحميل
+        /// الطبيعي فبتتلقط منه تلقائيًا من غير تأخير — التأخير هنا للحاجات
+        /// اللي محتاجة صف حقيقي من قايمة لسه بتتحمّل (تحديد عامل بعينه،
+        /// تسليط مرحلة، فتح خطة ذاكرة، فتح تبويب رصيد أولي، فتح بروفايل
+        /// حساب إداري).
+        /// </summary>
+        private const int SearchLandingSettleDelayMs = 300;
+
+        /// <summary>
+        /// بحث سريع شامل — بيغطي كل الفئات العشرة الموثّقة في CLAUDE.md.
+        /// الديالوج نفسه بينادي <see cref="SearchAllCategoriesAsync"/> لكل
+        /// بحث (مش قايمة محمّلة مرة واحدة زي قبل كده)، لأن سجل العمليات
+        /// وحده محتاج استعلام حي؛ الهبوط على النتيجة بعد الاختيار في
+        /// <see cref="LandOnSearchResultAsync"/>.
         /// </summary>
         private async void GlobalSearch_Click(object sender, RoutedEventArgs e)
         {
-            var workers = await _session.GetRequiredService<IWorkerRepository>().GetActiveWithSkillsAsync();
-            var products = await _session.GetRequiredService<IProductRepository>().GetActiveWithStagesAsync();
-
-            var items = workers.Select(w => new GlobalSearchItem { Name = w.FullName, IsWorker = true })
-                .Concat(products.Select(p => new GlobalSearchItem { Name = p.Name, IsWorker = false }))
-                .OrderBy(i => i.Name)
-                .ToList();
-
-            var chosen = GlobalSearchDialog.Ask(this, items);
+            var chosen = GlobalSearchDialog.Ask(this, SearchAllCategoriesAsync);
             if (chosen is null) return;
 
-            // الترتيب مهم: نخلّي RadioButton الملاحة يحل الشاشة عادي الأول (زي أي تنقّل يدوي)،
-            // وبعدين بس نلاقي الـView/ViewModel اللي اتحطوا فعلًا في MainContent ونظبط البحث
-            // عليها — لو حلّينا View تانية بأنفسنا هنا كانت هتتكرّر (الشاشتين Transient)
-            if (chosen.IsWorker) NavWorkersItem.IsChecked = true;
-            else NavProductsItem.IsChecked = true;
+            await LandOnSearchResultAsync(chosen);
+        }
 
-            if (MainContent?.Content is WorkersView { DataContext: ViewModels.WorkersViewModel workersVm })
-                workersVm.SearchText = chosen.Name;
-            else if (MainContent?.Content is ProductsView { DataContext: ViewModels.ProductsViewModel productsVm })
-                productsVm.SearchText = chosen.Name;
+        /// <summary>
+        /// بيجمع نتايج GlobalSearchService (الفئات الثمانية المرتبطة
+        /// بقاعدة البيانات) مع فئتي الإعدادات والدليل الثابتين في قايمة
+        /// واحدة مرتبة — الفئتين دول محتوى واجهة بحت (مفيش استعلام
+        /// يرجّعهم)، فمطابقتهم بتحصل هنا مباشرة بنفس محرك المطابقة
+        /// وأوزان الحقول اللي GlobalSearchService نفسها بتستخدمها
+        /// (GlobalSearchService.BestMatch) — عشان الترجيح يفضل قاعدة
+        /// واحدة في كل مكان.
+        /// </summary>
+        private async Task<IReadOnlyList<GlobalSearchResult>> SearchAllCategoriesAsync(string query)
+        {
+            var results = (await _session.GetRequiredService<GlobalSearchService>().SearchAsync(query)).ToList();
+
+            results.AddRange(MatchSettings(query));
+            results.AddRange(MatchHelpContent(query));
+
+            return results.OrderByDescending(r => r.Score).ToList();
+        }
+
+        private static IEnumerable<GlobalSearchResult> MatchSettings(string query)
+        {
+            foreach (var setting in Tour.SearchableSettings.Entries)
+            {
+                var match = GlobalSearchService.BestMatch(
+                    query,
+                    (setting.Title, GlobalSearchService.PrimaryFieldWeight),
+                    (setting.Description, GlobalSearchService.SecondaryFieldWeight));
+                if (match is null) continue;
+
+                yield return new GlobalSearchResult
+                {
+                    Category = SearchCategory.Setting,
+                    PrimaryText = setting.Title,
+                    SecondaryText = setting.Description,
+                    Score = match.Value.Score,
+                    SettingTargetElementName = setting.TargetElementName
+                };
+            }
+        }
+
+        /// <summary>كل موضوع دليل مع أب المستوى الأول بتاعه (نفسه لو هو نفسه مستوى أول) — لازمة للهبوط لاحقًا على SubTopic مش بس للمطابقة</summary>
+        private static IEnumerable<(Tour.HelpTopic TopLevel, Tour.HelpTopic Topic)> AllHelpTopics()
+        {
+            foreach (var top in Tour.HelpTopics.Topics)
+            {
+                yield return (top, top);
+                foreach (var sub in top.SubTopics)
+                    yield return (top, sub);
+            }
+        }
+
+        private static IEnumerable<GlobalSearchResult> MatchHelpContent(string query)
+        {
+            foreach (var (_, topic) in AllHelpTopics())
+            {
+                var match = GlobalSearchService.BestMatch(
+                    query,
+                    (topic.Title, GlobalSearchService.PrimaryFieldWeight),
+                    (topic.Description, GlobalSearchService.SecondaryFieldWeight));
+                if (match is null) continue;
+
+                yield return new GlobalSearchResult
+                {
+                    Category = SearchCategory.HelpTopic,
+                    PrimaryText = topic.Title,
+                    SecondaryText = topic.Description,
+                    Score = match.Value.Score
+                };
+            }
+
+            foreach (var faq in Tour.HelpFaq.Entries)
+            {
+                var match = GlobalSearchService.BestMatch(
+                    query,
+                    (faq.Question, GlobalSearchService.PrimaryFieldWeight),
+                    (faq.Answer, GlobalSearchService.SecondaryFieldWeight));
+                if (match is null) continue;
+
+                yield return new GlobalSearchResult
+                {
+                    Category = SearchCategory.HelpTopic,
+                    PrimaryText = faq.Question,
+                    SecondaryText = faq.Answer,
+                    Score = match.Value.Score,
+                    IsFaqEntry = true
+                };
+            }
+        }
+
+        /// <summary>
+        /// بيوصّل المستخدم للعنصر المختار بالظبط قدر الإمكان — نفس منطق
+        /// "روّح على الشاشة الصح ثم اظبط الشاشة على العنصر ده" اللي
+        /// GlobalSearchDialog القديمة كانت بتعمله للعمال/المنتجات بس،
+        /// موسّع للعشر فئات كلهم.
+        /// </summary>
+        private async Task LandOnSearchResultAsync(GlobalSearchResult chosen)
+        {
+            switch (chosen.Category)
+            {
+                case SearchCategory.Worker:
+                    NavWorkersItem.IsChecked = true;
+                    if (MainContent?.Content is WorkersView { DataContext: ViewModels.WorkersViewModel workersVm })
+                    {
+                        // بتتظبط قبل التحميل الطبيعي فبيلقطها لوحده أول ما يخلص
+                        workersVm.SearchText = chosen.PrimaryText;
+                        await Task.Delay(SearchLandingSettleDelayMs);
+                        workersVm.SelectedWorker = workersVm.Workers.FirstOrDefault(w => w.WorkerId == chosen.WorkerId);
+                    }
+                    break;
+
+                case SearchCategory.Product:
+                    NavProductsItem.IsChecked = true;
+                    if (MainContent?.Content is ProductsView { DataContext: ViewModels.ProductsViewModel productsVm })
+                        productsVm.SearchText = chosen.PrimaryText;
+                    break;
+
+                case SearchCategory.ProductionStage:
+                    NavProductsItem.IsChecked = true;
+                    if (MainContent?.Content is ProductsView stageView &&
+                        stageView.DataContext is ViewModels.ProductsViewModel stageVm)
+                    {
+                        // اسم المنتج الأب (SecondaryText) بيوصّل لصفحة المنتج الصح —
+                        // اسم المرحلة نفسه ممكن يتكرر عبر منتجات تانية
+                        stageVm.SearchText = chosen.SecondaryText ?? chosen.PrimaryText;
+                        await Task.Delay(SearchLandingSettleDelayMs);
+
+                        var stageRow = stageVm.Stages.FirstOrDefault(s => s.StageId == chosen.ProductionStageId);
+                        if (stageRow is not null &&
+                            stageView.FindName("ProductStagesList") is ItemsControl stagesList &&
+                            stagesList.ItemContainerGenerator.ContainerFromItem(stageRow) is FrameworkElement stageContainer)
+                        {
+                            stageContainer.BringIntoView();
+                        }
+                    }
+                    break;
+
+                case SearchCategory.InitialBalance:
+                    NavDailyEntryItem.IsChecked = true;
+                    await Task.Delay(SearchLandingSettleDelayMs);
+                    if (chosen.ProductId is { } balanceProductId)
+                    {
+                        _session.GetRequiredService<ViewModels.DailyEntryViewModel>()
+                            .OpenInitialBalanceTabCommand.Execute(new ViewModels.ProductOption { ProductId = balanceProductId });
+                    }
+                    break;
+
+                case SearchCategory.MemoryPlan:
+                    NavMemoryItem.IsChecked = true;
+                    await Task.Delay(SearchLandingSettleDelayMs);
+                    if (MainContent?.Content is MemoryView { DataContext: ViewModels.MemoryViewModel memoryVm } &&
+                        chosen.MemoryPlanId is { } planId)
+                    {
+                        var plan = await _session.GetRequiredService<ProductionMemoryService>().GetAsync(planId);
+                        if (plan is not null) memoryVm.EditCommand.Execute(plan);
+                    }
+                    break;
+
+                case SearchCategory.ActivityLogEntry:
+                    NavActivityLogItem.IsChecked = true;
+                    if (MainContent?.Content is ActivityLogView { DataContext: ViewModels.ActivityLogViewModel logVm })
+                    {
+                        // زي بحث العمال/المنتجات: بتتظبط قبل التحميل الطبيعي
+                        // (Loaded → LoadAsync) بدل ما تتنادى تاني وتتسابق معاه
+                        var day = (chosen.ActivityEventOccurredAt ?? DateTime.Today).Date;
+                        logVm.FromDate = day;
+                        logVm.ToDate = day;
+                        logVm.SearchText = chosen.PrimaryText;
+                    }
+                    break;
+
+                case SearchCategory.ReportTemplate:
+                    NavReportsItem.IsChecked = true;
+                    // القوالب بتتحمّل تزامنيًا في الـ Constructor (ReportTemplateStore.Load
+                    // ملف JSON بسيط)، فمفيش تأخير محتاج هنا عكس باقي الفئات
+                    if (MainContent?.Content is ReportBuilderView { DataContext: ViewModels.ReportBuilderViewModel reportVm })
+                        reportVm.SelectedTemplate = reportVm.Templates.FirstOrDefault(t => t.Name == chosen.ReportTemplateName);
+                    break;
+
+                case SearchCategory.DepartmentAccount:
+                    NavDepartmentAccountsItem.IsChecked = true;
+                    await Task.Delay(SearchLandingSettleDelayMs);
+                    if (MainContent?.Content is DepartmentAccountsView { DataContext: ViewModels.DepartmentAccountsViewModel deptVm })
+                    {
+                        var account = deptVm.Accounts.FirstOrDefault(a => a.WorkerId == chosen.WorkerId);
+                        if (account is not null) deptVm.OpenProfileCommand.Execute(account);
+                    }
+                    break;
+
+                case SearchCategory.Setting:
+                    NavSettingsItem.IsChecked = true;
+                    if (MainContent?.Content is FrameworkElement settingsView && chosen.SettingTargetElementName is not null &&
+                        settingsView.FindName(chosen.SettingTargetElementName) is FrameworkElement settingElement)
+                    {
+                        settingElement.BringIntoView();
+                    }
+                    break;
+
+                case SearchCategory.HelpTopic:
+                    NavHelpItem.IsChecked = true;
+                    if (MainContent?.Content is HelpView { DataContext: ViewModels.HelpViewModel helpVm })
+                    {
+                        if (chosen.IsFaqEntry)
+                        {
+                            var faq = Tour.HelpFaq.Entries.FirstOrDefault(f => f.Question == chosen.PrimaryText);
+                            if (faq is not null) helpVm.ToggleFaqCommand.Execute(faq);
+                        }
+                        else
+                        {
+                            var match = AllHelpTopics().FirstOrDefault(pair => pair.Topic.Title == chosen.PrimaryText);
+                            if (match.Topic is not null)
+                            {
+                                helpVm.SelectTopicCommand.Execute(match.TopLevel);
+                                if (!ReferenceEquals(match.Topic, match.TopLevel))
+                                    helpVm.ToggleSubTopicCommand.Execute(match.Topic);
+                            }
+                        }
+                    }
+                    break;
+            }
         }
 
         // ======================= جولة "إيه الجديد" (Tour.AppTourContent) =======================

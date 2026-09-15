@@ -6,7 +6,7 @@ using WorkforceManager.Core.Models;
 namespace WorkforceManager.Business.Services
 {
     /// <summary>
-    /// منسّق "بحث سريع" الشامل: بيحمّل الفئات السبعة المرتبطة بقاعدة
+    /// منسّق "بحث سريع" الشامل: بيحمّل الفئات الثمانية المرتبطة بقاعدة
     /// البيانات (العمال، المنتجات، مراحل الإنتاج، الرصيد الأولي، خطط
     /// الذاكرة، سجل العمليات، قوالب التقارير، الحسابات الإدارية)،
     /// ويشغّل <see cref="SearchMatcher"/> عليها، ويرجّع نتيجة موحّدة
@@ -15,7 +15,8 @@ namespace WorkforceManager.Business.Services
     /// ترجّع نتايجها، شوف <see cref="SearchCategory"/>.
     ///
     /// كل حمولة فئة بتتعمل بالتوازي (<see cref="Task.WhenAll"/>) — سبع
-    /// استعلامات مستقلة، مفيش واحد فيهم محتاج نتيجة التاني.
+    /// استعلامات مستقلة (الحسابات الإدارية والعمال بيشاركوا نفس الـ
+    /// repository بس باستدعاءين منفصلين)، مفيش واحد فيهم محتاج نتيجة التاني.
     /// </summary>
     public class GlobalSearchService
     {
@@ -51,8 +52,11 @@ namespace WorkforceManager.Business.Services
         /// </summary>
         public const int ActivityLogSearchWindowDays = 400;
 
-        private const double PrimaryFieldWeight = 1.0;
-        private const double SecondaryFieldWeight = 0.6;
+        /// <summary>وزن الحقل الأساسي (الاسم) عند تجميع أعلى نتيجة — public عشان الواجهة تستخدم نفس الوزن بالظبط لفئتي الإعدادات/الدليل (محتوى ثابت مش من هنا)</summary>
+        public const double PrimaryFieldWeight = 1.0;
+
+        /// <summary>وزن الحقل الثانوي (ملاحظات/سياق) — أقل من الأساسي عن قصد، شوف BestMatch</summary>
+        public const double SecondaryFieldWeight = 0.6;
 
         public GlobalSearchService(
             IWorkerRepository workers,
@@ -268,8 +272,13 @@ namespace WorkforceManager.Business.Services
         /// بيطابق الاستعلام مقابل كذا حقل بأوزان مختلفة (الحقل الأساسي
         /// أهم من الثانوي)، وبيرجّع أعلى نتيجة موزونة بينهم. حقل فاضي/null
         /// بيتجاهل تلقائيًا (SearchMatcher.Match بترجّع null ليه أصلًا).
+        ///
+        /// **public**: فئتي الإعدادات والدليل (محتوى ثابت في الواجهة، مش
+        /// من هنا) بتستخدم نفس الدالة بالظبط عشان الترجيح بين الحقل
+        /// الأساسي والثانوي يفضل قاعدة واحدة في كل مكان، مش نسخة تانية
+        /// مكتوبة في MainWindow ممكن تنجرف عن الأصل.
         /// </summary>
-        private static (SearchMatchKind Kind, int Score)? BestMatch(string query, params (string? Text, double Weight)[] fields)
+        public static (SearchMatchKind Kind, int Score)? BestMatch(string query, params (string? Text, double Weight)[] fields)
         {
             SearchMatchKind? bestKind = null;
             var bestScore = 0;

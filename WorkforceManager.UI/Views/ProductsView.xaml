@@ -931,7 +931,7 @@
                                     </StackPanel>
                                 </Border>
 
-                                <ItemsControl ItemsSource="{Binding Stages}">
+                                <ItemsControl x:Name="ProductStagesList" ItemsSource="{Binding Stages}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Style="{StaticResource WorkerCard}"
