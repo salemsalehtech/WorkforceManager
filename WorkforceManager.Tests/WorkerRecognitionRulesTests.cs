@@ -16,7 +16,8 @@ namespace WorkforceManager.Tests
         {
             ProductionStageId = stageId,
             PieceCount = (int)(workdays * 100),
-            PiecesPerWorkday = 100
+            PiecesPerWorkday = 100,
+            Workdays = workdays
         };
 
         private static WorkerWeeklySummaryDto Summary(int workerId, string name, params StageBreakdownDto[] stages) => new()

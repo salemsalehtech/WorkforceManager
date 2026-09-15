@@ -263,7 +263,11 @@ namespace WorkforceManager.Business.Services
                        ProductName = g.First().ProductionStage.Product.Name,
                        StageName = g.First().ProductionStage.StageName,
                        PieceCount = g.Sum(p => p.PieceCount),
-                       PiecesPerWorkday = g.First().PiecesPerWorkdayAtEntry
+                       PiecesPerWorkday = g.First().PiecesPerWorkdayAtEntry,
+                       // كل سجل يوم يتقرّب لوحده (WorkdaysCompleted) وبعدين
+                       // يتجمعوا — مش نجمع القطع الأسبوعية الأول ونقرّب مرة
+                       // واحدة، عشان الرقم هنا يطابق ProducedWorkdays فوق
+                       Workdays = g.Sum(p => p.WorkdaysCompleted)
                    })
                    .ToList(),
 

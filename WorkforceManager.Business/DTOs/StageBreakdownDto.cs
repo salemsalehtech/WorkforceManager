@@ -20,7 +20,13 @@ namespace WorkforceManager.Business.DTOs
         public int PieceCount { get; set; }
         public int PiecesPerWorkday { get; set; }
 
-        /// <summary>عدد اليوميات المنجزة في هذه المرحلة تحديدًا</summary>
-        public decimal Workdays => PiecesPerWorkday == 0 ? 0 : Math.Round((decimal)PieceCount / PiecesPerWorkday, 2);
+        /// <summary>
+        /// عدد اليوميات المنجزة في هذه المرحلة تحديدًا — لازم تتحط من مجموع
+        /// WorkdayMath.FromPieces (أو DailyProduction.WorkdaysCompleted) لكل
+        /// سجل يوم على حدة، **مش** Math.Round(PieceCount الأسبوعي المجمّع /
+        /// PiecesPerWorkday) — ده بالظبط الباج اللي WorkdayMath.cs موثّق إنه
+        /// حصل قبل كده (1.00 مقابل 0.99 لنفس اليوم في شاشتين مختلفين).
+        /// </summary>
+        public decimal Workdays { get; set; }
     }
 }

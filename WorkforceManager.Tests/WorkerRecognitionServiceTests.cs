@@ -156,6 +156,28 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task GetWeeklyExplanationAsync_BreakdownWorkdays_MatchesProducedWorkdays_AcrossMultipleDays()
+        {
+            var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);
+
+            // كوتة 3 عن قصد (TestDatabase.ThirdsStage1Id): 1 قطعة ÷ يومية 3 = 0.33
+            // مقرّبة، 3 مرات في 3 أيام مختلفة = 0.99. لو الكود جمع القطع
+            // الأسبوعية الأول (1+1+1=3) وقرّب مرة واحدة، كان هيطلع 1.00 —
+            // بالظبط الباج اللي WorkdayMath.cs موثّق إنه حصل قبل كده.
+            await RecordAsync(TestDatabase.ThirdsStage1Id, 1, TestDatabase.WorkerAhmedId, weekStart);
+            await RecordAsync(TestDatabase.ThirdsStage1Id, 1, TestDatabase.WorkerAhmedId, weekStart.AddDays(1));
+            await RecordAsync(TestDatabase.ThirdsStage1Id, 1, TestDatabase.WorkerAhmedId, weekStart.AddDays(2));
+
+            var explanation = await _db.InScopeAsync<WorkerRecognitionService, WorkerRecognitionExplanationDto?>(
+                service => service.GetWeeklyExplanationAsync(TestDatabase.WorkerAhmedId, weekStart));
+
+            Assert.NotNull(explanation);
+            var stage = Assert.Single(explanation!.Breakdown);
+            Assert.Equal(0.99m, stage.Workdays);
+            Assert.Equal(0.99m, explanation.AdjustedWorkdays); // معامل صعوبة افتراضي ×1.0، مرحلة واحدة
+        }
+
+        [Fact]
         public async Task GetWeeklyExplanationAsync_ReturnsNull_ForAWorkerNotEligibleThatWeek()
         {
             var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);
