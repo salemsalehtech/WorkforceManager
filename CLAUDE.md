@@ -747,8 +747,7 @@ Core  <----------------------- UI
   entry (matching the app's current build) retroactively bundles the user-facing features from
   the whole development stretch this Guide redesign itself is part of, confirmed with the user
   before any walkthrough content was written for it.
-  `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) is
-  implemented as a **card list** (same `WorkerCard` style as the attendance screen), not a grid: summary
+  `WorkersView` (+ `WorkersViewModel`, `WorkerEditDialog`) has a summary
   bar (active / hourly / inactive + a "needs attention" button that filters to problem
   workers), instant search, `FilterChip` quick filters (الكل / بالإنتاج / بالساعة / موقوفين), and a sort
   dropdown. **Best-of-week is its own highlighted card** in grid column 0 of the summary row — the screen
@@ -782,20 +781,219 @@ Core  <----------------------- UI
   every product, and the star row shows on not-yet-assigned stages too (`SkillStageItem.ShowStars`) —
   clicking a star there **assigns the skill at that rating in one gesture**
   (`SetSkillStarsCommand` → `AssignSkillAsync` then `SetStarsAsync`). **The panel never closes by
-  itself, and two separate mechanisms are needed to keep that true** — both were added after it broke:
-  1. `_reloadingRows` — reloading the list calls `Workers.Clear()`, and WPF drops the `Selector`'s
-     selection the instant the row is removed, so `SelectedWorker` goes null for a moment. Without the
-     guard, `OnSelectedWorkerChanged(null)` set `Detail = null`, which destroyed the very snapshot
-     `RestorePanelState` reads — so `previous` came back null and the panel rebuilt collapsed with
-     add-mode off. The guard ignores **only** a null that arrives mid-reload; a real deselection still
-     closes the panel. This also fixes removing a skill outside add-mode, which closed the open card.
-  2. `_skillRowsStale` — while `IsAddingSkills` is on, `RefreshRowsKeepingSelectionAsync` doesn't reload
-     at all; it just marks the rows stale. The skill itself is written to the DB immediately — only the
-     list card's skills counter waits. `FlushPendingRowRefreshAsync` runs it once when add-mode ends,
-     whether by the "خلصت" button (`ToggleAddSkillsAsync`) or by leaving the worker (`LoadDetailAsync`
-     turns add-mode off and flushes, then returns and lets the flush's own re-selection load the new
-     profile — one load, not two). The flag is cleared **before** the refresh so re-selection can't
-     recurse.
+  itself** — one mechanism keeps that true today, `_skillRowsStale` below; a second one,
+  `_reloadingRows`, existed only because the list used to be a `ListBox` and was removed when the card
+  grid redesign (below) replaced it with a selection-less `ItemsControl`:
+  - **`_reloadingRows` is gone, not just renamed.** It used to guard against `ListBox`'s `Selector`
+    dropping `SelectedItem` (thus `SelectedWorker`, via binding) to `null` the instant `Workers.Clear()`
+    ran mid-reload — `OnSelectedWorkerChanged(null)` would otherwise fire, set `Detail = null`, and
+    destroy the very snapshot the panel needed to reopen in the same state. `ItemsControl` has no
+    `Selector`, so `Workers.Clear()` no longer touches `SelectedWorker` by itself — the whole failure
+    mode this guard existed for cannot happen anymore. Removing it exposed a **different, real bug**
+    the `Selector` had been silently working around for every `LoadAsync()` caller that ISN'T
+    `RefreshRowsKeepingSelectionAsync` (`EditWorkerAsync`, `ToggleActiveAsync`, `DeleteWorkerAsync`,
+    …): with nothing left to null or reassign `SelectedWorker` after a reload, it kept pointing at an
+    **orphaned pre-reload `WorkerRow` instance** — no card in the new grid would show the gold selection
+    border, and the detail panel would silently show stale data instead of refreshing or closing. Fixed
+    at the root: `LoadAsync()` itself now captures `SelectedWorker?.WorkerId` before rebuilding and
+    reassigns `SelectedWorker = Workers.FirstOrDefault(w => w.WorkerId == id)` after `ApplyFilters()` —
+    every caller gets correct behavior uniformly (reselect the same worker if still visible under the
+    current filter, else close the panel, exactly like `RefreshRowsKeepingSelectionAsync` already did
+    for its one path) with no per-caller opt-in. `RefreshRowsKeepingSelectionAsync` now just calls
+    `LoadAsync()` — its old manual reselect logic and the `_reloadingRows` toggle both collapsed into
+    that one shared place.
+  - **`_skillRowsStale`** — while `IsAddingSkills` is on, `RefreshRowsKeepingSelectionAsync` doesn't
+    reload at all; it just marks the rows stale. The skill itself is written to the DB immediately —
+    only the list card's skills counter waits. `FlushPendingRowRefreshAsync` runs it once when add-mode
+    ends, whether by the "خلصت" button (`ToggleAddSkillsAsync`) or by leaving the worker
+    (`LoadDetailAsync` turns add-mode off and flushes, then returns and lets the flush's own
+    re-selection load the new profile — one load, not two). The flag is cleared **before** the refresh
+    so re-selection can't recurse.
+
+  **The regular worker list is a card grid, not a list-row `ListBox`** — a later, separate prompt
+  reshaped it to match `ProductsView`'s `ItemsControl`+`WrapPanel` grid (`WorkerRow` gained
+  `IsSelected`/`ObservableObject`, `SelectWorkerCommand` mirrors `ProductsViewModel.SelectProduct`
+  exactly, selection sync happens in `OnSelectedWorkerChanged` over `_allWorkers` not just the filtered
+  `Workers`, for the same reason `ProductsViewModel` documents). Every old row element maps onto the
+  290px card (wider than the product card's 250px — a worker carries more: name, up to two identity
+  pills, up to four skill/status pills, weekly/monthly title text, and a 3-column stat row for
+  present/absent/net) with nothing dropped: `WorkerAvatar` stays the one place a worker photo renders
+  (no square Products-style badge), just moved to the card's top-left; both pill rows use `WrapPanel`
+  (never `StackPanel`) since a card can carry up to five pills at once — far more overflow risk at
+  900px than a product card's one or two. `NeedsAttention` gets its own `WarnBrush` card border,
+  layered as a `Style.Triggers` `DataTrigger` **before** the `IsSelected` gold-border trigger so
+  selection visually wins when both are true (last matching WPF trigger wins). The "reveal skill
+  details on hover" idea floated during planning was dropped once research showed the current card
+  never rendered per-skill star badges to begin with (that's detail-panel-only) — there was nothing
+  hidden to reveal. Entrance animation and the `Workers.CollectionChanged` → `ScheduleTileAnimation`
+  stagger reuse `ProductsView`'s `AnimateTilesIn` pattern verbatim. The best-of-week podium card is
+  untouched — it's already a separate, independently-styled component, not built from this template.
+
+  **A later, separate prompt moved the whole detail panel out of the screen entirely, into
+  `WorkerDetailDialog` (Modal), for the explicit reason of freeing the 380px column it used to
+  permanently reserve — reserved even with nothing selected — so more grid columns fit.** This is the
+  exact same move `ProductDetailDialog` made earlier for the Products screen, reused verbatim: rounded
+  `Border` + `DropShadowEffect`, a draggable header (`MouseLeftButtonDown="Window_Drag"` →
+  `DragMove()`) with a close button and a `Title` bound to `SelectedWorker.FullName`, and — the part
+  that matters — the **same shared `WorkersViewModel` as `DataContext`**, not a second instance, so
+  every command (edit/toggle-active/delete/skills/history) keeps working with zero ViewModel changes.
+  The ~950-line panel body moved across unedited except for one mechanical, exhaustively-verified
+  substitution: all 14 `RelativeSource AncestorType=UserControl` bindings (the commands, which live on
+  `WorkersViewModel`, reached up past the panel's own `DataContext="{Binding Detail}"` rebind) became
+  `AncestorType=Window`, because the panel's ancestor is now a `Window`, not the `WorkersView`
+  `UserControl` it used to sit inside. The dialog's own `Grid` splits `Row="0"` (name, phone/hire-date,
+  wage badges, action buttons — fixed) from a `ScrollViewer` in `Row="1"` (skills + weekly history —
+  scrolls) for the same reason `ProductDetailDialog` does: the header stays visible regardless of how
+  far the skills list scrolls, with no separate "sticky header" mechanism needed. `WorkersView.xaml`'s
+  formerly two-column `Grid.Row="3"` (`*` list + fixed `380` detail) collapsed to the single merged
+  grid that used to be its `Grid.Column="0"` child — deleting a column plus its content, not just
+  hiding it.
+  **The same prompt's suggestion round landed six more changes, all inside the new dialog:**
+  - **Button severity now reads as a gradient, not three identical buttons**: "تعديل" stays neutral;
+    "إيقاف العامل" moved from `DangerBrush` to `WarnBrush` (deactivating is reversible, not dangerous);
+    "حذف" became icon-only (`IconButton` style, no text label, `ToolTip` carries the meaning) —
+    smaller and quieter specifically so a destructive, rare action doesn't sit at the same visual
+    weight as routine ones.
+  - **Skill-card coverage got two new signals besides the existing text ratio**: `SkillProductGroup`
+    gained `IsLowCoverage` (`KnownCount`/`ActiveCount` < 30%, and `KnownCount > 0` — a product the
+    worker has *never* touched is `IsUntouched`, a different, already-existing signal, not "low") for
+    a `WarnBrush` card border, and a `CheckCircle` badge next to the product name reusing the
+    already-existing `CoversWholeLine` flag (no new property needed there — same boolean the coverage
+    pill's green tint already used, just a second visual cue). `AverageStarsText` (`$"{AverageStars:0.#}"`,
+    pure formatting of the `decimal?` the rating tooltip already computed) sits next to the star-level
+    word, since two workers both reading "عادي" can have genuinely different underlying averages.
+  - **Missing phone/hire-date no longer just shows a bare "—".** `WorkerDetail.HasPhoneNumber`/
+    `HasHireDate` check against that literal em-dash sentinel (`WorkersViewModel.LoadDetailAsync`'s
+    existing `?? "—"` fallback — kept as-is, including the sentinel-comparison at the edit-dialog call
+    site, rather than reworked into a nullable field) and swap the label for a small clickable
+    "إضافة رقم"/"إضافة تاريخ الالتحاق" button wired to the same `EditWorkerCommand` "تعديل" already
+    uses. **This could not be a `Hyperlink` inside the existing `Run`-based `TextBlock`**: `Run` and
+    `Hyperlink` are `Inline`/`TextElement`/`FrameworkContentElement`, a hierarchy that never gained a
+    `Visibility` property (that's `UIElement`) — a `Style TargetType="Run"` with a `Visibility` setter
+    fails outright. The fix was structural, not a workaround: split the line into sibling `TextBlock`/
+    `Button` elements (real `UIElement`s) instead of `Inline`s inside one `TextBlock`. When both are
+    missing, a `GoldTintBrush` banner appears above the header (`WorkerDetail.IsMissingContactInfo`) —
+    the same visual shape as `WorkersView`'s "مراجعة التقييمات الشهرية" banner, reused not reinvented.
+  - **Hover-grow on the skill-card header** — same intent as the Home screen's CTA button, but the
+    mechanism differs on purpose: this trigger lives in a `ControlTemplate.Triggers` (the header
+    Button's own template), where `Storyboard.TargetName` **is** legal (namescope is the template's
+    own), unlike a bare `Style.Triggers` (`MC4011`, hit and fixed earlier this session on the Home
+    screen's CTA). Only the skill-group header got it, not the weekly-history header sharing the
+    identical template shape — the suggestion was scoped to skill cards specifically.
+  - **A per-week bar-height needs the whole week list, not just one row** — `WeekHistoryItem.BarHeight`
+    (`double`, 4–36px) is therefore set from *outside* the row, in `WorkersViewModel.LoadDetailAsync`
+    right after `weeklyHistory` is built, as one pass computing `maxNet` across all weeks first (a
+    single row has no visibility into its siblings to normalize against). Negative `Net` clamps to a
+    0-height contribution — a negative-height bar has no visual meaning. The bar strip sits **above**
+    the existing collapsible week cards as a glance-first summary in the same order, not a replacement
+    for them.
+  - **No new chart control was built for the bar strip** — confirmed no `Sparkline`/chart primitive
+    exists anywhere in `WorkforceManager.UI` before reaching for plain `Border`s bound to the
+    precomputed pixel height; inventing chart infrastructure for one bar row would have been the wrong
+    size of solution for what was asked.
+
+  **A later, smaller prompt tuned the grid's density and added four bounded extras, all in
+  `WorkersView.xaml`/`WorkersViewModel`:**
+  - **The best-of-week podium collapses behind a toggle now** (`WorkersViewModel.IsBestWorkersExpanded`,
+    default `false`) — it used to occupy fixed vertical space above the grid permanently, winners or
+    not. The header itself became the toggle button (same "the whole header row is the expand control"
+    shape as the skill-group cards), and a small `DangerBrush` dot appears on the trophy icon only
+    while collapsed *and* winners exist — once expanded there's no need for the dot, the podium itself
+    is the signal.
+  - **The grid card shrank to 260px (from 290) and several elements grew** — name `13.5→15`, avatar
+    `44→48`, the present/absent numbers `→18`, net `→21` — a deliberate, partially-opposed pair of
+    asks (narrower cards, bigger contents) resolved by trimming width modestly rather than fully
+    honoring either extreme. **Column count is a `WrapPanel` side-effect of window width, not something
+    a card-width constant can pin to an exact number** — stated explicitly rather than promised, since
+    it depends on the viewer's actual window size.
+  - **A manual density toggle (`IsCompactGrid`) resolves that same tension at runtime instead of
+    picking one answer at build time** — an icon button (`ViewGridOutline`/`ViewComfyOutline`) next to
+    "فلاتر وترتيب" flips card width `260↔210`, avatar `48↔38`, name `15↔13`, and the stat numbers
+    `18↔15`/`21↔18`. Every one of these lives on a per-element `Style` with a `DataTrigger` reading
+    `{Binding DataContext.IsCompactGrid, RelativeSource={RelativeSource AncestorType=UserControl}}` —
+    the same "reach up to the UserControl's DataContext from inside an `ItemsControl.ItemTemplate`"
+    technique the card's own `IsSelected`/`NeedsAttention` triggers already used, just extended to a
+    ViewModel-level flag instead of a per-row one.
+  - **A right-click context menu (تعديل / إيقاف-تفعيل / حذف) reuses the exact three existing commands**
+    (`EditWorkerAsync`, `ToggleActiveAsync`, `DeleteWorkerAsync`) through three thin wrappers
+    (`EditWorkerFromCardAsync` etc.) that `SelectedWorker = worker; await LoadDetailAsync(worker);`
+    before calling the original method — necessary because those commands read the ambient
+    `SelectedWorker`/`Detail`, and the *normal* selection path (`OnSelectedWorkerChanged`) kicks off
+    `LoadDetailAsync` via `SafeAsync.Run` — fire-and-forget, not awaited — so invoking the command
+    immediately after a bare `SelectedWorker = worker` could race ahead of the profile actually being
+    loaded. **`ContextMenu` does not inherit `DataContext` from its owner in WPF** (it isn't part of
+    the visual tree at inheritance-resolution time, a well-known pitfall) — fixed by binding
+    `ContextMenu.DataContext` explicitly to `PlacementTarget.DataContext` (WPF sets `PlacementTarget`
+    to the owning `Button` automatically) so each `MenuItem.DataContext` is the `WorkerRow`, then
+    handling `Click` in code-behind (the same `WorkerTile_Click` pattern: `WorkerRow` from
+    `sender.DataContext`, `WorkersViewModel` from the `UserControl`'s own `DataContext`) rather than
+    fighting `RelativeSource` chains to reach a ViewModel command from inside a popup that was never in
+    the right tree for it.
+  - **`IsBestOfWeek` gets a `GoodBrush` card border**, ordered *before* `NeedsAttention` and
+    `IsSelected` in the same `Style.Triggers` block (last matching trigger wins in WPF) — a worker can
+    be a celebrated top performer and *also* have a real problem flagged, and the problem should stay
+    visible over the celebration; selection, being the user's own live action, still wins over both.
+
+  **A follow-up prompt replaced the guessed-and-wrong 260px card width with a computed one.** 260px
+  had been picked to target "5 columns on a typical maximized desktop" — it rendered 4 on the user's
+  actual screen, and there is no single width constant that is correct on every monitor/sidebar-state
+  combination, since `WrapPanel` column count is a function of the container's real width. The fix:
+  `GridColumnWidthConverter` (`WorkforceManager.UI\ViewModels`) takes the `ItemsControl`'s live
+  `ActualWidth` and returns `(width − columns × margin) / columns` for a fixed `columns` (5, passed as
+  `ConverterParameter`) — each card's `Width` binds to
+  `{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter=...}`,
+  so column count stays exactly 5 across any resize, with no code-behind `SizeChanged` handler needed
+  (`ActualWidth` is a bindable `DependencyProperty` that WPF's layout system already renotifies on
+  every layout pass — the same "bind straight to `ActualWidth`" idiom used for other auto-sizing
+  elsewhere in WPF). `IsCompactGrid` no longer touches `Width` at all now that it's computed — it only
+  shrinks the avatar/name/stat fonts, which stays coherent alongside a column count that is no longer
+  something the toggle can override.
+  **The user also wanted a specific instance to fit — their 10 workers as two full rows, no
+  scrolling** — but building height to auto-fit *exactly N rows* is a fundamentally worse idea than
+  the width fix, not just a smaller version of it: row count is `ceil(workerCount / 5)`, so a
+  height-per-row formula would make cards balloon or shrink unpredictably as the roster changes size,
+  which is not what "consistent, organized" means for a card grid. What shipped instead is a real,
+  bounded height reduction that helps in general, not just for exactly 10 workers: the avatar moved
+  from stacked-above-the-name to inline-beside-it (saving a full row's worth of height, ~56px, without
+  dropping the avatar or any text), card `Padding` `14,12→12,10`, `MinHeight` `240→185`, and the stats
+  row's top margin `10→6`. Whether two full rows end up visible without scrolling still depends on the
+  viewer's window height — the `ScrollViewer` remains the correct fallback for any count that doesn't
+  fit, by design, rather than a height formula that would look wrong the moment the roster count
+  changes.
+
+  **A follow-up prompt collapsed three stacked header rows (title+stats, search/filters/count, the
+  period-control card) into one.** They used to cost roughly 170px of fixed vertical chrome above the
+  grid regardless of content. The consolidation: title and stats merged onto one line (no separate
+  sub-row for the count numbers); the standalone `PeriodControlCard` (a full-width card holding the
+  أسبوع/شهر/مدة مخصوصة chips and the prev/next or date-range controls) became a `ToggleButton`+`Popup`
+  exactly mirroring the existing "فلاتر وترتيب" button (`WorkersViewModel.IsPeriodMenuOpen`, same
+  shape as `IsFilterMenuOpen`) — its *content* (the chips, the arrows, the date pickers) moved into the
+  popup unchanged, nothing about period selection itself changed; "ترتيب العمال" dropped its text
+  label and became icon-only to reclaim horizontal room in the now-crowded row. Net effect: what were 3
+  vertically-stacked rows are now 1, with the `Grid.RowDefinitions` on both the page root and the
+  `PeriodControlCard`'s former container shrinking to match (one fewer `Auto` row in each) — anyone
+  adding a new sibling row here should recount from the current `Grid.Row` indices in the file rather
+  than assuming the old 4-row/3-row layout this paragraph describes historically.
+
+  **That single-row consolidation itself introduced a real bug, caught from a user screenshot within
+  the same round**: it used a `Grid` with fixed `Auto` columns to hold everything (title+stats, search,
+  chips, count, period, filters, sort, "عامل جديد"). A `Grid` column never shrinks below its content's
+  natural size and never wraps — when the sum of every `Auto` column's natural width exceeded the
+  window's actual width, WPF just rendered the trailing columns past the visible edge with **no error,
+  no clipping indicator, nothing** — "عامل جديد" and the sort icon silently vanished off the left side
+  on the user's actual screen. This is the exact same failure mode the `WrapPanel`-vs-`StackPanel`
+  clipping bug earlier in this file warns about, just at the scale of an entire toolbar row instead of
+  one card's action row — the fix is the same fix: swap the fixed-column `Grid` for a `WrapPanel`, so
+  any item that doesn't fit flows to a second line instead of disappearing. Every child got a uniform
+  trailing+bottom margin (`0,0,14,8`-ish, heavier — `0,0,20,8` — between logical clusters) instead of
+  per-column margins, since `Grid.Column` assignments have no meaning inside a `WrapPanel`. **Products'
+  own header (a summary card + a separate control row, already a survivor of an earlier
+  four-rows-to-two consolidation predating this session) got the identical treatment in the same round**
+  — merged into one `WrapPanel` from the start this time, not a `Grid` first and a `WrapPanel` fix
+  after a bug report. The lesson generalizes: **any toolbar/header row assembled from more than a
+  handful of `Auto`-sized pieces should default to `WrapPanel`, not `Grid`with column definitions** —
+  a `Grid` only belongs there when the exact item count and their relative order are fixed and known to
+  fit, which a page header accumulating buttons over several rounds of edits reliably is not.
 
   There is deliberately **no banner** inside add-mode: it held a hint line, a duplicate "خلصت إضافة"
   button (the header's "إضافة مهارات"/"خلصت" toggle already does it), and a `RecentlyAdded` chip
