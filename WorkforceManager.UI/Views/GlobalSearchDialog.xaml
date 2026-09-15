@@ -118,7 +118,7 @@
                                                         <Setter Property="Kind" Value="CalendarClockOutline" />
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Category}" Value="{x:Static dtos:SearchCategory.ActivityLogEntry}">
-                                                        <Setter Property="Kind" Value="HistoryOutline" />
+                                                        <Setter Property="Kind" Value="History" />
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Category}" Value="{x:Static dtos:SearchCategory.ReportTemplate}">
                                                         <Setter Property="Kind" Value="FileChartOutline" />

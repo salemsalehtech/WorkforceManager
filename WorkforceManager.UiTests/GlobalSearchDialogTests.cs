@@ -1,6 +1,9 @@
+using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using MaterialDesignThemes.Wpf;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.UI.Views;
 using Xunit;
@@ -37,6 +40,53 @@ namespace WorkforceManager.UiTests
             Category = SearchCategory.Setting, PrimaryText = "الوضع الليلي", Score = 800,
             SettingTargetElementName = "DarkModeCard"
         };
+
+        /// <summary>
+        /// **الغلطة الحقيقية اللي اكتشفتها المراجعة دي**: `Setter
+        /// Property="Kind"` بقيمة نصية غلط (زي "HistoryOutline" مش
+        /// موجودة في PackIconKind، الصح "History") بتعدّي XamlLoadTests
+        /// والاختبارات التانية كلها بسلام — تحويل النص لـ PackIconKind
+        /// بيتأجّل لحد ما الـStyle يتطبّق فعليًا على صف حقيقي وقت الرسم،
+        /// مش وقت تحميل XAML ولا مجرد تعيين ItemsSource. النتيجة: زرار
+        /// شغّال ومحمّل بنجاح في كل الاختبارات، لكن بيرمي استثناء "Windows.
+        /// Setter threw an exception" لأول مستخدم حقيقي يشوف نتيجة
+        /// بالفئة دي. الاختبار ده بيفحص **نص ملف XAML نفسه** (نفس أسلوب
+        /// ServiceRegistrationTests) بدل ما يحاول يجبر رسم WPF فعلي —
+        /// أوثق وأبسط من محاولة تعطيل الـ Virtualization وقياس استثناء
+        /// وقت التخطيط.
+        /// </summary>
+        [Fact]
+        public void كل_اسم_أيقونة_في_XAML_موجود_فعلًا_في_PackIconKind()
+        {
+            var xaml = File.ReadAllText(Path.Combine(SolutionRoot(), @"WorkforceManager.UI\Views\GlobalSearchDialog.xaml"));
+
+            // بيغطي الاستخدام المباشر (Kind="X") وبتاع الـSetter داخل الأنماط
+            // (Property="Kind" Value="X") — الغلطة اللي اكتشفتها المراجعة
+            // كانت في النوع التاني بالظبط، مش المباشر
+            var names = Regex.Matches(xaml, @"Kind=""([A-Za-z]+)""|Property=""Kind""\s+Value=""([A-Za-z]+)""")
+                .Select(m => m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value)
+                .Distinct()
+                .ToList();
+
+            Assert.NotEmpty(names); // لو الـ regex اتكسر الاختبار ميعديش صامت
+
+            var invalid = names.Where(n => !Enum.TryParse<PackIconKind>(n, out _)).ToList();
+
+            Assert.True(invalid.Count == 0,
+                "أسماء أيقونات مش موجودة في PackIconKind: " + string.Join("، ", invalid));
+        }
+
+        /// <summary>جذر الحل — بيتلاقى بالطلوع من مجلد الاختبارات (نفس منطق ServiceRegistrationTests.SolutionRoot)</summary>
+        private static string SolutionRoot()
+        {
+            var dir = new DirectoryInfo(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!);
+
+            while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "WorkforceManager.sln")))
+                dir = dir.Parent;
+
+            Assert.NotNull(dir);
+            return dir!.FullName;
+        }
 
         [Fact]
         public void نتايج_البحث_بتتجمع_بالفئة_وتتعرض()
