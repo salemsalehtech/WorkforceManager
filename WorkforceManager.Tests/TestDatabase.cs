@@ -144,6 +144,7 @@ namespace WorkforceManager.Tests
                 sp.GetRequiredService<ProductionMemoryService>(),
                 sp.GetRequiredService<ActivityLogService>(),
                 reportTemplatesPath));
+            services.AddScoped<SearchIntentService>();
             services.AddSingleton<ReportTableExcelService>();
             services.AddSingleton<PayslipStripExcelService>();
 

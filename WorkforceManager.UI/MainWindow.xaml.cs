@@ -11,8 +11,10 @@ using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
+using WorkforceManager.Data;
 using WorkforceManager.UI.Views;
 
 namespace WorkforceManager.UI
@@ -375,8 +377,55 @@ namespace WorkforceManager.UI
 
             results.AddRange(MatchSettings(query));
             results.AddRange(MatchHelpContent(query));
+            results.AddRange(MatchScreens(query));
+
+            // إجابة النية (لو العبارة اتفهمت كنية) بتتحط دايمًا على الرأس —
+            // شوف SearchIntentService.AnswerResultScore. مفيش خصم اسكور هنا:
+            // النية مقصودة صراحة، مش تخمين نصي زي باقي النتايج
+            var intentAnswer = await _session.GetRequiredService<SearchIntentService>().AnswerAsync(query);
+            if (intentAnswer is not null)
+            {
+                results.Add(new GlobalSearchResult
+                {
+                    Category = SearchCategory.IntentAnswer,
+                    // Name فاضية للنيات اللي بلا اسم (DayProduction/DayAbsence) —
+                    // العنوان الكامل هو أقرب نص معروض متاح في الحالة دي
+                    PrimaryText = intentAnswer.Name ?? intentAnswer.Title,
+                    Score = SearchIntentService.AnswerResultScore,
+                    WorkerId = intentAnswer.WorkerId,
+                    ProductId = intentAnswer.ProductId,
+                    IntentAnswer = intentAnswer
+                });
+            }
+
+            ApplyUsageRanking(query, results);
 
             return results.OrderByDescending(r => r.Score).ToList();
+        }
+
+        /// <summary>
+        /// ترقية "الترتيب بالاستخدام": نتيجة اتختارت قبل كده لنفس الاستعلام
+        /// (بعد التطبيع) بتاخد ترقية درجة صغيرة — شوف SearchRankingScorer
+        /// لصيغة الحساب والتبرير الكامل. إجابة النية مش داخلة هنا أصلًا
+        /// (درجتها الثابتة فوق أي ترقية ممكنة بالتصميم).
+        /// </summary>
+        private static void ApplyUsageRanking(string query, List<GlobalSearchResult> results)
+        {
+            var normalizedQuery = ArabicSearch.Normalize(query);
+            var picks = SearchRankingStore.Load().PicksByQuery.GetValueOrDefault(normalizedQuery);
+            if (picks is null || picks.Count == 0) return;
+
+            var now = DateTime.Now;
+            foreach (var result in results)
+            {
+                if (result.Category == SearchCategory.IntentAnswer) continue;
+
+                var key = GlobalSearchService.RankingKey(result);
+                var pick = key is null ? null : picks.FirstOrDefault(p => p.ResultKey == key);
+                if (pick is null) continue;
+
+                result.Score += SearchRankingScorer.ComputeBoost(pick.PickCount, pick.LastPickedAt, now);
+            }
         }
 
         private static IEnumerable<GlobalSearchResult> MatchSettings(string query)
@@ -396,6 +445,28 @@ namespace WorkforceManager.UI
                     SecondaryText = setting.Description,
                     Score = match.Value.Score,
                     SettingTargetElementName = setting.TargetElementName
+                };
+            }
+        }
+
+        /// <summary>
+        /// فئة "تنقّل بالشاشة" — دوسة عليها تودّي **للشاشة كلها**، مش عنصر
+        /// معيّن جواها زي Setting. Score بيتقيّم على العنوان بس (مفيش وصف
+        /// ثانوي هنا، عكس Setting).
+        /// </summary>
+        private static IEnumerable<GlobalSearchResult> MatchScreens(string query)
+        {
+            foreach (var screen in Tour.NavigableScreens.Entries)
+            {
+                var match = GlobalSearchService.BestMatch(query, (screen.Title, GlobalSearchService.PrimaryFieldWeight));
+                if (match is null) continue;
+
+                yield return new GlobalSearchResult
+                {
+                    Category = SearchCategory.Screen,
+                    PrimaryText = screen.Title,
+                    Score = match.Value.Score,
+                    NavItemName = screen.NavItemName
                 };
             }
         }
@@ -460,20 +531,11 @@ namespace WorkforceManager.UI
             switch (chosen.Category)
             {
                 case SearchCategory.Worker:
-                    NavWorkersItem.IsChecked = true;
-                    if (MainContent?.Content is WorkersView { DataContext: ViewModels.WorkersViewModel workersVm })
-                    {
-                        // بتتظبط قبل التحميل الطبيعي فبيلقطها لوحده أول ما يخلص
-                        workersVm.SearchText = chosen.PrimaryText;
-                        await Task.Delay(SearchLandingSettleDelayMs);
-                        workersVm.SelectedWorker = workersVm.Workers.FirstOrDefault(w => w.WorkerId == chosen.WorkerId);
-                    }
+                    await LandOnWorkerAsync(chosen.PrimaryText, chosen.WorkerId);
                     break;
 
                 case SearchCategory.Product:
-                    NavProductsItem.IsChecked = true;
-                    if (MainContent?.Content is ProductsView { DataContext: ViewModels.ProductsViewModel productsVm })
-                        productsVm.SearchText = chosen.PrimaryText;
+                    LandOnProduct(chosen.PrimaryText);
                     break;
 
                 case SearchCategory.ProductionStage:
@@ -557,6 +619,15 @@ namespace WorkforceManager.UI
                     }
                     break;
 
+                case SearchCategory.Screen:
+                    // معالجة عامة واحدة للشاشات العشرة كلهم — نفس آلية IsChecked
+                    // الموحّدة الموجودة أصلًا، بس بالاسم من NavigableScreens مش
+                    // سويتش مكرّر لكل شاشة. FindName على النافذة نفسها (مش
+                    // MainContent) لأن أزرار التنقل عايشة في MainWindow.xaml
+                    if (chosen.NavItemName is not null && FindName(chosen.NavItemName) is RadioButton navItem)
+                        navItem.IsChecked = true;
+                    break;
+
                 case SearchCategory.HelpTopic:
                     NavHelpItem.IsChecked = true;
                     if (MainContent?.Content is HelpView { DataContext: ViewModels.HelpViewModel helpVm })
@@ -578,7 +649,36 @@ namespace WorkforceManager.UI
                         }
                     }
                     break;
+
+                case SearchCategory.IntentAnswer:
+                    // نفس هبوط فئتي Worker/Product بالظبط، بس بالاسم الصافي
+                    // (IntentAnswer.Name)، مش عنوان البطاقة الكامل (PrimaryText
+                    // هنا = نفس الاسم الصافي أصلًا، شوف SearchAllCategoriesAsync)
+                    if (chosen.WorkerId is not null) await LandOnWorkerAsync(chosen.PrimaryText, chosen.WorkerId);
+                    else if (chosen.ProductId is not null) LandOnProduct(chosen.PrimaryText);
+                    break;
             }
+        }
+
+        /// <summary>هبوط على عامل بعينه — مشترك بين فئة Worker العادية وإجابة نية عن عامل</summary>
+        private async Task LandOnWorkerAsync(string searchName, int? workerId)
+        {
+            NavWorkersItem.IsChecked = true;
+            if (MainContent?.Content is WorkersView { DataContext: ViewModels.WorkersViewModel workersVm })
+            {
+                // بتتظبط قبل التحميل الطبيعي فبيلقطها لوحده أول ما يخلص
+                workersVm.SearchText = searchName;
+                await Task.Delay(SearchLandingSettleDelayMs);
+                workersVm.SelectedWorker = workersVm.Workers.FirstOrDefault(w => w.WorkerId == workerId);
+            }
+        }
+
+        /// <summary>هبوط على منتج بعينه — مشترك بين فئة Product العادية وإجابة نية عن منتج</summary>
+        private void LandOnProduct(string searchName)
+        {
+            NavProductsItem.IsChecked = true;
+            if (MainContent?.Content is ProductsView { DataContext: ViewModels.ProductsViewModel productsVm })
+                productsVm.SearchText = searchName;
         }
 
         // ======================= جولة "إيه الجديد" (Tour.AppTourContent) =======================
@@ -903,11 +1003,22 @@ namespace WorkforceManager.UI
         private void TourDim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) =>
             _tourStepTcs?.TrySetResult(TourAction.Skip);
 
-        /// <summary>Escape يقفل الجولة لو شغّالة — بيتحقق من الظهور هنا عشان مايتصادمش مع أي استخدام تاني لـEscape في البرنامج</summary>
+        /// <summary>
+        /// Escape يقفل الجولة لو شغّالة (بيتحقق من الظهور هنا عشان مايتصادمش
+        /// مع أي استخدام تاني لـEscape في البرنامج)، وCtrl+K بيفتح "بحث سريع"
+        /// من أي مكان — بديل لدوسة الماوس على الزرار، نفس فكرة أي اختصار
+        /// بحث معروف. الديالوج Modal فمفيش خطر يتفتح مرتين مع بعض.
+        /// </summary>
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Escape && TourOverlay.Visibility == Visibility.Visible)
                 _tourStepTcs?.TrySetResult(TourAction.Skip);
+
+            if (e.Key == Key.K && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                e.Handled = true;
+                GlobalSearch_Click(this, e);
+            }
         }
 
         /// <summary>

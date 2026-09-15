@@ -1,11 +1,11 @@
 namespace WorkforceManager.Business.DTOs
 {
     /// <summary>
-    /// الفئات العشرة اللي البحث الشامل بيغطّيها. آخر اتنين (Setting و
-    /// HelpTopic) محتوى ثابت في الواجهة (مش صفوف قاعدة بيانات)، فمش بيتم
-    /// تحميلهم من <see cref="Services.GlobalSearchService"/> — الواجهة هي
-    /// اللي بتضيفهم لنفس القايمة الموحّدة بعد ما الخدمة ترجّع الفئات
-    /// السبعة المرتبطة بقاعدة البيانات.
+    /// فئات البحث الشامل. الثمانية الأولى (Worker...DepartmentAccount)
+    /// مرتبطة بقاعدة بيانات وبتتحمّل من <see cref="Services.GlobalSearchService"/>؛
+    /// الباقي (Setting، HelpTopic، IntentAnswer، Screen) محتوى واجهة ثابت
+    /// أو محسوب — الواجهة هي اللي بتضيفهم لنفس القايمة الموحّدة بعد ما
+    /// الخدمة ترجّع الفئات المرتبطة بقاعدة البيانات.
     /// </summary>
     public enum SearchCategory
     {
@@ -18,7 +18,23 @@ namespace WorkforceManager.Business.DTOs
         ReportTemplate,
         DepartmentAccount,
         Setting,
-        HelpTopic
+        HelpTopic,
+
+        /// <summary>
+        /// إجابة محسوبة فورية بالنية (شوف <see cref="Services.SearchIntentService"/>)،
+        /// مش صف قاعدة بيانات — زي Setting/HelpTopic بالظبط في المبدأ، بس
+        /// بتتضاف من MainWindow مش من GlobalSearchService لأنها محتاجة
+        /// تفكيك النية الأول. دايمًا نتيجة واحدة بس على رأس القايمة لو
+        /// اتطابقت (شوف Score في MainWindow.SearchAllCategoriesAsync).
+        /// </summary>
+        IntentAnswer,
+
+        /// <summary>
+        /// تنقّل مباشر لشاشة كاملة بالاسم (زي "التقارير")، مش عنصر معيّن
+        /// جواها — محتوى واجهة ثابت زي Setting/HelpTopic (شوف
+        /// NavigableScreens في مشروع الواجهة)، مش صف قاعدة بيانات.
+        /// </summary>
+        Screen
     }
 
     /// <summary>
@@ -38,8 +54,13 @@ namespace WorkforceManager.Business.DTOs
         /// <summary>سياق إضافي اختياري (مثلاً اسم المنتج الأب لمرحلة، أو تاريخ حدث سجل)</summary>
         public string? SecondaryText { get; init; }
 
-        /// <summary>كل ما زاد، كان التطابق أدق — نفس Score اللي رجّعه SearchMatcher</summary>
-        public required int Score { get; init; }
+        /// <summary>
+        /// كل ما زاد، كان التطابق أدق — نفس Score اللي رجّعه SearchMatcher.
+        /// set مش init عن قصد: MainWindow.SearchAllCategoriesAsync بيزوّدها
+        /// بترقية "الترتيب بالاستخدام" (شوف SearchRankingScorer) بعد ما
+        /// النتيجة تتبني، قبل الفرز النهائي.
+        /// </summary>
+        public required int Score { get; set; }
 
         public int? WorkerId { get; init; }
         public int? ProductId { get; init; }
@@ -66,5 +87,15 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>true لسؤال في الأسئلة الشائعة، false (الافتراضي) لموضوع دليل عادي — يفرّق شكل الهبوط بس</summary>
         public bool IsFaqEntry { get; init; }
+
+        /// <summary>
+        /// الإجابة المحسوبة نفسها — بس لما Category == IntentAnswer. WorkerId/
+        /// ProductId فوق بيتملوا عادي كمان في الحالة دي (من SearchIntentAnswer)
+        /// عشان الهبوط عند الدوسة يشتغل بنفس منطق فئتي Worker/Product الموجود.
+        /// </summary>
+        public SearchIntentAnswer? IntentAnswer { get; init; }
+
+        /// <summary>x:Name زرار التنقل في MainWindow.xaml — بس لما Category == Screen، شوف NavigableScreens</summary>
+        public string? NavItemName { get; init; }
     }
 }

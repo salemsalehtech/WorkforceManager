@@ -4,6 +4,9 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
 using WorkforceManager.Business.DTOs;
+using WorkforceManager.Business.Services;
+using WorkforceManager.Core.Helpers;
+using WorkforceManager.Data;
 
 namespace WorkforceManager.UI.Views
 {
@@ -32,6 +35,21 @@ namespace WorkforceManager.UI.Views
         private readonly DispatcherTimer _debounce;
         private int _searchGeneration;
 
+        /// <summary>
+        /// أمثلة ثابتة بتعرّف بالنيات لما صندوق البحث فاضي — من غير الأمثلة
+        /// دي محدش هيعرف إن "غياب" أو "أعلى إنتاج الأسبوع ده" شغالين أصلًا.
+        /// كلها استعلامات بلا اسم (مفيش "[اسم عامل]") عشان تفضل قابلة
+        /// للدوسة مباشرة وتشتغل صح لأي مصنع، من غير الاعتماد على بيانات حقيقية.
+        /// </summary>
+        private static readonly string[] ExampleHints =
+        {
+            "غياب",
+            "أعلى إنتاج الأسبوع ده",
+            "أقل إنتاج الأسبوع ده",
+            "مين أحسن عامل",
+            "إنتاج امبارح",
+        };
+
         public GlobalSearchResult? Chosen { get; private set; }
 
         private GlobalSearchDialog(Func<string, Task<IReadOnlyList<GlobalSearchResult>>> search)
@@ -45,6 +63,19 @@ namespace WorkforceManager.UI.Views
                 _debounce.Stop();
                 await RunSearchAsync(SearchBox.Text.Trim());
             };
+
+            HintChipsList.ItemsSource = ExampleHints;
+
+            // "آخر بحث" بس لو فيه فعلًا اختيارات مسجّلة قبل كده — قايمة فاضية
+            // (أول تشغيل للبرنامج مثلًا) معناها القسم ده مايتعرضش خالص
+            var recent = SearchRankingStore.GetRecentQueries(4);
+            if (recent.Count > 0)
+            {
+                RecentSearchesList.ItemsSource = recent;
+                RecentSearchesSection.Visibility = Visibility.Visible;
+            }
+
+            EmptyStatePanel.Visibility = Visibility.Visible;
 
             Loaded += (_, _) => SearchBox.Focus();
         }
@@ -73,8 +104,11 @@ namespace WorkforceManager.UI.Views
             {
                 ResultsList.ItemsSource = null;
                 EmptyText.Visibility = Visibility.Collapsed;
+                EmptyStatePanel.Visibility = Visibility.Visible;
                 return;
             }
+
+            EmptyStatePanel.Visibility = Visibility.Collapsed;
 
             IReadOnlyList<GlobalSearchResult> results;
             try
@@ -97,6 +131,16 @@ namespace WorkforceManager.UI.Views
 
             ResultsList.ItemsSource = view;
             EmptyText.Visibility = results.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>دوسة على تشيب "آخر بحث"/"جرّب" — بتحط نصه في الصندوق وتشغّل نفس مسار البحث العادي</summary>
+        private void HintChip_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { Content: string text }) return;
+
+            SearchBox.Text = text;
+            SearchBox.CaretIndex = text.Length;
+            SearchBox.Focus();
         }
 
         private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -125,6 +169,20 @@ namespace WorkforceManager.UI.Views
         private void Confirm()
         {
             if (ResultsList.SelectedItem is not GlobalSearchResult item) return;
+
+            // "الترتيب بالاستخدام": نسجّل الاختيار ده قبل القفل، عشان استعلام
+            // مشابه بعدين يرقّي نفس النتيجة (شوف SearchRankingScorer وMainWindow.
+            // SearchAllCategoriesAsync). فشل التسجيل (ملف مقفول من عملية تانية
+            // مثلًا) ميمنعش المستخدم من اختيار نتيجته — البحث أهم من التلميح.
+            var key = GlobalSearchService.RankingKey(item);
+            if (key is not null)
+            {
+                try
+                {
+                    SearchRankingStore.RecordPick(ArabicSearch.Normalize(SearchBox.Text), key, DateTime.Now);
+                }
+                catch { /* تلميح ترتيب، مش وظيفة أساسية — فشله ميوقفش الاختيار */ }
+            }
 
             Chosen = item;
             DialogResult = true;

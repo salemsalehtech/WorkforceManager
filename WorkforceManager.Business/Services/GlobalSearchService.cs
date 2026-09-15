@@ -297,5 +297,44 @@ namespace WorkforceManager.Business.Services
 
             return bestKind is null ? null : (bestKind.Value, bestScore);
         }
+
+        /// <summary>
+        /// هوية نتيجة بحث ثابتة عبر الاستعلامات — لتخزين/قراءة "الترتيب
+        /// بالاستخدام" (شوف SearchRankingStore). null لفئة مالهاش معرّف
+        /// مستقر (نادر، بيمنع تسجيل/تطبيق ترقية على نتيجة زي دي بدل ما
+        /// يتعمل مفتاح غير موثوق).
+        ///
+        /// **public + مكان واحد**: بيتنادى من GlobalSearchDialog (تسجيل
+        /// الاختيار) ومن MainWindow (تطبيق الترقية) — نفس صيغة المفتاح في
+        /// المكانين، مفيش نسخة تانية ممكن تنجرف عن الأصل.
+        /// </summary>
+        public static string? RankingKey(GlobalSearchResult result) => result.Category switch
+        {
+            SearchCategory.Worker or SearchCategory.DepartmentAccount =>
+                result.WorkerId is { } workerId ? $"Worker:{workerId}" : null,
+            SearchCategory.Product =>
+                result.ProductId is { } productId ? $"Product:{productId}" : null,
+            SearchCategory.ProductionStage =>
+                result.ProductionStageId is { } stageId ? $"Stage:{stageId}" : null,
+            SearchCategory.InitialBalance =>
+                result.InitialBalanceId is { } balanceId ? $"Balance:{balanceId}" : null,
+            SearchCategory.MemoryPlan =>
+                result.MemoryPlanId is { } memoryPlanId ? $"Memory:{memoryPlanId}" : null,
+            SearchCategory.ActivityLogEntry =>
+                result.ActivityEventId is { } activityEventId ? $"Activity:{activityEventId}" : null,
+            SearchCategory.ReportTemplate =>
+                result.ReportTemplateName is { } reportTemplateName ? $"Report:{reportTemplateName}" : null,
+            SearchCategory.Setting =>
+                result.SettingTargetElementName is { } settingName ? $"Setting:{settingName}" : null,
+            SearchCategory.HelpTopic => $"Help:{result.PrimaryText}",
+            // نفس مفتاح فئة العامل/المنتج العادية عمدًا — اختيار إجابة نية
+            // عن عامل معين لازم يرقّي نفس نتيجة العامل دي لو ظهرت عادي بعدين
+            SearchCategory.IntentAnswer => result.WorkerId is { } iw ? $"Worker:{iw}"
+                : result.ProductId is { } ip ? $"Product:{ip}"
+                : null,
+            SearchCategory.Screen =>
+                result.NavItemName is { } navItemName ? $"Screen:{navItemName}" : null,
+            _ => null
+        };
     }
 }

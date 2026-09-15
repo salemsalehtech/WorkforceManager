@@ -79,6 +79,7 @@ namespace WorkforceManager.UI
             services.AddScoped<WorkerRecognitionService>();
             services.AddScoped<ProductionTrendService>();
             services.AddScoped<GlobalSearchService>();
+            services.AddScoped<SearchIntentService>();
             // الهوية المشتركة: مصدر واحد لـ"مين عمل كده" — الحذف الناعم
             // وسجل العمليات الاتنين بيقروا منه
             services.AddSingleton<CurrentUserContext>();
