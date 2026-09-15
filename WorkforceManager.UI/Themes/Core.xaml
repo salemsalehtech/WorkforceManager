@@ -394,7 +394,12 @@
     <Style x:Key="NavItem" TargetType="RadioButton">
         <Setter Property="FontFamily" Value="{DynamicResource SidebarFont}" />
         <Setter Property="FontSize" Value="{DynamicResource FontBase}" />
-        <Setter Property="Foreground" Value="{DynamicResource SidebarInkBrush}" />
+        <!-- دهبي هو الافتراضي دلوقتي (مقلوب عن قبل) — العنصر المختار بس
+             بياخد SidebarInkBrush (نفس لون النص الفاتح شبه الأبيض
+             المستخدم أصلًا في القايمة الجانبية، مش أبيض خالص — شوف
+             ملاحظة "Ink #EDEDED مش #FFFFFF" في CLAUDE.md)، شوف Trigger
+             IsChecked تحت -->
+        <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
         <Setter Property="Margin" Value="10,2" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -471,7 +476,10 @@
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarAltBrush}" />
                             <Setter TargetName="Glow" Property="Opacity" Value="1" />
-                            <Setter Property="Foreground" Value="{DynamicResource GoldBrush}" />
+                            <!-- العنصر المختار أبيض/فاتح مقابل الباقي الدهبي — انعكاس
+                                 مقصود عن الوضع الأول (دهبي للمختار بس) بناءً على تفضيل
+                                 بصري بعد المراجعة -->
+                            <Setter Property="Foreground" Value="{DynamicResource SidebarInkBrush}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
                             <!-- عائلة الوزن الحقيقية، مش نفس عائلة النص العادي بـFontWeight بس —
                                  كل وزن في IBM Plex Sans Arabic عائلة خط منفصلة، شوف تعليق

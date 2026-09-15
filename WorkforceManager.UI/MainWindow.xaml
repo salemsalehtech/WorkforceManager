@@ -152,13 +152,14 @@
                     <DockPanel>
                         <Button DockPanel.Dock="Left" Click="Logout_Click"
                                 Style="{StaticResource IconButton}" Padding="6,4"
-                                Foreground="{DynamicResource SidebarInkBrush}" ToolTip="تسجيل الخروج"
+                                Foreground="{DynamicResource GoldBrush}" ToolTip="تسجيل الخروج"
                                 AutomationProperties.Name="تسجيل الخروج">
-                            <materialDesign:PackIcon Kind="LogoutVariant" Width="16" Height="16" />
+                            <materialDesign:PackIcon Kind="LogoutVariant" Width="20" Height="20" />
                         </Button>
-                        <TextBlock x:Name="SignedInAsText" FontSize="11.5" Margin="8,0,0,0"
+                        <TextBlock x:Name="SignedInAsText" FontSize="13" Margin="8,0,0,0"
+                                   FontFamily="{DynamicResource SidebarFontSemiBold}" FontWeight="SemiBold"
                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource SidebarInkSoftBrush}" />
+                                   Foreground="{DynamicResource SidebarInkBrush}" />
                     </DockPanel>
                 </Border>
 

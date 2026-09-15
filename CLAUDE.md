@@ -970,16 +970,29 @@ Core  <----------------------- UI
   height it's pointing at) over 0.2s with `EaseOut`; a new selection mid-animation just starts a fresh
   `Storyboard` on the same properties, which WPF retargets smoothly on its own — no manual cancel-and-
   requeue needed.
-  **Contrast, verified not eyeballed** (same WCAG relative-luminance method this file already uses
-  elsewhere): the selected item's gold text is `GoldBrush` on `SidebarBrush` — already correct before this
-  redesign touched anything, confirmed at 5.42:1 (light: `#C2A14D` on `#342E28`) and 12.70:1 (dark:
-  `#E8C57A` on `#000000`), both comfortably above the 4.5:1 text minimum. **`GoldDeepBrush` would have been
-  the *wrong* choice here** despite reading as "the more readable gold" elsewhere in this file — it's
-  tuned for light surfaces, and on the sidebar's dark background it measures only 2.74:1 (light theme),
-  an actual regression. (Separately noted, not changed: gold text over the hover/selected fill
-  `SidebarAltBrush` measures 4.20:1 in light theme — just under the normal-text AA minimum though above
-  the large-text one, and this is pre-existing behavior unrelated to this redesign, not something it
-  introduced or was asked to fix.)
+  **Nav item colour scheme was flipped after a first-look review**: the first pass made gold the
+  *selected*-only text colour (matching the old behaviour) and confirmed it was contrast-safe — but on
+  seeing it rendered, the user asked for the opposite: gold as the **default** colour for every nav item,
+  with the **selected** item switching to a near-white ink colour instead, so the selected pill reads as
+  "the calm one" against a sidebar that's otherwise gold throughout. `NavItem`'s base `Foreground` is now
+  `GoldBrush`; its `IsChecked` trigger sets `SidebarInkBrush` — the same near-white "ink" token already
+  used elsewhere for body text on the dark sidebar (`CLAUDE.md`'s own "ink `#EDEDED`, never `#FFFFFF`"
+  rule elsewhere in this file), reused rather than hardcoding a new white. The nav icons follow along for
+  free (`PackIcon` has no explicit `Foreground` in the templates, so it inherits from the `RadioButton`).
+  **Contrast, verified not eyeballed for both states** (same WCAG relative-luminance method this file
+  already uses elsewhere): default gold-on-sidebar is `GoldBrush` on `SidebarBrush` — 5.42:1 (light:
+  `#C2A14D` on `#342E28`) and 12.70:1 (dark: `#E8C57A` on `#000000`). Selected ink-on-alt-fill is
+  `SidebarInkBrush` on `SidebarAltBrush` — 7.11:1 (light: `#DED4CA` on `#453F39`) and 12.67:1 (dark:
+  `#DCDCDC` on `#1A1A1C`). All four comfortably clear the 4.5:1 text minimum. **`GoldDeepBrush` would
+  still be the *wrong* choice for the default-gold state** despite reading as "the more readable gold"
+  elsewhere in this file — it's tuned for light surfaces, and on the sidebar's dark background it measures
+  only 2.74:1 (light theme), an actual regression versus plain `GoldBrush`.
+  **Account row got the same "make it read as more deliberate" pass**: `SignedInAsText` (the username in
+  the logout row) moved from 11.5pt/regular/`SidebarInkSoftBrush` to 13pt/`SidebarFontSemiBold`/
+  `SidebarInkBrush` — bigger, a real (not synthetic) heavier weight, and the brighter ink tone instead of
+  the muted one, so it doesn't read as an afterthought next to the now-gold nav list. The logout icon grew
+  16→20px and switched from `SidebarInkBrush` to `GoldBrush`, matching the sidebar's new gold-forward
+  default rather than blending into the ink-coloured icons around it.
   **Unified hover-grow language — reused, not invented**: the app already had a "grow slightly on hover"
   idiom (`BaseActionButton`/`GhostButton` in `App.xaml`: a `TransformGroup` of `ScaleTransform
   x:Name="RootScale"` + `TranslateTransform x:Name="RootLift"` on `RenderTransform`, animated via
