@@ -88,6 +88,13 @@ namespace WorkforceManager.Business.DTOs
         /// مين الأول فعليًا حسب درجة الترتيب مش حسب ترتيبه في القايمة.
         /// </summary>
         public int? RecognitionRank { get; set; }
+
+        /// <summary>
+        /// درجة التقييم اللي فعليًا رتّبته (WorkerRecognitionRules.RecognitionScore) — null
+        /// لغير الفايزين. مش NetWorkdays: معدّلة بصعوبة المراحل وتنوّعها، نفس الرقم المعروض في
+        /// نافذة "ليه فاز؟". غير مخزّنة، بتتحط وقت العرض بس زي RecognitionRank.
+        /// </summary>
+        public decimal? RecognitionScore { get; set; }
     }
 
     /// <summary>سطر جزاء واحد داخل الملخص الأسبوعي (للعرض في التقرير)</summary>

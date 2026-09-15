@@ -76,6 +76,35 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task RecognitionScore_MatchesWorkerRecognitionRules_AndDiffersFromNetWorkdays()
+        {
+            var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);
+
+            await SetStageDifficultyAsync(TestDatabase.RingStage2Id, 2.0m);
+
+            await RecordAsync(TestDatabase.RingStage1Id, 200, TestDatabase.WorkerAhmedId, weekStart);
+            await RecordAsync(TestDatabase.RingStage1Id, 80, TestDatabase.WorkerSaidId, weekStart);
+            await RecordAsync(TestDatabase.RingStage2Id, 80, TestDatabase.WorkerSaidId, weekStart);
+
+            var team = await _db.InScopeAsync<WeeklySummaryService, List<WorkerWeeklySummaryDto>>(
+                service => service.GetTeamWeeklySummaryAsync(weekStart));
+            var difficultyByStageId = await _db.InScopeAsync<WeeklySummaryService, Dictionary<int, decimal>>(
+                service => service.LoadDifficultyByStageIdAsync());
+
+            var ahmed = team.Single(w => w.WorkerId == TestDatabase.WorkerAhmedId);
+            var said = team.Single(w => w.WorkerId == TestDatabase.WorkerSaidId);
+
+            // الدرجة المحفوظة على كل فايز لازم تطابق نفس الفانكشن محسوبة لوحدها
+            Assert.Equal(WorkerRecognitionRules.RecognitionScore(ahmed, difficultyByStageId), ahmed.RecognitionScore);
+            Assert.Equal(WorkerRecognitionRules.RecognitionScore(said, difficultyByStageId), said.RecognitionScore);
+
+            // ودي بالظبط النقطة: الدرجة مش صافي اليوميات — سعيد صافيه أقل من
+            // أحمد بس درجته أعلى (نفس منطق RecognitionRank فوق)
+            Assert.NotEqual(said.NetWorkdays, said.RecognitionScore);
+            Assert.True(said.RecognitionScore > ahmed.RecognitionScore);
+        }
+
+        [Fact]
         public async Task RecognitionRank_IsNull_ForAnHourlyWorker_EvenWithHourlyWorkdaysCredited()
         {
             var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(DateTime.Today);

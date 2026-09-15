@@ -219,6 +219,7 @@ namespace WorkforceManager.Business.Services
             {
                 ranked[i].IsBestWorkerOfWeek = true;
                 ranked[i].RecognitionRank = i + 1;
+                ranked[i].RecognitionScore = WorkerRecognitionRules.RecognitionScore(ranked[i], difficultyByStageId);
             }
 
             return ordered;
