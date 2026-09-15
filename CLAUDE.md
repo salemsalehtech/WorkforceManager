@@ -280,7 +280,191 @@ Core  <----------------------- UI
   hand-authored list following `SearchableSettings`'s shape and merge it into
   `MainWindow.SearchAllCategoriesAsync` the same way Settings/Guide already are, plus a landing case. Either
   way, nothing about `GlobalSearchDialog` itself ever needs to change — it only ever sees the merged,
-  already-ranked `GlobalSearchResult` list.
+  already-ranked `GlobalSearchResult` list. (`SearchCategory.IntentAnswer`, added below, is a third,
+  different shape — it isn't "a new thing to search," it's a computed answer *about* the existing Worker/
+  Product data, so it doesn't get a `MatchXxx` method; it's produced once per query by `SearchIntentService`
+  and merged in ahead of everything else.)
+
+  **Intent answers — a short phrase like "غياب سالم" gets a computed answer inline, not just a
+  navigation.** A formal brief asked to upgrade quick search into something that both covers everything and
+  answers direct questions. The investigation for that brief found the *first half already done*: category
+  coverage (10/10), Arabic normalization, typo tolerance, per-category landing, and bounded/parallel
+  loading were all exactly what's documented above, built in the round that added universal search itself.
+  So this round is narrowly scoped to the two pieces that genuinely didn't exist: **intent answers** and
+  **usage-based re-ranking** — and it says so explicitly, because a request that reads as "build a smart
+  search" can otherwise read as license to rebuild what's already there.
+  `SearchIntentService` (`Business/Services`, new) owns a small fixed keyword dictionary (`غياب`, `جزاء`/
+  `جزاءات`, `حوافز`/`سلف`, `راتب`/`أجر`, `مهارات`, `انتاج`, `تقييم`, each with its `ال`-prefixed form listed
+  explicitly rather than a general article-stripping rule — same reasoning the period words already use) and
+  a deterministic, order-independent parser (`ParseIntent`, pure, no DB): normalize the whole query with the
+  existing `ArabicSearch.Normalize`, remove the first recognized intent keyword (bailing out to `null` — meaning
+  "not an intent, let plain search handle it" — if none is found), remove a period keyword if present
+  (`يوم`/`اسبوع`/`شهر`, reusing `ReportTemplateStore.ReportPeriod.Resolve`/`.Name` as the one existing
+  "turn a period word into dates" source — no second definition of "this week"), and treat whatever's left
+  as the candidate name. `متوسط` only forms an intent paired with `انتاج` (any order); alone, or paired with
+  anything else, it's not a supported intent and falls through to plain search rather than erroring.
+  **The candidate name is matched with the exact same `SearchMatcher`/`GlobalSearchService.BestMatch`
+  every other category uses** — no second matching algorithm, so "typo in the name" tolerance comes for
+  free. Worker and product name-lists are both tried for `انتاج`/`متوسط انتاج` (the only intents that can
+  mean either); a worker match wins any near-tie (within `NameMatchTieMargin = 50`, roughly one
+  `SearchMatcher` tier), since most real usage is about a person, not a SKU.
+  **One discovery drove the whole design**: `ProductionReportService.GetWorkerReportAsync(workerId, from, to)`
+  — the existing method behind the worker report screen — already returns everything six of the eight
+  intents need in one call (absence with excused/unexcused split, penalties, advances/bonuses, the
+  already-computed `NetWageEgp`, skills with stars, and piece/workday totals). So a worker-scoped intent
+  query costs exactly one DB round trip regardless of which keyword matched — `SearchIntentService` never
+  computes a number itself, it only picks which fields of that one DTO to surface. The other two intents
+  reuse existing sources the same way: `تقييم` calls `WorkerRecognitionService.GetWeeklyExplanationAsync`
+  (always this work week — recognition is inherently weekly, so a period word on this intent is parsed and
+  then deliberately ignored), and a product-scoped `انتاج`/`متوسط انتاج` calls
+  `DailyProductionReportService.GetForRangeAsync` and reads that product's row — the same "completed at the
+  line's last stage" number the daily report and chart already use, not a second sum-across-stages that
+  would repeat the exact over-count bug documented above (CLAUDE.md's own "one number" rule). `متوسط انتاج`
+  is the one place with genuinely new arithmetic, and it's a one-line division of numbers the DTO already
+  returned (pieces ÷ workdays for a worker, completed pieces ÷ calendar days for a product) — not a stored
+  or duplicated average.
+  **No-data is always a stated sentence, never a silent empty card**: `SearchIntentAnswer.EmptyNote` carries
+  a specific message (`"لا يوجد غياب في الفترة دي"`, `"لا يوجد جزاءات في الفترة دي"`, `"مفيش سعر يومية
+  متسجّل..."`, `"العامل ده مش داخل مقارنة ترتيب الأسبوع ده..."`, etc.) for every one of the eight intents'
+  zero-data case, matching the app's existing convention of showing a real zero/empty state explicitly
+  (`IsWageNegative`, `HasNoWageRate`, `AttentionText`) rather than hiding it.
+  **Display**: `SearchIntentAnswer` carries `Title` (the full "غياب أحمد — الأسبوع ده" heading, display
+  only) separately from `Name` (just "أحمد" — the same bare value `Worker`/`Product` category results put
+  in `PrimaryText`, reused so `MainWindow`'s existing landing code works unmodified for intent results too;
+  see below). `GlobalSearchDialog.xaml`'s `ItemTemplate` gained a second, mutually-exclusive `Border` in the
+  same `DataTemplate` (a `Grid` with two children, one collapsed via `DataTrigger` when the other is
+  visible, rather than a `DataTemplateSelector` class — same declarative-only approach the existing
+  per-category icon/header triggers already use) styled as a distinct gold-bordered card: title, a
+  `Label`/`Value` line per `SearchIntentAnswer.Lines` entry, and `EmptyNote` in `WarnBrush` when present.
+  It always sorts first (`SearchIntentService.AnswerResultScore = 1100`, deliberately above
+  `SearchMatcher`'s own `ExactScore = 1000` — an explicit intent always outranks any text guess) and forms
+  its own single-item group ("الإجابة السريعة") since `GlobalSearchDialog`'s grouping is by `Category` and
+  intent answers are never mixed into another category's group.
+  **Landing** reuses the Worker/Product cases exactly — `MainWindow.LandOnSearchResultAsync`'s Worker and
+  Product branches were factored into `LandOnWorkerAsync`/`LandOnProduct` helpers so `SearchCategory.IntentAnswer`
+  (routed by whichever of `WorkerId`/`ProductId` is set) can call the identical code, no third landing
+  path. This is also why `GlobalSearchResult.Score` changed from `init` to `set` — the usage-ranking boost
+  below needs to adjust a result's score after construction, which a `class` (not a `record`) can't do via
+  `with`.
+
+  **Usage-based re-ranking — "learns" without any model.** Confirmed explicitly with the requester that this
+  is a local frequency/recency mechanism, not a trained model — every part of it is a plain counter you
+  could read out of the JSON file yourself. `SearchRankingScorer` (`Core/Helpers`, pure, same
+  zero-dependency home as `SearchMatcher`/`ArabicSearch` for the same reason — testable with an explicit
+  "now" instead of `DateTime.Now`) computes one number: `min(PickCount, 5) × 30 × 0.5^(ageDays/30)`, capped
+  at `MaxRankingBoost = 150`. Every constant is load-bearing and deliberate: the cap sits well under a full
+  `SearchMatcher` tier gap (200, Exact→Prefix) so a boosted weak match can reorder *among* similarly-scored
+  results but can never leapfrog a genuinely better match from a different tier; the half-life means a
+  single old pick's contribution decays toward zero (5 picks from 180 days ago score *below* one pick from
+  today — verified directly in `SearchRankingScorerTests`), so the ranking tracks recent behavior rather
+  than freezing on whatever was clicked once, long ago. `SearchRankingStore` (`Data`, new file
+  `search-ranking.json` next to the database, `AppPaths.SearchRankingPath`) is a corrupt-tolerant JSON store
+  keyed by normalized query text → a list of `{ResultKey, PickCount, LastPickedAt}` — the exact same
+  read/save/default-on-failure shape as `AppSettingsStore`, chosen over a new database table because this is
+  a ranking *hint*, not data whose loss would matter; `GlobalSearchDialog`/`MainWindow` call it directly
+  from the UI project, the same way `AppSettingsStore` already is, rather than through a Business-layer
+  wrapper that would add nothing. `ResultKey` (`GlobalSearchService.RankingKey`, `public` for the same
+  "one place, two callers" reason `BestMatch` is) is `"{Category}:{id}"` for every category with a stable
+  identifier — computed identically at both write time (`GlobalSearchDialog.Confirm`, wrapped in a
+  swallowed `try/catch` since a ranking-hint write failing must never block the user's actual pick) and read
+  time (`MainWindow.ApplyUsageRanking`, applied once per search before the final sort, skipped entirely for
+  `IntentAnswer` results since their score is already fixed above everything). An intent-answer pick and a
+  plain Worker/Product pick for the same underlying row deliberately share one `RankingKey` — picking the
+  "غياب أحمد" card today should also help "أحمد" rank higher tomorrow, not start a second, disconnected
+  counter.
+
+  **A third search round added a `Screen` category plus six more no-name intents**, after the requester
+  tried the second round and asked for more — reusing the exact same building blocks (`SearchMatcher`,
+  `GlobalSearchService.BestMatch`, `ReportPeriod`, `SearchIntentAnswer`'s generic `Title`/`Lines`/
+  `EmptyNote` shape) rather than inventing new ones, same as every round before it.
+  - **`SearchCategory.Screen`** ("اكتب اسم شاشة وادخلها مباشرة") is a plain content category like
+    `Setting`/`HelpTopic`, not an intent — `Tour/NavigableScreens.cs` (new, identical shape to
+    `SearchableSettings`) lists all 10 sidebar `RadioButton`s by their `x:Name` (**not** by the `View`
+    class they show — `NavEvaluationItem` shows `ReportsView` and `NavReportsItem` shows
+    `ReportBuilderView`, a real trap for anyone keying this list by view name instead), matched in a new
+    `MainWindow.MatchScreens`. Landing is one line for all 10, not a 10-way switch:
+    `(FindName(chosen.NavItemName) as RadioButton)?.IsChecked = true` — `GlobalSearchResult.Score` also
+    moved from `init` to `set` this round (a plain `class`, so no record `with` expression) purely so
+    `ApplyUsageRanking` can adjust a result after construction.
+  - **Five new `SearchIntentKind` values answer a question with no name at all** — `DayProduction`
+    ("إنتاج يوم الثلاثاء اللي فات"), `DayAbsence` ("غياب", factory-wide), `TopProduction`/
+    `BottomProduction` ("أعلى/أقل إنتاج الأسبوع ده"), `TopWorker`/`BottomWorker` ("مين أحسن/أسوأ عامل"),
+    and `ProductWorkers` ("مين شغال على [منتج أو مرحلة]", which *does* take a name — just not a worker's).
+    `ParseIntent`'s "empty candidate name ⇒ not an intent" rule from round two had to grow explicit
+    exceptions for exactly these kinds; every other kind still requires a name.
+  - **`DayProduction` needed a genuinely new parsing primitive**: `WeekdayWords` (all seven days, each
+    listed with and without `ال` like the period words) plus `انهارده`/`امبارح`, resolved by
+    `TryResolveDayReference` to a concrete `DateTime` — always the most recent **past** occurrence, never
+    today, even if today happens to be that weekday (`ResolvePastWeekday` walks backward starting from
+    yesterday). This is intentionally a separate code path from `ReportPeriodKind`/`PeriodKeywords`:
+    `ReportPeriodKind` is a closed enum (`Today`/`ThisWeek`/`ThisMonth`) shared with report templates,
+    not a date parser, and forcing "an arbitrary specific day" into it would have meant either widening a
+    type other features depend on or building a parser that only half-fits it. The resolved day only
+    triggers `DayProduction` when the leftover name is *also* empty — "انتاج الثلاثاء" with a real
+    leftover name (a rare, unrequested combination) is deliberately left unhandled rather than guessed at.
+  - **`TopProduction`/`BottomProduction` answers both a product ranking and a worker ranking in one
+    card** (`اعلى`/`اقل` pair with `انتاج` exactly the way `متوسط` already does for `AverageProduction`
+    — same paired-marker mechanism, no new one) since the requester's own answer to "products or workers
+    or both?" was "both." Products come from `DailyProductionReportService.GetForRangeAsync` (same source
+    `Production`/`AverageProduction` already use); workers come from
+    `ProductionReportService.GetGeneralReportAsync(from, to).ByWorker` — **not** `GetWorkerReportAsync`,
+    which is single-worker — re-sorted by `TotalPieces` at the call site (its own default order inside the
+    service is by `TotalWorkdays`, for a different existing consumer; sorting outside the service instead
+    of changing its default avoids touching that consumer's behavior). Hourly workers and anyone with zero
+    pieces are excluded from the worker side before ranking, same reasoning `WorkerRecognitionRules.Rank`
+    already applies — "lowest producing worker" should mean the weakest actual piece-worker, not a
+    department head who trivially shows zero.
+  - **`TopWorker`/`BottomWorker` — "بحث سريع" now has "worst worker," and there was no such concept
+    anywhere in the app to extend.** Verified by search before building it: no live or removed
+    `NeedsAttentionService`-style bottom-ranking, nothing. The requester asked for a real reverse ranking,
+    not a euphemism, and confirmed that explicitly when asked. It reuses the exact ranking the real "أحسن 3
+    عمال" feature is built on (`WeeklySummaryService.GetTeamSummaryForRangeAsync` +
+    `LoadDifficultyByStageIdAsync` + `WorkerRecognitionRules.Rank`) rather than a new formula — the
+    difference is that `WorkerRecognitionService.ComputeWeeklyTopAsync`/`ComputeMonthlyTopAsync` both
+    truncate the ranked list before returning it (`.Where(IsBestWorkerOfWeek)` / `.FirstOrDefault()`), so
+    neither could ever reach the *last* element; this intent calls `WorkerRecognitionRules.Rank` itself
+    and takes `[0]` or `[^1]`, exactly the pattern `WorkerRecognitionService.GetWeeklyExplanationAsync`
+    already uses internally to explain one worker's position anywhere in the list, not just first place.
+    **"الأسبوع اللي فات" (last week, not this week) needed its own small concept**,
+    `SearchIntentService.ResolvePastAwarePeriod` — deliberately *not* a new `ReportPeriodKind` case for the
+    same reason `DayProduction`'s day parsing isn't: nothing else in the app has a "past" flavor of a
+    period, so it stays local to this one intent rather than growing a type every report-template caller
+    also sees. The `فات` token is inspected *before* `FillerWords` strips it (stripped either way, so it
+    never leaks into a candidate name) and only changes behavior for these two intents — everywhere else
+    it's pure noise, same as `اللي`.
+  - **`ProductWorkers` disambiguates a product name from a stage name the same way `Production` already
+    disambiguates a worker from a product** — try both (`BestProductMatch` and a new `BestStageMatch`,
+    matching only `StageName` like `GlobalSearchService.MatchStages` already does, never the parent
+    product's name), take whichever scores strictly higher, with no default tie-break toward either side
+    (unlike worker-vs-product, nothing here made one side the obviously-more-common case). A product's
+    answer comes from `IWorkerRepository.GetSkillsForProductAsync` (one query across all the product's
+    stages, already filtered to active workers, `.Worker` and `.ProductionStage` both pre-loaded) ranked
+    by `SkillRatingService.Rank` and deduplicated to one line per worker (a worker qualified on two stages
+    of the same product would otherwise appear twice — the dedup keeps their *highest*-ranked row, since
+    `Rank` already sorted before the `GroupBy...First()`). A stage's answer reuses
+    `SkillRatingService.GetRankedForStageAsync` verbatim — the exact method the Products screen's own "مين
+    يعرف يعمل المرحلة دي؟" button already calls, so the ranking a manager sees here and there is always
+    the same list.
+  - **A real normalization bug shipped and was caught by its own tests, twice, in this round**:
+    `TopMarkerWords`/`FillerWords` were first written with the literal keyboard spelling — `اعلى` and
+    `على`, both ending in alef maqsura (`ى`) — but `ArabicSearch.Normalize` maps `ى → ي` like any other
+    alef maqsura, so the *normalized* forms actually reaching the dictionary lookup are `اعلي`/`علي`, and
+    the literal-`ى` entries never matched anything. Both were caught immediately by `ParseIntentTests`
+    (which exercises `ParseIntent` on real query strings, not on already-normalized fragments) rather than
+    surviving to a live query — the concrete lesson for the next Arabic keyword added anywhere in this
+    file: **write dictionary keys in their already-normalized form**, and prefer a round-trip test (real
+    query string in, parsed result out) over asserting against a hand-normalized literal, since the latter
+    can quietly assume the bug away.
+  - **Discoverability**: none of the no-name intents are guessable from a blank search box, so
+    `GlobalSearchDialog` now shows two chip lists when the box is empty — a static `ExampleHints` (five
+    always-valid, data-independent example queries, e.g. `"مين أحسن عامل"`) and, only when non-empty, "آخر
+    بحث" (recent searches) sourced from `SearchRankingStore.GetRecentQueries` — reusing the pick history
+    the ranking feature already records rather than logging every keystroke separately. Clicking a chip
+    just sets `SearchBox.Text` and lets the existing debounce/search pipeline take over, no second code
+    path. `MainWindow.Window_PreviewKeyDown` (already handling `Escape` for the tour overlay) also gained
+    `Ctrl+K` → the same `GlobalSearch_Click` handler the sidebar button calls, so the dialog opens without
+    reaching for the mouse.
+
   **"إيه الجديد؟" spotlight tour** (`Tour/AppTourStep.cs`, `Tour/AppTourContent.cs`,
   `MainWindow.RunTourAsync`/`PositionTourStep`): a real coach-mark tour, not a changelog dialog — each
   step navigates to the right screen (reusing the same `NavXItem.IsChecked = true` pattern as the global
