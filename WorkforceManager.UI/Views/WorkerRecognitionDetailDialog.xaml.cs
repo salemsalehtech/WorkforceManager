@@ -111,8 +111,11 @@ namespace WorkforceManager.UI.Views
 
         private void OpenProfile_Click(object sender, RoutedEventArgs e)
         {
-            _onOpenProfile(_workerId);
+            // قفل النافذة دي الأول قبل فتح البروفايل — لو العكس، الـDialog
+            // الجديد (Modal برضه) هيتفتح وده لسه ظاهر تحته لحد ما يتقفل
+            var workerId = _workerId;
             Close();
+            _onOpenProfile(workerId);
         }
 
         private void Window_Drag(object sender, MouseButtonEventArgs e)
