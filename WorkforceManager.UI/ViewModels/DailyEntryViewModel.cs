@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 using WorkforceManager.UI.Views;
@@ -1242,7 +1243,7 @@ namespace WorkforceManager.UI.ViewModels
             };
 
             if (!string.IsNullOrEmpty(query))
-                matches = matches.Where(r => r.FullName.Contains(query, StringComparison.OrdinalIgnoreCase));
+                matches = matches.Where(r => ArabicSearch.Contains(r.FullName, query));
 
             VisibleAttendanceRows.Clear();
             foreach (var row in matches) VisibleAttendanceRows.Add(row);
