@@ -92,12 +92,6 @@
         <GradientStop Color="#A9852F" Offset="1" />
     </LinearGradientBrush>
 
-    <!-- خط شعري بيبدأ ويخلص شفاف — تحت العناوين -->
-    <LinearGradientBrush x:Key="GoldHairlineBrush" StartPoint="0,0" EndPoint="1,0">
-        <GradientStop Color="#00C2A14D" Offset="0" />
-        <GradientStop Color="#C2A14D" Offset="0.15" />
-        <GradientStop Color="#00C2A14D" Offset="1" />
-    </LinearGradientBrush>
 
     <!-- الأسود الدافي العميق للكروت البطلة (بدل الكحلي القديم) -->
     <LinearGradientBrush x:Key="InkGradientBrush" StartPoint="0,0" EndPoint="1,1">
