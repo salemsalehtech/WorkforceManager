@@ -1,4 +1,5 @@
 using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Models;
 
 namespace WorkforceManager.Business.DTOs
 {
@@ -69,15 +70,20 @@ namespace WorkforceManager.Business.DTOs
         /// صافي يوميات الأسبوع = المنتج − خصم الغياب − خصم الجزاءات.
         /// ده الرقم النهائي اللي بيتحاسب بيه العامل وبيترتب بيه في تقييم الأسبوع.
         /// </summary>
-        public decimal NetWorkdays => ProducedWorkdays - AbsenceDeduction - PenaltyDeduction;
+        public decimal NetWorkdays => WageMath.NetWorkdays(ProducedWorkdays, AbsenceDeduction, PenaltyDeduction);
 
         // ------- الأجر بالجنيه -------
 
         /// <summary>سعر يومية العامل بالجنيه (الحالي)</summary>
         public decimal DailyWageEgp { get; set; }
 
-        /// <summary>أجر الأسبوع بالجنيه = صافي اليوميات × سعر اليومية</summary>
-        public decimal NetWageEgp => NetWorkdays * DailyWageEgp;
+        /// <summary>
+        /// أجر الأسبوع بالجنيه = صافي اليوميات × سعر اليومية. الملخص
+        /// الأسبوعي ده مالوش سلف/حوافز (دي بس في WorkerPayrollDto/
+        /// WorkerProductionReportDto)، فالأجر هنا يوقف عند أجر اليوميات
+        /// من غير أي تعديل عليه.
+        /// </summary>
+        public decimal NetWageEgp => WageMath.WorkdaysWageEgp(NetWorkdays, DailyWageEgp);
 
         /// <summary>هل هذا العامل من ضمن أحسن 3 عمال في الأسبوع؟ (WorkerRecognitionRules.Rank)</summary>
         public bool IsBestWorkerOfWeek { get; set; }

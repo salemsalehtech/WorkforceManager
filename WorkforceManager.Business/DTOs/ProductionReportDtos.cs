@@ -1,4 +1,5 @@
 using WorkforceManager.Core.Helpers;
+using WorkforceManager.Core.Models;
 
 namespace WorkforceManager.Business.DTOs
 {
@@ -105,13 +106,13 @@ namespace WorkforceManager.Business.DTOs
         public List<WageAdjustmentSummaryDto> Adjustments { get; init; } = new();
 
         /// <summary>صافي يوميات الفترة = المنتج − خصم الغياب − خصم الجزاءات</summary>
-        public decimal NetWorkdays => ProducedWorkdays - AbsenceDeduction - PenaltyDeduction;
+        public decimal NetWorkdays => WageMath.NetWorkdays(ProducedWorkdays, AbsenceDeduction, PenaltyDeduction);
 
         /// <summary>أجر اليوميات بالجنيه = الصافي × سعر اليومية (قبل السلف والحوافز)</summary>
-        public decimal WorkdaysWageEgp => NetWorkdays * DailyWageEgp;
+        public decimal WorkdaysWageEgp => WageMath.WorkdaysWageEgp(NetWorkdays, DailyWageEgp);
 
         /// <summary>الأجر النهائي بالجنيه = أجر اليوميات + الحوافز − السلف</summary>
-        public decimal NetWageEgp => WorkdaysWageEgp + BonusEgp - AdvanceEgp;
+        public decimal NetWageEgp => WageMath.NetWageEgp(WorkdaysWageEgp, BonusEgp, AdvanceEgp);
 
         // ------- المهارات -------
 

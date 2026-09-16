@@ -1,3 +1,5 @@
+using WorkforceManager.Core.Models;
+
 namespace WorkforceManager.Business.DTOs
 {
     /// <summary>
@@ -55,13 +57,13 @@ namespace WorkforceManager.Business.DTOs
         public decimal AdvanceEgp { get; init; }
 
         /// <summary>صافي يوميات الفترة = المنتج − الخصومات</summary>
-        public decimal NetWorkdays => ProducedWorkdays - AbsenceDeduction - PenaltyDeduction;
+        public decimal NetWorkdays => WageMath.NetWorkdays(ProducedWorkdays, AbsenceDeduction, PenaltyDeduction);
 
         /// <summary>أجر اليوميات بالجنيه = صافي اليوميات × سعر اليومية (قبل السلف والحوافز)</summary>
-        public decimal WorkdaysWageEgp => NetWorkdays * DailyWageEgp;
+        public decimal WorkdaysWageEgp => WageMath.WorkdaysWageEgp(NetWorkdays, DailyWageEgp);
 
         /// <summary>الأجر النهائي بالجنيه = أجر اليوميات + الحوافز − السلف</summary>
-        public decimal NetWageEgp => WorkdaysWageEgp + BonusEgp - AdvanceEgp;
+        public decimal NetWageEgp => WageMath.NetWageEgp(WorkdaysWageEgp, BonusEgp, AdvanceEgp);
     }
 
     /// <summary>ملخص كشف أجور فترة (كل العمال + الإجماليات)</summary>
