@@ -268,7 +268,7 @@ namespace WorkforceManager.UI.ViewModels
 
                 Notify.Info($"اتشال إنتاج يوم {EntryDate:yyyy/MM/dd}." + note, "تم");
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex)
             {
                 Notify.Warn(ex.Message, "مش هينفع");
             }
@@ -1481,7 +1481,7 @@ namespace WorkforceManager.UI.ViewModels
                 await LoadAttendanceAsync();
                 await LoadPenaltiesAsync(); // الجزاءات التلقائية تظهر/تختفي فورًا
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex)
             {
                 // قاعدة الحماية: غياب لعامل له شغل في نفس اليوم بيترفض برسالة بأسماء العمال
                 Notify.Warn(ex.Message, "تعارض في البيانات");
@@ -1555,7 +1555,7 @@ namespace WorkforceManager.UI.ViewModels
                 await penaltyService.RecordPenaltyAsync(
                     PenaltyWorker.WorkerId, EntryDate, PenaltyReason, SelectedDeduction.Value);
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex)
             {
                 Notify.Warn(ex.Message, "مش هينفع");
                 return;
@@ -1598,7 +1598,7 @@ namespace WorkforceManager.UI.ViewModels
 
                 await LoadPenaltiesAsync();
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex)
             {
                 Notify.Warn(ex.Message, "مش هينفع");
             }
@@ -1624,7 +1624,7 @@ namespace WorkforceManager.UI.ViewModels
                 await penaltyService.RemovePenaltyAsync(row.PenaltyId);
                 await LoadPenaltiesAsync();
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex)
             {
                 Notify.Warn(ex.Message, "مش هينفع");
             }
@@ -1714,7 +1714,7 @@ namespace WorkforceManager.UI.ViewModels
                     AdjustmentWorker.WorkerId, EntryDate, SelectedAdjustmentType.Value, amount,
                     AdjustmentNote, gate.Password);
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex)
             {
                 Notify.Warn(ex.Message, "مش هينفع");
                 return;
@@ -1876,7 +1876,7 @@ namespace WorkforceManager.UI.ViewModels
                 var service = scope.ServiceProvider.GetRequiredService<WageAdjustmentService>();
                 await service.RemoveAdjustmentAsync(row.AdjustmentId, gate.Password);
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex)
             {
                 Notify.Warn(ex.Message, "مش هينفع");
                 return;
