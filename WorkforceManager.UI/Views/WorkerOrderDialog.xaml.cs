@@ -21,7 +21,7 @@ namespace WorkforceManager.UI.Views
     /// السحب والكتابة بينادوا ReorderAsync (ترتيب كامل دفعة واحدة) —
     /// نقلة من مكان 40 لمكان 2 هتبقى عملية واحدة مش 38 تبديلة.
     /// </summary>
-    public partial class WorkerOrderDialog : Window
+    public partial class WorkerOrderDialog : ChromelessDialogWindow
     {
         private readonly IServiceScopeFactory _scopeFactory;
 
@@ -199,10 +199,6 @@ namespace WorkforceManager.UI.Views
             await ReloadAsync();
         }
 
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ChangedButton == MouseButton.Left) DragMove();
-        }
     }
 
     /// <summary>سطر عامل واحد في شاشة الترتيب — تنسيق عرض بس</summary>

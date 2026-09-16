@@ -18,7 +18,7 @@ namespace WorkforceManager.UI.Views
     ///
     /// اللي بيتوافق عليه بيتشال من القايمة فورًا عشان يبان اللي فاضل.
     /// </summary>
-    public partial class SkillReviewDialog : Window
+    public partial class SkillReviewDialog : ChromelessDialogWindow
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ObservableCollection<SkillSuggestionDto> _pending = new();
@@ -109,9 +109,5 @@ namespace WorkforceManager.UI.Views
             AppliedText.Text = _appliedCount == 0 ? "" : $"اتحفظ {_appliedCount} تقييم";
         }
 
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ChangedButton == MouseButton.Left) DragMove();
-        }
     }
 }

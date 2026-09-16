@@ -8,7 +8,7 @@ namespace WorkforceManager.UI.Views
     /// نافذة إضافة/تعديل مرحلة تصنيع. بتتحقق من الاسم واليومية (رقم موجب)
     /// قبل الإغلاق — قواعد التفرد داخل المنتج مسؤولية ProductManagementService.
     /// </summary>
-    public partial class StageEditDialog : Window
+    public partial class StageEditDialog : ChromelessDialogWindow
     {
         public StageEditDialog()
         {
@@ -74,14 +74,6 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
-        }
-
-
-        /// <summary>النافذة بلا إطار نظام — السحب من الشريط العلوي</summary>
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ButtonState == MouseButtonState.Pressed)
-                DragMove();
         }
     }
 }

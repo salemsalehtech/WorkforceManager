@@ -12,7 +12,7 @@ namespace WorkforceManager.UI.Views
     /// نافذة إضافة/تعديل منتج. بتتحقق من الاسم بس (الإجباري الوحيد) —
     /// أي قواعد أعمق مسؤولية ProductManagementService.
     /// </summary>
-    public partial class ProductEditDialog : Window
+    public partial class ProductEditDialog : ChromelessDialogWindow
     {
         public ProductEditDialog(IReadOnlyList<RackingWorkerChoice> rackingWorkers)
         {
@@ -114,13 +114,6 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
-        }
-
-        /// <summary>النافذة بلا إطار نظام — السحب من الشريط العلوي</summary>
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ButtonState == MouseButtonState.Pressed)
-                DragMove();
         }
     }
 }

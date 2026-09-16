@@ -11,17 +11,12 @@ namespace WorkforceManager.UI.Views
     /// نسخة تانية — كل الأوامر (تعديل، حذف، ترتيب المراحل...) شغالة زي ما
     /// هي من غير أي تغيير في الـ ViewModel نفسه.
     /// </summary>
-    public partial class ProductDetailDialog : Window
+    public partial class ProductDetailDialog : ChromelessDialogWindow
     {
         public ProductDetailDialog(ProductsViewModel viewModel)
         {
             InitializeComponent();
             DataContext = viewModel;
-        }
-
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ChangedButton == MouseButton.Left) DragMove();
         }
     }
 }

@@ -9,7 +9,7 @@ namespace WorkforceManager.UI.Views
     /// نافذة تغيير كلمة المرور — بتتطلب كلمة المرور الحالية،
     /// وقواعد التحقق كلها في AuthService.
     /// </summary>
-    public partial class ChangePasswordDialog : Window
+    public partial class ChangePasswordDialog : ChromelessDialogWindow
     {
         public ChangePasswordDialog()
         {
@@ -49,14 +49,6 @@ namespace WorkforceManager.UI.Views
             {
                 ErrorText.ShowError(ex.Message);
             }
-        }
-
-
-        /// <summary>النافذة بلا إطار نظام — السحب من الشريط العلوي</summary>
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ButtonState == MouseButtonState.Pressed)
-                DragMove();
         }
     }
 }

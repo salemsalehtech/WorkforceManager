@@ -10,7 +10,7 @@ namespace WorkforceManager.UI.Views
     /// <see cref="ScrapDialog"/> العام، المنتج/المرحلة هنا محددين بالفعل
     /// من النطاق المختار، فالحوار بيسأل بس عن الكمية/سبب/ملاحظة/تاريخ.
     /// </summary>
-    public partial class ScrapBalanceRangeDialog : Window
+    public partial class ScrapBalanceRangeDialog : ChromelessDialogWindow
     {
         private readonly int _remainingQuantity;
 
@@ -64,12 +64,6 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
-        }
-
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ButtonState == MouseButtonState.Pressed)
-                DragMove();
         }
     }
 }

@@ -24,7 +24,7 @@ namespace WorkforceManager.UI.Views
     /// مؤكد مع المستخدم: نوافذ مكوّمة فوق بعض بتخلي المستخدم يقفلهم كلهم
     /// من غير ما يقرا ولا واحدة.
     /// </summary>
-    public partial class MemoryReminderDialog : Window
+    public partial class MemoryReminderDialog : ChromelessDialogWindow
     {
         private readonly ProductionMemoryDto _memory;
 
@@ -100,9 +100,5 @@ namespace WorkforceManager.UI.Views
             Close();
         }
 
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ChangedButton == MouseButton.Left) DragMove();
-        }
     }
 }

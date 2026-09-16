@@ -14,7 +14,7 @@ namespace WorkforceManager.UI.Views
     /// (آخر سنة). للقراءة بس لو مش مدير قسم — <see cref="_canManage"/>
     /// بتتحكم في ظهور أزرار التصحيح والإضافة والحذف.
     /// </summary>
-    public partial class DepartmentAccountProfileDialog : Window
+    public partial class DepartmentAccountProfileDialog : ChromelessDialogWindow
     {
         private record AttendanceRowItem(string DateText, string StatusText, string WorkdaysText, string StatusColor);
 
@@ -184,12 +184,5 @@ namespace WorkforceManager.UI.Views
             }
         }
 
-        private void Close_Click(object sender, RoutedEventArgs e) => Close();
-
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ButtonState == MouseButtonState.Pressed)
-                DragMove();
-        }
     }
 }

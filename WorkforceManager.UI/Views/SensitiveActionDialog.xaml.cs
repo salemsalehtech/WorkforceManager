@@ -33,7 +33,7 @@ namespace WorkforceManager.UI.Views
         Save
     }
 
-    public partial class SensitiveActionDialog : Window
+    public partial class SensitiveActionDialog : ChromelessDialogWindow
     {
         private readonly bool _reasonRequired;
         private readonly SensitiveActionKind _kind;
@@ -89,8 +89,8 @@ namespace WorkforceManager.UI.Views
 
             Title = deleting ? "تأكيد حذف" : "تأكيد عملية";
 
-            HeaderBar.SetResourceReference(
-                Border.BackgroundProperty, deleting ? "DangerBrush" : "SidebarBrush");
+            SetResourceReference(
+                HeaderBrushProperty, deleting ? "DangerBrush" : "SidebarBrush");
 
             ConfirmButton.Content = deleting ? "أكّد الحذف" : "أكّد واحفظ";
             ConfirmButton.SetResourceReference(
@@ -189,10 +189,6 @@ namespace WorkforceManager.UI.Views
             ErrorBox.ShowError(ErrorText, message);
         }
 
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ChangedButton == MouseButton.Left) DragMove();
-        }
     }
 
     /// <summary>مدخلات المستخدم من نافذة التأكيد</summary>

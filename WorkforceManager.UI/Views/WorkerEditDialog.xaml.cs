@@ -12,7 +12,7 @@ namespace WorkforceManager.UI.Views
     /// أي تحقق أعمق مسؤولية WorkerManagementService عشان القاعدة تتطبق
     /// من أي مكان مش من الشاشة دي بس.
     /// </summary>
-    public partial class WorkerEditDialog : Window
+    public partial class WorkerEditDialog : ChromelessDialogWindow
     {
         /// <summary>خيار نوع الحساب في القائمة (Role == null = عامل إنتاج بالقطعة)</summary>
         private record HourlyRoleOption(HourlyRoleEnum? Role, string Display);
@@ -138,13 +138,6 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
-        }
-
-        /// <summary>النافذة بلا إطار نظام — السحب من الشريط العلوي</summary>
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ButtonState == MouseButtonState.Pressed)
-                DragMove();
         }
     }
 }

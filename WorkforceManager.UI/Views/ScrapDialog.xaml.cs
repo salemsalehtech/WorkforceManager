@@ -21,7 +21,7 @@ namespace WorkforceManager.UI.Views
     ///
     /// الكود هنا شكلي بس — القاعدة والحساب في ScrapService.
     /// </summary>
-    public partial class ScrapDialog : Window
+    public partial class ScrapDialog : ChromelessDialogWindow
     {
         private int _maxPieces;
 
@@ -150,9 +150,5 @@ namespace WorkforceManager.UI.Views
 
         private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ButtonState == MouseButtonState.Pressed) DragMove();
-        }
     }
 }

@@ -13,7 +13,7 @@ namespace WorkforceManager.UI.Views
     /// في <c>PenaltyService</c>، عشان القاعدة تتطبق من أي مسار مش من
     /// الشاشة دي بس.
     /// </summary>
-    public partial class PenaltyEditDialog : Window
+    public partial class PenaltyEditDialog : ChromelessDialogWindow
     {
         public PenaltyEditDialog(string workerName, string reason, string deductionName)
         {
@@ -50,11 +50,6 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
-        }
-
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ChangedButton == MouseButton.Left) DragMove();
         }
     }
 }

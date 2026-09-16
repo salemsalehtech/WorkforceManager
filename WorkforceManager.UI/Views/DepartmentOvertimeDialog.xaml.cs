@@ -12,7 +12,7 @@ namespace WorkforceManager.UI.Views
     /// مباشرة (بعد ما تشيل أي سجل شغل بالساعة لليوم ده لو موجود —
     /// نفس قاعدة "الغياب مع شغل مسجّل ممنوع" في AttendanceService).
     /// </summary>
-    public partial class DepartmentOvertimeDialog : Window
+    public partial class DepartmentOvertimeDialog : ChromelessDialogWindow
     {
         private record StatusOption(AttendanceStatus Status, string Label);
 
@@ -66,11 +66,5 @@ namespace WorkforceManager.UI.Views
         }
 
         private void Save_Click(object sender, RoutedEventArgs e) => DialogResult = true;
-
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ButtonState == MouseButtonState.Pressed)
-                DragMove();
-        }
     }
 }

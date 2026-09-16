@@ -6,7 +6,7 @@ using WorkforceManager.Business.DTOs;
 
 namespace WorkforceManager.UI.Views
 {
-    public partial class InitialBalanceHistoryDialog : Window
+    public partial class InitialBalanceHistoryDialog : ChromelessDialogWindow
     {
         private readonly List<InitialBalanceHistoryRow> _operationRows;
         private readonly List<InitialBalanceHistoryRow> _workerRows;
@@ -65,12 +65,6 @@ namespace WorkforceManager.UI.Views
                 ? "مفيش عمال سجّلوا إنتاج على الرصيد ده لسه"
                 : "لا يوجد استخدامات مسجلة لهذا الرصيد بعد";
             NoHistoryText.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ButtonState == MouseButtonState.Pressed)
-                DragMove();
         }
     }
 

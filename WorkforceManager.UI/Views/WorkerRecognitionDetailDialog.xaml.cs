@@ -12,7 +12,7 @@ namespace WorkforceManager.UI.Views
     /// كل الأرقام هنا للعرض فقط ومالها أي أثر على الأجر — التوضيح ده
     /// مكتوب صريح تحت في الشاشة نفسها.
     /// </summary>
-    public partial class WorkerRecognitionDetailDialog : Window
+    public partial class WorkerRecognitionDetailDialog : ChromelessDialogWindow
     {
         private readonly Action<int> _onOpenProfile;
         private readonly int _workerId;
@@ -118,10 +118,6 @@ namespace WorkforceManager.UI.Views
             _onOpenProfile(workerId);
         }
 
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ChangedButton == MouseButton.Left) DragMove();
-        }
     }
 
     /// <summary>سطر تفصيل مرحلة واحدة داخل النافذة — تنسيق عرض بس</summary>

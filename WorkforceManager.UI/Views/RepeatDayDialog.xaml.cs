@@ -12,7 +12,7 @@ namespace WorkforceManager.UI.Views
     /// كان هيخلي المستخدم يجرّب أيام فاضية لحد ما يلاقي واحد فيه حاجة —
     /// والقايمة كمان بتوريه كل يوم فيه كام عامل، فيعرف يختار.
     /// </summary>
-    public partial class RepeatDayDialog : Window
+    public partial class RepeatDayDialog : ChromelessDialogWindow
     {
         private RepeatDayDialog(string productName, IReadOnlyList<FlowDayOptionDto> days)
         {
@@ -51,9 +51,5 @@ namespace WorkforceManager.UI.Views
             Close();
         }
 
-        private void Window_Drag(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ChangedButton == MouseButton.Left) DragMove();
-        }
     }
 }
