@@ -14,7 +14,7 @@
       فالترقية بتوصل لكل المشاريع اللي بتعتمد على المشروع ده.
       يتشال لما مزوّد EF Core يرفع النسخة عنده.
     -->
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <!-- أداة تطوير بس (توليد Migrations) — مستبعدة من نسخة التوزيع، زي ما في مشروع UI -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.29" Condition="'$(Configuration)' == 'Debug'">
       <PrivateAssets>all</PrivateAssets>
