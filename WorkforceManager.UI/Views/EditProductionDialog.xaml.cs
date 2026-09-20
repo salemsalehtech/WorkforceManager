@@ -11,7 +11,7 @@ namespace WorkforceManager.UI.Views
     /// التعديل الفعلي ونقل اليومية بين العمال مسؤولية
     /// WorkdayCalculationService.UpdateProductionAsync.
     /// </summary>
-    public partial class EditProductionDialog : ChromelessDialogWindow
+    public partial class EditProductionDialog : Window
     {
         private int _originalWorkerId;
 
@@ -68,6 +68,13 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
+        }
+
+        /// <summary>النافذة بلا إطار نظام — السحب من الشريط العلوي</summary>
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState == MouseButtonState.Pressed)
+                DragMove();
         }
     }
 }

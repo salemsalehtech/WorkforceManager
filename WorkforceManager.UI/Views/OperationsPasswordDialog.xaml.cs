@@ -11,7 +11,7 @@ namespace WorkforceManager.UI.Views
     /// الكلمة القديمة والتشفير في OperationsPasswordService — الشاشة
     /// عمرها ما بتشوف hash ولا بتقارن كلمة سر.
     /// </summary>
-    public partial class OperationsPasswordDialog : ChromelessDialogWindow
+    public partial class OperationsPasswordDialog : Window
     {
         private OperationsPasswordDialog(bool requiresCurrent)
         {
@@ -71,6 +71,10 @@ namespace WorkforceManager.UI.Views
             ErrorBox.ShowError(ErrorText, message);
         }
 
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left) DragMove();
+        }
     }
 
     /// <summary>مدخلات نافذة كلمة سر العمليات</summary>

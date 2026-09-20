@@ -13,7 +13,7 @@ namespace WorkforceManager.UI.Views
     /// العمليات" بتستخدمها، عشان النص/الأيقونة/الترتيب يبقوا متطابقين).
     /// شكلي بس — التوقيع نفسه في DailyOperationsSignOffService.
     /// </summary>
-    public partial class DailySignOffSummaryDialog : ChromelessDialogWindow
+    public partial class DailySignOffSummaryDialog : Window
     {
         public DailySignOffSummaryDialog(DateTime date, IReadOnlyList<ActivityEvent> events)
         {
@@ -39,6 +39,11 @@ namespace WorkforceManager.UI.Views
         {
             DialogResult = true;
             Close();
+        }
+
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left) DragMove();
         }
     }
 }

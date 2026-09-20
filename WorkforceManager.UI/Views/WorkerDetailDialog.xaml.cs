@@ -11,12 +11,17 @@ namespace WorkforceManager.UI.Views
     /// كل الأوامر (تعديل، حذف، مهارات، هستوري...) شغالة زي ما هي من غير أي
     /// تغيير في الـ ViewModel نفسه.
     /// </summary>
-    public partial class WorkerDetailDialog : ChromelessDialogWindow
+    public partial class WorkerDetailDialog : Window
     {
         public WorkerDetailDialog(WorkersViewModel viewModel)
         {
             InitializeComponent();
             DataContext = viewModel;
+        }
+
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left) DragMove();
         }
     }
 }

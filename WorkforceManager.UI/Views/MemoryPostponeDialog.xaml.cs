@@ -10,7 +10,7 @@ namespace WorkforceManager.UI.Views
     /// اليوم لازم يكون بكرة أو بعده: تأجيل لليوم الحالي أو قبله معناه
     /// إن التذكير هيضرب تاني أول تشغيل جاي — يعني المستخدم ماأجّلش حاجة.
     /// </summary>
-    public partial class MemoryPostponeDialog : ChromelessDialogWindow
+    public partial class MemoryPostponeDialog : Window
     {
         private MemoryPostponeDialog(DateTime current)
         {
@@ -64,5 +64,9 @@ namespace WorkforceManager.UI.Views
             ErrorBox.Visibility = Visibility.Visible;
         }
 
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left) DragMove();
+        }
     }
 }

@@ -17,7 +17,7 @@ namespace WorkforceManager.UI.Views
     /// بيدوّر على عامل يضيفه لمرحلة. من غير كده كان ممكن المدير يشوف
     /// ترتيب هنا وترتيب تاني هناك لنفس المرحلة.
     /// </summary>
-    public partial class QualifiedWorkersDialog : ChromelessDialogWindow
+    public partial class QualifiedWorkersDialog : Window
     {
         private QualifiedWorkersDialog(
             string productName, string stageName, IReadOnlyList<QualifiedWorkerRow> workers)
@@ -65,6 +65,10 @@ namespace WorkforceManager.UI.Views
             dialog.ShowDialog();
         }
 
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left) DragMove();
+        }
     }
 
     /// <summary>سطر عامل في القايمة — تغليف عرض حوالين DTO التقييم</summary>

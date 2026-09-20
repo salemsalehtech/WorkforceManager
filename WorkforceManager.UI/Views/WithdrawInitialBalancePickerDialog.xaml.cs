@@ -14,7 +14,7 @@ namespace WorkforceManager.UI.Views
     /// نطاق عادي (شوف FlowSessionViewModel.QueueWithdrawal). المتاح
     /// المعروض هنا تقريبي — WithdrawAsync بيتحقق من الحقيقي وقت الحفظ.
     /// </summary>
-    public partial class WithdrawInitialBalancePickerDialog : ChromelessDialogWindow
+    public partial class WithdrawInitialBalancePickerDialog : Window
     {
         private sealed record BalanceChoice(InitialBalanceDto Balance, string Display);
         private sealed record RangeChoice(InitialBalanceRangeDto? Range, string Display, int DefaultQuantity);
@@ -89,6 +89,12 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
+        }
+
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState == MouseButtonState.Pressed)
+                DragMove();
         }
     }
 }

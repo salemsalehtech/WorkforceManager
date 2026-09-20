@@ -9,7 +9,7 @@ namespace WorkforceManager.UI.Views
     /// العامل والمرحلة بيتم من كروت المراحل العادية بعد التأكيد (شوف
     /// FlowSessionViewModel.QueueWithdrawal).
     /// </summary>
-    public partial class InitialBalanceUsageDialog : ChromelessDialogWindow
+    public partial class InitialBalanceUsageDialog : Window
     {
         public InitialBalanceUsageDialog(string balanceName, string rangeDescription, int remainingQuantity)
         {
@@ -37,6 +37,12 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
+        }
+
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState == MouseButtonState.Pressed)
+                DragMove();
         }
     }
 }

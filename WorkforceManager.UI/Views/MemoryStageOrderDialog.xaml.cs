@@ -15,7 +15,7 @@ namespace WorkforceManager.UI.Views
     ///   • **ينفع تشيل مرحلة**: الخطة ممكن تتخطى مراحل عن قصد، فالترقيم
     ///     بيتحسب على المختارة بس.
     /// </summary>
-    public partial class MemoryStageOrderDialog : ChromelessDialogWindow
+    public partial class MemoryStageOrderDialog : Window
     {
         private readonly List<StageOrderRow> _rows;
         private Point _dragStart;
@@ -191,6 +191,10 @@ namespace WorkforceManager.UI.Views
             Renumber();
         }
 
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left) DragMove();
+        }
     }
 
     /// <summary>سطر مرحلة واحدة في نافذة الترتيب — تنسيق عرض بس</summary>

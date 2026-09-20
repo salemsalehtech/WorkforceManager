@@ -29,7 +29,7 @@ namespace WorkforceManager.UI.Views
     /// `_searchGeneration` بيرمي أي نتيجة بحث سابق توصل متأخرة بعد بحث
     /// أحدث منها (نفس فكرة `_previewGeneration` في محرك التقارير).
     /// </summary>
-    public partial class GlobalSearchDialog : ChromelessDialogWindow
+    public partial class GlobalSearchDialog : Window
     {
         private readonly Func<string, Task<IReadOnlyList<GlobalSearchResult>>> _search;
         private readonly DispatcherTimer _debounce;
@@ -189,5 +189,9 @@ namespace WorkforceManager.UI.Views
             Close();
         }
 
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left) DragMove();
+        }
     }
 }

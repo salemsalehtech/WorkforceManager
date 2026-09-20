@@ -6,7 +6,7 @@ using WorkforceManager.UI.ViewModels;
 
 namespace WorkforceManager.UI.Views
 {
-    public partial class InitialBalanceDialog : ChromelessDialogWindow
+    public partial class InitialBalanceDialog : Window
     {
         public InitialBalanceDialog()
         {
@@ -147,6 +147,12 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
+        }
+
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState == MouseButtonState.Pressed)
+                DragMove();
         }
     }
 

@@ -4,7 +4,6 @@
              xmlns:ui="clr-namespace:WorkforceManager.UI"
              xmlns:sys="clr-namespace:System.Windows.Controls;assembly=PresentationFramework"
              xmlns:vm="clr-namespace:WorkforceManager.UI.ViewModels"
-             xmlns:views="clr-namespace:WorkforceManager.UI.Views"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
     <Application.Resources>
         <ResourceDictionary>
@@ -982,51 +981,6 @@
                                     <Setter Property="Cursor" Value="Arrow" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
-            <!--
-              شكل موحّد لكل نوافذ الـDialog بلا إطار نظام (بطاقة عائمة +
-              هيدر ملوّن + زرار إغلاق) — كان متكرر حرفيًا في 29 ملف Dialog،
-              شوف CLAUDE.md. كل واحد فيهم بيرث من ChromelessDialogWindow
-              بدل Window مباشرة، والنمط الضمني ده (بلا x:Key) بيطبّق الشكل
-              تلقائيًا على أي حد منهم. PART_Header هو الاسم اللي
-              ChromelessDialogWindow.OnApplyTemplate بيدوّر عليه لسحب النافذة.
-              لازم يتعرّف بعد IconButton (مستخدم جوّه الـTemplate).
-            -->
-            <Style TargetType="{x:Type views:ChromelessDialogWindow}">
-                <Setter Property="HeaderBrush" Value="{DynamicResource SidebarBrush}" />
-                <Setter Property="WindowStyle" Value="None" />
-                <Setter Property="AllowsTransparency" Value="True" />
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="ResizeMode" Value="NoResize" />
-                <Setter Property="WindowStartupLocation" Value="CenterOwner" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="{x:Type views:ChromelessDialogWindow}">
-                            <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
-                                <Border.Effect>
-                                    <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28"
-                                                      Color="{DynamicResource ShadowColor}" />
-                                </Border.Effect>
-                                <DockPanel>
-                                    <Border x:Name="PART_Header" DockPanel.Dock="Top"
-                                            Background="{TemplateBinding HeaderBrush}"
-                                            CornerRadius="18,18,0,0" Padding="18,14">
-                                        <DockPanel>
-                                            <Button DockPanel.Dock="Left" Foreground="{DynamicResource SidebarInkBrush}"
-                                                    Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
-                                                    ToolTip="إغلاق">
-                                                <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
-                                            </Button>
-                                            <ContentPresenter Content="{TemplateBinding HeaderContent}" />
-                                        </DockPanel>
-                                    </Border>
-                                    <ContentPresenter Content="{TemplateBinding Content}" />
-                                </DockPanel>
-                            </Border>
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>

@@ -11,7 +11,7 @@ namespace WorkforceManager.UI.Views
     /// واسم الدخول بس — أي تحقق أعمق مسؤولية WorkerManagementService/
     /// AuthService عشان القاعدة تتطبق من أي مكان مش من الشاشة دي بس.
     /// </summary>
-    public partial class DepartmentAccountEditDialog : ChromelessDialogWindow
+    public partial class DepartmentAccountEditDialog : Window
     {
         private record RoleOption(HourlyRoleEnum Role, string Display);
 
@@ -238,6 +238,12 @@ namespace WorkforceManager.UI.Views
             }
 
             DialogResult = true;
+        }
+
+        private void Window_Drag(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ButtonState == MouseButtonState.Pressed)
+                DragMove();
         }
     }
 }
