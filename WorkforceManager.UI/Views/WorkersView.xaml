@@ -653,15 +653,23 @@
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <!-- عرض الكارت محسوب من عرض الشبكة الفعلي (GridColumnWidthConverter)
-                                             عشان يضمن 5 أعمدة بالظبط مهما كان حجم النافذة — رقم عرض ثابت
-                                             (260 مثلًا) بيصح على شاشة ويغلط على تانية، والمستخدم لقى إنه
-                                             بيدّي 4 بس مش 5 على شاشته. IsCompactGrid بقى بيأثّر على حجم
-                                             العناصر جوّه الكارت بس (أفاتار/خط)، مش على عرض الكارت نفسه
-                                             (اللي بقى مضمون بالحساب مش بالتبديل اليدوي). -->
+                                        <!-- عرض الكارت محسوب من عرض الشبكة الفعلي + حالة الشريط الجانبي
+                                             (GridColumnWidthConverter.MultiConvert) — قاعدة واضحة: الشريط
+                                             ظاهر = 5 أعمدة، الشريط مطوي = 6، مهما كان حجم النافذة غير كده
+                                             (مش حساب متغيّر مع أي Resize بيدّي نتيجة مختلفة كل مرة). كان
+                                             ده "5 دايمًا" بحد أدنى 170px للكارت، فلو المساحة ضاقت عن 5×170
+                                             كان الكارت بيتثبّت على 170 والعمود الخامس بيلف لسطر جديد (4
+                                             بس ظاهرين) — تكبير النافذة أو طي الشريط ماكانش بيضمن عمود
+                                             سادس زي المطلوب. IsCompactGrid بقى بيأثّر على حجم العناصر
+                                             جوّه الكارت بس (أفاتار/خط)، مش على عرض الكارت نفسه. -->
                                         <Button Style="{StaticResource CardButton}" Opacity="0" Click="WorkerTile_Click"
-                                                Margin="0,0,10,10"
-                                                Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter={StaticResource GridColumnWidth}, ConverterParameter=5}">
+                                                Margin="0,0,10,10">
+                                            <ui:AnimatedWidth.Value>
+                                                <MultiBinding Converter="{StaticResource GridColumnWidth}">
+                                                    <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                                    <Binding Path="IsSidebarCollapsed" RelativeSource="{RelativeSource AncestorType=Window}" />
+                                                </MultiBinding>
+                                            </ui:AnimatedWidth.Value>
                                             <Button.ContextMenu>
                                                 <!-- تعديل/إيقاف/حذف سريع من غير فتح الديالوج بالكامل.
                                                      ContextMenu مش وارث DataContext من مالكه تلقائيًا في

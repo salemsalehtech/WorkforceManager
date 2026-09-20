@@ -1,6 +1,7 @@
 <UserControl x:Class="WorkforceManager.UI.Views.ProductsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:WorkforceManager.UI"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
@@ -485,12 +486,19 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <!-- 250 مش 220 (عرض كارت الدليل): كارت المنتج بيحمل معلومة
-                                     أكتر (أفاتار + بادج حالة + وصف + تنبيه محتمل) فمحتاج
-                                     مساحة أوسع شوية عشان يفضل مقروء -->
-                                <Button Style="{StaticResource CardButton}" Width="250" Margin="0,0,10,10"
+                                <!-- عرض الكارت محسوب من عرض الشبكة الفعلي + حالة الشريط الجانبي
+                                     (GridColumnWidthConverter.MultiConvert، نفس شاشة العمال بالحرف) —
+                                     الشريط ظاهر = 5 أعمدة، مطوي = 6. كان عرض ثابت 250px، فعدد الأعمدة
+                                     كان بيطلع عشوائي حسب حجم النافذة من غير أي ضمان. -->
+                                <Button Style="{StaticResource CardButton}" Margin="0,0,10,10"
                                         Opacity="0"
                                         Click="ProductTile_Click">
+                                    <ui:AnimatedWidth.Value>
+                                        <MultiBinding Converter="{StaticResource GridColumnWidth}">
+                                            <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
+                                            <Binding Path="IsSidebarCollapsed" RelativeSource="{RelativeSource AncestorType=Window}" />
+                                        </MultiBinding>
+                                    </ui:AnimatedWidth.Value>
                                     <Button.RenderTransform>
                                         <TranslateTransform Y="14"/>
                                     </Button.RenderTransform>

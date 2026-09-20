@@ -4,32 +4,80 @@ using System.Windows.Data;
 namespace WorkforceManager.UI.ViewModels
 {
     /// <summary>
-    /// بيحوّل عرض حاوية شبكة الكروت (ActualWidth، بيتغيّر مع كل Resize) لعرض
-    /// كارت واحد يضمن عدد أعمدة ثابت (5 افتراضيًا) — بدل تخمين رقم عرض
-    /// ثابت بيصح على شاشة ويغلط على تانية. الحل التاني (اللي جرّبناه الأول)
-    /// كان عرض 260px تقريبي، وطلع بيدّي 4 أعمدة بس على شاشة المستخدم —
-    /// الحساب هنا مضمون مهما كان حجم النافذة.
+    /// بيحوّل عرض حاوية شبكة الكروت (ActualWidth، بيتغيّر مع كل Resize) +
+    /// حالة الشريط الجانبي (مطوي/مفتوح) لعرض كارت واحد — بدل تخمين رقم
+    /// عرض ثابت بيصح على شاشة ويغلط على تانية.
+    ///
+    /// **العدد المستهدف مرتبط بحالة الشريط تحديدًا، مش بعرض النافذة
+    /// وبس.** أول تصميم كان عدد أعمدة ثابت (5) بحد أدنى لعرض الكارت
+    /// (170px) — لو المساحة مش كفاية لـ5 كروت ≥170px كان الكارت بيتثبّت
+    /// على 170 والـWrapPanel بيلف الخامس لسطر جديد (4 بس)، حتى لو
+    /// المستخدم كبّر النافذة أو طوى الشريط متوقّع عدد أكبر مش أصغر.
+    /// المحاولة التانية كانت حساب تلقائي بالكامل من عرض المساحة (زي CSS's
+    /// repeat(auto-fill))، لكن طلع سلوكه متغيّر مع حجم النافذة مش بس مع
+    /// حالة الشريط — والمطلوب فعليًا قاعدة واضحة: الشريط موجود = 5،
+    /// الشريط مطوي = 6، مهما كان حجم النافذة غير كده.
+    ///
+    /// MultiConvert (الاستخدام الفعلي في WorkersView/ProductsView):
+    /// [0] = ActualWidth حاوية الشبكة، [1] = MainWindow.IsSidebarCollapsed.
+    /// Convert (الأحادي، احتياطي لأي شبكة تانية مش مربوطة بحالة الشريط):
+    /// بيستخدم DefaultMaxColumns أو رقم من ConverterParameter.
     /// </summary>
-    public class GridColumnWidthConverter : IValueConverter
+    public class GridColumnWidthConverter : IValueConverter, IMultiValueConverter
     {
-        /// <summary>هامش كل كارت (يمين+تحت، Margin="0,0,10,10" في WorkersView.xaml) — لازم يتوافق مع القيمة الفعلية في XAML</summary>
+        /// <summary>هامش كل كارت (يمين+تحت، Margin="0,0,10,10" في XAML) — لازم يتوافق مع القيمة الفعلية</summary>
         private const double CardMargin = 10;
 
         /// <summary>حد أدنى لعرض الكارت — أي حاجة أضيق من كده بتكسر قراءة الاسم/البادجات</summary>
         private const double MinCardWidth = 170;
 
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        /// <summary>أقل عدد أعمدة حتى لو المساحة ضاقت جدًا — تفادي شكل عمود واحد/عمودين غريب</summary>
+        private const int MinColumns = 3;
+
+        /// <summary>عدد الأعمدة المستهدف والشريط الجانبي ظاهر</summary>
+        private const int ColumnsWithSidebar = 5;
+
+        /// <summary>عدد الأعمدة المستهدف والشريط الجانبي مطوي</summary>
+        private const int ColumnsSidebarCollapsed = 6;
+
+        /// <summary>أقصى عدد أعمدة افتراضي لاستخدام Convert الأحادي (بدون معرفة حالة الشريط)</summary>
+        private const int DefaultMaxColumns = 6;
+
+        private static double WidthFor(double containerWidth, int maxColumns)
         {
-            // القيمة الافتراضية قبل أول تمرير Layout حقيقي (ActualWidth بيبقى صفر لحظة الإنشاء)
-            if (value is not double containerWidth || containerWidth <= 0) return 250d;
+            if (containerWidth <= 0) return 250d;
 
-            var columns = parameter is string s && int.TryParse(s, out var parsed) && parsed > 0 ? parsed : 5;
+            // كام كارت بعرض ≥ MinCardWidth (+ هامشه) ينفع يتسع فعليًا في العرض ده؟
+            var columnsThatFit = (int)Math.Floor((containerWidth + CardMargin) / (MinCardWidth + CardMargin));
+            var columns = Math.Clamp(columnsThatFit, MinColumns, maxColumns);
+
             var width = (containerWidth - columns * CardMargin) / columns;
-
             return Math.Max(MinCardWidth, width);
         }
 
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is not double containerWidth) return 250d;
+
+            var maxColumns = parameter is string s && int.TryParse(s, out var parsed) && parsed > 0
+                ? parsed
+                : DefaultMaxColumns;
+
+            return WidthFor(containerWidth, maxColumns);
+        }
+
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+            throw new NotSupportedException();
+
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (values is not [double containerWidth, bool isSidebarCollapsed]) return 250d;
+
+            var maxColumns = isSidebarCollapsed ? ColumnsSidebarCollapsed : ColumnsWithSidebar;
+            return WidthFor(containerWidth, maxColumns);
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) =>
             throw new NotSupportedException();
     }
 }

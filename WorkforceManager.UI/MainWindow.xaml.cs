@@ -295,6 +295,23 @@ namespace WorkforceManager.UI
 
         private bool _isSidebarCollapsed;
 
+        /// <summary>
+        /// نسخة قابلة للربط من _isSidebarCollapsed — عشان شاشات زي العمال
+        /// والمنتجات تقدر تربط عدد أعمدة شبكة الكروت بحالة الشريط
+        /// (GridColumnWidthConverter، AncestorType=Window) من غير ما تعرف
+        /// أي تفاصيل داخلية عن MainWindow. بتتحدّث مع _isSidebarCollapsed
+        /// في نفس اللحظة في كل مكان بيتغيّر فيه (ApplyInitialSidebarState،
+        /// AnimateSidebarCollapse).
+        /// </summary>
+        public static readonly DependencyProperty IsSidebarCollapsedProperty = DependencyProperty.Register(
+            nameof(IsSidebarCollapsed), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
+
+        public bool IsSidebarCollapsed
+        {
+            get => (bool)GetValue(IsSidebarCollapsedProperty);
+            private set => SetValue(IsSidebarCollapsedProperty, value);
+        }
+
         // آخر عرض منطقي وصل من ApplyUiScale — لازم نحتفظ بيه عشان زرار
         // الطي يقدر يحسب عرض حالة الفتح الصح لحظة الدوسة، من غير ما يستنى
         // Resize جديد. القيمة الافتراضية معقولة لحد أول SizeChanged.
@@ -331,6 +348,7 @@ namespace WorkforceManager.UI
         private void ApplyInitialSidebarState()
         {
             _isSidebarCollapsed = AppSettingsStore.Load().SidebarCollapsed;
+            IsSidebarCollapsed = _isSidebarCollapsed;
             SidebarToggleIcon.Kind = _isSidebarCollapsed ? PackIconKind.ChevronDoubleLeft : PackIconKind.ChevronDoubleRight;
             SidebarContent.Opacity = _isSidebarCollapsed ? 0 : 1;
             // IsEnabled=false بيوقف الـHit-testing وTab-focus مع بعض على
@@ -390,6 +408,7 @@ namespace WorkforceManager.UI
         private void AnimateSidebarCollapse(bool collapse)
         {
             _isSidebarCollapsed = collapse;
+            IsSidebarCollapsed = collapse;
             SidebarToggleIcon.Kind = collapse ? PackIconKind.ChevronDoubleLeft : PackIconKind.ChevronDoubleRight;
             SidebarToggleButton.ToolTip = collapse ? "فتح القائمة الجانبية" : "طي القائمة الجانبية";
             // بيتقفل فورًا وقت الطي (قبل الحركة) عشان محدش يقدر يدوس على
