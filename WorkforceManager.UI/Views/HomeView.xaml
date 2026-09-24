@@ -400,7 +400,7 @@
             </Grid>
 
             <!-- ═══════════ 5. المنتجات + السلسلة ═══════════ -->
-            <UniformGrid x:Name="ProductsSection" Columns="3" Opacity="0">
+            <UniformGrid x:Name="ProductsSection" Columns="4" Opacity="0">
                 <UniformGrid.RenderTransform><TranslateTransform Y="14" /></UniformGrid.RenderTransform>
 
                 <Button Style="{StaticResource HomeClickCard}" Click="Product_Click" Tag="{Binding TopProduct}"
@@ -469,6 +469,32 @@
                             </StackPanel>
                             <TextBlock Text="{Binding StreakCaption}" Style="{StaticResource CardLabel}" FontWeight="Normal"
                                        TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <!-- خطة الشهر: نسبة محقق إجمالية لحد النهارده (MonthlyPlanTrackingService،
+                     نفس صيغة نسبة المحقق في شاشة الخطة الشهرية) — الضغط بيفتح الشاشة -->
+                <Button Style="{StaticResource HomeClickCard}" Click="MonthlyPlan_Click" ToolTip="افتح الخطة الشهرية">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <DockPanel>
+                                <Border Style="{StaticResource IconBadge}">
+                                    <materialDesign:PackIcon Kind="CalendarMonthOutline" Width="18" Height="18"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldBrush}" />
+                                </Border>
+                                <TextBlock Text="الخطة الشهرية" Margin="10,0,0,0" Style="{StaticResource CardLabel}" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding MonthlyPlanPercentText}" Margin="0,12,0,0"
+                                       FontSize="{DynamicResource FontTitle}" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       Visibility="{Binding HasMonthlyPlanData, Converter={StaticResource BoolToVis}}" />
+                            <TextBlock Text="محقق من الخطة الشهرية" Style="{StaticResource CardLabel}" FontWeight="Normal"
+                                       Visibility="{Binding HasMonthlyPlanData, Converter={StaticResource BoolToVis}}" />
+                            <TextBlock Text="لسه مفيش خطة مسجّلة الشهر ده" Margin="0,12,0,0" TextWrapping="Wrap"
+                                       Style="{StaticResource CardLabel}" FontWeight="Normal"
+                                       Visibility="{Binding HasMonthlyPlanData, Converter={StaticResource InverseBoolToVis}}" />
                         </StackPanel>
                     </Border>
                 </Button>

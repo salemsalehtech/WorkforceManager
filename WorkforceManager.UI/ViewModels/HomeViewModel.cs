@@ -132,6 +132,17 @@ namespace WorkforceManager.UI.ViewModels
 
         public bool HasBottomProduct => BottomProduct is not null;
 
+        // ═══════════ خطة الشهر ═══════════
+
+        /// <summary>نسبة محقق الخطة الشهرية إجمالاً لحد النهارده — null لو مفيش خطة مسجّلة للشهر ده خالص</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasMonthlyPlanData))]
+        private decimal? _monthlyPlanAchievedPercent;
+
+        public bool HasMonthlyPlanData => MonthlyPlanAchievedPercent is not null;
+
+        public string MonthlyPlanPercentText => MonthlyPlanAchievedPercent is { } p ? $"{p:P0}" : "";
+
         // ═══════════ سلسلة الالتزام ═══════════
 
         [ObservableProperty] private string _streakNumberText = "0";
@@ -226,6 +237,7 @@ namespace WorkforceManager.UI.ViewModels
             WorstWorker = ToWorkerCard(s.WorstWorkerOfWeek, s.WorstWorkerPreviousPieces);
             TopProduct = ToProductCard(s.TopProduct);
             BottomProduct = ToProductCard(s.BottomProduct);
+            MonthlyPlanAchievedPercent = s.MonthlyPlanAchievedPercent;
         }
 
         private static HomeWorkerCard? ToWorkerCard(WorkerWeeklySummaryDto? w, int previousPieces) => w is null

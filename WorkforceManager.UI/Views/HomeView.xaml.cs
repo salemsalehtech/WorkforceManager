@@ -152,6 +152,9 @@ namespace WorkforceManager.UI.Views
             var narrow = width < NarrowWidth;
 
             KpiSection.Columns = narrow ? 2 : 4;
+            // ProductsSection بقت 4 كروت (أكتر/أقل منتج، السلسلة، خطة الشهر) —
+            // نفس مبدأ KpiSection بالظبط: عمودين عند 900px وإلا بتتزنق
+            ProductsSection.Columns = narrow ? 2 : 4;
 
             PeopleColumn.Width = narrow ? new GridLength(0) : new GridLength(2, GridUnitType.Star);
             Grid.SetColumn(PeoplePanel, narrow ? 0 : 1);
@@ -177,6 +180,11 @@ namespace WorkforceManager.UI.Views
         private void Products_Click(object sender, RoutedEventArgs e)
         {
             if (Main is { } mw) mw.NavProductsItem.IsChecked = true;
+        }
+
+        private void MonthlyPlan_Click(object sender, RoutedEventArgs e)
+        {
+            if (Main is { } mw) mw.NavMonthlyPlanItem.IsChecked = true;
         }
 
         private void DailyEntryTile_Click(object sender, RoutedEventArgs e)

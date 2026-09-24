@@ -73,6 +73,15 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>نسبة الحضور الأسبوعية (حاضر ÷ (حاضر + غايب بإذن + غايب بدون إذن) × 100) — null لو مفيش أي سجل حضور اتسجل الأسبوع ده</summary>
         public decimal? AttendanceRatePercent { get; init; }
+
+        /// <summary>
+        /// نسبة محقق الخطة الشهرية إجمالاً لحد النهارده — نفس تعريف نسبة
+        /// المحقق في شاشة الخطة الشهرية (محقق فعلي ÷ خطة متناسبة مع أيام
+        /// الشغل المنقضية)، بس على مستوى كل المنتجات مع بعض. null لو مفيش
+        /// خطة مسجّلة للشهر ده خالص (مش صفر — الصفر بيبقى "خطة موجودة
+        /// ومفيش محقق").
+        /// </summary>
+        public decimal? MonthlyPlanAchievedPercent { get; init; }
     }
 
     /// <summary>منتج واحد في كروت الرئيسية — قطعه المكتملة الأسبوع ده واللي فات (من ProductActivityService)</summary>

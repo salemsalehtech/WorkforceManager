@@ -36,19 +36,22 @@ namespace WorkforceManager.Business.Services
         private readonly ProductionMemoryService _productionMemory;
         private readonly ProductActivityService _productActivity;
         private readonly IAttendanceRepository _attendance;
+        private readonly MonthlyPlanTrackingService _monthlyPlanTracking;
 
         public HomeSummaryService(
             WeeklySummaryService weeklySummary,
             InitialBalanceService initialBalances,
             ProductionMemoryService productionMemory,
             ProductActivityService productActivity,
-            IAttendanceRepository attendance)
+            IAttendanceRepository attendance,
+            MonthlyPlanTrackingService monthlyPlanTracking)
         {
             _weeklySummary = weeklySummary;
             _initialBalances = initialBalances;
             _productionMemory = productionMemory;
             _productActivity = productActivity;
             _attendance = attendance;
+            _monthlyPlanTracking = monthlyPlanTracking;
         }
 
         public async Task<HomeSummaryDto> GetSummaryAsync(DateTime today)
@@ -104,6 +107,15 @@ namespace WorkforceManager.Business.Services
                     .Select(a => (a.Date, a.Status)),
                 today);
 
+            // نفس تتبّع شاشة الخطة الشهرية بالظبط (MonthlyPlanTrackingService)،
+            // مجمّع على مستوى كل المنتجات — مفيش صيغة تانية هنا
+            var monthlyTracking = await _monthlyPlanTracking.GetTrackingAsync(today.Year, today.Month, today);
+            var withPlan = monthlyTracking.Where(p => p.PlannedQuantity > 0).ToList();
+            var totalProRatedPlan = withPlan.Sum(p => p.ProRatedPlan);
+            var monthlyPlanAchievedPercent = totalProRatedPlan > 0
+                ? withPlan.Sum(p => p.EffectiveAchieved) / totalProRatedPlan
+                : (decimal?)null;
+
             return new HomeSummaryDto
             {
                 WeekStart = weekStart,
@@ -128,7 +140,8 @@ namespace WorkforceManager.Business.Services
                 StreakIsCapped = streak.IsCapped,
                 AttendanceRatePercent = totalRecordedAttendance > 0
                     ? Math.Round(100m * totalPresent / totalRecordedAttendance, 0)
-                    : null
+                    : null,
+                MonthlyPlanAchievedPercent = monthlyPlanAchievedPercent
             };
         }
 
