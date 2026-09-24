@@ -294,6 +294,7 @@ namespace WorkforceManager.UI.ViewModels
                 Products.Add(p);
 
             SelectedProduct = Products.FirstOrDefault(p => p.ProductId == selectedId) ?? Products.FirstOrDefault();
+            RebuildFamilyGroups();
             OnPropertyChanged(nameof(ResultsText));
             OnPropertyChanged(nameof(NoResults));
         }
@@ -301,8 +302,33 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>كل المنتجات المحمّلة من القاعدة (المصدر قبل الفلترة)</summary>
         private List<ProductRow> _allProducts = new();
 
-        /// <summary>المنتجات المعروضة بعد البحث/الفلترة</summary>
+        /// <summary>المنتجات المعروضة بعد البحث/الفلترة (مسطّحة — التجميع في FamilyGroups)</summary>
         public ObservableCollection<ProductRow> Products { get; } = new();
+
+        /// <summary>
+        /// Products نفسها، مجمّعة بالعيلة لعرض الشبكة — قسم لكل عيلة (بترتيب
+        /// الاسم) وقسم أخير "بدون عيلة"، وكل قسم بيحافظ على نفس ترتيب
+        /// Products بالظبط. قسم بلا منتجات (كل منتجاته اتفلتروا برّه) بيتشال.
+        /// </summary>
+        public ObservableCollection<ProductFamilyGroupRow> FamilyGroups { get; } = new();
+
+        private void RebuildFamilyGroups()
+        {
+            FamilyGroups.Clear();
+
+            var withFamily = Products
+                .Where(p => p.FamilyId is not null)
+                .GroupBy(p => (p.FamilyId!.Value, p.FamilyName ?? ""))
+                .OrderBy(g => g.Key.Item2);
+
+            foreach (var g in withFamily)
+                FamilyGroups.Add(new ProductFamilyGroupRow(
+                    g.Key.Value, $"{g.Key.Item2} ({g.Count()})", g.ToList()));
+
+            var noFamily = Products.Where(p => p.FamilyId is null).ToList();
+            if (noFamily.Count > 0)
+                FamilyGroups.Add(new ProductFamilyGroupRow(null, $"بدون عيلة ({noFamily.Count})", noFamily));
+        }
 
         [ObservableProperty]
         private ProductRow? _selectedProduct;
@@ -430,6 +456,10 @@ namespace WorkforceManager.UI.ViewModels
                 IsActive = p.IsActive,
                 ImageData = p.ImageData,
                 RackingWorkerId = p.RackingWorkerId,
+                FamilyId = p.FamilyId,
+                FamilyName = p.Family?.Name,
+                PieceWeightGrams = p.PieceWeightGrams,
+                Material = p.Material,
                 PiecesInPeriod = activity.GetValueOrDefault(p.Id)?.CompletedPieces ?? 0,
                 DaysWorkedInPeriod = activity.GetValueOrDefault(p.Id)?.DaysWorked ?? 0,
                 WorkerIds = activity.GetValueOrDefault(p.Id)?.WorkerIds ?? new HashSet<int>(),
@@ -503,6 +533,7 @@ namespace WorkforceManager.UI.ViewModels
             SelectedProduct = Products.FirstOrDefault(p => p.ProductId == selectedId)
                 ?? Products.FirstOrDefault();
 
+            RebuildFamilyGroups();
             OnPropertyChanged(nameof(ResultsText));
             OnPropertyChanged(nameof(NoResults));
             OnPropertyChanged(nameof(HasExtraFilters));
@@ -541,10 +572,19 @@ namespace WorkforceManager.UI.ViewModels
             return choices;
         }
 
+        private async Task<List<ProductFamilyDto>> LoadFamilyChoicesAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            return await scope.ServiceProvider
+                .GetRequiredService<ProductFamilyService>()
+                .GetAllWithCountsAsync();
+        }
+
         [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddProductAsync()
         {
-            var dialog = new ProductEditDialog(await LoadRackingWorkerChoicesAsync())
+            var dialog = new ProductEditDialog(
+                await LoadRackingWorkerChoicesAsync(), await LoadFamilyChoicesAsync(), _scopeFactory)
             { Owner = Application.Current.MainWindow };
             if (dialog.ShowDialog() != true) return;
 
@@ -559,6 +599,9 @@ namespace WorkforceManager.UI.ViewModels
 
                 if (dialog.RackingWorkerId is not null)
                     await mgmt.SetRackingWorkerAsync(created.Id, dialog.RackingWorkerId);
+
+                await mgmt.SetClassificationAsync(
+                    created.Id, dialog.FamilyId, dialog.PieceWeightGrams, dialog.SelectedMaterial);
 
                 await LoadAsync();
                 // اختيار المنتج الجديد فورًا عشان المستخدم يبدأ يضيف مراحله
@@ -575,12 +618,16 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (SelectedProduct is null) return;
 
-            var dialog = new ProductEditDialog(await LoadRackingWorkerChoicesAsync())
+            var dialog = new ProductEditDialog(
+                await LoadRackingWorkerChoicesAsync(), await LoadFamilyChoicesAsync(), _scopeFactory)
             { Owner = Application.Current.MainWindow, Title = "تعديل منتج" };
             dialog.LoadProduct(SelectedProduct.Name,
                 SelectedProduct.Description,
                 SelectedProduct.ImageData,
-                SelectedProduct.RackingWorkerId);
+                SelectedProduct.RackingWorkerId,
+                SelectedProduct.FamilyId,
+                SelectedProduct.PieceWeightGrams,
+                SelectedProduct.Material);
             if (dialog.ShowDialog() != true) return;
 
             try
@@ -597,12 +644,27 @@ namespace WorkforceManager.UI.ViewModels
                 if (dialog.RackingWorkerId != SelectedProduct.RackingWorkerId)
                     await mgmt.SetRackingWorkerAsync(SelectedProduct.ProductId, dialog.RackingWorkerId);
 
+                await mgmt.SetClassificationAsync(
+                    SelectedProduct.ProductId, dialog.FamilyId, dialog.PieceWeightGrams, dialog.SelectedMaterial);
+
                 await ReloadKeepingSelectionAsync();
             }
             catch (Exception ex)
             {
                 Notify.Warn(ex.Message, "خطأ في تعديل المنتج");
             }
+        }
+
+        /// <summary>"إدارة العائلات" من شريط أدوات الشاشة — إعادة تسمية/حذف عيلة فاضية</summary>
+        [RelayCommand]
+        private async Task ManageFamiliesAsync()
+        {
+            var dialog = new ProductFamilyManagerDialog(_scopeFactory) { Owner = Application.Current.MainWindow };
+            dialog.ShowDialog();
+
+            // ممكن يكون غيّر أسماء/حذف عائلات فاضية — يرجّع يحمّل عشان الشاشة تتظبط
+            if (dialog.ChangesMade)
+                await ReloadKeepingSelectionAsync();
         }
 
         [RelayCommand(AllowConcurrentExecutions = false)]

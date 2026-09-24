@@ -47,6 +47,15 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>عامل الرص الثابت بتاع المنتج (null = مفيش)</summary>
         public int? RackingWorkerId { get; init; }
 
+        /// <summary>عيلة المنتج (null = بدون عيلة)</summary>
+        public int? FamilyId { get; init; }
+
+        public string? FamilyName { get; init; }
+
+        public decimal? PieceWeightGrams { get; init; }
+
+        public Core.Enums.Material? Material { get; init; }
+
         /// <summary>عنده مرحلة رص خلاص؟ — بيحدد ظهور زرار "إضافة مرحلة الرص"</summary>
         public bool HasRackingStage => Stages.Any(s => s.IsRackingStage);
 
@@ -113,6 +122,13 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private bool _isSelected;
     }
+
+    /// <summary>
+    /// عيلة منتجات على شاشة المنتجات — عنوان قسم + منتجاتها المفلترة
+    /// (نفس ترتيب/فلترة Products بالظبط، شوف ProductsViewModel.RebuildFamilyGroups).
+    /// "بدون عيلة" (FamilyId = null) دايمًا آخر قسم.
+    /// </summary>
+    public record ProductFamilyGroupRow(int? FamilyId, string HeaderText, List<ProductRow> Products);
 
     /// <summary>مرحلة واحدة في خط إنتاج المنتج المحدد</summary>
     public class StageRow

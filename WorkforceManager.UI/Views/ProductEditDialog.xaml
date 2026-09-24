@@ -44,6 +44,30 @@
                 <TextBlock Text="عامل الرص الافتراضي (اختياري)" Style="{StaticResource FieldLabel}" />
                 <ComboBox x:Name="RackingWorkerBox" DisplayMemberPath="Name" Margin="0,0,0,14" />
 
+                <!-- عيلة المنتج (اختيارية) — "+ عيلة جديدة" آخر عنصر في القايمة
+                     بيفتح TextPromptDialog صغير، شوف FamilyBox_SelectionChanged -->
+                <TextBlock Text="العيلة (اختيارية)" Style="{StaticResource FieldLabel}" />
+                <ComboBox x:Name="FamilyBox" DisplayMemberPath="Name" Margin="0,0,0,14"
+                          SelectionChanged="FamilyBox_SelectionChanged" />
+
+                <!-- وزن القطعة والمادة: بيُستخدموا بس في حساب خطة الإنتاج
+                     الشهرية (شاشة "الخطة الشهرية")، مش فلتر ولا تاج هنا -->
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="وزن القطعة بالجرام (اختياري)" Style="{StaticResource FieldLabel}" />
+                        <TextBox x:Name="WeightBox" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="المادة (اختياري)" Style="{StaticResource FieldLabel}" />
+                        <ComboBox x:Name="MaterialBox" DisplayMemberPath="Display" />
+                    </StackPanel>
+                </Grid>
+
                 <!-- صورة المنتج (اختيارية): معاينة + اختيار + إزالة -->
                 <TextBlock Text="صورة المنتج (اختيارية)" Style="{StaticResource FieldLabel}" />
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
