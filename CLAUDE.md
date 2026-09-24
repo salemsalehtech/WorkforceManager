@@ -2608,6 +2608,75 @@ Core  <----------------------- UI
   nullable, so `RealDataSeed`/`SandboxDemoSeeder`'s existing `new Product { ... }` calls keep working
   unchanged.
 
+- **Live monthly-plan tracking, Excel export, and the Home plan-progress card** — this turns the "الخطة
+  الشهرية" screen (Task 25's foundation) from plan-entry-only into plan entry **plus** achieved-vs-plan
+  tracking all month long, replacing the factory's manual Excel sheet.
+  **المحقق (achieved) is never a second calculation** — `MonthlyPlanTrackingService` calls
+  `DailyProductionReportService.GetForRangeAsync(monthStart, asOfDate)` exactly (same "completed = last
+  stage minus its scrap" definition documented above) for the month-to-date total, and `GetAsync(asOfDate)`
+  for today's figure alone. Both are existing, already-shipped methods — nothing about "completed" is
+  redefined here. **`GetForRangeAsync` issues two queries per day in the range (a pre-existing shape, not
+  new to this feature)** — for a full month (~26 working days) that's ~52 simple SQLite queries, bounded
+  by calendar days, never by product count; this is the N+1 the task rules warn against (one query *per
+  product*), and it doesn't happen here.
+  **تصليحات (`MonthlyPlanCorrection`: `ProductId`, `Date`, `Quantity`, `Notes?`) is a manual number the
+  user types, with zero relationship to `DailyProduction.IsRework`/rework-worker assignments** — that flag
+  exists for a completely different purpose (crediting a worker's *time* on a fix, not new pieces) and is
+  never read by this feature. Unique index on `(ProductId, Date)`: one entry per product per day, and
+  `SetCorrectionAsync` is an upsert — editing a day updates that same row, never duplicates it or touches
+  another day.
+  **نسبة المحقق is pro-rated, never `محقق ÷ خطة الشهر الكاملة`**:
+  `AchievedPercent = (AchievedToDate + CorrectionsToDate) ÷ (PlannedQuantity × ElapsedWorkdays ÷
+  TotalWorkdays)` — null (not 0%) when the pro-rated denominator is zero (no plan this month, or day one
+  before any workday has elapsed). **`WorkCalendarRules`** (pure, `Business`) computes
+  `TotalWorkdays`/`ElapsedWorkdays`/`RemainingWorkdays` for a month: Friday excluded exactly like every
+  other working-week calculation in this codebase, plus `MonthlyWorkCalendarHoliday` (`Date`, unique,
+  `Reason?`) for manually-added non-Friday holidays (plant maintenance, a one-off holiday) the user adds
+  per date, not recurring automatically. `RequiredDailyOutput` (`(PlannedQuantity − EffectiveAchieved) ÷
+  RemainingWorkdays`, `null` once no working days remain) and `ForecastEndOfMonth`
+  (`EffectiveAchieved × TotalWorkdays ÷ ElapsedWorkdays`, `null` before any workday has elapsed) both
+  recompute from the same numbers on every load — nothing is cached or stored.
+  **A product with real production this month but no `MonthlyPlan` row is flagged `IsOutsidePlan`**
+  ("إنتاج خارج الخطة" badge) instead of silently showing 0% — one of the three original spreadsheet bugs
+  this feature fixes on purpose, alongside the always-computed family sum (Task 25) and never skipping a
+  row when summing weight.
+  **The 10 tracking additions, all inside `MonthlyPlanView`, one coherent screen**: (1) colored
+  `ProgressBar` per product (`ThemeBrush.ForegroundKey` bound to `MonthlyPlanProductRow.StatusInkKey` —
+  `DangerBrush`/`GoodBrush`/`GoldDeepBrush` for Behind/OnTrack/Ahead, capped visually at 150%, no new raw
+  colors); (2) "المطلوب النهارده بالظبط" per product (family-level isn't separately computed — it's
+  visible per product, and the family subtotal row already sums achieved/planned); (3)
+  `ForecastEndOfMonth` end-of-month projection; (4) automatic sort — Behind products first within each
+  family section (`MonthlyPlanViewModel.OrderByPace`), then lowest percent, then name; (5) **deferred** —
+  a per-product/family actual-vs-expected line chart was scoped out of this pass (flagged, not silently
+  dropped) since a live sparkline per row risks a query per product; a future pass should render it
+  on-demand for a single selected product, not for every row by default; (6) a non-blocking banner
+  (`DangerTintBrush`) when a family's average `AchievedPercent` across its planned products drops under
+  75% (`MonthlyPlanFamilyGroupRow.IsBelowThreshold`); (7) `SameDayPreviousMonth` — same date range shifted
+  one calendar month back via `GetForRangeAsync` again, same period-comparison shape
+  `ProductionChartService` already uses elsewhere, not a new formula; (8) the on-track/behind/ahead count
+  strip at the top; (9) "لحد يوم" `DatePicker` (`AsOfDate`) — every tracking number recomputes for any day
+  in the month, not just today, so a past day's full snapshot is just picking that date; (10) "أولوياتي
+  النهاردة" — the 5 Behind products with the largest `RequiredDailyOutput − TodayCompleted` gap.
+  **Excel export (`MonthlyPlanExcelService`) is a new, separate service — not an extension of
+  `ReportTableExcelService`.** `ReportTable`'s model has exactly one Totals row for the whole table; this
+  export needs a subtotal row *per family* inside one sheet, which would have meant reshaping
+  `ReportTable` for every screen that already uses it. Instead, `MonthlyPlanExcelService` reuses
+  `ReportTableExcelService`'s internal helpers directly (`WriteTitleBlock`, `Finish`, `WriteHeader`,
+  `SheetName`, and its color constants — widened from `private` to `internal`, same assembly) so the
+  visual identity (RTL, title block, header/accent/totals colors, frozen header, print setup) is
+  identical everywhere Excel gets exported from this app, without duplicating that code. **Layout is the
+  app's own clean tabular form** (one column per number — no merged "tam/dakhil" pair like the old sheet),
+  not a copy of the factory's original sheet, confirmed with the user. Plain values, no protection/locks —
+  fully re-editable. A test (`MonthlyPlanExcelServiceTests`) asserts the exported grand-total row matches
+  the same `GetTrackingAsync` sums the screen displays.
+  **Home screen card**: `HomeSummaryDto.MonthlyPlanAchievedPercent` (`HomeSummaryService`, one more call
+  into `MonthlyPlanTrackingService.GetTrackingAsync` for the current month/today, summed across all
+  planned products — same pro-ration formula as every row, just aggregated) — `null` when nothing is
+  planned this month yet, never a misleading 0%. `ProductsSection` on `HomeView` grew from 3 to 4 equal
+  cards (top/bottom product, streak, now plan progress); `ApplyResponsiveLayout` updates `ProductsSection.Columns`
+  the same way it already does `KpiSection.Columns` (4 → 2 at the 900px minimum width), the same fix
+  shape as the documented `ProductsView` column-clipping bug above.
+
 ## Environment note
 
 .NET 8 SDK was installed via winget but may not be in PATH for fresh shells; if `dotnet` isn't found in
