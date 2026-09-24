@@ -24,7 +24,7 @@ namespace WorkforceManager.Business.Services
         private static readonly string[] Headers =
         {
             "المنتج", "مخطط الشهر", "محقق", "تصليحات", "نسبة المحقق",
-            "إنتاج اليوم", "المطلوب يوميًا", "توقّع نهاية الشهر", "الوزن (كجم)"
+            "إنتاج اليوم", "الخطة اليومية", "المطلوب يوميًا", "توقّع نهاية الشهر", "الوزن (كجم)"
         };
 
         public void Export(
@@ -112,13 +112,15 @@ namespace WorkforceManager.Business.Services
             sheet.Cell(row, 5).Value = p.AchievedPercent is { } pct ? pct : (double?)null;
             if (p.AchievedPercent is not null) sheet.Cell(row, 5).Style.NumberFormat.Format = "0%";
             sheet.Cell(row, 6).Value = p.TodayCompleted;
-            sheet.Cell(row, 7).Value = p.RequiredDailyOutput;
-            sheet.Cell(row, 8).Value = p.ForecastEndOfMonth;
+            // الخطة اليومية: هدف يدوي، منفصل عن المطلوب يوميًا المحسوب اللي جنبه
+            sheet.Cell(row, 7).Value = p.DailyTargetQuantity;
+            sheet.Cell(row, 8).Value = p.RequiredDailyOutput;
+            sheet.Cell(row, 9).Value = p.ForecastEndOfMonth;
             // وزن المحقق بالكيلوجرام — TotalWeightGrams محسوبة (وزن القطعة × المحقق)، null لو المنتج ماله وزن مسجّل
-            sheet.Cell(row, 9).Value = p.TotalWeightGrams is { } g ? g / 1000m : (decimal?)null;
-            if (p.TotalWeightGrams is not null) sheet.Cell(row, 9).Style.NumberFormat.Format = "#,##0.00";
+            sheet.Cell(row, 10).Value = p.TotalWeightGrams is { } g ? g / 1000m : (decimal?)null;
+            if (p.TotalWeightGrams is not null) sheet.Cell(row, 10).Style.NumberFormat.Format = "#,##0.00";
 
-            for (var c = 2; c <= 8; c++)
+            for (var c = 2; c <= 9; c++)
                 if (c != 5) sheet.Cell(row, c).Style.NumberFormat.Format = "#,##0";
         }
 
@@ -135,9 +137,9 @@ namespace WorkforceManager.Business.Services
             sheet.Cell(row, 3).Value = achieved;
             // نسبة الإجمالي = محقق ÷ مخطط الشهر كامل (بس لصف الملخص، مش نفس تعريف نسبة المحقق pro-rated لكل صف)
             if (plan > 0) { sheet.Cell(row, 5).Value = (double)achieved / plan; sheet.Cell(row, 5).Style.NumberFormat.Format = "0%"; }
-            if (totalWeightKg is not null) { sheet.Cell(row, 9).Value = totalWeightKg; sheet.Cell(row, 9).Style.NumberFormat.Format = "#,##0.00"; }
+            if (totalWeightKg is not null) { sheet.Cell(row, 10).Value = totalWeightKg; sheet.Cell(row, 10).Style.NumberFormat.Format = "#,##0.00"; }
 
-            var range = sheet.Range(row, 1, row, 9);
+            var range = sheet.Range(row, 1, row, 10);
             range.Style.Font.SetBold();
             range.Style.Fill.SetBackgroundColor(ReportTableExcelService.TotalsColor);
             sheet.Cell(row, 2).Style.NumberFormat.Format = "#,##0";

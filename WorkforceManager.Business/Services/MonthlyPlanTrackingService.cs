@@ -68,7 +68,7 @@ namespace WorkforceManager.Business.Services
 
             var plans = await _db.MonthlyPlans
                 .Where(mp => mp.Year == year && mp.Month == month)
-                .ToDictionaryAsync(mp => mp.ProductId, mp => mp.PlannedQuantity);
+                .ToDictionaryAsync(mp => mp.ProductId, mp => (mp.PlannedQuantity, mp.DailyTargetQuantity));
 
             var products = await _db.Products
                 .Where(p => p.IsActive)
@@ -86,7 +86,7 @@ namespace WorkforceManager.Business.Services
 
             foreach (var productId in relevantProductIds)
             {
-                var plannedQuantity = plans.GetValueOrDefault(productId);
+                var (plannedQuantity, dailyTarget) = plans.GetValueOrDefault(productId);
                 var achieved = achievedByProduct.GetValueOrDefault(productId);
                 var correctionTotal = corrections.GetValueOrDefault(productId);
                 var effectiveAchieved = achieved + correctionTotal;
@@ -126,6 +126,7 @@ namespace WorkforceManager.Business.Services
                     PieceWeightGrams: product?.PieceWeightGrams,
                     Material: product?.Material,
                     PlannedQuantity: plannedQuantity,
+                    DailyTargetQuantity: dailyTarget,
                     AchievedToDate: achieved,
                     CorrectionsToDate: correctionTotal,
                     TodayCompleted: todayByProduct.GetValueOrDefault(productId),

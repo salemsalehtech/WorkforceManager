@@ -74,6 +74,35 @@ namespace WorkforceManager.Business.Services
             await _db.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// "الخطة اليومية" — هدف يومي يدوي (MonthlyPlan.DailyTargetQuantity)،
+        /// null بيشيله. مستقل عن الكمية المخططة الشهرية، فمنتج مالوش صف
+        /// بعد لسه بيتعمله صف بـPlannedQuantity=0 عشان الرقم يتحفظ.
+        /// </summary>
+        public async Task SetDailyTargetAsync(int productId, int year, int month, int? dailyTarget)
+        {
+            if (dailyTarget is < 0)
+                throw new ArgumentException("الخطة اليومية لازم تكون صفر أو أكتر", nameof(dailyTarget));
+
+            var existing = await _db.MonthlyPlans.FirstOrDefaultAsync(
+                mp => mp.ProductId == productId && mp.Year == year && mp.Month == month);
+
+            if (existing is null)
+            {
+                _db.MonthlyPlans.Add(new MonthlyPlan
+                {
+                    ProductId = productId, Year = year, Month = month,
+                    PlannedQuantity = 0, DailyTargetQuantity = dailyTarget
+                });
+            }
+            else
+            {
+                existing.DailyTargetQuantity = dailyTarget;
+            }
+
+            await _db.SaveChangesAsync();
+        }
+
         /// <summary>الشهر ده فيه أي صف متسجل بالفعل؟ — الشاشة بتسأل تأكيد قبل النسخ لو آه</summary>
         public Task<bool> MonthHasEntriesAsync(int year, int month) =>
             _db.MonthlyPlans.AnyAsync(mp => mp.Year == year && mp.Month == month);
@@ -101,12 +130,15 @@ namespace WorkforceManager.Business.Services
             foreach (var prev in previous)
             {
                 if (current.TryGetValue(prev.ProductId, out var existing))
+                {
                     existing.PlannedQuantity = prev.PlannedQuantity;
+                    existing.DailyTargetQuantity = prev.DailyTargetQuantity;
+                }
                 else
                     _db.MonthlyPlans.Add(new MonthlyPlan
                     {
                         ProductId = prev.ProductId, Year = year, Month = month,
-                        PlannedQuantity = prev.PlannedQuantity
+                        PlannedQuantity = prev.PlannedQuantity, DailyTargetQuantity = prev.DailyTargetQuantity
                     });
             }
 

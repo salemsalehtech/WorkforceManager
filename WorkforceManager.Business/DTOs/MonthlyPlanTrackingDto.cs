@@ -20,6 +20,10 @@ namespace WorkforceManager.Business.DTOs
         Material? Material,
 
         int PlannedQuantity,
+
+        /// <summary>"الخطة اليومية" — هدف يومي يدوي (MonthlyPlan.DailyTargetQuantity)، مختلف عن RequiredDailyOutput المحسوب</summary>
+        int? DailyTargetQuantity,
+
         int AchievedToDate,       // من DailyProductionReportService — من أول الشهر لحد asOfDate
         int CorrectionsToDate,    // مجموع تصليحات المستخدم اليدوية لنفس المدى
         int TodayCompleted,       // إنتاج النهارده بس (رقم واحد، مش عمودين زي الشيت القديم)
