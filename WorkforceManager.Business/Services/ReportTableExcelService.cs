@@ -23,11 +23,11 @@ namespace WorkforceManager.Business.Services
     /// </summary>
     public class ReportTableExcelService
     {
-        private static readonly XLColor HeaderColor = XLColor.FromHtml("#1B2E4A");
-        private static readonly XLColor AccentColor = XLColor.FromHtml("#C2A14D");
-        private static readonly XLColor TotalsColor = XLColor.FromHtml("#F1ECDF");
-        private static readonly XLColor StripeColor = XLColor.FromHtml("#FAF7F0");
-        private static readonly XLColor MutedColor = XLColor.FromHtml("#5A6779");
+        internal static readonly XLColor HeaderColor = XLColor.FromHtml("#1B2E4A");
+        internal static readonly XLColor AccentColor = XLColor.FromHtml("#C2A14D");
+        internal static readonly XLColor TotalsColor = XLColor.FromHtml("#F1ECDF");
+        internal static readonly XLColor StripeColor = XLColor.FromHtml("#FAF7F0");
+        internal static readonly XLColor MutedColor = XLColor.FromHtml("#5A6779");
 
         public void Export(
             ReportTable table,
@@ -208,7 +208,7 @@ namespace WorkforceManager.Business.Services
         // ======================= أدوات مشتركة =======================
 
         /// <summary>بيكتب الشعار والعنوان والمدة، وبيرجع أول سطر بعدهم</summary>
-        private static int WriteTitleBlock(
+        internal static int WriteTitleBlock(
             IXLWorksheet sheet, int lastColumn, string title, string periodText, ReportExportOptions options)
         {
             var row = 1;
@@ -256,7 +256,7 @@ namespace WorkforceManager.Business.Services
             return row + 1; // سطر فاضي قبل الجدول
         }
 
-        private static void Finish(
+        internal static void Finish(
             IXLWorksheet sheet, int headerRow, int lastRow, int lastColumn, double firstColumnWidth)
         {
             var body = sheet.Range(headerRow, 1, lastRow, lastColumn);
@@ -282,7 +282,7 @@ namespace WorkforceManager.Business.Services
             footer.AddText(XLHFPredefinedText.NumberOfPages);
         }
 
-        private static void WriteHeader(IXLCell cell, string text)
+        internal static void WriteHeader(IXLCell cell, string text)
         {
             cell.Value = text;
             cell.Style.Font.SetBold().Font.SetFontColor(XLColor.White);
@@ -320,7 +320,7 @@ namespace WorkforceManager.Business.Services
         /// ومش مكرر — Excel بيرفض الملف كله لو فيه اسمين متشابهين، وده
         /// وارد جدًا مع "شيت لكل مجموعة" (منتجين بأسماء متقاربة).
         /// </summary>
-        private static string SheetName(string title, XLWorkbook workbook)
+        internal static string SheetName(string title, XLWorkbook workbook)
         {
             var clean = new string(title.Where(c => !"[]:*?/\\".Contains(c)).ToArray()).Trim();
             if (clean.Length == 0) clean = "تقرير";
