@@ -1,7 +1,5 @@
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -10,17 +8,27 @@ using WorkforceManager.UI.ViewModels;
 namespace WorkforceManager.UI.Views
 {
     /// <summary>
-    /// شاشة "الرئيسية" — التنقّل منها بيحصل بنفس أسلوب
-    /// MainWindow.OfferLearnFeaturesIfNew الموجود أصلاً: تحديد
-    /// IsChecked على عنصر القائمة الجانبية المطلوب بدل أي آلية جديدة،
-    /// عشان يشتغل مؤشر التنقّل الدهبي وتحديث البادچات زي أي تنقّل عادي.
+    /// شاشة "الرئيسية" — كل تنقّل منها بيعدّي على نفس آلية الشريط الجانبي
+    /// (IsChecked على عنصر التنقل، أو LandOnWorkerAsync/LandOnProduct بتوع
+    /// البحث السريع للهبوط على عامل/منتج بعينه)، مش مسار تنقّل موازي —
+    /// فالمؤشر الدهبي والبادچات بيتحدّثوا زي أي تنقّل عادي.
     ///
-    /// الحركة (دخول الكروت المتدرّج، عدّ الأرقام لفوق، نبضة الكأس) كلها
-    /// هنا مش في الـViewModel عن قصد — تأثير بصري بحت مالوش أي داعي
-    /// يوصّل لطبقة العرض المنطقي، ومفيش اختبار محتاج يغطّيه.
+    /// الحركة كلها هنا مش في الـViewModel عن قصد — تأثير بصري بحت.
     /// </summary>
     public partial class HomeView : UserControl
     {
+        /// <summary>
+        /// الدخول الكامل (انزلاق متدرّج + عدّ الأرقام + نبضة الكأس) مرة واحدة بس
+        /// في كل تشغيل للبرنامج. HomeView مسجّلة Transient فبتتبني من جديد كل
+        /// رجوع للرئيسية — من غير العلم ده الشاشة كانت هتعيد العرض كله كل
+        /// مرة، وده بيزهق في شاشة المستخدم بيرجعلها طول اليوم. الرجوع بعد
+        /// كده ظهور سريع بس.
+        /// </summary>
+        private static bool s_entrancePlayed;
+
+        /// <summary>تحت العرض ده (بعد طي الشريط) الأرقام بتبقى عمودين والناس بتنزل تحت الرسم</summary>
+        private const double NarrowWidth = 980;
+
         private readonly HomeViewModel _viewModel;
 
         public HomeView(HomeViewModel viewModel)
@@ -30,133 +38,216 @@ namespace WorkforceManager.UI.Views
             _viewModel = viewModel;
             DataContext = viewModel;
 
+            SizeChanged += (_, e) => ApplyResponsiveLayout(e.NewSize.Width);
+
             // الحركة بعد ما التحميل يخلص، مش قبله — الكروت بتتحرك بأرقامها
-            // النهائية جاهزة جواها، مش فاضية وبتتحرك بعدين تتملى فجأة
+            // النهائية جاهزة جواها، مش فاضية وبتتملى فجأة
             Loaded += async (_, _) =>
             {
-                await viewModel.LoadAsync();
-                AnimateCardsIn();
-                AnimateNumbers();
+                try
+                {
+                    await viewModel.LoadAsync();
+                }
+                catch (Exception ex)
+                {
+                    // التفاصيل الكاملة (stack trace) في crash.txt — الرسالة لوحدها مش كفاية لتتبع العطل
+                    App.WriteCrashLog(ex);
+                    Notify.Error("حصلت مشكلة أثناء تحميل الرئيسية: " + ex.Message);
+                }
+                finally
+                {
+                    // حتى لو التحميل فشل الأقسام لازم تظهر (بحالاتها الفاضية)،
+                    // مش تفضل Opacity=0 وشاشة بيضا
+                    PlayEntrance();
+                }
             };
         }
 
-        /// <summary>
-        /// دخول متدرّج (Opacity + انزياح لأعلى) لكل كارت + زرار الفعل
-        /// الرئيسي — كارت وراء التاني بفاصل 90ms، نفس منحنى CubicEase
-        /// EaseOut المستخدم في كل حركة تانية بالمشروع.
-        /// </summary>
-        private void AnimateCardsIn()
-        {
-            var targets = new FrameworkElement[]
-            {
-                WeeklyStatsCard, BestWorkerCard, AttentionCard, StartProductionDayButton
-            };
+        private FrameworkElement[] Sections =>
+            [HeroSection, KpiSection, TilesSection, InsightsSection, ProductsSection, ActionSection];
 
-            for (var i = 0; i < targets.Length; i++)
+        // ═══════════════════ الحركة ═══════════════════
+
+        private void PlayEntrance()
+        {
+            var full = !s_entrancePlayed;
+            s_entrancePlayed = true;
+
+            var sections = Sections;
+            for (var i = 0; i < sections.Length; i++)
             {
-                var target = targets[i];
-                var beginTime = TimeSpan.FromMilliseconds(i * 90);
+                // الدخول الكامل: قسم ورا التاني بفاصل 70ms وانزلاق 14px. الرجوع: ظهور 150ms بس
+                var begin = TimeSpan.FromMilliseconds(full ? i * 70 : 0);
+                var duration = TimeSpan.FromMilliseconds(full ? 280 : 150);
                 var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
 
-                var fade = new DoubleAnimation
-                {
-                    From = 0, To = 1, BeginTime = beginTime,
-                    Duration = TimeSpan.FromMilliseconds(260), EasingFunction = ease
-                };
-                target.BeginAnimation(OpacityProperty, fade);
+                sections[i].BeginAnimation(OpacityProperty,
+                    new DoubleAnimation(0, 1, duration) { BeginTime = begin, EasingFunction = ease });
 
-                if (target.RenderTransform is TranslateTransform translate)
+                if (sections[i].RenderTransform is TranslateTransform slide)
                 {
-                    var slide = new DoubleAnimation
-                    {
-                        From = 14, To = 0, BeginTime = beginTime,
-                        Duration = TimeSpan.FromMilliseconds(260), EasingFunction = ease
-                    };
-                    translate.BeginAnimation(TranslateTransform.YProperty, slide);
-                }
-                else if (target.RenderTransform is TransformGroup group)
-                {
-                    var translateInGroup = group.Children.OfType<TranslateTransform>().First();
-                    var slide = new DoubleAnimation
-                    {
-                        From = 14, To = 0, BeginTime = beginTime,
-                        Duration = TimeSpan.FromMilliseconds(260), EasingFunction = ease
-                    };
-                    translateInGroup.BeginAnimation(TranslateTransform.YProperty, slide);
+                    if (full)
+                        slide.BeginAnimation(TranslateTransform.YProperty,
+                            new DoubleAnimation(14, 0, duration) { BeginTime = begin, EasingFunction = ease });
+                    else
+                        slide.Y = 0;
                 }
             }
 
-            // نبضة الكأس مرتين بس لو فيه أحسن عامل فعلاً — نفس فكرة نبضة
-            // زرار طي الشريط أول مرة (SidebarToggleHintShown في MainWindow)،
-            // بس هنا بتتكرر كل ما الشاشة تتحمّل لأنها احتفال بنتيجة حية
-            // مش تعريف بزرار جديد
-            if (_viewModel.HasBestWorker && TrophyIcon.RenderTransform is ScaleTransform trophyScale)
+            SetNumbers(animate: full);
+
+            // نبضة الكأس مرتين بس لو فيه نجم فعلاً — محدودة، مش لوب لا نهائي
+            // في شاشة المستخدم بيبص عليها كل يوم
+            if (full && _viewModel.HasBestWorker && TrophyIcon.RenderTransform is ScaleTransform trophy)
             {
-                var pulse = new DoubleAnimation
+                var pulse = new DoubleAnimation(1, 1.25, TimeSpan.FromMilliseconds(260))
                 {
-                    From = 1, To = 1.25, BeginTime = TimeSpan.FromMilliseconds(300),
-                    Duration = TimeSpan.FromMilliseconds(260), AutoReverse = true,
+                    BeginTime = TimeSpan.FromMilliseconds(450), AutoReverse = true,
                     RepeatBehavior = new RepeatBehavior(2),
                     EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
                 };
-                trophyScale.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
-                trophyScale.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
+                trophy.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
+                trophy.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
             }
         }
 
         /// <summary>
-        /// الأرقام البطلة (القطع/العمال/اليوميات/نسبة الحضور) بتعدّ من صفر
-        /// للرقم الحقيقي بدل ما تظهر جاهزة فجأة — DispatcherTimer بسيط
-        /// بدل Storyboard/AnimationClock لأن الهدف مجرد نص Run.Text، مش
-        /// خاصية DependencyProperty حقيقية قابلة للـStoryboard مباشرة.
+        /// الأرقام الكبيرة في كروت الأسبوع. العدّ لفوق بـDispatcherTimer مش
+        /// Storyboard — الهدف TextBlock.Text (نص CLR)، مفيش DependencyProperty
+        /// رقمي يتحرك عليه. 650ms وبيقف لوحده، فمابيشغلش الـUI thread بعد كده.
         /// </summary>
-        private void AnimateNumbers()
+        private void SetNumbers(bool animate)
         {
-            AnimateCountUp(TotalPiecesRun, _viewModel.TotalPiecesThisWeek);
-            AnimateCountUp(ActiveWorkersRun, _viewModel.ActiveWorkersThisWeek);
-            AnimateCountUp(NetWorkdaysRun, (double)_viewModel.NetWorkdaysThisWeek, v => v.ToString("N1"));
+            Show(TotalPiecesText, _viewModel.TotalPiecesThisWeek, v => v.ToString("N0"));
+            Show(ActiveWorkersText, _viewModel.ActiveWorkersThisWeek, v => v.ToString("N0"));
+            Show(NetWorkdaysText, (double)_viewModel.NetWorkdaysThisWeek, v => v.ToString("0.#"));
+            Show(AbsencesText, _viewModel.UnexcusedAbsencesThisWeek, v => v.ToString("N0"));
 
-            if (_viewModel.AttendanceRatePercent is { } rate)
-                AnimateCountUp(AttendanceRateRun, (double)rate);
-        }
-
-        private static void AnimateCountUp(Run target, double to, Func<double, string>? format = null)
-        {
-            format ??= v => Math.Round(v).ToString("N0");
-
-            if (to == 0) { target.Text = format(0); return; }
-
-            const int durationMs = 650;
-            var start = DateTime.UtcNow;
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-            timer.Tick += (_, _) =>
+            void Show(TextBlock target, double to, Func<double, string> format)
             {
-                var t = Math.Min(1.0, (DateTime.UtcNow - start).TotalMilliseconds / durationMs);
-                var eased = 1 - Math.Pow(1 - t, 3); // ease-out تكعيبي، نفس منحنى CubicEase المستخدم في باقي المشروع
-                target.Text = format(to * eased);
+                if (!animate || to == 0) { target.Text = format(to); return; }
 
-                if (t >= 1.0)
+                const int durationMs = 650;
+                var start = DateTime.UtcNow;
+                var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+                timer.Tick += (_, _) =>
                 {
-                    timer.Stop();
-                    target.Text = format(to);
+                    var t = Math.Min(1.0, (DateTime.UtcNow - start).TotalMilliseconds / durationMs);
+                    var eased = 1 - Math.Pow(1 - t, 3); // نفس منحنى CubicEase EaseOut
+                    // الأعداد الصحيحة بتعدّ صحيح (مش 12.4 عامل) — اليوميات بس بكسور
+                    var value = to * eased;
+                    target.Text = format(to % 1 == 0 ? Math.Round(value) : value);
+                    if (t >= 1.0) { timer.Stop(); target.Text = format(to); }
+                };
+                timer.Start();
+            }
+        }
+
+        /// <summary>
+        /// عند 900×560 (بعد طي الشريط) المحتوى ~800px: 4 كروت أرقام جنب بعض بتتزنق،
+        /// والرسم جنب كروت الناس بيبقى أضيق من إنه يتقري — فبيتقسموا صفين
+        /// </summary>
+        private void ApplyResponsiveLayout(double width)
+        {
+            var narrow = width < NarrowWidth;
+
+            KpiSection.Columns = narrow ? 2 : 4;
+
+            PeopleColumn.Width = narrow ? new GridLength(0) : new GridLength(2, GridUnitType.Star);
+            Grid.SetColumn(PeoplePanel, narrow ? 0 : 1);
+            Grid.SetRow(PeoplePanel, narrow ? 1 : 0);
+        }
+
+        // ═══════════════════ التنقل ═══════════════════
+
+        private MainWindow? Main => Window.GetWindow(this) as MainWindow;
+
+        private void Search_Click(object sender, RoutedEventArgs e) => Main?.OpenGlobalSearch();
+
+        private void Pieces_Click(object sender, RoutedEventArgs e)
+        {
+            if (Main is { } mw) mw.NavEvaluationItem.IsChecked = true;
+        }
+
+        private void Workers_Click(object sender, RoutedEventArgs e)
+        {
+            if (Main is { } mw) mw.NavWorkersItem.IsChecked = true;
+        }
+
+        private void Products_Click(object sender, RoutedEventArgs e)
+        {
+            if (Main is { } mw) mw.NavProductsItem.IsChecked = true;
+        }
+
+        private void DailyEntryTile_Click(object sender, RoutedEventArgs e)
+        {
+            if (Main is { } mw) mw.NavDailyEntryItem.IsChecked = true;
+        }
+
+        private void ReportsTile_Click(object sender, RoutedEventArgs e)
+        {
+            if (Main is { } mw) mw.NavReportsItem.IsChecked = true;
+        }
+
+        private void SettingsTile_Click(object sender, RoutedEventArgs e)
+        {
+            if (Main is { } mw) mw.NavSettingsItem.IsChecked = true;
+        }
+
+        private void Memory_Click(object sender, RoutedEventArgs e)
+        {
+            if (Main is { } mw) mw.NavMemoryItem.IsChecked = true;
+        }
+
+        /// <summary>الغياب والسلسلة → تبويب "الحضور والغياب" جوّه تسجيل الإنتاج اليومي</summary>
+        private void Absences_Click(object sender, RoutedEventArgs e) =>
+            Main?.OpenDailyEntryTab(MainWindow.DailyEntryAttendanceTab);
+
+        /// <summary>أحسن/أقل عامل → ملفه، بنفس هبوط البحث السريع على عامل</summary>
+        private async void Worker_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { Tag: HomeWorkerCard worker } || Main is not { } mw) return;
+
+            try
+            {
+                await mw.LandOnWorkerAsync(worker.Name, worker.WorkerId);
+            }
+            catch (Exception ex)
+            {
+                Notify.Error("مقدرتش أفتح ملف العامل: " + ex.Message);
+            }
+        }
+
+        /// <summary>أكتر/أقل منتج → صفحته، بنفس هبوط البحث السريع على منتج</summary>
+        private void Product_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement { Tag: HomeProductCard product } && Main is { } mw)
+                mw.LandOnProduct(product.Name);
+        }
+
+        /// <summary>
+        /// خطة في كارت الذاكرة → نفس ديالوج التذكير بتاع البداية بالظبط
+        /// (App.ShowMemoryReminderAsync). "أجّل" بتغيّر الموعد فالكارت بيتحدّث؛
+        /// "ابدأ الآن" بتنقل لتسجيل الإنتاج لوحدها.
+        /// </summary>
+        private async void MemoryItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { Tag: HomeMemoryItem item } || Window.GetWindow(this) is not { } owner)
+                return;
+
+            try
+            {
+                var choice = await App.ShowMemoryReminderAsync(owner, item.Memory);
+                if (choice == MemoryReminderChoice.Postpone)
+                {
+                    await _viewModel.LoadAsync();
+                    SetNumbers(animate: false);
                 }
-            };
-            timer.Start();
-        }
-
-        private void StartProductionDay_Click(object sender, RoutedEventArgs e)
-        {
-            if (Window.GetWindow(this) is MainWindow mw) mw.NavDailyEntryItem.IsChecked = true;
-        }
-
-        private void GoToProducts_Click(object sender, RoutedEventArgs e)
-        {
-            if (Window.GetWindow(this) is MainWindow mw) mw.NavProductsItem.IsChecked = true;
-        }
-
-        private void GoToMemory_Click(object sender, RoutedEventArgs e)
-        {
-            if (Window.GetWindow(this) is MainWindow mw) mw.NavMemoryItem.IsChecked = true;
+            }
+            catch (Exception ex)
+            {
+                Notify.Error("حصلت مشكلة في خطة الذاكرة: " + ex.Message);
+            }
         }
     }
 }

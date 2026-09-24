@@ -4,6 +4,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:ui="clr-namespace:WorkforceManager.UI"
+             xmlns:vm="clr-namespace:WorkforceManager.UI.ViewModels"
              xmlns:views="clr-namespace:WorkforceManager.UI.Views"
              mc:Ignorable="d"
              d:DesignHeight="760" d:DesignWidth="1100">
@@ -11,265 +13,573 @@
     <!--
       ═══════════ شاشة الرئيسية ═══════════
 
-      أول شاشة بعد تسجيل الدخول، وبيرجعلها المستخدم من عنصر تنقّل
-      "الرئيسية" في أي وقت. كل رقم هنا نسخة عرض من HomeSummaryDto —
-      مفيش حساب جديد هنا، شوف HomeViewModel/HomeSummaryService.
+      أول شاشة بعد تسجيل الدخول (بعد كل ديالوجات البداية، مش بدالها)، والرجوع
+      لها من "الرئيسية" في الشريط أو لوجو WMS. كل رقم هنا نسخة عرض من
+      HomeSummaryDto/ProductionChartService — مفيش حساب جديد، شوف HomeViewModel.
 
-      ScrollViewer + MaxWidth عشان الشاشة تتدهور كويس عند 900×560
-      (أقل مقاس مدعوم) من غير ما المحتوى يتمدد لعرض غير مريح على
-      شاشة واسعة.
+      الترتيب (هرمية بصرية، مش كروت مرصوصة):
+        1. ترحيب + بحث         — مين أنا، إمتى، وأوصل لأي حاجة بسرعة
+        2. أرقام الأسبوع (4)    — نظرة واحدة: ماشيين إزاي مقارنة بالأسبوع اللي فات
+        3. بلاطات التنقل (5)    — الشريط مطوي هنا، فدي هي القايمة
+        4. رسم الأسبوع + الناس  — التفاصيل: الإنتاج يوم بيوم، الأحسن والأقل
+        5. المنتجات + السلسلة   — أكتر/أقل منتج، والتحفيز
+        6. الذاكرة + التنبيهات  — اللي محتاج فعل
 
-      الكروت التلاتة وزرار الفعل الرئيسي بيبدأوا Opacity="0" مع
-      RenderTransform انزياح لتحت — الحالة دي بتتشال بحركة متدرجة
-      (AnimateCardsIn جوّه HomeView.xaml.cs) بعد ما LoadAsync يخلص،
-      مش قبلها، عشان المستخدم مايشوفش كروت فاضية بتتحرك.
+      كل كارت بيتضغط = Button بنمط CardButton (إطار دهبي عند المرور، من غير
+      تكبير — شوف تحذير Core.xaml عن تكبير الكروت الكبيرة). الأقسام بتبدأ
+      Opacity=0 وبتدخل بحركة من HomeView.xaml.cs بعد ما التحميل يخلص.
+      الأعمدة بتتظبط حسب العرض (ApplyResponsiveLayout) عشان 900×560.
     -->
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="18" MaxWidth="820" HorizontalAlignment="Stretch">
+    <UserControl.Resources>
+        <!-- كارت جوّه زرار: Padding أوسع شوية من Card العادي — الرئيسية واجهة عرض -->
+        <Style x:Key="HomeCard" TargetType="Border" BasedOn="{StaticResource Card}">
+            <Setter Property="Padding" Value="18,16" />
+        </Style>
 
-            <!-- ═══════════ ترحيب ═══════════ -->
-            <TextBlock Text="مرحبًا" Style="{DynamicResource Title}" />
-            <TextBlock Text="{Binding WeekRangeText}" Style="{DynamicResource Muted}" Margin="0,4,0,0" />
-            <TextBlock Text="{Binding DaysLeftInWeekText}" Style="{DynamicResource Muted}" Margin="0,2,0,0" />
-            <TextBlock Text="{Binding MotivationalMessage}" TextWrapping="Wrap" Margin="0,10,0,0"
-                       FontSize="{DynamicResource FontBase}" FontWeight="SemiBold"
-                       Foreground="{DynamicResource GoldDeepBrush}" />
+        <Style x:Key="HomeClickCard" TargetType="Button" BasedOn="{StaticResource CardButton}">
+            <Setter Property="Margin" Value="6" />
+        </Style>
 
-            <!-- ═══════════ ملخص الأسبوع ═══════════
-                 WrapPanel مش StackPanel أفقي — عدد البنود بقى متغيّر (لغاية
-                 5 بنود لو أكتر منتج ونسبة الحضور ظاهرين مع بعض)، وStackPanel
-                 أفقي كان هيقصّ أي بند زايد صامت عند 900px من غير أي تنبيه
-                 (نفس مشكلة شاشة المنتجات الموثّقة في CLAUDE.md). -->
-            <Border x:Name="WeeklyStatsCard" Style="{StaticResource Card}" Margin="0,18,0,0"
-                    Opacity="0" RenderTransformOrigin="0.5,0.5">
-                <Border.RenderTransform>
-                    <TranslateTransform Y="14" />
-                </Border.RenderTransform>
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="ChartBoxOutline" Width="18" Height="18"
-                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
-                        <TextBlock Text="ملخص الأسبوع" Margin="8,0,0,0" FontWeight="Bold" FontSize="15.5"
-                                   VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
-                    </StackPanel>
+        <Style x:Key="CardLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontSmall}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
 
-                    <WrapPanel Margin="0,12,0,-8">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,20,8">
-                            <TextBlock VerticalAlignment="Center" Style="{DynamicResource Muted}">
-                                <Run x:Name="TotalPiecesRun" Text="0" FontWeight="Bold"
-                                     Foreground="{DynamicResource TextPrimaryBrush}" /><Run Text=" قطعة الأسبوع ده" />
-                            </TextBlock>
-                            <!-- نسبة التغيير عن الأسبوع اللي فات — مختفية لو الأسبوع اللي
-                                 فات كان صفر (النسبة مش معرّفة رياضيًا وقتها) -->
-                            <Border CornerRadius="6" Padding="6,1" Margin="6,0,0,0" VerticalAlignment="Center"
-                                    Visibility="{Binding HasPieceComparison, Converter={StaticResource BoolToVis}}">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding PieceChangeIsPositive}" Value="False">
-                                                <Setter Property="Background" Value="{DynamicResource WarnBgBrush}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <TextBlock Text="{Binding PieceChangeDisplayText, Mode=OneWay}" FontSize="11" FontWeight="Bold">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding PieceChangeIsPositive}" Value="False">
-                                                    <Setter Property="Foreground" Value="{DynamicResource WarnBrush}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </Border>
-                        </StackPanel>
+        <Style x:Key="CardNumber" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontDisplay}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,20,8">
-                            <TextBlock VerticalAlignment="Center" Style="{DynamicResource Muted}">
-                                <Run x:Name="ActiveWorkersRun" Text="0" FontWeight="Bold"
-                                     Foreground="{DynamicResource TextPrimaryBrush}" /><Run Text=" عامل نشط" />
-                            </TextBlock>
-                        </StackPanel>
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{DynamicResource FontLarge}" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Margin" Value="6,18,6,4" />
+        </Style>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,20,8">
-                            <TextBlock VerticalAlignment="Center" Style="{DynamicResource Muted}">
-                                <Run x:Name="NetWorkdaysRun" Text="0" FontWeight="Bold"
-                                     Foreground="{DynamicResource TextPrimaryBrush}" /><Run Text=" يومية معتمدة" />
-                            </TextBlock>
-                        </StackPanel>
+        <!-- دايرة الأيقونة فوق كل كارت: خلفية دهبي فاتح + أيقونة دهبي -->
+        <Style x:Key="IconBadge" TargetType="Border">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="CornerRadius" Value="17" />
+            <Setter Property="Background" Value="{DynamicResource GoldTintBrush}" />
+        </Style>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,20,8"
-                                    Visibility="{Binding HasTopProduct, Converter={StaticResource BoolToVis}}">
-                            <TextBlock VerticalAlignment="Center" Style="{DynamicResource Muted}">
-                                <Run Text="أكتر منتج: " /><Run Text="{Binding TopProductName, Mode=OneWay}" FontWeight="Bold"
-                                     Foreground="{DynamicResource TextPrimaryBrush}" /><Run
-                                    Text="{Binding TopProductPieces, Mode=OneWay, StringFormat=' ({0} قطعة)'}" />
-                            </TextBlock>
-                        </StackPanel>
+        <!-- سهم المقارنة — ContentControl بـContent=TrendBadge: لما السهم null
+             (الأسبوع اللي فات صفر) مفيش حاجة بتترسم خالص، من غير محوّل -->
+        <DataTemplate DataType="{x:Type vm:TrendBadge}">
+            <Border CornerRadius="8" Padding="7,2" VerticalAlignment="Center"
+                    ui:ThemeBrush.BackgroundKey="{Binding TintKey}"
+                    ToolTip="مقارنة بالأسبوع اللي فات">
+                <TextBlock Text="{Binding Text}" FontSize="{DynamicResource FontTiny}" FontWeight="Bold"
+                           FlowDirection="LeftToRight"
+                           ui:ThemeBrush.ForegroundKey="{Binding InkKey}" />
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,20,8"
-                                    Visibility="{Binding HasAttendanceRate, Converter={StaticResource BoolToVis}}">
-                            <TextBlock VerticalAlignment="Center" Style="{DynamicResource Muted}">
-                                <Run Text="نسبة الحضور " /><Run x:Name="AttendanceRateRun" Text="0" FontWeight="Bold"
-                                     Foreground="{DynamicResource TextPrimaryBrush}" /><Run Text="%" />
-                            </TextBlock>
-                        </StackPanel>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel x:Name="RootPanel" Margin="16,18,16,24" MaxWidth="1240">
+
+            <!-- ═══════════ 1. ترحيب + بحث ═══════════ -->
+            <Grid x:Name="HeroSection" Margin="6,0,6,6" Opacity="0">
+                <Grid.RenderTransform><TranslateTransform Y="14" /></Grid.RenderTransform>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding WelcomeText}" FontSize="{DynamicResource FontDisplay}" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                    <WrapPanel Margin="0,6,0,0">
+                        <TextBlock Text="{Binding TodayText}" Style="{StaticResource CardLabel}" />
+                        <TextBlock Text="  •  " Style="{StaticResource CardLabel}" />
+                        <TextBlock Text="{Binding WeekRangeText}" Style="{StaticResource CardLabel}" />
+                        <Border Margin="10,0,0,0" CornerRadius="8" Padding="8,2" VerticalAlignment="Center"
+                                Background="{DynamicResource GoldTintBrush}">
+                            <TextBlock Text="{Binding DaysLeftInWeekText}" FontSize="{DynamicResource FontTiny}"
+                                       FontWeight="Bold" Foreground="{DynamicResource GoldDeepBrush}" />
+                        </Border>
                     </WrapPanel>
+                    <TextBlock Text="{Binding MotivationalMessage}" TextWrapping="Wrap" Margin="0,8,0,0"
+                               FontSize="{DynamicResource FontBase}" FontWeight="SemiBold"
+                               Foreground="{DynamicResource GoldDeepBrush}" />
                 </StackPanel>
-            </Border>
 
-            <!-- ═══════════ أفضل عامل الأسبوع ═══════════
-                 رقم 1 بس بشكل بارز (مش تلات بطاقات زي شاشة العمال) —
-                 قرار مؤكد مع المستخدم وقت التخطيط. -->
-            <Border x:Name="BestWorkerCard" Style="{StaticResource Card}" Margin="0,12,0,0"
-                    Opacity="0" RenderTransformOrigin="0.5,0.5">
-                <Border.RenderTransform>
-                    <TranslateTransform Y="14" />
-                </Border.RenderTransform>
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon x:Name="TrophyIcon" Kind="TrophyOutline" Width="18" Height="18"
-                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}"
-                                                 RenderTransformOrigin="0.5,0.5">
-                            <materialDesign:PackIcon.RenderTransform>
-                                <ScaleTransform />
-                            </materialDesign:PackIcon.RenderTransform>
-                        </materialDesign:PackIcon>
-                        <TextBlock Text="أفضل عامل الأسبوع" Margin="8,0,0,0" FontWeight="Bold" FontSize="15.5"
-                                   VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
-                    </StackPanel>
+                <!-- البحث: نفس GlobalSearchDialog بالظبط (MainWindow.OpenGlobalSearch) — شكل خانة
+                     كتابة عشان يبان إنه بحث، بس الكتابة الفعلية جوّه الديالوج -->
+                <Button x:Name="SearchBoxButton" Grid.Column="1" Style="{StaticResource CardButton}"
+                        Click="Search_Click" VerticalAlignment="Center" Margin="16,0,0,0"
+                        ToolTip="بحث سريع (Ctrl+K)" AutomationProperties.Name="بحث سريع">
+                    <Border Width="300" Padding="14,10" CornerRadius="{DynamicResource RadiusCard}"
+                            Background="{DynamicResource SurfaceBrush}" BorderThickness="1"
+                            BorderBrush="{DynamicResource LineStrongBrush}">
+                        <DockPanel>
+                            <materialDesign:PackIcon Kind="Magnify" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource GoldBrush}" />
+                            <Border DockPanel.Dock="Right" CornerRadius="5" Padding="6,1" VerticalAlignment="Center"
+                                    Background="{DynamicResource SurfaceAltBrush}">
+                                <TextBlock Text="Ctrl+K" FontSize="{DynamicResource FontMicro}" FlowDirection="LeftToRight"
+                                           Foreground="{DynamicResource TextMutedBrush}" />
+                            </Border>
+                            <TextBlock Text="ابحث عن عامل، منتج، إعداد…" Margin="10,0,8,0" VerticalAlignment="Center"
+                                       FontSize="{DynamicResource FontSmall}" Foreground="{DynamicResource TextMutedBrush}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                    </Border>
+                </Button>
+            </Grid>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0"
-                                Visibility="{Binding HasBestWorker, Converter={StaticResource BoolToVis}}">
-                        <views:WorkerAvatar Diameter="46" Initials="{Binding BestWorkerInitials}"
-                                            VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding BestWorkerName}" Margin="12,0,0,0" VerticalAlignment="Center"
-                                   FontSize="{DynamicResource FontLarge}" FontWeight="Bold"
-                                   Foreground="{DynamicResource SidebarInkBrush}" />
-                    </StackPanel>
+            <!-- ═══════════ 2. أرقام الأسبوع ═══════════
+                 UniformGrid: 4 أعمدة، وعمودين في الشاشة الضيقة (ApplyResponsiveLayout) -->
+            <UniformGrid x:Name="KpiSection" Columns="4" Opacity="0">
+                <UniformGrid.RenderTransform><TranslateTransform Y="14" /></UniformGrid.RenderTransform>
 
-                    <TextBlock Text="لسه مفيش نجم للأسبوع ده — سجّل إنتاج كام يوم وهيبان هنا"
-                               Margin="0,14,0,0" TextWrapping="Wrap" Style="{DynamicResource Muted}"
-                               Visibility="{Binding HasBestWorker, Converter={StaticResource InverseBoolToVis}}" />
+                <Button Style="{StaticResource HomeClickCard}" Click="Pieces_Click"
+                        ToolTip="افتح رسم إنتاج المنتجات في التقييم والمتابعة">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <DockPanel>
+                                <Border Style="{StaticResource IconBadge}">
+                                    <materialDesign:PackIcon Kind="PackageVariantClosed" Width="18" Height="18"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldBrush}" />
+                                </Border>
+                                <ContentControl DockPanel.Dock="Right" Content="{Binding PiecesTrend}" Focusable="False" />
+                                <TextBlock Text="قطع مكتملة" Margin="10,0,0,0" Style="{StaticResource CardLabel}" />
+                            </DockPanel>
+                            <TextBlock x:Name="TotalPiecesText" Text="0" Margin="0,12,0,0" Style="{StaticResource CardNumber}" />
+                            <TextBlock Text="الأسبوع ده" Style="{StaticResource CardLabel}" FontWeight="Normal" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <Button Style="{StaticResource HomeClickCard}" Click="Workers_Click" ToolTip="افتح شاشة العمال">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <DockPanel>
+                                <Border Style="{StaticResource IconBadge}">
+                                    <materialDesign:PackIcon Kind="AccountHardHatOutline" Width="18" Height="18"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldBrush}" />
+                                </Border>
+                                <ContentControl DockPanel.Dock="Right" Content="{Binding ActiveWorkersTrend}" Focusable="False" />
+                                <TextBlock Text="عمال نشطين" Margin="10,0,0,0" Style="{StaticResource CardLabel}" />
+                            </DockPanel>
+                            <TextBlock x:Name="ActiveWorkersText" Text="0" Margin="0,12,0,0" Style="{StaticResource CardNumber}" />
+                            <TextBlock Text="أنتجوا أو اشتغلوا بالساعة" Style="{StaticResource CardLabel}" FontWeight="Normal" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <Button Style="{StaticResource HomeClickCard}" Click="Workers_Click" ToolTip="افتح شاشة العمال">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <DockPanel>
+                                <Border Style="{StaticResource IconBadge}">
+                                    <materialDesign:PackIcon Kind="CalendarCheckOutline" Width="18" Height="18"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldBrush}" />
+                                </Border>
+                                <ContentControl DockPanel.Dock="Right" Content="{Binding NetWorkdaysTrend}" Focusable="False" />
+                                <TextBlock Text="صافي اليوميات" Margin="10,0,0,0" Style="{StaticResource CardLabel}" />
+                            </DockPanel>
+                            <TextBlock x:Name="NetWorkdaysText" Text="0" Margin="0,12,0,0" Style="{StaticResource CardNumber}" />
+                            <TextBlock Text="يومية معتمدة الأسبوع ده" Style="{StaticResource CardLabel}" FontWeight="Normal" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <Button Style="{StaticResource HomeClickCard}" Click="Absences_Click"
+                        ToolTip="افتح تبويب الحضور والغياب">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <DockPanel>
+                                <Border Style="{StaticResource IconBadge}">
+                                    <materialDesign:PackIcon Kind="AccountCancelOutline" Width="18" Height="18"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldBrush}" />
+                                </Border>
+                                <ContentControl DockPanel.Dock="Right" Content="{Binding AbsencesTrend}" Focusable="False" />
+                                <TextBlock Text="غياب بدون إذن" Margin="10,0,0,0" Style="{StaticResource CardLabel}" />
+                            </DockPanel>
+                            <TextBlock x:Name="AbsencesText" Text="0" Margin="0,12,0,0" Style="{StaticResource CardNumber}" />
+                            <TextBlock Text="{Binding AttendanceRateText}" Style="{StaticResource CardLabel}" FontWeight="Normal" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+            </UniformGrid>
+
+            <!-- ═══════════ 3. بلاطات التنقل ═══════════
+                 نفس IsChecked بتاع عناصر الشريط (مش مسار تنقل موازي). "تسجيل
+                 الإنتاج اليومي" هي الفعل الأساسي (دهبي ممتلي) — حلّت محل زرار
+                 "بداية إنتاج يوم جديد" القديم. -->
+            <TextBlock Text="انتقل إلى" Style="{StaticResource SectionHeader}" />
+            <UniformGrid x:Name="TilesSection" Columns="5" Opacity="0">
+                <UniformGrid.RenderTransform><TranslateTransform Y="14" /></UniformGrid.RenderTransform>
+
+                <Button Style="{StaticResource HomeClickCard}" Click="DailyEntryTile_Click" x:Name="DailyEntryTile">
+                    <Border Style="{StaticResource HomeCard}" Background="{DynamicResource GoldGradientBrush}"
+                            BorderBrush="{DynamicResource GoldDeepBrush}">
+                        <StackPanel>
+                            <materialDesign:PackIcon Kind="PlayCircleOutline" Width="26" Height="26"
+                                                     Foreground="{DynamicResource InkOnAccentBrush}" />
+                            <TextBlock Text="تسجيل الإنتاج اليومي" Margin="0,10,0,0" FontWeight="Bold"
+                                       FontSize="{DynamicResource FontBase}" Foreground="{DynamicResource InkOnAccentBrush}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="ابدأ يوم جديد: إنتاج، حضور، جزاءات" Margin="0,4,0,0" TextWrapping="Wrap"
+                                       FontSize="{DynamicResource FontTiny}" Foreground="{DynamicResource InkOnAccentBrush}"
+                                       Opacity="0.85" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <Button Style="{StaticResource HomeClickCard}" Click="Workers_Click">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <materialDesign:PackIcon Kind="AccountGroupOutline" Width="26" Height="26"
+                                                     Foreground="{DynamicResource GoldBrush}" />
+                            <TextBlock Text="العمال" Margin="0,10,0,0" FontWeight="Bold"
+                                       FontSize="{DynamicResource FontBase}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="الملفات، المهارات، والملخص الأسبوعي" Margin="0,4,0,0" TextWrapping="Wrap"
+                                       FontSize="{DynamicResource FontTiny}" Foreground="{DynamicResource TextMutedBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <Button Style="{StaticResource HomeClickCard}" Click="Products_Click">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <materialDesign:PackIcon Kind="PackageVariant" Width="26" Height="26"
+                                                     Foreground="{DynamicResource GoldBrush}" />
+                            <TextBlock Text="المنتجات" Margin="0,10,0,0" FontWeight="Bold"
+                                       FontSize="{DynamicResource FontBase}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="المراحل، الأسعار، ونشاط كل منتج" Margin="0,4,0,0" TextWrapping="Wrap"
+                                       FontSize="{DynamicResource FontTiny}" Foreground="{DynamicResource TextMutedBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <Button Style="{StaticResource HomeClickCard}" Click="ReportsTile_Click">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <materialDesign:PackIcon Kind="FileDocumentOutline" Width="26" Height="26"
+                                                     Foreground="{DynamicResource GoldBrush}" />
+                            <TextBlock Text="التقارير" Margin="0,10,0,0" FontWeight="Bold"
+                                       FontSize="{DynamicResource FontBase}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="تقارير الأجور والإنتاج للطباعة والتصدير" Margin="0,4,0,0" TextWrapping="Wrap"
+                                       FontSize="{DynamicResource FontTiny}" Foreground="{DynamicResource TextMutedBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <Button Style="{StaticResource HomeClickCard}" Click="SettingsTile_Click">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <materialDesign:PackIcon Kind="CogOutline" Width="26" Height="26"
+                                                     Foreground="{DynamicResource GoldBrush}" />
+                            <TextBlock Text="الإعدادات" Margin="0,10,0,0" FontWeight="Bold"
+                                       FontSize="{DynamicResource FontBase}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="المصنع، الحسابات، المظهر، والنسخ الاحتياطي" Margin="0,4,0,0" TextWrapping="Wrap"
+                                       FontSize="{DynamicResource FontTiny}" Foreground="{DynamicResource TextMutedBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+            </UniformGrid>
+
+            <!-- ═══════════ 4. رسم الأسبوع + الناس ═══════════
+                 عمودين (3:2)؛ في الشاشة الضيقة الناس بتنزل تحت الرسم (ApplyResponsiveLayout) -->
+            <TextBlock Text="الأسبوع ده بالتفصيل" Style="{StaticResource SectionHeader}" />
+            <Grid x:Name="InsightsSection" Opacity="0">
+                <Grid.RenderTransform><TranslateTransform Y="14" /></Grid.RenderTransform>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="ChartColumn" Width="3*" />
+                    <ColumnDefinition x:Name="PeopleColumn" Width="2*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- الرسم: نفس ProductOutputChart + ProductionChartService بتوع التقييم،
+                     أسبوع الشغل الحالي يوم بيوم، من غير فلتر ولا مدة -->
+                <Button x:Name="ChartCard" Style="{StaticResource HomeClickCard}" Click="Pieces_Click"
+                        ToolTip="افتح رسم إنتاج المنتجات كامل في التقييم والمتابعة">
+                    <Border Style="{StaticResource HomeCard}">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top">
+                                <Border Style="{StaticResource IconBadge}">
+                                    <materialDesign:PackIcon Kind="ChartBar" Width="18" Height="18"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldBrush}" />
+                                </Border>
+                                <TextBlock Text="إنتاج الأسبوع يوم بيوم" Margin="10,0,0,0" FontWeight="Bold"
+                                           FontSize="{DynamicResource FontBase}" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </DockPanel>
+                            <views:ProductOutputChart Margin="0,10,0,0" MinHeight="220" FillWidth="True" PlotAreaHeight="162"
+                                                      Buckets="{Binding WeekChartBuckets}" HasData="{Binding WeekChartHasData}"
+                                                      EmptyText="لسه مفيش إنتاج مكتمل الأسبوع ده — أول رحلة توصل لآخر مرحلة هتظهر هنا" />
+                        </DockPanel>
+                    </Border>
+                </Button>
+
+                <StackPanel x:Name="PeoplePanel" Grid.Column="1">
+                    <!-- أحسن عامل: رقم 1 في WorkerRecognitionRules.Rank → ملفه في شاشة العمال -->
+                    <Button Style="{StaticResource HomeClickCard}" Click="Worker_Click" Tag="{Binding BestWorker}"
+                            IsEnabled="{Binding HasBestWorker}" ToolTip="افتح ملف العامل">
+                        <Border Style="{StaticResource HomeCard}">
+                            <StackPanel>
+                                <DockPanel>
+                                    <Border Style="{StaticResource IconBadge}">
+                                        <materialDesign:PackIcon x:Name="TrophyIcon" Kind="TrophyOutline" Width="18" Height="18"
+                                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                 Foreground="{DynamicResource GoldBrush}" RenderTransformOrigin="0.5,0.5">
+                                            <materialDesign:PackIcon.RenderTransform><ScaleTransform /></materialDesign:PackIcon.RenderTransform>
+                                        </materialDesign:PackIcon>
+                                    </Border>
+                                    <ContentControl DockPanel.Dock="Right" Content="{Binding BestWorker.Trend}" Focusable="False" />
+                                    <TextBlock Text="نجم الأسبوع" Margin="10,0,0,0" Style="{StaticResource CardLabel}" />
+                                </DockPanel>
+                                <DockPanel Margin="0,12,0,0" Visibility="{Binding HasBestWorker, Converter={StaticResource BoolToVis}}">
+                                    <views:WorkerAvatar Diameter="42" Initials="{Binding BestWorker.Initials}" VerticalAlignment="Center" />
+                                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding BestWorker.Name}" FontSize="{DynamicResource FontLarge}" FontWeight="Bold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Style="{StaticResource CardLabel}" FontWeight="Normal">
+                                            <Run Text="{Binding BestWorker.Pieces, Mode=OneWay, StringFormat='{}{0:N0} قطعة'}" /><Run
+                                                Text="  •  " /><Run Text="{Binding BestWorker.NetWorkdays, Mode=OneWay, StringFormat='{}{0:0.#} يومية'}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DockPanel>
+                                <TextBlock Text="لسه مفيش نجم للأسبوع ده — سجّل إنتاج كام يوم وهيبان هنا"
+                                           Margin="0,12,0,0" TextWrapping="Wrap" Style="{StaticResource CardLabel}" FontWeight="Normal"
+                                           Visibility="{Binding HasBestWorker, Converter={StaticResource InverseBoolToVis}}" />
+                            </StackPanel>
+                        </Border>
+                    </Button>
+
+                    <!-- الأقل أداءً: آخر واحد في نفس الترتيب (HomeDashboardRules.PickWorstWorker) —
+                         المنتجين بس، والغايب/اللي صافيه صفر عمره ما بيتسمّى هنا -->
+                    <Button Style="{StaticResource HomeClickCard}" Click="Worker_Click" Tag="{Binding WorstWorker}"
+                            IsEnabled="{Binding HasWorstWorker}" ToolTip="افتح ملف العامل">
+                        <Border Style="{StaticResource HomeCard}">
+                            <StackPanel>
+                                <DockPanel>
+                                    <Border Style="{StaticResource IconBadge}">
+                                        <materialDesign:PackIcon Kind="TrendingDown" Width="18" Height="18"
+                                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                 Foreground="{DynamicResource GoldBrush}" />
+                                    </Border>
+                                    <ContentControl DockPanel.Dock="Right" Content="{Binding WorstWorker.Trend}" Focusable="False" />
+                                    <TextBlock Text="محتاج دعم" Margin="10,0,0,0" Style="{StaticResource CardLabel}"
+                                               ToolTip="أقل إنتاج بين العمال اللي أنتجوا فعلاً الأسبوع ده" />
+                                </DockPanel>
+                                <DockPanel Margin="0,12,0,0" Visibility="{Binding HasWorstWorker, Converter={StaticResource BoolToVis}}">
+                                    <views:WorkerAvatar Diameter="42" Initials="{Binding WorstWorker.Initials}" VerticalAlignment="Center" />
+                                    <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding WorstWorker.Name}" FontSize="{DynamicResource FontLarge}" FontWeight="Bold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Style="{StaticResource CardLabel}" FontWeight="Normal">
+                                            <Run Text="{Binding WorstWorker.Pieces, Mode=OneWay, StringFormat='{}{0:N0} قطعة'}" /><Run
+                                                Text="  •  " /><Run Text="{Binding WorstWorker.NetWorkdays, Mode=OneWay, StringFormat='{}{0:0.#} يومية'}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DockPanel>
+                                <TextBlock Text="بيظهر لما 4 عمال أو أكتر ينتجوا الأسبوع ده"
+                                           Margin="0,12,0,0" TextWrapping="Wrap" Style="{StaticResource CardLabel}" FontWeight="Normal"
+                                           Visibility="{Binding HasWorstWorker, Converter={StaticResource InverseBoolToVis}}" />
+                            </StackPanel>
+                        </Border>
+                    </Button>
                 </StackPanel>
-            </Border>
+            </Grid>
 
-            <!-- ═══════════ محتاج انتباهك ═══════════
-                 بندين بس (أرصدة قديمة، خطط مستحقة) — قرار مؤكد مع
-                 المستخدم؛ "أيام غير موقّعة" مستبعد عمدًا لأن الديالوج
-                 الإجباري عند الدخول بيغطيها أصلاً. -->
-            <Border x:Name="AttentionCard" Style="{StaticResource Card}" Margin="0,12,0,0"
-                    Opacity="0" RenderTransformOrigin="0.5,0.5">
-                <Border.RenderTransform>
-                    <TranslateTransform Y="14" />
-                </Border.RenderTransform>
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="AlertCircleOutline" Width="18" Height="18"
-                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
-                        <TextBlock Text="محتاج انتباهك" Margin="8,0,0,0" FontWeight="Bold" FontSize="15.5"
-                                   VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
+            <!-- ═══════════ 5. المنتجات + السلسلة ═══════════ -->
+            <UniformGrid x:Name="ProductsSection" Columns="3" Opacity="0">
+                <UniformGrid.RenderTransform><TranslateTransform Y="14" /></UniformGrid.RenderTransform>
+
+                <Button Style="{StaticResource HomeClickCard}" Click="Product_Click" Tag="{Binding TopProduct}"
+                        IsEnabled="{Binding HasTopProduct}" ToolTip="افتح المنتج">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <DockPanel>
+                                <Border Style="{StaticResource IconBadge}">
+                                    <materialDesign:PackIcon Kind="Fire" Width="18" Height="18"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldBrush}" />
+                                </Border>
+                                <ContentControl DockPanel.Dock="Right" Content="{Binding TopProduct.Trend}" Focusable="False" />
+                                <TextBlock Text="أكتر منتج شغال" Margin="10,0,0,0" Style="{StaticResource CardLabel}" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding TopProduct.Name, FallbackValue='—', TargetNullValue='—'}" Margin="0,12,0,0"
+                                       FontSize="{DynamicResource FontTitle}" FontWeight="Bold" TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Style="{StaticResource CardLabel}" FontWeight="Normal"
+                                       Text="{Binding TopProduct.Pieces, StringFormat='{}{0:N0} قطعة مكتملة', FallbackValue='لسه مفيش إنتاج مكتمل الأسبوع ده'}" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <Button Style="{StaticResource HomeClickCard}" Click="Product_Click" Tag="{Binding BottomProduct}"
+                        IsEnabled="{Binding HasBottomProduct}" ToolTip="افتح المنتج">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <DockPanel>
+                                <Border Style="{StaticResource IconBadge}">
+                                    <materialDesign:PackIcon Kind="SnowflakeVariant" Width="18" Height="18"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldBrush}" />
+                                </Border>
+                                <ContentControl DockPanel.Dock="Right" Content="{Binding BottomProduct.Trend}" Focusable="False" />
+                                <TextBlock Text="أقل منتج شغال" Margin="10,0,0,0" Style="{StaticResource CardLabel}" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding BottomProduct.Name, FallbackValue='—', TargetNullValue='—'}" Margin="0,12,0,0"
+                                       FontSize="{DynamicResource FontTitle}" FontWeight="Bold" TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Style="{StaticResource CardLabel}" FontWeight="Normal"
+                                       Text="{Binding BottomProduct.Pieces, StringFormat='{}{0:N0} قطعة مكتملة', FallbackValue='بيظهر لما منتجين أو أكتر يشتغلوا'}" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <!-- سلسلة الالتزام: HomeDashboardRules.ComputeStreak — الضغط بيفتح الحضور والغياب -->
+                <Button Style="{StaticResource HomeClickCard}" Click="Absences_Click" ToolTip="افتح تبويب الحضور والغياب">
+                    <Border Style="{StaticResource HomeCard}">
+                        <StackPanel>
+                            <DockPanel>
+                                <Border Style="{StaticResource IconBadge}">
+                                    <materialDesign:PackIcon Kind="MedalOutline" Width="18" Height="18"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldBrush}" />
+                                </Border>
+                                <TextBlock Text="سلسلة الالتزام" Margin="10,0,0,0" Style="{StaticResource CardLabel}" />
+                            </DockPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <TextBlock Text="{Binding StreakNumberText}" FlowDirection="LeftToRight"
+                                           FontSize="{DynamicResource FontTitle}" FontWeight="Bold"
+                                           Foreground="{DynamicResource GoldDeepBrush}" />
+                                <TextBlock Text=" يوم" FontSize="{DynamicResource FontBase}" VerticalAlignment="Bottom"
+                                           Margin="0,0,0,3" Foreground="{DynamicResource TextMutedBrush}"
+                                           Visibility="{Binding HasStreak, Converter={StaticResource BoolToVis}}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding StreakCaption}" Style="{StaticResource CardLabel}" FontWeight="Normal"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Button>
+            </UniformGrid>
+
+            <!-- ═══════════ 6. الذاكرة + محتاج انتباهك ═══════════
+                 UniformGrid من غير Columns: كارت الذاكرة Collapsed لو مفيش خطط قريبة،
+                 والتنبيهات بتاخد العرض كله -->
+            <UniformGrid x:Name="ActionSection" Rows="1" Opacity="0" Margin="0,6,0,0">
+                <UniformGrid.RenderTransform><TranslateTransform Y="14" /></UniformGrid.RenderTransform>
+
+                <!-- تذكير الذاكرة: كارت دايم جنب ديالوج البداية (مش بديله) — كل خطة
+                     بتفتح نفس MemoryReminderDialog بـ"ابدأ الآن"/"أجّل" (App.ShowMemoryReminderAsync) -->
+                <Border Style="{StaticResource HomeCard}" Margin="6"
+                        Visibility="{Binding HasDueMemories, Converter={StaticResource BoolToVis}}">
+                    <StackPanel>
+                        <DockPanel>
+                            <Border Style="{StaticResource IconBadge}">
+                                <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="18" Height="18"
+                                                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource GoldBrush}" />
+                            </Border>
+                            <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,4"
+                                    Content="كل الخطط" Click="Memory_Click" />
+                            <TextBlock Text="خطط إنتاج قريبة" Margin="10,0,0,0" FontWeight="Bold"
+                                       FontSize="{DynamicResource FontBase}" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </DockPanel>
+                        <ItemsControl ItemsSource="{Binding DueMemories}" Margin="0,10,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:HomeMemoryItem}">
+                                    <Button Style="{StaticResource CardButton}" Click="MemoryItem_Click" Tag="{Binding}"
+                                            Margin="0,0,0,6" ToolTip="ابدأ الآن أو أجّل">
+                                        <Border CornerRadius="{DynamicResource RadiusSmall}" Padding="12,9"
+                                                Background="{DynamicResource SurfaceAltBrush}">
+                                            <DockPanel>
+                                                <Border DockPanel.Dock="Right" CornerRadius="8" Padding="8,2" VerticalAlignment="Top">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{DynamicResource GoldTintBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsLate}" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource WarnTintBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding DueText}" FontSize="{DynamicResource FontTiny}" FontWeight="Bold">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{DynamicResource GoldDeepBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsLate}" Value="True">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource WarnBrush}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Memory.ProductName}" FontWeight="Bold"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Memory.Notes}" Margin="0,2,0,0" TextWrapping="Wrap" MaxHeight="36"
+                                                               TextTrimming="CharacterEllipsis" Style="{StaticResource CardLabel}" FontWeight="Normal"
+                                                               Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Border>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
+                </Border>
 
-                    <StackPanel Margin="0,12,0,0"
-                                Visibility="{Binding HasAnyAttentionItems, Converter={StaticResource BoolToVis}}">
-                        <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="8" Padding="10,8" Margin="0,0,0,8"
+                <!-- محتاج انتباهك: الأرصدة الأولية المفتوحة من زمان بس (الخطط انتقلت
+                     لكارتها فوق). "أيام غير موقّعة" مستبعد عمدًا — الديالوج الإجباري بيغطيها -->
+                <Border Style="{StaticResource HomeCard}" Margin="6">
+                    <StackPanel>
+                        <DockPanel>
+                            <Border Style="{StaticResource IconBadge}">
+                                <materialDesign:PackIcon Kind="AlertCircleOutline" Width="18" Height="18"
+                                                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource GoldBrush}" />
+                            </Border>
+                            <TextBlock Text="محتاج انتباهك" Margin="10,0,0,0" FontWeight="Bold"
+                                       FontSize="{DynamicResource FontBase}" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </DockPanel>
+                        <Border Background="{DynamicResource WarnTintBrush}" CornerRadius="8" Padding="10,8" Margin="0,12,0,0"
                                 Visibility="{Binding HasStaleBalances, Converter={StaticResource BoolToVis}}">
                             <DockPanel>
-                                <Button x:Name="GoToStaleBalancesButton" DockPanel.Dock="Left"
-                                        Style="{DynamicResource GhostButton}" Click="GoToProducts_Click"
-                                        Content="اعرضها" />
-                                <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
-                                           Foreground="{DynamicResource WarnBrush}">
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,4"
+                                        Click="Products_Click" Content="اعرضها" />
+                                <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource WarnBrush}">
                                     <Run Text="{Binding StaleBalanceCount, Mode=OneWay}" FontWeight="Bold" /><Run
                                         Text=" رصيد أولي فاتح من أكتر من أسبوع" />
                                 </TextBlock>
                             </DockPanel>
                         </Border>
-
-                        <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="8" Padding="10,8"
-                                Visibility="{Binding HasDueMemories, Converter={StaticResource BoolToVis}}">
-                            <DockPanel>
-                                <Button x:Name="GoToDueMemoriesButton" DockPanel.Dock="Left"
-                                        Style="{DynamicResource GhostButton}" Click="GoToMemory_Click"
-                                        Content="اعرضها" />
-                                <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
-                                           Foreground="{DynamicResource WarnBrush}">
-                                    <Run Text="{Binding DueMemoriesCount, Mode=OneWay}" FontWeight="Bold" /><Run
-                                        Text=" خطة إنتاج مستحقة" />
-                                </TextBlock>
-                            </DockPanel>
-                        </Border>
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0"
+                                    Visibility="{Binding HasStaleBalances, Converter={StaticResource InverseBoolToVis}}">
+                            <materialDesign:PackIcon Kind="CheckCircleOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource GoodBrush}" />
+                            <TextBlock Text="كل حاجة مظبوطة، مفيش حاجة محتاجة متابعة دلوقتي" Margin="8,0,0,0"
+                                       Style="{StaticResource CardLabel}" FontWeight="Normal" TextWrapping="Wrap" />
+                        </StackPanel>
                     </StackPanel>
-
-                    <TextBlock Text="كل حاجة مظبوطة، مفيش حاجة محتاجة متابعة دلوقتي"
-                               Margin="0,12,0,0" Style="{DynamicResource Muted}"
-                               Visibility="{Binding HasAnyAttentionItems, Converter={StaticResource InverseBoolToVis}}" />
-                </StackPanel>
-            </Border>
-
-            <!-- ═══════════ الفعل الرئيسي ═══════════
-                 تكبير خفيف عند المرور (نفس فكرة تكبير عناصر القايمة
-                 الجانبية) — إشارة بصرية إضافية إن الزرار ده هو الفعل
-                 المتوقّع، مش بس لونه الدهبي. -->
-            <Button x:Name="StartProductionDayButton" Click="StartProductionDay_Click"
-                    HorizontalAlignment="Stretch"
-                    Margin="0,20,0,0" Padding="18,15"
-                    Opacity="0" RenderTransformOrigin="0.5,0.5">
-                <Button.RenderTransform>
-                    <TransformGroup>
-                        <TranslateTransform Y="14" />
-                        <ScaleTransform />
-                    </TransformGroup>
-                </Button.RenderTransform>
-                <Button.Style>
-                    <!-- Storyboard.TargetName مش مسموح جوّه Style.Triggers (MC4011) —
-                         بديله المعتمد في WPF: من غير TargetName (يستهدف العنصر
-                         نفسه بشكل افتراضي) مع TargetProperty مركّب يوصل
-                         لـScaleTransform التاني جوّه TransformGroup -->
-                    <Style TargetType="Button" BasedOn="{StaticResource GoldButton}">
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Trigger.EnterActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation
-                                                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(ScaleTransform.ScaleX)"
-                                                To="1.03" Duration="0:0:0.12" />
-                                            <DoubleAnimation
-                                                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(ScaleTransform.ScaleY)"
-                                                To="1.03" Duration="0:0:0.12" />
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </Trigger.EnterActions>
-                                <Trigger.ExitActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation
-                                                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(ScaleTransform.ScaleX)"
-                                                To="1" Duration="0:0:0.12" />
-                                            <DoubleAnimation
-                                                Storyboard.TargetProperty="(UIElement.RenderTransform).(TransformGroup.Children)[1].(ScaleTransform.ScaleY)"
-                                                To="1" Duration="0:0:0.12" />
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </Trigger.ExitActions>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </Button.Style>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <materialDesign:PackIcon Kind="PlayCircleOutline" Width="20" Height="20"
-                                             VerticalAlignment="Center" />
-                    <TextBlock Text="بداية إنتاج يوم جديد" Margin="8,0,0,0"
-                               FontSize="{DynamicResource FontLarge}" FontWeight="Bold" />
-                </StackPanel>
-            </Button>
-
+                </Border>
+            </UniformGrid>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
