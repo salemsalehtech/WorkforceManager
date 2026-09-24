@@ -124,6 +124,7 @@ namespace WorkforceManager.Business.Services
                     FamilyName: product?.Family?.Name,
                     IsComplete: product is not null && MonthlyPlanService.IsComplete(product),
                     PieceWeightGrams: product?.PieceWeightGrams,
+                    Material: product?.Material,
                     PlannedQuantity: plannedQuantity,
                     AchievedToDate: achieved,
                     CorrectionsToDate: correctionTotal,

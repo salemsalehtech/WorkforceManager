@@ -1,3 +1,5 @@
+using WorkforceManager.Core.Enums;
+
 namespace WorkforceManager.Business.DTOs
 {
     /// <summary>الحالة اللونية لتقدّم منتج مقابل خطته — نفس منطق tint/ink الموجود، بدون ألوان خام جديدة</summary>
@@ -15,6 +17,7 @@ namespace WorkforceManager.Business.DTOs
         string? FamilyName,
         bool IsComplete,
         decimal? PieceWeightGrams,
+        Material? Material,
 
         int PlannedQuantity,
         int AchievedToDate,       // من DailyProductionReportService — من أول الشهر لحد asOfDate
@@ -42,5 +45,9 @@ namespace WorkforceManager.Business.DTOs
         int? SameDayPreviousMonth,
 
         /// <summary>عنده إنتاج في الشهر ده بس مفيش خطة مسجّلة — "إنتاج خارج الخطة"، مش 0% مضلّلة</summary>
-        bool IsOutsidePlan);
+        bool IsOutsidePlan)
+    {
+        /// <summary>وزن المحقق الفعلي = وزن القطعة × EffectiveAchieved — null لو المنتج ماله وزن مسجّل</summary>
+        public decimal? TotalWeightGrams => PieceWeightGrams is { } w ? w * EffectiveAchieved : null;
+    }
 }

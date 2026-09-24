@@ -1,29 +1,30 @@
 using ClosedXML.Excel;
 using WorkforceManager.Business.DTOs;
+using WorkforceManager.Core.Enums;
 
 namespace WorkforceManager.Business.Services
 {
     /// <summary>
     /// تصدير شاشة الخطة الشهرية لإكسل — **service منفصلة، مش امتداد
-    /// لـReportTableExcelService**: تخطيطها (عيلة → صفوف منتجاتها → صف
-    /// subtotal ملوّن داخل نفس الشيت → العيلة التالية) مختلف عن نموذج
-    /// ReportTable (صف Totals واحد بس على مستوى الجدول كله)، فتوسيع
-    /// ReportTable ليدعم subtotal-لكل-مجموعة كان هيأثر على كل شاشة
+    /// لـReportTableExcelService**: تخطيطها (مادة → عيلة → صفوف منتجاتها
+    /// → صف subtotal ملوّن → العيلة التالية → صف subtotal المادة) مختلف
+    /// عن نموذج ReportTable (صف Totals واحد بس على مستوى الجدول كله)،
+    /// فتوسيع ReportTable ليدعم subtotal بمستويين كان هيأثر على كل شاشة
     /// تستخدمها. **بس نفس الأسلوب البصري بالظبط** (الألوان، RTL، عنوان
     /// بالفترة) — عبر الميثودز الـinternal المشتركة في ReportTableExcelService،
     /// مش تكرارهم.
     ///
     /// **الشكل: تخطيط التطبيق النضيف**، مش محاكاة شيت المصنع القديم —
     /// عمود واحد لكل رقم (مش عمودين "تام/داخل" مدمجين زي القديم)، وخطة
-    /// العيلة صف SUM محسوب مالوش أي كتابة يدوية عليه (نفس قاعدة الشاشة).
-    /// ملف عادي قابل للتعديل — قيم وتنسيق بس، مفيش حماية/قفل.
+    /// العيلة/المادة صف SUM محسوب مالوش أي كتابة يدوية عليه (نفس قاعدة
+    /// الشاشة). ملف عادي قابل للتعديل — قيم وتنسيق بس، مفيش حماية/قفل.
     /// </summary>
     public class MonthlyPlanExcelService
     {
         private static readonly string[] Headers =
         {
             "المنتج", "مخطط الشهر", "محقق", "تصليحات", "نسبة المحقق",
-            "إنتاج اليوم", "المطلوب يوميًا", "توقّع نهاية الشهر"
+            "إنتاج اليوم", "المطلوب يوميًا", "توقّع نهاية الشهر", "الوزن (كجم)"
         };
 
         public void Export(
@@ -47,30 +48,50 @@ namespace WorkforceManager.Business.Services
                 ReportTableExcelService.WriteHeader(sheet.Cell(headerRow, c + 1), Headers[c]);
             row++;
 
-            var groups = tracking
-                .Where(p => p.FamilyId is not null)
-                .GroupBy(p => (p.FamilyId!.Value, p.FamilyName ?? ""))
-                .OrderBy(g => g.Key.Item2)
-                .Select(g => (Name: g.Key.Item2, Products: g.ToList()))
+            // مادة (نحاس/زاما/غير محدد) فوق عيلة — نفس ترتيب شيت المصنع الأصلي
+            var materialGroups = tracking
+                .GroupBy(p => p.Material)
+                .OrderBy(g => g.Key switch { Material.Copper => 0, Material.Zamak => 1, _ => 2 })
+                .Select(g => (Header: g.Key switch { Material.Copper => "نحاس", Material.Zamak => "زاما", _ => "غير محدد" },
+                    Products: g.ToList()))
                 .ToList();
 
-            var noFamily = tracking.Where(p => p.FamilyId is null).ToList();
-            if (noFamily.Count > 0) groups.Add(("بدون عيلة", noFamily));
-
-            foreach (var (familyName, products) in groups)
+            foreach (var (materialHeader, materialProducts) in materialGroups)
             {
                 sheet.Range(row, 1, row, lastColumn).Merge();
-                sheet.Cell(row, 1).Value = familyName;
-                sheet.Cell(row, 1).Style.Font.SetBold().Font.SetFontColor(ReportTableExcelService.AccentColor);
+                sheet.Cell(row, 1).Value = materialHeader;
+                sheet.Cell(row, 1).Style.Font.SetBold().Font.SetFontSize(12).Font.SetFontColor(XLColor.White);
+                sheet.Cell(row, 1).Style.Fill.SetBackgroundColor(ReportTableExcelService.HeaderColor);
                 row++;
 
-                foreach (var p in products.OrderBy(p => p.ProductName))
+                var familyGroups = materialProducts
+                    .Where(p => p.FamilyId is not null)
+                    .GroupBy(p => (p.FamilyId!.Value, p.FamilyName ?? ""))
+                    .OrderBy(g => g.Key.Item2)
+                    .Select(g => (Name: g.Key.Item2, Products: g.ToList()))
+                    .ToList();
+
+                var noFamily = materialProducts.Where(p => p.FamilyId is null).ToList();
+                if (noFamily.Count > 0) familyGroups.Add(("بدون عيلة", noFamily));
+
+                foreach (var (familyName, products) in familyGroups)
                 {
-                    WriteProductRow(sheet, row, p);
+                    sheet.Range(row, 1, row, lastColumn).Merge();
+                    sheet.Cell(row, 1).Value = familyName;
+                    sheet.Cell(row, 1).Style.Font.SetBold().Font.SetFontColor(ReportTableExcelService.AccentColor);
+                    row++;
+
+                    foreach (var p in products.OrderBy(p => p.ProductName))
+                    {
+                        WriteProductRow(sheet, row, p);
+                        row++;
+                    }
+
+                    WriteSubtotalRow(sheet, row, products);
                     row++;
                 }
 
-                WriteSubtotalRow(sheet, row, products);
+                WriteSubtotalRow(sheet, row, materialProducts, label: $"إجمالي محقق {materialHeader}");
                 row++;
             }
 
@@ -93,6 +114,9 @@ namespace WorkforceManager.Business.Services
             sheet.Cell(row, 6).Value = p.TodayCompleted;
             sheet.Cell(row, 7).Value = p.RequiredDailyOutput;
             sheet.Cell(row, 8).Value = p.ForecastEndOfMonth;
+            // وزن المحقق بالكيلوجرام — TotalWeightGrams محسوبة (وزن القطعة × المحقق)، null لو المنتج ماله وزن مسجّل
+            sheet.Cell(row, 9).Value = p.TotalWeightGrams is { } g ? g / 1000m : (decimal?)null;
+            if (p.TotalWeightGrams is not null) sheet.Cell(row, 9).Style.NumberFormat.Format = "#,##0.00";
 
             for (var c = 2; c <= 8; c++)
                 if (c != 5) sheet.Cell(row, c).Style.NumberFormat.Format = "#,##0";
@@ -103,14 +127,17 @@ namespace WorkforceManager.Business.Services
         {
             var plan = products.Sum(p => p.PlannedQuantity);
             var achieved = products.Sum(p => p.EffectiveAchieved);
+            var withWeight = products.Where(p => p.TotalWeightGrams is not null).ToList();
+            var totalWeightKg = withWeight.Count == 0 ? (decimal?)null : withWeight.Sum(p => p.TotalWeightGrams!.Value) / 1000m;
 
             sheet.Cell(row, 1).Value = label ?? "إجمالي القسم";
             sheet.Cell(row, 2).Value = plan;
             sheet.Cell(row, 3).Value = achieved;
             // نسبة الإجمالي = محقق ÷ مخطط الشهر كامل (بس لصف الملخص، مش نفس تعريف نسبة المحقق pro-rated لكل صف)
             if (plan > 0) { sheet.Cell(row, 5).Value = (double)achieved / plan; sheet.Cell(row, 5).Style.NumberFormat.Format = "0%"; }
+            if (totalWeightKg is not null) { sheet.Cell(row, 9).Value = totalWeightKg; sheet.Cell(row, 9).Style.NumberFormat.Format = "#,##0.00"; }
 
-            var range = sheet.Range(row, 1, row, 8);
+            var range = sheet.Range(row, 1, row, 9);
             range.Style.Font.SetBold();
             range.Style.Fill.SetBackgroundColor(ReportTableExcelService.TotalsColor);
             sheet.Cell(row, 2).Style.NumberFormat.Format = "#,##0";
