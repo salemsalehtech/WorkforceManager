@@ -40,8 +40,16 @@ namespace WorkforceManager.Tests
             Assert.Equal(0, summary.ActiveWorkersThisWeek);
             Assert.Equal(0m, summary.NetWorkdaysThisWeek);
             Assert.Null(summary.BestWorkerOfWeek);
+            Assert.Null(summary.WorstWorkerOfWeek);
+            Assert.Null(summary.TopProduct);
+            Assert.Null(summary.BottomProduct);
             Assert.Empty(summary.StaleInitialBalances);
-            Assert.Equal(0, summary.DueMemoriesCount);
+            Assert.Empty(summary.DueSoonMemories);
+            Assert.Equal(0, summary.UnexcusedAbsencesThisWeek);
+            Assert.Equal(0, summary.StreakDays);
+            Assert.False(summary.StreakIsCapped);
+            Assert.Equal(0, summary.PreviousWeekActiveWorkers);
+            Assert.Equal(0m, summary.PreviousWeekNetWorkdays);
         }
 
         [Fact]
@@ -147,19 +155,191 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
-        public async Task A_due_memory_plan_is_counted()
+        public async Task Memory_plans_due_within_the_window_are_listed_and_later_ones_are_not()
         {
             using (var scope = _db.CreateScope())
             {
-                await _db.GetService<ProductionMemoryService>(scope).CreateAsync(
-                    TestDatabase.ProductBagId,
-                    new[] { TestDatabase.BagStage1Id },
+                var memory = _db.GetService<ProductionMemoryService>(scope);
+                await memory.CreateAsync(TestDatabase.ProductBagId, new[] { TestDatabase.BagStage1Id },
                     "خطة مستحقة", Today);
+                await memory.CreateAsync(TestDatabase.ProductRingId, new[] { TestDatabase.RingStage1Id },
+                    "خطة قريبة", Today.AddDays(HomeDashboardRules.MemoryDueSoonDays));
+                await memory.CreateAsync(TestDatabase.ProductChainId, new[] { TestDatabase.ChainStage1Id },
+                    "خطة بعيدة", Today.AddDays(HomeDashboardRules.MemoryDueSoonDays + 1));
             }
 
             var summary = await GetSummaryAsync();
 
-            Assert.Equal(1, summary.DueMemoriesCount);
+            Assert.Equal(new[] { "خطة مستحقة", "خطة قريبة" }, summary.DueSoonMemories.Select(m => m.Notes));
+        }
+
+        [Fact]
+        public async Task Previous_week_active_workers_and_net_workdays_come_from_the_week_before()
+        {
+            var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(Today);
+
+            await RecordProductionAsync(TestDatabase.RingStage1Id, 100, TestDatabase.WorkerAhmedId, weekStart.AddDays(-7));
+            await RecordProductionAsync(TestDatabase.ChainStage1Id, 50, TestDatabase.WorkerSaidId, weekStart.AddDays(-7));
+
+            var previousTeam = await _db.InScopeAsync<WeeklySummaryService, List<WorkerWeeklySummaryDto>>(
+                s => s.GetTeamWeeklySummaryAsync(weekStart.AddDays(-7)));
+
+            var summary = await GetSummaryAsync();
+
+            Assert.Equal(2, summary.PreviousWeekActiveWorkers);
+            Assert.Equal(previousTeam.Sum(w => w.NetWorkdays), summary.PreviousWeekNetWorkdays);
+            Assert.Equal(0, summary.ActiveWorkersThisWeek);
+        }
+
+        [Fact]
+        public async Task Unexcused_absences_match_the_weekly_summary_and_excused_ones_do_not_count()
+        {
+            var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(Today);
+
+            using (var scope = _db.CreateScope())
+            {
+                var attendance = _db.GetService<AttendanceService>(scope);
+                await attendance.RecordAttendanceBatchAsync(weekStart, new[]
+                {
+                    (TestDatabase.WorkerAhmedId, AttendanceStatus.AbsentWithoutPermission),
+                    (TestDatabase.WorkerSaidId, AttendanceStatus.AbsentWithPermission)
+                });
+                await attendance.RecordAttendanceBatchAsync(weekStart.AddDays(1), new[]
+                {
+                    (TestDatabase.WorkerSaidId, AttendanceStatus.AbsentWithoutPermission)
+                });
+                await attendance.RecordAttendanceBatchAsync(weekStart.AddDays(-7), new[]
+                {
+                    (TestDatabase.WorkerSaidId, AttendanceStatus.AbsentWithoutPermission)
+                });
+            }
+
+            var team = await _db.InScopeAsync<WeeklySummaryService, List<WorkerWeeklySummaryDto>>(
+                s => s.GetTeamWeeklySummaryAsync(weekStart));
+
+            var summary = await GetSummaryAsync();
+
+            Assert.Equal(team.Sum(w => w.AbsentWithoutPermissionDays), summary.UnexcusedAbsencesThisWeek);
+            Assert.Equal(2, summary.UnexcusedAbsencesThisWeek);
+            Assert.Equal(1, summary.PreviousWeekUnexcusedAbsences);
+        }
+
+        [Fact]
+        public async Task Streak_counts_clean_recorded_days_and_stops_at_the_last_unexcused_absence()
+        {
+            using (var scope = _db.CreateScope())
+            {
+                var attendance = _db.GetService<AttendanceService>(scope);
+                // الاتنين 27 غياب بدون إذن ← الثلاثاء 28 والأربع 29 (النهارده) نضاف
+                await attendance.RecordAttendanceBatchAsync(Today.AddDays(-2), new[]
+                {
+                    (TestDatabase.WorkerAhmedId, AttendanceStatus.AbsentWithoutPermission)
+                });
+                foreach (var day in new[] { Today.AddDays(-1), Today })
+                    await attendance.RecordAttendanceBatchAsync(day, new[]
+                    {
+                        (TestDatabase.WorkerAhmedId, AttendanceStatus.Present),
+                        (TestDatabase.WorkerSaidId, AttendanceStatus.Present)
+                    });
+            }
+
+            var summary = await GetSummaryAsync();
+
+            Assert.Equal(2, summary.StreakDays);
+            Assert.False(summary.StreakIsCapped);
+        }
+
+        [Fact]
+        public async Task Top_and_bottom_products_carry_their_previous_week_pieces()
+        {
+            var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(Today);
+
+            await RecordProductionAsync(TestDatabase.ChainStage1Id, 90, TestDatabase.WorkerSaidId, weekStart);
+            await RecordProductionAsync(TestDatabase.ChainStage1Id, 30, TestDatabase.WorkerSaidId, weekStart.AddDays(-7));
+            // الدبلة مرحلتين — التام بيتحسب على آخر مرحلة (تلميع)
+            await RecordProductionAsync(TestDatabase.RingStage1Id, 20, TestDatabase.WorkerAhmedId, weekStart);
+            await RecordProductionAsync(TestDatabase.RingStage2Id, 20, TestDatabase.WorkerAhmedId, weekStart);
+
+            var summary = await GetSummaryAsync();
+
+            Assert.Equal(new HomeProductStat(TestDatabase.ProductChainId, "سلسلة", 90, 30), summary.TopProduct);
+            Assert.Equal(new HomeProductStat(TestDatabase.ProductRingId, "دبلة", 20, 0), summary.BottomProduct);
+        }
+
+        [Fact]
+        public async Task Bottom_product_is_null_when_only_one_product_worked_this_week()
+        {
+            var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(Today);
+            await RecordProductionAsync(TestDatabase.ChainStage1Id, 90, TestDatabase.WorkerSaidId, weekStart);
+
+            var summary = await GetSummaryAsync();
+
+            Assert.NotNull(summary.TopProduct);
+            Assert.Null(summary.BottomProduct);
+        }
+
+        /// <summary>
+        /// بيضيف عاملين إنتاج زيادة (مؤهلين على كل المراحل) — قاعدة الاختبار
+        /// فيها عاملين إنتاج بس، و"الأقل أداءً" محتاج 4 في الترتيب.
+        /// </summary>
+        private async Task<(int Third, int Fourth)> AddTwoMoreProductionWorkersAsync()
+        {
+            using var scope = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(scope);
+
+            var third = new Worker { FullName = "كريم", IsActive = true, DailyWageEgp = 200m };
+            var fourth = new Worker { FullName = "هاني", IsActive = true, DailyWageEgp = 200m };
+            db.Workers.AddRange(third, fourth);
+            await db.SaveChangesAsync();
+
+            foreach (var workerId in new[] { third.Id, fourth.Id })
+            foreach (var stageId in new[] { TestDatabase.RingStage1Id, TestDatabase.ChainStage1Id })
+                db.WorkerSkills.Add(new WorkerSkill { WorkerId = workerId, ProductionStageId = stageId, Level = SkillLevel.Proficient });
+            await db.SaveChangesAsync();
+
+            return (third.Id, fourth.Id);
+        }
+
+        [Fact]
+        public async Task Worst_worker_is_hidden_while_fewer_than_four_workers_are_ranked()
+        {
+            var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(Today);
+            await RecordProductionAsync(TestDatabase.RingStage1Id, 200, TestDatabase.WorkerAhmedId, weekStart);
+            await RecordProductionAsync(TestDatabase.RingStage1Id, 50, TestDatabase.WorkerSaidId, weekStart);
+
+            var summary = await GetSummaryAsync();
+
+            Assert.NotNull(summary.BestWorkerOfWeek);
+            Assert.Null(summary.WorstWorkerOfWeek);
+        }
+
+        [Fact]
+        public async Task Worst_worker_is_the_same_person_quick_search_names_for_worst_worker()
+        {
+            // البحث السريع بيحسب "الأسبوع ده" من ساعة الجهاز، فالاختبار ده بيشتغل
+            // على أسبوع النهارده الحقيقي عشان الاتنين يقارنوا نفس الفترة
+            var realToday = DateTime.Today;
+            var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(realToday);
+            var (third, fourth) = await AddTwoMoreProductionWorkersAsync();
+
+            await RecordProductionAsync(TestDatabase.RingStage1Id, 200, TestDatabase.WorkerAhmedId, weekStart);
+            await RecordProductionAsync(TestDatabase.RingStage1Id, 150, TestDatabase.WorkerSaidId, weekStart);
+            await RecordProductionAsync(TestDatabase.RingStage1Id, 100, third, weekStart);
+            await RecordProductionAsync(TestDatabase.RingStage1Id, 20, fourth, weekStart);
+            // عامل ماأنتجش خالص (غياب بس) عمره مايتسمّى "الأقل أداءً"
+            using (var scope = _db.CreateScope())
+                await _db.GetService<AttendanceService>(scope).RecordAttendanceBatchAsync(weekStart.AddDays(1), new[]
+                {
+                    (TestDatabase.WorkerMonaHourlyId, AttendanceStatus.AbsentWithoutPermission)
+                });
+
+            var summary = await _db.InScopeAsync<HomeSummaryService, HomeSummaryDto>(s => s.GetSummaryAsync(realToday));
+            var searchAnswer = await _db.InScopeAsync<SearchIntentService, SearchIntentAnswer?>(s => s.AnswerAsync("اسوا عامل"));
+
+            Assert.NotNull(summary.WorstWorkerOfWeek);
+            Assert.Equal(fourth, summary.WorstWorkerOfWeek!.WorkerId);
+            Assert.Equal(searchAnswer!.WorkerId, summary.WorstWorkerOfWeek.WorkerId);
+            Assert.NotEqual(summary.BestWorkerOfWeek!.WorkerId, summary.WorstWorkerOfWeek.WorkerId);
         }
 
         [Fact]
@@ -186,8 +366,8 @@ namespace WorkforceManager.Tests
 
             var summary = await GetSummaryAsync();
 
-            Assert.Equal("سلسلة", summary.TopProductName);
-            Assert.Equal(90, summary.TopProductPieces);
+            Assert.Equal("سلسلة", summary.TopProduct!.ProductName);
+            Assert.Equal(90, summary.TopProduct.Pieces);
         }
 
         [Fact]

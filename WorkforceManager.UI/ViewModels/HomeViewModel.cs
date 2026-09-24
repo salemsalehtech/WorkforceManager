@@ -135,8 +135,8 @@ namespace WorkforceManager.UI.ViewModels
                         * 100.0 / summary.PreviousWeekTotalPieces)
                     : null;
 
-                TopProductName = summary.TopProductName;
-                TopProductPieces = summary.TopProductPieces;
+                TopProductName = summary.TopProduct?.ProductName;
+                TopProductPieces = summary.TopProduct?.Pieces ?? 0;
 
                 AttendanceRatePercent = summary.AttendanceRatePercent;
 
@@ -146,7 +146,8 @@ namespace WorkforceManager.UI.ViewModels
                     : NameInitials.From(summary.BestWorkerOfWeek.WorkerName);
 
                 StaleBalanceCount = summary.StaleInitialBalances.Count;
-                DueMemoriesCount = summary.DueMemoriesCount;
+                // مؤقت لحد إعادة تصميم الشاشة: نفس معنى "مستحقة" القديم (فات أو النهارده)
+                DueMemoriesCount = summary.DueSoonMemories.Count(m => m.RemindOn.Date <= DateTime.Today);
             }
             finally { IsBusy = false; }
         }
