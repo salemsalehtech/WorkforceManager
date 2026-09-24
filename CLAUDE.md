@@ -2677,6 +2677,28 @@ Core  <----------------------- UI
   the same way it already does `KpiSection.Columns` (4 → 2 at the 900px minimum width), the same fix
   shape as the documented `ProductsView` column-clipping bug above.
 
+- **A follow-up pass added material-level grouping, computed weight, and a per-group daily gap to the
+  Monthly Plan screen** — modeled directly on the factory's original hand-kept Excel sheet
+  (`Product.Material`: Copper/Zamak, `Product.PieceWeightGrams`, and the workday-calendar
+  total/elapsed/remaining counts all matched the sheet's own numbers when checked against it, confirming
+  the Task 25/26 foundation already tracked the right things).
+  **`MonthlyPlanViewModel.MaterialGroups` is now the top grouping level, `FamilyGroups` nested inside
+  each** (`MonthlyPlanMaterialGroupRow` → `MonthlyPlanFamilyGroupRow` → `MonthlyPlanProductRow`) — two
+  fully separate sections (نحاس، زاما، plus "غير محدد" for products without a material), each with its
+  own plan/achieved/weight subtotal, same shape as the sheet's two standalone totals blocks. `AllFamilyGroups`
+  (flattened across materials) stays `public` on the ViewModel for the aggregate counts and for the
+  code-behind's "find the owning group" lookup after a save.
+  **`MonthlyPlanTrackingDto.TotalWeightGrams`** (computed property, `PieceWeightGrams × EffectiveAchieved`,
+  `null` when the product has no weight) is summed at every level (product → family → material) — verified
+  against the sheet by hand: `0.077 kg × 35900 pieces ≈ 2764 kg`, matching its "إجمالي الوزن" column
+  exactly. Shown in the UI (kg, `TotalWeightKg = TotalWeightGrams / 1000`) and in the Excel export (its
+  own column, summed into every subtotal row including the new per-material "إجمالي محقق {نحاس/زاما}" row).
+  **`MonthlyPlanFamilyGroupRow.DailyGap`** — the sheet's per-group "إجمالي الانتاج اليومي"/"تصليحات"
+  columns turned out to be group-level, not per-product — `DailyGap = Σ(TodayCompleted) − Σ(RequiredDailyOutput)`
+  across the group's products that still have a requirement; negative (red) means the group is still short
+  of today's combined target, positive (green) means it's ahead. `CorrectionsSubtotal` is a plain `Sum`
+  of the group's products' corrections, same shape as `Subtotal`/`AchievedSubtotal`.
+
 ## Environment note
 
 .NET 8 SDK was installed via winget but may not be in PATH for fresh shells; if `dotnet` isn't found in
