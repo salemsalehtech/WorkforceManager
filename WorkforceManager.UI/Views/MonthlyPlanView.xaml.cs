@@ -79,6 +79,43 @@ namespace WorkforceManager.UI.Views
             }
         }
 
+        /// <summary>
+        /// "الخطة اليومية" — هدف يومي يدوي، اختياري. عكس الكمية/التصليح،
+        /// نص فاضي هنا معناه "مفيش هدف" (null)، مش صفر — فمفيش تطبيع لصفر
+        /// زي باقي الحقول.
+        /// </summary>
+        private async void DailyTargetBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is not TextBox { Tag: MonthlyPlanProductRow row }) return;
+
+            var text = row.DailyTargetText.Trim();
+            int? target;
+
+            if (text.Length == 0)
+            {
+                target = null;
+            }
+            else if (int.TryParse(text, out var parsed) && parsed >= 0)
+            {
+                target = parsed;
+                row.DailyTargetText = parsed.ToString(); // بيشيل أصفار زيادة زي "007"
+            }
+            else
+            {
+                Notify.Warn("الخطة اليومية لازم تكون رقم صحيح أو فاضية", "قيمة غير صحيحة");
+                return;
+            }
+
+            try
+            {
+                await _viewModel.SaveDailyTargetAsync(row.ProductId, target);
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "خطأ في حفظ الخطة اليومية");
+            }
+        }
+
         /// <summary>"لقطة يوم معيّن" (البند 9) — تغيير AsOfDate بيعيد حساب التتبّع كله لحد التاريخ ده</summary>
         private async void AsOfDatePicker_SelectedDateChanged(object sender, SelectionChangedEventArgs e)
         {

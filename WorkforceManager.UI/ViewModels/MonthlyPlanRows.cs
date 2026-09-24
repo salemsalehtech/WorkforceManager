@@ -20,6 +20,14 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>القيمة الرقمية الحالية — 0 لو النص مش رقم صحيح</summary>
         public int Quantity => int.TryParse(QuantityText, out var q) ? q : 0;
 
+        /// <summary>
+        /// "الخطة اليومية" — هدف يومي يدوي (فاضي = null = مفيش هدف محدد)،
+        /// منفصل عن RequiredDailyOutput المحسوب. زي عمود "انتاج اليوم" في
+        /// شيت المصنع القديم.
+        /// </summary>
+        [ObservableProperty] private string _dailyTargetText = "";
+        public int? DailyTarget => int.TryParse(DailyTargetText, out var t) ? t : null;
+
         // ------- تتبّع (من MonthlyPlanTrackingDto) -------
 
         public int AchievedToDate { get; set; }

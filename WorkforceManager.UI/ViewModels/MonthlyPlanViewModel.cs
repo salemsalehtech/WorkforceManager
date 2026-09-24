@@ -213,6 +213,7 @@ namespace WorkforceManager.UI.ViewModels
             RequiredDailyOutput = p.RequiredDailyOutput, ForecastEndOfMonth = p.ForecastEndOfMonth,
             SameDayPreviousMonth = p.SameDayPreviousMonth, IsOutsidePlan = p.IsOutsidePlan,
             CorrectionText = p.CorrectionsToDate.ToString(),
+            DailyTargetText = p.DailyTargetQuantity?.ToString() ?? "",
             TotalWeightGrams = p.TotalWeightGrams
         };
 
@@ -221,6 +222,14 @@ namespace WorkforceManager.UI.ViewModels
             using var scope = _scopeFactory.CreateScope();
             await scope.ServiceProvider.GetRequiredService<MonthlyPlanService>()
                 .SetPlanAsync(productId, SelectedYear, SelectedMonth, quantity);
+        }
+
+        /// <summary>"الخطة اليومية" — هدف يومي يدوي، null بيشيله (مش صفر)</summary>
+        public async Task SaveDailyTargetAsync(int productId, int? dailyTarget)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<MonthlyPlanService>()
+                .SetDailyTargetAsync(productId, SelectedYear, SelectedMonth, dailyTarget);
         }
 
         /// <summary>تصليح — دايمًا على يوم AsOfDate المعروض، مش النهارده الحقيقي بالضرورة (لقطة يوم فات)</summary>

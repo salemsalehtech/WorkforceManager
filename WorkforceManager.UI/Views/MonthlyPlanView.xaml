@@ -275,13 +275,24 @@
                                                             <Run Text="توقّع نهاية الشهر:" /><Run Text="{Binding ForecastEndOfMonth, Mode=OneWay}" FontWeight="Bold"
                                                                 Foreground="{DynamicResource TextPrimaryBrush}" />
                                                         </TextBlock>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,18,4">
                                                             <TextBlock Text="تصليحات:" FontSize="11.5" VerticalAlignment="Center"
                                                                        Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,6,0" />
                                                             <TextBox Text="{Binding CorrectionText, UpdateSourceTrigger=PropertyChanged}"
                                                                      Width="60" TextAlignment="Center" FontSize="11.5" Tag="{Binding}"
                                                                      LostFocus="CorrectionBox_LostFocus"
                                                                      ToolTip="تعديل يدوي على المحقق ليوم اللقطة المعروض — مش مشتق من أي رحلة إنتاج" />
+                                                        </StackPanel>
+
+                                                        <!-- الخطة اليومية: هدف يومي يدوي بيحدده المستخدم بنفسه، مختلف عن
+                                                             "المطلوب النهارده" المحسوب فوق (اللي بيتغيّر كل ما الأيام تنقص) -->
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                            <TextBlock Text="الخطة اليومية:" FontSize="11.5" VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,6,0" />
+                                                            <TextBox Text="{Binding DailyTargetText, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Width="60" TextAlignment="Center" FontSize="11.5" Tag="{Binding}"
+                                                                     LostFocus="DailyTargetBox_LostFocus"
+                                                                     ToolTip="هدف يومي يدوي — سايبه فاضي يعني مفيش هدف محدد لهذا المنتج" />
                                                         </StackPanel>
                                                         <Border Background="{DynamicResource GoldTintBrush}" CornerRadius="8" Padding="7,1" Margin="0,0,0,4"
                                                                 Visibility="{Binding IsOutsidePlan, Converter={StaticResource BoolToVis}}">
