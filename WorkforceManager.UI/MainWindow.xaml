@@ -232,6 +232,16 @@
                         </StackPanel>
                     </RadioButton>
 
+                    <RadioButton x:Name="NavMonthlyPlanItem" Style="{StaticResource NavItem}"
+                                 Checked="NavMonthlyPlan_Checked" Click="NavMonthlyPlan_Checked"
+                                 AutomationProperties.Name="الخطة الشهرية">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="CalendarMonthOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource GoldBrush}" />
+                            <TextBlock Text="الخطة الشهرية" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+
                     <RadioButton x:Name="NavDailyEntryItem" Style="{StaticResource NavItem}"
                                  Checked="NavDailyEntry_Checked" Click="NavDailyEntry_Checked"
                                  AutomationProperties.Name="تسجيل الإنتاج اليومي">

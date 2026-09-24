@@ -119,7 +119,7 @@ namespace WorkforceManager.UI
         {
             foreach (var item in new[]
             {
-                NavHomeItem, NavWorkersItem, NavProductsItem, NavDailyEntryItem, NavMemoryItem, NavEvaluationItem,
+                NavHomeItem, NavWorkersItem, NavProductsItem, NavMonthlyPlanItem, NavDailyEntryItem, NavMemoryItem, NavEvaluationItem,
                 NavReportsItem, NavActivityLogItem, NavSettingsItem, NavDepartmentAccountsItem, NavHelpItem
             })
             {
@@ -658,6 +658,15 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
             if (ExitSandboxOnRealNavigation()) return;
             MainContent.Content = _session.GetRequiredService<ProductsView>();
+            RefreshActivityBadge();
+            RefreshMemoryBadge();
+        }
+
+        private void NavMonthlyPlan_Checked(object sender, RoutedEventArgs e)
+        {
+            if (MainContent is null) return;
+            if (ExitSandboxOnRealNavigation()) return;
+            MainContent.Content = _session.GetRequiredService<MonthlyPlanView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
         }
