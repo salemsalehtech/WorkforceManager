@@ -59,6 +59,8 @@ namespace WorkforceManager.UI
             services.AddScoped<WeeklySummaryService>();
             services.AddScoped<WorkerManagementService>();
             services.AddScoped<ProductManagementService>();
+            services.AddScoped<ProductFamilyService>();
+            services.AddScoped<MonthlyPlanService>();
             services.AddScoped<ProductionFlowService>();
             services.AddScoped<DailyOperationsSignOffService>();
             services.AddScoped<ProductionMemoryService>();
@@ -128,6 +130,8 @@ namespace WorkforceManager.UI
             services.AddTransient<ViewModels.ReportBuilderViewModel>();
             services.AddTransient<Views.ProductsView>();
             services.AddTransient<ViewModels.ProductsViewModel>();
+            services.AddTransient<Views.MonthlyPlanView>();
+            services.AddTransient<ViewModels.MonthlyPlanViewModel>();
             services.AddTransient<Views.MemoryView>();
             services.AddTransient<ViewModels.MemoryViewModel>();
             services.AddTransient<Views.ActivityLogView>();
