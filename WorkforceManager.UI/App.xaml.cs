@@ -375,27 +375,45 @@ namespace WorkforceManager.UI
             for (var i = 0; i < due.Count; i++)
             {
                 var memory = due[i];
-                var dialog = Views.MemoryReminderDialog.Show(owner, memory);
-
-                if (dialog.Choice == Views.MemoryReminderChoice.Postpone)
+                var choice = await ShowMemoryReminderAsync(owner, memory, beforeStart: () =>
                 {
-                    using var scope = AppHost.Services.CreateScope();
-                    await scope.ServiceProvider.GetRequiredService<ProductionMemoryService>()
-                        .PostponeAsync(memory.Id, dialog.NewRemindOn);
-                    continue;
-                }
+                    // باقي التذكيرات هتستخبى لحد التشغيلة الجاية (كومنت الميثود
+                    // فوق) — نطمّن المستخدم إنها لسه موجودة، مش ضاعت
+                    var remaining = due.Count - i - 1;
+                    if (remaining > 0)
+                        Notify.Info($"في {remaining} خطة كمان مستنياك في الذاكرة", "تذكيرات تانية");
+                });
 
-                if (dialog.Choice != Views.MemoryReminderChoice.Start) continue;
-
-                // باقي التذكيرات هتستخبى لحد التشغيلة الجاية (كومنت الميثود
-                // فوق) — نطمّن المستخدم إنها لسه موجودة، مش ضاعت
-                var remaining = due.Count - i - 1;
-                if (remaining > 0)
-                    Notify.Info($"في {remaining} خطة كمان مستنياك في الذاكرة", "تذكيرات تانية");
-
-                await StartMemorySessionAsync(memory);
-                return; // الشاشة اتفتحت — باقي التذكيرات لبكرة
+                if (choice == Views.MemoryReminderChoice.Start)
+                    return; // الشاشة اتفتحت — باقي التذكيرات لبكرة
             }
+        }
+
+        /// <summary>
+        /// تذكير خطة ذاكرة واحدة بالكامل: الديالوج + "أجّل" (PostponeAsync) أو
+        /// "ابدأ الآن" (StartMemorySessionAsync). **مكان واحد** بيستخدمه ديالوج
+        /// بدء التشغيل وكارت الذاكرة في الرئيسية، عشان الزرارين يتصرفوا
+        /// بنفس الطريقة بالظبط من المكانين.
+        /// </summary>
+        /// <param name="beforeStart">بيتنفذ قبل فتح الجلسة لو المستخدم اختار "ابدأ الآن"</param>
+        internal static async Task<Views.MemoryReminderChoice> ShowMemoryReminderAsync(
+            Window owner, ProductionMemoryDto memory, Action? beforeStart = null)
+        {
+            var dialog = Views.MemoryReminderDialog.Show(owner, memory);
+
+            if (dialog.Choice == Views.MemoryReminderChoice.Postpone)
+            {
+                using var scope = AppHost.Services.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<ProductionMemoryService>()
+                    .PostponeAsync(memory.Id, dialog.NewRemindOn);
+            }
+            else if (dialog.Choice == Views.MemoryReminderChoice.Start)
+            {
+                beforeStart?.Invoke();
+                await StartMemorySessionAsync(memory);
+            }
+
+            return dialog.Choice;
         }
 
         /// <summary>
@@ -623,7 +641,7 @@ namespace WorkforceManager.UI
         /// مكان العطل بالظبط، فبدل "البرنامج مش بيفتح" يبقى فيه سطر
         /// بيقول العطل فين.
         /// </summary>
-        private static string WriteCrashLog(Exception ex)
+        internal static string WriteCrashLog(Exception ex)
         {
             var path = Path.Combine(AppPaths.DataFolder, "crash.txt");
 
