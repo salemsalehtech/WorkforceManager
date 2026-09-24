@@ -101,6 +101,81 @@ namespace WorkforceManager.Tests
                 { await s.SetPlanAsync(TestDatabase.ProductRingId, Year, Month, -1); return true; }));
         }
 
+        // ═══════════ الخطة اليومية (هدف يدوي، مستقل عن الكمية الشهرية) ═══════════
+
+        [Fact]
+        public async Task SetDailyTargetAsync_creates_row_with_zero_plan_when_none_exists()
+        {
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetDailyTargetAsync(TestDatabase.ProductRingId, Year, Month, 500); return true; });
+
+            using var scope = _db.CreateScope();
+            var row = await _db.GetService<AppDbContext>(scope).MonthlyPlans
+                .SingleAsync(mp => mp.ProductId == TestDatabase.ProductRingId && mp.Year == Year && mp.Month == Month);
+
+            Assert.Equal(500, row.DailyTargetQuantity);
+            Assert.Equal(0, row.PlannedQuantity); // مفيش خطة شهرية اتحطت، بس الصف لازم يتعمل عشان الهدف يتحفظ
+        }
+
+        [Fact]
+        public async Task SetDailyTargetAsync_does_not_touch_existing_planned_quantity()
+        {
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetPlanAsync(TestDatabase.ProductRingId, Year, Month, 9000); return true; });
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetDailyTargetAsync(TestDatabase.ProductRingId, Year, Month, 400); return true; });
+
+            using var scope = _db.CreateScope();
+            var row = await _db.GetService<AppDbContext>(scope).MonthlyPlans
+                .SingleAsync(mp => mp.ProductId == TestDatabase.ProductRingId && mp.Year == Year && mp.Month == Month);
+
+            Assert.Equal(9000, row.PlannedQuantity); // زي ما كانت
+            Assert.Equal(400, row.DailyTargetQuantity);
+        }
+
+        [Fact]
+        public async Task SetDailyTargetAsync_null_clears_the_target_not_sets_zero()
+        {
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetDailyTargetAsync(TestDatabase.ProductRingId, Year, Month, 500); return true; });
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetDailyTargetAsync(TestDatabase.ProductRingId, Year, Month, null); return true; });
+
+            using var scope = _db.CreateScope();
+            var row = await _db.GetService<AppDbContext>(scope).MonthlyPlans
+                .SingleAsync(mp => mp.ProductId == TestDatabase.ProductRingId && mp.Year == Year && mp.Month == Month);
+
+            Assert.Null(row.DailyTargetQuantity);
+        }
+
+        [Fact]
+        public async Task SetDailyTargetAsync_rejects_negative_value()
+        {
+            await Assert.ThrowsAsync<ArgumentException>(() =>
+                _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+                { await s.SetDailyTargetAsync(TestDatabase.ProductRingId, Year, Month, -1); return true; }));
+        }
+
+        [Fact]
+        public async Task CopyFromPreviousMonthAsync_carries_daily_target_too()
+        {
+            var prevMonth = Month - 1;
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            {
+                await s.SetPlanAsync(TestDatabase.ProductRingId, Year, prevMonth, 6000);
+                await s.SetDailyTargetAsync(TestDatabase.ProductRingId, Year, prevMonth, 300);
+                return true;
+            });
+
+            await _db.InScopeAsync<MonthlyPlanService, int>(s => s.CopyFromPreviousMonthAsync(Year, Month));
+
+            using var scope = _db.CreateScope();
+            var row = await _db.GetService<AppDbContext>(scope).MonthlyPlans
+                .SingleAsync(mp => mp.ProductId == TestDatabase.ProductRingId && mp.Year == Year && mp.Month == Month);
+
+            Assert.Equal(300, row.DailyTargetQuantity);
+        }
+
         // ═══════════ نسخ خطة الشهر اللي فات ═══════════
 
         [Fact]
