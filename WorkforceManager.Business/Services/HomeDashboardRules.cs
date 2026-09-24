@@ -74,6 +74,18 @@ namespace WorkforceManager.Business.Services
                 .ToList();
         }
 
+        /// <summary>
+        /// نسبة تغيّر رقم الأسبوع ده عن اللي فات، مقرّبة لأقرب عدد صحيح لسهم
+        /// الكارت. **مش معادلة جديدة**: نفس ReportBuilderService.PercentChange
+        /// اللي عمود "التغيّر" في التقارير بيستخدمها — null لو الأسبوع اللي
+        /// فات صفر (أول أسبوع في تثبيت جديد مثلاً)، فالكارت مايعرضش سهم
+        /// بدل "▲100%" مضلّل.
+        /// </summary>
+        public static int? Trend(decimal now, decimal previous) =>
+            ReportBuilderService.PercentChange(now, previous) is { } change
+                ? (int)Math.Round(change, MidpointRounding.AwayFromZero)
+                : null;
+
         /// <summary>نتيجة سلسلة الالتزام</summary>
         /// <param name="Days">عدد أيام الشغل المتتالية من غير غياب بدون إذن</param>
         /// <param name="IsCapped">السلسلة وصلت لآخر مدى البحث من غير ما تنكسر، وفيه سجلات أقدم — يعني الرقم الحقيقي أكبر ("60+")</param>

@@ -34,6 +34,9 @@ namespace WorkforceManager.Business.Services
         /// <summary>اسم الدخول (null قبل تسجيل الدخول)</summary>
         public string? Username => _username;
 
+        /// <summary>الاسم الظاهر (null لو الحساب مالوش اسم ظاهر) — للترحيب في الرئيسية</summary>
+        public string? DisplayName => _displayName;
+
         /// <summary>حساب الدخول (AppUser.Id) — null قبل تسجيل الدخول</summary>
         public int? AppUserId => _appUserId;
 

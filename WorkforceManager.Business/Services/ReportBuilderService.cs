@@ -162,7 +162,7 @@ namespace WorkforceManager.Business.Services
         /// أو كانت صفر — القسمة على صفر مالهاش ناتج، و"زيادة ∞%" مش رقم
         /// المدير يقدر يقرا منه حاجة.
         /// </summary>
-        private static decimal? PercentChange(decimal? now, decimal? then)
+        public static decimal? PercentChange(decimal? now, decimal? then)
         {
             if (then is null or 0 || now is null) return null;
 
