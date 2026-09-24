@@ -40,6 +40,7 @@ namespace WorkforceManager.Data.Repositories
             return await DbSet
                 .ExcludeDeleted()
                 .Include(p => p.Stages.Where(s => !s.IsDeleted))
+                .Include(p => p.Family)
                 .OrderBy(p => p.Name)
                 .ToListAsync();
         }

@@ -53,11 +53,34 @@ namespace WorkforceManager.Core.Models
         [ForeignKey(nameof(RackingWorker))]
         public int? RackingWorkerId { get; set; }
 
+        /// <summary>
+        /// عيلة المنتج (اختياري دايمًا — منتج من غير عيلة عادي تمامًا، شوف
+        /// ProductFamily). حذف العيلة (لو فاضية) بيسيب المنتج بلا عيلة
+        /// (SetNull) — لكن العيلة أصلاً مينفعش تتحذف وهي مش فاضية،
+        /// فالحالة دي عمليًا مستحيلة، شوف ProductFamilyService.DeleteAsync.
+        /// </summary>
+        [ForeignKey(nameof(Family))]
+        public int? FamilyId { get; set; }
+
+        /// <summary>
+        /// وزن القطعة الواحدة بالجرام (اختياري) — بيُستخدم بس لحساب وزن
+        /// خطة الإنتاج الشهرية (شوف MonthlyPlanService)، مش لأي حاجة تانية.
+        /// </summary>
+        public decimal? PieceWeightGrams { get; set; }
+
+        /// <summary>
+        /// مادة تصنيع المنتج (اختياري) — بتُستخدم بس في حسابات الخطة
+        /// الشهرية، مش فلتر ولا تاج في أي شاشة تانية.
+        /// </summary>
+        public Enums.Material? Material { get; set; }
+
         // ------- العلاقات -------
 
         /// <summary>كل مراحل التصنيع الخاصة بهذا المنتج تحديدًا (بأسعارها المستقلة)</summary>
         public virtual ICollection<ProductionStage> Stages { get; set; } = new List<ProductionStage>();
 
         public virtual Worker? RackingWorker { get; set; }
+
+        public virtual ProductFamily? Family { get; set; }
     }
 }

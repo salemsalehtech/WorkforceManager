@@ -34,6 +34,8 @@ namespace WorkforceManager.Data
         public DbSet<InitialBalance> InitialBalances => Set<InitialBalance>();
         public DbSet<InitialBalanceRange> InitialBalanceRanges => Set<InitialBalanceRange>();
         public DbSet<InitialBalanceUsage> InitialBalanceUsages => Set<InitialBalanceUsage>();
+        public DbSet<ProductFamily> ProductFamilies => Set<ProductFamily>();
+        public DbSet<MonthlyPlan> MonthlyPlans => Set<MonthlyPlan>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -202,6 +204,54 @@ namespace WorkforceManager.Data
                 .WithMany()
                 .HasForeignKey(p => p.RackingWorkerId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // ---------- عيلة المنتج ----------
+            // SetNull نفس قاعدة عامل الرص فوق — بس عمليًا مستحيل يحصل:
+            // ProductFamilyService.DeleteAsync بيرفض حذف عيلة لسه فيها منتجات
+            modelBuilder.Entity<Product>()
+                .HasOne(p => p.Family)
+                .WithMany(f => f.Products)
+                .HasForeignKey(p => p.FamilyId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Product>()
+                .HasIndex(p => p.FamilyId);
+
+            // اسم عيلة فريد — مايمنعش "زاما" و"زامة" (تشابه دلالي، برّه
+            // نطاق ده) بس بيمنع تكرار حرفي بيبوّظ العد والفلترة
+            modelBuilder.Entity<ProductFamily>()
+                .HasIndex(f => f.Name)
+                .IsUnique();
+
+            // وزن قطعة المنتج بالجرام — دقة كافية لمكوّنات صحية صغيرة
+            modelBuilder.Entity<Product>()
+                .Property(p => p.PieceWeightGrams)
+                .HasColumnType("decimal(10,2)");
+
+            modelBuilder.Entity<Product>()
+                .ToTable(t => t.HasCheckConstraint(
+                    "CK_Product_PieceWeightGrams_Positive",
+                    "PieceWeightGrams IS NULL OR PieceWeightGrams > 0"));
+
+            // ---------- الخطة الشهرية ----------
+            modelBuilder.Entity<MonthlyPlan>()
+                .HasOne(mp => mp.Product)
+                .WithMany()
+                .HasForeignKey(mp => mp.ProductId)
+                .OnDelete(DeleteBehavior.Cascade); // خطة منتج محذوف مالهاش معنى تفضل قايمة
+
+            // مرة واحدة بس لكل منتج لكل شهر — القاعدة الجوهرية لكل الفيتشر
+            modelBuilder.Entity<MonthlyPlan>()
+                .HasIndex(mp => new { mp.ProductId, mp.Year, mp.Month })
+                .IsUnique();
+
+            modelBuilder.Entity<MonthlyPlan>()
+                .ToTable(t => t.HasCheckConstraint(
+                    "CK_MonthlyPlan_PlannedQuantity_NonNegative", "PlannedQuantity >= 0"));
+
+            modelBuilder.Entity<MonthlyPlan>()
+                .ToTable(t => t.HasCheckConstraint(
+                    "CK_MonthlyPlan_Month_Valid", "Month BETWEEN 1 AND 12"));
 
             // سعر اليومية بالجنيه بدقة عشرية كافية
             modelBuilder.Entity<Worker>()
