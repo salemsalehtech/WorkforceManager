@@ -33,6 +33,12 @@ namespace WorkforceManager.UI.ViewModels
         public int? SameDayPreviousMonth { get; set; }
         public bool IsOutsidePlan { get; set; }
 
+        /// <summary>وزن المحقق = وزن القطعة × EffectiveAchieved — null لو المنتج ماله وزن مسجّل</summary>
+        public decimal? TotalWeightGrams { get; set; }
+
+        public decimal? TotalWeightKg => TotalWeightGrams / 1000m;
+        public bool HasWeight => TotalWeightGrams is not null;
+
         [ObservableProperty] private string _correctionText = "0";
         public int Correction => int.TryParse(CorrectionText, out var c) ? c : 0;
 
@@ -91,5 +97,71 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>تنبيه لطيف — العيلة كلها واطية عن الإيقاع (أقل من 75% كمتوسط)</summary>
         public bool IsBelowThreshold => AveragePercent is { } avg && avg < 0.75m;
+
+        /// <summary>مجموع تصليحات منتجاتها — SUM بسيط، نفس منطق Subtotal بالظبط</summary>
+        public int CorrectionsSubtotal => Products.Sum(p => p.Correction);
+
+        /// <summary>مجموع وزن المحقق لمنتجاتها — null لو ولا منتج فيها له وزن مسجّل</summary>
+        public decimal? TotalWeightGrams
+        {
+            get
+            {
+                var withWeight = Products.Where(p => p.TotalWeightGrams is not null).ToList();
+                return withWeight.Count == 0 ? null : withWeight.Sum(p => p.TotalWeightGrams!.Value);
+            }
+        }
+
+        public decimal? TotalWeightKg => TotalWeightGrams / 1000m;
+        public bool HasWeight => TotalWeightGrams is not null;
+
+        public bool HasCorrections => CorrectionsSubtotal != 0;
+
+        /// <summary>
+        /// فرق "إجمالي الانتاج اليومي" على مستوى المجموعة — مجموع المطلوب
+        /// يوميًا لكل منتجاتها ناقص مجموع اللي اتعمل فيهم النهارده فعلاً.
+        /// سالب = المجموعة لسه ناقصة عن المطلوب اليومي، موجب = فوق المطلوب.
+        /// null لو ولا منتج فيها له RequiredDailyOutput (كلهم خلصوا الشهر أو من غير خطة).
+        /// </summary>
+        public int? DailyGap
+        {
+            get
+            {
+                var withRequirement = Products.Where(p => p.RequiredDailyOutput is not null).ToList();
+                return withRequirement.Count == 0
+                    ? null
+                    : withRequirement.Sum(p => p.TodayCompleted) - withRequirement.Sum(p => p.RequiredDailyOutput!.Value);
+            }
+        }
+
+        public bool HasDailyGap => DailyGap is not null;
+        public bool IsDailyGapNegative => DailyGap is { } gap && gap < 0;
+    }
+
+    /// <summary>
+    /// مادة (نحاس/زاما/غير محدد) في شاشة الخطة الشهرية — أعلى مستوى تجميع،
+    /// زي شيت المصنع (قسم نحاس كامل، قسم زاما كامل، كل واحد بإجمالياته).
+    /// خطة/محقق/وزن المادة دايمًا SUM من عائلاتها، مفيش كتابة على المستوى ده.
+    /// </summary>
+    public partial class MonthlyPlanMaterialGroupRow : ObservableObject
+    {
+        public string HeaderText { get; init; } = "";
+        public List<MonthlyPlanFamilyGroupRow> FamilyGroups { get; init; } = new();
+
+        private IEnumerable<MonthlyPlanProductRow> AllProducts => FamilyGroups.SelectMany(g => g.Products);
+
+        public int Subtotal => AllProducts.Sum(p => p.Quantity);
+        public int AchievedSubtotal => AllProducts.Sum(p => p.EffectiveAchieved);
+
+        public decimal? TotalWeightGrams
+        {
+            get
+            {
+                var withWeight = AllProducts.Where(p => p.TotalWeightGrams is not null).ToList();
+                return withWeight.Count == 0 ? null : withWeight.Sum(p => p.TotalWeightGrams!.Value);
+            }
+        }
+
+        public decimal? TotalWeightKg => TotalWeightGrams / 1000m;
+        public bool HasWeight => TotalWeightGrams is not null;
     }
 }

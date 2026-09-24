@@ -37,7 +37,7 @@ namespace WorkforceManager.UI.Views
                 row.QuantityText = quantity.ToString(); // بيشيل أصفار زيادة زي "007"
             }
 
-            var group = _viewModel.FamilyGroups.FirstOrDefault(g => g.Products.Contains(row));
+            var group = _viewModel.AllFamilyGroups.FirstOrDefault(g => g.Products.Contains(row));
             if (group is null) return;
 
             try

@@ -59,13 +59,20 @@ namespace WorkforceManager.UI.ViewModels
 
         [ObservableProperty] private bool _isBusy;
 
-        public ObservableCollection<MonthlyPlanFamilyGroupRow> FamilyGroups { get; } = new();
+        /// <summary>
+        /// مستوى تجميع أعلى من العيلة — مادة (نحاس/زاما/غير محدد)، زي قسمين
+        /// منفصلين في شيت المصنع الأصلي. كل قسم بيحمل عائلاته وإجمالياته.
+        /// </summary>
+        public ObservableCollection<MonthlyPlanMaterialGroupRow> MaterialGroups { get; } = new();
 
         /// <summary>أكتر 3-5 منتجات محتاجة دفعة النهارده — الأبعد عن خطتها بين اللي متأخرين</summary>
         public ObservableCollection<MonthlyPlanProductRow> TodaysPriorities { get; } = new();
 
-        public int GrandTotalPlan => FamilyGroups.Sum(g => g.Subtotal);
-        public int GrandTotalAchieved => FamilyGroups.Sum(g => g.AchievedSubtotal);
+        /// <summary>كل مجموعات العيلة عبر مجموعات المادة كلها — مسطّحة، للحسابات الإجمالية ولإيجاد المجموعة المالكة لصف معيّن من الكود الخلفي</summary>
+        public IEnumerable<MonthlyPlanFamilyGroupRow> AllFamilyGroups => MaterialGroups.SelectMany(m => m.FamilyGroups);
+
+        public int GrandTotalPlan => MaterialGroups.Sum(m => m.Subtotal);
+        public int GrandTotalAchieved => MaterialGroups.Sum(m => m.AchievedSubtotal);
 
         // ------- شريط الملخص (البند 8) -------
 
@@ -85,13 +92,13 @@ namespace WorkforceManager.UI.ViewModels
             OnPropertyChanged(nameof(GrandTotalPlan));
             OnPropertyChanged(nameof(GrandTotalAchieved));
 
-            var allProducts = FamilyGroups.SelectMany(g => g.Products).Where(p => !p.IsOutsidePlan || p.Quantity > 0).ToList();
+            var allProducts = AllFamilyGroups.SelectMany(g => g.Products).Where(p => !p.IsOutsidePlan || p.Quantity > 0).ToList();
             OnTrackCount = allProducts.Count(p => p.Status == PlanPaceStatus.OnTrack);
             BehindCount = allProducts.Count(p => p.Status == PlanPaceStatus.Behind);
             AheadCount = allProducts.Count(p => p.Status == PlanPaceStatus.Ahead);
 
             BelowThresholdFamilyNames.Clear();
-            foreach (var name in FamilyGroups.Where(g => g.IsBelowThreshold).Select(g => g.HeaderText))
+            foreach (var name in AllFamilyGroups.Where(g => g.IsBelowThreshold).Select(g => g.HeaderText))
                 BelowThresholdFamilyNames.Add(name);
             OnPropertyChanged(nameof(HasBelowThresholdFamilies));
             OnPropertyChanged(nameof(BelowThresholdFamiliesText));
@@ -139,30 +146,54 @@ namespace WorkforceManager.UI.ViewModels
                 var tracking = await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
                     .GetTrackingAsync(SelectedYear, SelectedMonth, AsOfDate);
 
-                FamilyGroups.Clear();
+                MaterialGroups.Clear();
 
-                foreach (var g in tracking
-                             .Where(p => p.FamilyId is not null)
-                             .GroupBy(p => (p.FamilyId!.Value, p.FamilyName ?? ""))
-                             .OrderBy(g => g.Key.Item2))
+                // مادة فوق عيلة — نفس ترتيب شيت المصنع الأصلي (قسم نحاس كامل، قسم زاما كامل)
+                foreach (var materialGroup in tracking
+                             .GroupBy(p => p.Material)
+                             .OrderBy(g => g.Key switch { Core.Enums.Material.Copper => 0, Core.Enums.Material.Zamak => 1, _ => 2 }))
                 {
-                    FamilyGroups.Add(new MonthlyPlanFamilyGroupRow
+                    var header = materialGroup.Key switch
                     {
-                        HeaderText = $"{g.Key.Item2} ({g.Count()})",
-                        Products = OrderByPace(g).Select(ToRow).ToList()
+                        Core.Enums.Material.Copper => "نحاس",
+                        Core.Enums.Material.Zamak => "زاما",
+                        _ => "غير محدد"
+                    };
+                    MaterialGroups.Add(new MonthlyPlanMaterialGroupRow
+                    {
+                        HeaderText = header, FamilyGroups = BuildFamilyGroups(materialGroup)
                     });
                 }
-
-                var noFamily = tracking.Where(p => p.FamilyId is null).ToList();
-                if (noFamily.Count > 0)
-                    FamilyGroups.Add(new MonthlyPlanFamilyGroupRow
-                    {
-                        HeaderText = $"بدون عيلة ({noFamily.Count})", Products = OrderByPace(noFamily).Select(ToRow).ToList()
-                    });
 
                 RefreshAggregates();
             }
             finally { IsBusy = false; }
+        }
+
+        private static List<MonthlyPlanFamilyGroupRow> BuildFamilyGroups(IEnumerable<MonthlyPlanTrackingDto> products)
+        {
+            var groups = new List<MonthlyPlanFamilyGroupRow>();
+
+            foreach (var g in products
+                         .Where(p => p.FamilyId is not null)
+                         .GroupBy(p => (p.FamilyId!.Value, p.FamilyName ?? ""))
+                         .OrderBy(g => g.Key.Item2))
+            {
+                groups.Add(new MonthlyPlanFamilyGroupRow
+                {
+                    HeaderText = $"{g.Key.Item2} ({g.Count()})",
+                    Products = OrderByPace(g).Select(ToRow).ToList()
+                });
+            }
+
+            var noFamily = products.Where(p => p.FamilyId is null).ToList();
+            if (noFamily.Count > 0)
+                groups.Add(new MonthlyPlanFamilyGroupRow
+                {
+                    HeaderText = $"بدون عيلة ({noFamily.Count})", Products = OrderByPace(noFamily).Select(ToRow).ToList()
+                });
+
+            return groups;
         }
 
         /// <summary>المتأخر يطلع فوق (البند 4) — Behind أولاً، بعدين الأقل نسبة، بعدين الاسم</summary>
@@ -181,7 +212,8 @@ namespace WorkforceManager.UI.ViewModels
             AchievedPercent = p.AchievedPercent, Status = p.Status,
             RequiredDailyOutput = p.RequiredDailyOutput, ForecastEndOfMonth = p.ForecastEndOfMonth,
             SameDayPreviousMonth = p.SameDayPreviousMonth, IsOutsidePlan = p.IsOutsidePlan,
-            CorrectionText = p.CorrectionsToDate.ToString()
+            CorrectionText = p.CorrectionsToDate.ToString(),
+            TotalWeightGrams = p.TotalWeightGrams
         };
 
         public async Task SaveQuantityAsync(int productId, int quantity)
