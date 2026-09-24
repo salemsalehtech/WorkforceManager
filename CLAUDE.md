@@ -2699,6 +2699,16 @@ Core  <----------------------- UI
   of today's combined target, positive (green) means it's ahead. `CorrectionsSubtotal` is a plain `Sum`
   of the group's products' corrections, same shape as `Subtotal`/`AchievedSubtotal`.
 
+- **`MonthlyPlan.DailyTargetQuantity`** — a manual, optional per-product daily target (the sheet's
+  "انتاج اليوم" column, distinct from `MonthlyPlanTrackingDto.RequiredDailyOutput`). It is a fixed number
+  the user sets and never a computed one: `RequiredDailyOutput` shrinks automatically as the month
+  progresses or production comes in; `DailyTargetQuantity` stays whatever the user last typed until they
+  change it. `MonthlyPlanService.SetDailyTargetAsync` upserts (creates a `PlannedQuantity = 0` row if none
+  exists yet, since the target is independent of the monthly plan), `null` clears it rather than setting
+  zero. `CopyFromPreviousMonthAsync` carries it over like the plan quantity. Shown as its own editable
+  field on `MonthlyPlanView` (next to تصليحات) and its own Excel column, kept separate from "المطلوب
+  يوميًا" so neither number overwrites the other's meaning.
+
 ## Environment note
 
 .NET 8 SDK was installed via winget but may not be in PATH for fresh shells; if `dotnet` isn't found in
