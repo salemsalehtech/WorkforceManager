@@ -2543,6 +2543,71 @@ Core  <----------------------- UI
   open input. Both paths still end up at the same `ScrapService.RecordCoreAsync`/`ProductionScrap` — only the
   front door differs.
 
+- **Product families (`ProductFamily`), piece weight/material, and the "الخطة الشهرية" (Monthly Plan)
+  screen** — foundation-only pass; the achieved-vs-planned comparison, statistics, and Excel export are a
+  separate, not-yet-built follow-up that extends this same screen.
+  **`ProductFamily` is a real entity** (`Id`, `Name`, unique index on `Name`), not a free-text string on
+  `Product` — renaming updates every member product at once, and the unique index blocks literal-duplicate
+  names (not near-duplicates like "زاما"/"زامة", which is out of scope). `Product.FamilyId` (`int?`,
+  `OnDelete(SetNull)`, same shape as `RackingWorkerId`) is **always optional** — a product with no family
+  is normal, not an error state. `ProductFamilyService` (`Business`, built on `AppDbContext` directly like
+  `InitialBalanceService`, not `IGenericRepository`, because it needs a `GroupBy` count and an `Include`)
+  owns create/rename/delete; **delete is rejected outright if the family still has any products** (no
+  silent orphaning) — a family only disappears once it's actually empty.
+  **Two new optional `Product` fields, used nowhere except the Monthly Plan screen**: `PieceWeightGrams`
+  (`decimal?`, `decimal(10,2)`, `HasCheckConstraint` `> 0` — grams, confirmed with the user as the readable
+  unit for these small sanitary-fitting parts) and `Material` (`Enums.Material?` — `Copper`/`Zamak`, نحاس/
+  زاما — stored as a plain `int` exactly like every other enum in this codebase, `HourlyRole` included; no
+  `HasConversion` anywhere). Neither appears as a filter, column, or tag on `ProductsView`, search, or any
+  report — they exist purely as Monthly Plan input, and `ProductManagementService.SetClassificationAsync`
+  (family + weight + material together, since they're edited from the same form section in one save —
+  unlike the image, which tracks its own separate "changed" flag) is the one write path for all three.
+  **`ProductsView`'s card itself is untouched** — it still shows the avatar/image slot next to the name
+  exactly as before this feature; a prompt describing a "name-centered, no image slot" redesign as already
+  shipped was checked against the actual XAML and found not to match reality, so this pass built on the
+  card as it actually exists rather than an assumed design.
+  **The Products grid is now grouped by family** (`ProductsViewModel.FamilyGroups`, built by
+  `RebuildFamilyGroups()` from the same filtered/sorted `Products` list `ApplyFilter()` already produces —
+  grouping is a display-only reshaping, never a second filter/sort pass) — one section per family
+  (`SectionTitle` header + count), "بدون عيلة" always last, and **a family section with zero matching
+  products after the active search/filter disappears entirely** rather than showing an empty header
+  (confirmed with the user). The per-card `DataTemplate`, hover, click-to-flip, and stagger-in animation
+  are all reused unchanged inside each family's own inner `WrapPanel`; `ProductsView.AnimateTilesIn` was
+  adapted to walk the visual tree (`FindVisualChildren<ItemsControl>`, matching `Name == "ProductsGrid"`)
+  and animate every card across every group with one continuous cross-group index (not one restarting
+  per group), since there's no longer a single flat `ItemsControl` to enumerate directly.
+  **"إدارة العائلات"** (toolbar button next to "إضافة منتج") opens a small, deliberately minimal dialog
+  (`ProductFamilyManagerDialog`) — list + rename + delete-if-empty, not a full management screen. Adding a
+  family happens from the product form itself (`ProductEditDialog`'s family `ComboBox`, "+ عيلة جديدة" as
+  its last item), not from this dialog — picking it opens `TextPromptDialog` (new, generic one-line-text
+  prompt reused by both the "create" and "rename" flows) and **saves the new family immediately** via
+  `ProductFamilyService`, before the product form itself is saved — same reasoning as any inline "quick
+  add" combo: if the user then cancels the product form, the family is still a real, independent entity
+  and stays available as a future choice.
+  **`MonthlyPlan`** (`Id`, `ProductId`, `Year`, `Month`, `PlannedQuantity`) has a unique index on
+  `(ProductId, Year, Month)` — **one row per product per month, enforced at the DB level**, plus check
+  constraints on `Month` (1–12) and `PlannedQuantity` (`>= 0`). **The family-level number shown on the
+  Monthly Plan screen is always a computed `SUM` of its member products' `PlannedQuantity` for that month
+  — never a second, independently-entered value.** This is the one deliberate rule fix over the factory's
+  old hand-kept spreadsheet, where the family total sometimes silently drifted from the sum of its parts;
+  making the sum the only source of truth removes that class of error by construction. Nothing on
+  `ProductFamily` itself stores a plan number.
+  **`MonthlyPlanService.GetForMonthAsync`** is two fixed queries (active products + that month's plan
+  rows), merged in memory — not one query per product. **A product missing `PieceWeightGrams` or
+  `Material`(family is *not* required) is flagged incomplete** (`IsComplete`, a pure static predicate) —
+  shown on the Monthly Plan screen only (warm background + warning icon on its row), never on `ProductsView`.
+  **"انسخ خطة الشهر اللي فات"** (`CopyFromPreviousMonthAsync`) upserts: a product with a row already in the
+  current month gets overwritten with last month's value, a product with none gets a new row — and the
+  screen asks for confirmation first (`MonthHasEntriesAsync`) only if the current month already has *any*
+  row, so a first-time copy into an empty month needs no prompt. Saving a quantity happens on `TextBox`
+  `LostFocus` (`MonthlyPlanView.xaml.cs`, same pattern as `WorkerOrderDialog`) — there is no separate "save"
+  button. **New sidebar entry "الخطة الشهرية"** (`NavMonthlyPlanItem`), placed right after "المنتجات
+  والمراحل" (confirmed with the user), registered in `NavigableScreens.Entries` for quick-search
+  navigation; it needed no `TourScreen` enum value since this pass didn't add a "what's new" tour step
+  for it, and no sandbox/seed changes were needed — `FamilyId`/`PieceWeightGrams`/`Material` are all
+  nullable, so `RealDataSeed`/`SandboxDemoSeeder`'s existing `new Product { ... }` calls keep working
+  unchanged.
+
 ## Environment note
 
 .NET 8 SDK was installed via winget but may not be in PATH for fresh shells; if `dotnet` isn't found in
