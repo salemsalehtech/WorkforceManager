@@ -186,6 +186,29 @@ namespace WorkforceManager.Business.Services
             return product;
         }
 
+        /// <summary>
+        /// عيلة المنتج ووزن القطعة ومادتها — التلاتة مع بعض لأنهم بيتحفظوا
+        /// من نفس قسم فورم المنتج دفعة واحدة (عكس الصورة، اللي ليها تتبّع
+        /// تغيير منفصل). الثلاثة اختياريين دايمًا.
+        /// </summary>
+        public async Task<Product> SetClassificationAsync(
+            int productId, int? familyId, decimal? pieceWeightGrams, Material? material)
+        {
+            if (pieceWeightGrams is <= 0)
+                throw new ArgumentException("وزن القطعة يجب أن يكون رقمًا موجبًا", nameof(pieceWeightGrams));
+
+            var product = await _productRepo.GetByIdAsync(productId)
+                ?? throw new InvalidOperationException("المنتج المحدد غير موجود");
+
+            product.FamilyId = familyId;
+            product.PieceWeightGrams = pieceWeightGrams;
+            product.Material = material;
+
+            _productRepo.Update(product);
+            await _productRepo.SaveChangesAsync();
+            return product;
+        }
+
         // ======================= المراحل =======================
 
         /// <summary>
