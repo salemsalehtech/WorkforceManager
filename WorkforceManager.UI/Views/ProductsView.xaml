@@ -38,6 +38,19 @@
                 </StackPanel>
             </Button>
 
+            <!-- إدارة العائلات: تعديل اسم/حذف عيلة فاضية — إضافة عيلة
+                 جديدة بتحصل من فورم المنتج نفسه، مش من هنا -->
+            <Button Command="{Binding ManageFamiliesCommand}"
+                    Style="{StaticResource GhostButton}"
+                    VerticalAlignment="Center"
+                    Padding="16,10" Margin="0,0,16,8">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="TagMultipleOutline" Width="16" Height="16"
+                                             VerticalAlignment="Center"/>
+                    <TextBlock Text="إدارة العائلات" Margin="6,0,0,0"/>
+                </StackPanel>
+            </Button>
+
             <!-- تنبيه المنتجات اللي فيها مشكلة -->
             <Button Command="{Binding ShowNeedsAttentionCommand}"
                     VerticalAlignment="Center"
@@ -476,16 +489,31 @@
                                    Foreground="{DynamicResource TextMutedBrush}"/>
                     </StackPanel>
 
-                    <!-- شبكة الكروت — نفس بنية TopicsGrid بتاعة "الدليل" بالظبط
-                         (ItemsControl عادي + WrapPanel، مش ListBox) -->
-                    <ItemsControl x:Name="ProductsGrid" ItemsSource="{Binding Products}">
+                    <!-- شبكة الكروت مجمّعة بالعيلة — قسم لكل عيلة (عنوان + عداد)،
+                         وقسم أخير "بدون عيلة". تجميع عرض بس: الفلترة/البحث/الترتيب
+                         كلهم بيحصلوا زي الأول في Products، والتجميع هنا بيبني
+                         منها مباشرة (شوف ProductsViewModel.RebuildFamilyGroups).
+                         عيلة من غير منتجات مطابقة للفلتر الحالي بتتشال بالكامل. -->
+                    <ItemsControl x:Name="FamilyGroupsList" ItemsSource="{Binding FamilyGroups}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal"/>
+                                <StackPanel Orientation="Vertical"/>
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
+                                <StackPanel Margin="0,0,0,6">
+                                    <StackPanel Orientation="Horizontal" Margin="2,0,0,8">
+                                        <TextBlock Text="{Binding HeaderText}" Style="{StaticResource SectionTitle}"/>
+                                    </StackPanel>
+                                    <ItemsControl x:Name="ProductsGrid" ItemsSource="{Binding Products}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
                                 <!-- عرض الكارت محسوب من عرض الشبكة الفعلي + حالة الشريط الجانبي
                                      (GridColumnWidthConverter.MultiConvert، نفس شاشة العمال بالحرف) —
                                      الشريط ظاهر = 5 أعمدة، مطوي = 6. كان عرض ثابت 250px، فعدد الأعمدة
@@ -613,6 +641,10 @@
                                         </StackPanel>
                                     </Border>
                                 </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

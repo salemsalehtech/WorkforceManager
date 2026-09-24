@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -11,6 +12,12 @@ namespace WorkforceManager.UI.Views
     /// شاشة المنتجات والمراحل: كود الخلف هنا شكلي — ربط الـ ViewModel، زائد
     /// حركة دخول كروت الشبكة (منقولة ومُكيَّفة من HelpView.xaml.cs's
     /// AnimateTilesIn، شوف تعليقها هناك للتفاصيل الكاملة عن الآلية).
+    ///
+    /// الشبكة بقت مقسّمة لأقسام (عيلة لكل قسم، شوف ProductsView.xaml)،
+    /// فمفيش ItemsControl واحد بس للكروت — الحركة بتدور على شجرة العرض
+    /// كلها (FindVisualChildren) عشان تلاقي كل الـItemsControl الداخلية
+    /// (كارتات المنتجات نفسها)، وindex الحركة تراكمي عبر الأقسام كلها
+    /// (مش بيتصفّر لكل قسم) عشان التتابع البصري يفضل متدرج قسم بعد قسم.
     /// </summary>
     public partial class ProductsView : UserControl
     {
@@ -28,10 +35,10 @@ namespace WorkforceManager.UI.Views
             InitializeComponent();
             DataContext = viewModel;
 
-            // Products بتتغيّر مع كل تحميل أول مرة وكل بحث/فلتر/فترة بعد
-            // كده (ApplyFilter) — عكس شبكة "الدليل" الثابتة، فالحركة هنا
-            // لازم تتكرر كل مرة، مش تشتغل مرة واحدة بس عند Loaded
-            viewModel.Products.CollectionChanged += (_, _) => ScheduleTileAnimation();
+            // FamilyGroups (مش Products) هي اللي فعليًا بتبني شكل الشاشة —
+            // بتتغيّر مع كل تحميل أول مرة وكل بحث/فلتر/فترة بعد كده
+            // (ApplyFilter → RebuildFamilyGroups)
+            viewModel.FamilyGroups.CollectionChanged += (_, _) => ScheduleTileAnimation();
 
             // تحميل المنتجات أول ما الشاشة تظهر
             Loaded += async (_, _) => await viewModel.LoadAsync();
@@ -55,10 +62,10 @@ namespace WorkforceManager.UI.Views
         }
 
         /// <summary>
-        /// بيجمّع كل تغييرات Products المتتالية (Clear ثم عدة Add) في تشغيلة
-        /// حركة واحدة بس — بيأجّل التنفيذ لخطوة Dispatcher تالية (أولوية
-        /// Loaded، بعد التخطيط) عشان WrapPanel يكون خلّص ترتيب صفوفه الجديد
-        /// قبل ما نلوّن العناصر.
+        /// بيجمّع كل تغييرات FamilyGroups المتتالية (Clear ثم عدة Add) في
+        /// تشغيلة حركة واحدة بس — بيأجّل التنفيذ لخطوة Dispatcher تالية
+        /// (أولوية Loaded، بعد التخطيط) عشان WrapPanel يكون خلّص ترتيب
+        /// صفوفه الجديد قبل ما نلوّن العناصر.
         /// </summary>
         private void ScheduleTileAnimation()
         {
@@ -75,44 +82,63 @@ namespace WorkforceManager.UI.Views
         /// <summary>
         /// حركة دخول متدرّجة حقيقية (Storyboard، مش حلقة Task.Delay) — نفس
         /// آلية HelpView.AnimateTilesIn بالظبط: تأخير البداية لكل كارت حسب
-        /// ترتيبه (index × 60ms)، تلاشي + انزلاق لأعلى 280ms بـ EaseOut.
+        /// ترتيبه التراكمي (index × 60ms) عبر كل الأقسام، تلاشي + انزلاق
+        /// لأعلى 280ms بـEaseOut.
         /// </summary>
         private void AnimateTilesIn()
         {
-            ProductsGrid.UpdateLayout();
+            FamilyGroupsList.UpdateLayout();
 
-            for (var i = 0; i < ProductsGrid.Items.Count; i++)
+            var index = 0;
+            foreach (var innerGrid in FindVisualChildren<ItemsControl>(FamilyGroupsList))
             {
-                if (ProductsGrid.ItemContainerGenerator.ContainerFromIndex(i) is not ContentPresenter presenter)
-                    continue;
+                if (innerGrid.Name != "ProductsGrid") continue;
 
-                presenter.ApplyTemplate();
-                if (VisualTreeHelper.GetChild(presenter, 0) is not FrameworkElement tile) continue;
-
-                var beginTime = TimeSpan.FromMilliseconds(i * 60);
-                var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-
-                var fadeIn = new DoubleAnimation
+                for (var i = 0; i < innerGrid.Items.Count; i++)
                 {
-                    From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(280),
-                    BeginTime = beginTime, EasingFunction = ease
-                };
-                Storyboard.SetTarget(fadeIn, tile);
-                Storyboard.SetTargetProperty(fadeIn, new PropertyPath(UIElement.OpacityProperty));
+                    if (innerGrid.ItemContainerGenerator.ContainerFromIndex(i) is not ContentPresenter presenter)
+                        continue;
 
-                var slideUp = new DoubleAnimation
-                {
-                    From = 14, To = 0, Duration = TimeSpan.FromMilliseconds(280),
-                    BeginTime = beginTime, EasingFunction = ease
-                };
-                Storyboard.SetTarget(slideUp, tile);
-                Storyboard.SetTargetProperty(slideUp,
-                    new PropertyPath("(UIElement.RenderTransform).(TranslateTransform.Y)"));
+                    presenter.ApplyTemplate();
+                    if (VisualTreeHelper.GetChild(presenter, 0) is not FrameworkElement tile) continue;
 
-                var storyboard = new Storyboard();
-                storyboard.Children.Add(fadeIn);
-                storyboard.Children.Add(slideUp);
-                storyboard.Begin();
+                    var beginTime = TimeSpan.FromMilliseconds(index * 60);
+                    index++;
+                    var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+                    var fadeIn = new DoubleAnimation
+                    {
+                        From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(280),
+                        BeginTime = beginTime, EasingFunction = ease
+                    };
+                    Storyboard.SetTarget(fadeIn, tile);
+                    Storyboard.SetTargetProperty(fadeIn, new PropertyPath(UIElement.OpacityProperty));
+
+                    var slideUp = new DoubleAnimation
+                    {
+                        From = 14, To = 0, Duration = TimeSpan.FromMilliseconds(280),
+                        BeginTime = beginTime, EasingFunction = ease
+                    };
+                    Storyboard.SetTarget(slideUp, tile);
+                    Storyboard.SetTargetProperty(slideUp,
+                        new PropertyPath("(UIElement.RenderTransform).(TranslateTransform.Y)"));
+
+                    var storyboard = new Storyboard();
+                    storyboard.Children.Add(fadeIn);
+                    storyboard.Children.Add(slideUp);
+                    storyboard.Begin();
+                }
+            }
+        }
+
+        /// <summary>دوران بسيط على شجرة العرض عن كل عنصر من نوع معيّن — مفيش helper عام مشترك في المشروع، كل شاشة بنسختها المحلية</summary>
+        private static IEnumerable<T> FindVisualChildren<T>(DependencyObject root) where T : DependencyObject
+        {
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is T match) yield return match;
+                foreach (var grandChild in FindVisualChildren<T>(child)) yield return grandChild;
             }
         }
     }
