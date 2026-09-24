@@ -114,6 +114,8 @@ namespace WorkforceManager.Tests
             services.AddScoped<ProductManagementService>();
             services.AddScoped<ProductFamilyService>();
             services.AddScoped<MonthlyPlanService>();
+            services.AddScoped<MonthlyPlanTrackingService>();
+            services.AddScoped<MonthlyPlanExcelService>();
             services.AddScoped<WorkerManagementService>();
 
             // الأنظمة المشتركة: الهوية واحدة للكل، والبوابة والسجل والحذف
