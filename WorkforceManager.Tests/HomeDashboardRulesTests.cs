@@ -24,6 +24,25 @@ namespace WorkforceManager.Tests
         private static ProductionMemoryDto Memory(int id, DateTime remindOn, DateTime? completedAt = null) =>
             new() { Id = id, ProductName = $"منتج {id}", RemindOn = remindOn, CompletedAt = completedAt };
 
+        // ═══════════ أسهم المقارنة ═══════════
+
+        [Fact]
+        public void Trend_is_null_when_previous_week_is_zero()
+        {
+            // أول أسبوع في تثبيت جديد: مفيش سهم، مش "▲100%"
+            Assert.Null(HomeDashboardRules.Trend(40, 0));
+            Assert.Null(HomeDashboardRules.Trend(0, 0));
+        }
+
+        [Theory]
+        [InlineData(115, 100, 15)]
+        [InlineData(80, 100, -20)]
+        [InlineData(100, 100, 0)]
+        [InlineData(0, 50, -100)]
+        [InlineData(2, 3, -33)]
+        public void Trend_matches_report_percent_change_rounded(int now, int previous, int expected) =>
+            Assert.Equal(expected, HomeDashboardRules.Trend(now, previous));
+
         // ═══════════ الأقل أداءً ═══════════
 
         [Fact]
