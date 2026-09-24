@@ -255,6 +255,11 @@ namespace WorkforceManager.Data
                 .ToTable(t => t.HasCheckConstraint(
                     "CK_MonthlyPlan_Month_Valid", "Month BETWEEN 1 AND 12"));
 
+            modelBuilder.Entity<MonthlyPlan>()
+                .ToTable(t => t.HasCheckConstraint(
+                    "CK_MonthlyPlan_DailyTargetQuantity_NonNegative",
+                    "DailyTargetQuantity IS NULL OR DailyTargetQuantity >= 0"));
+
             // ---------- تصليحات (تعديل يدوي على المحقق) ----------
             modelBuilder.Entity<MonthlyPlanCorrection>()
                 .HasOne(c => c.Product)

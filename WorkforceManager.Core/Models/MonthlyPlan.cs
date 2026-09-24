@@ -28,6 +28,15 @@ namespace WorkforceManager.Core.Models
 
         public int PlannedQuantity { get; set; }
 
+        /// <summary>
+        /// "الخطة اليومية" — هدف يومي **يدوي** يكتبه المستخدم لهذا المنتج
+        /// (زي عمود "انتاج اليوم" في شيت المصنع القديم)، اختياري. مختلف
+        /// تمامًا عن MonthlyPlanTrackingDto.RequiredDailyOutput المحسوب
+        /// ديناميكيًا (بيقل كل ما ينتج أكتر أو الأيام تنقص) — الرقم ده
+        /// ثابت طول الشهر لحد ما المستخدم يغيّره بنفسه، مرجع/هدف مش حساب.
+        /// </summary>
+        public int? DailyTargetQuantity { get; set; }
+
         public virtual Product Product { get; set; } = null!;
     }
 }
