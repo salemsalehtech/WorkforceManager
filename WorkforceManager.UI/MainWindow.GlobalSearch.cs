@@ -405,7 +405,7 @@ namespace WorkforceManager.UI
         }
 
         /// <summary>هبوط على عامل بعينه — مشترك بين فئة Worker العادية وإجابة نية عن عامل</summary>
-        private async Task LandOnWorkerAsync(string searchName, int? workerId)
+        internal async Task LandOnWorkerAsync(string searchName, int? workerId)
         {
             NavWorkersItem.IsChecked = true;
             if (MainContent?.Content is WorkersView { DataContext: ViewModels.WorkersViewModel workersVm })
@@ -418,7 +418,7 @@ namespace WorkforceManager.UI
         }
 
         /// <summary>هبوط على منتج بعينه — مشترك بين فئة Product العادية وإجابة نية عن منتج</summary>
-        private void LandOnProduct(string searchName)
+        internal void LandOnProduct(string searchName)
         {
             NavProductsItem.IsChecked = true;
             if (MainContent?.Content is ProductsView { DataContext: ViewModels.ProductsViewModel productsVm })

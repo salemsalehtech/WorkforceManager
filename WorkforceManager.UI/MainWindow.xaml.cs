@@ -140,6 +140,9 @@ namespace WorkforceManager.UI
         {
             if (sender is not RadioButton item) return;
 
+            // بعد التحميل بس — حالة البداية (الرئيسية) بتتظبط من غير حركة في ApplyInitialSidebarState
+            if (IsLoaded) ApplyHomeSidebarRule(item == NavHomeItem);
+
             if (!IsLoaded)
             {
                 RoutedEventHandler? deferred = null;
@@ -347,7 +350,13 @@ namespace WorkforceManager.UI
         /// </summary>
         private void ApplyInitialSidebarState()
         {
-            _isSidebarCollapsed = AppSettingsStore.Load().SidebarCollapsed;
+            var persistedCollapsed = AppSettingsStore.Load().SidebarCollapsed;
+
+            // البرنامج بيفتح على الرئيسية دايمًا، فالشريط بيبدأ مطوي (ApplyHomeSidebarRule)
+            // — لو التفضيل المحفوظ "مفتوح" نعلّم إن الطي ده تلقائي عشان يرجع مفتوح
+            // أول ما المستخدم يخرج من الرئيسية
+            _homeAutoCollapsed = !persistedCollapsed;
+            _isSidebarCollapsed = true;
             IsSidebarCollapsed = _isSidebarCollapsed;
             SidebarToggleIcon.Kind = _isSidebarCollapsed ? PackIconKind.ChevronDoubleLeft : PackIconKind.ChevronDoubleRight;
             SidebarContent.Opacity = _isSidebarCollapsed ? 0 : 1;
@@ -359,7 +368,9 @@ namespace WorkforceManager.UI
             // العرض الفعلي بيتظبط في أول ApplyUiScale (SizeChanged عند فتح
             // النافذة) — مفيش داعي نكرره هنا
 
-            if (!_isSidebarCollapsed && !AppSettingsStore.Load().SidebarToggleHintShown)
+            // النبضة لمستخدم تفضيله "مفتوح" (لسه مااكتشفش الزرار) — الزرار نفسه
+            // ظاهر في الحالتين، فنبضه وهو مطوي على الرئيسية بيوضّح إزاي يفتح القايمة
+            if (!persistedCollapsed && !AppSettingsStore.Load().SidebarToggleHintShown)
                 PlaySidebarToggleHintPulse();
         }
 
@@ -391,7 +402,17 @@ namespace WorkforceManager.UI
             AppSettingsStore.Save(settings);
         }
 
-        private void SidebarToggle_Click(object sender, RoutedEventArgs e) => AnimateSidebarCollapse(!_isSidebarCollapsed);
+        private void SidebarToggle_Click(object sender, RoutedEventArgs e) => ToggleSidebarByUser();
+
+        /// <summary>
+        /// طي/فتح بإيد المستخدم (الزرار أو Ctrl+B) — اختيار صريح بيتحفظ، وبيلغي
+        /// الطي التلقائي بتاع الرئيسية: لو فتح الشريط وهو على الرئيسية يفضل مفتوح
+        /// </summary>
+        private void ToggleSidebarByUser()
+        {
+            _homeAutoCollapsed = false;
+            AnimateSidebarCollapse(!_isSidebarCollapsed);
+        }
 
         /// <summary>
         /// Storyboard حقيقي (مش قفزة فورية): العرض بيتحرك من الحالي للهدف،
@@ -405,7 +426,8 @@ namespace WorkforceManager.UI
         /// عند أي Resize بعد كده) مش هيقدر يكتب فوق قيمة لسه متحكم فيها من
         /// Storyboard قديم، والشريط هيتجمّد على آخر عرض اتحرك ليه.
         /// </summary>
-        private void AnimateSidebarCollapse(bool collapse)
+        /// <param name="persist">false للطي/الفتح التلقائي بتاع الرئيسية — مايكتبش فوق تفضيل المستخدم المحفوظ</param>
+        private void AnimateSidebarCollapse(bool collapse, bool persist = true)
         {
             _isSidebarCollapsed = collapse;
             IsSidebarCollapsed = collapse;
@@ -452,9 +474,58 @@ namespace WorkforceManager.UI
             };
             storyboard.Begin();
 
+            if (!persist) return;
+
             var settings = AppSettingsStore.Load();
             settings.SidebarCollapsed = collapse;
             AppSettingsStore.Save(settings);
+        }
+
+        /// <summary>
+        /// الشريط اتطوى تلقائيًا عشان الرئيسية (مش بإيد المستخدم) — أول ما يخرج
+        /// من الرئيسية بيرجع مفتوح زي تفضيله المحفوظ. أي طي/فتح يدوي بيلغيه.
+        /// </summary>
+        private bool _homeAutoCollapsed;
+
+        /// <summary>
+        /// الرئيسية بتطوي الشريط تلقائيًا (البلاطات الكبيرة فيها هي التنقل وهي
+        /// ظاهرة، فالمساحة تروح لها) من غير ما تلمس SidebarCollapsed المحفوظ.
+        /// الخروج لأي شاشة تانية بيرجّعه مفتوح لو احنا اللي طويناه.
+        /// </summary>
+        private void ApplyHomeSidebarRule(bool onHome)
+        {
+            if (onHome && !_isSidebarCollapsed)
+            {
+                _homeAutoCollapsed = true;
+                AnimateSidebarCollapse(true, persist: false);
+            }
+            else if (!onHome && _homeAutoCollapsed)
+            {
+                _homeAutoCollapsed = false;
+                if (_isSidebarCollapsed) AnimateSidebarCollapse(false, persist: false);
+            }
+        }
+
+        /// <summary>
+        /// لوجو WMS (الكبير في الشريط المفتوح أو الصغير في المطوي) = "الرئيسية" —
+        /// نفس IsChecked اللي عنصر التنقل بيعمله، فالمؤشر الدهبي والبادچات بيتحدّثوا لوحدهم
+        /// </summary>
+        private void HomeLogo_Click(object sender, RoutedEventArgs e) => NavHomeItem.IsChecked = true;
+
+        /// <summary>خانة البحث في الرئيسية — نفس GlobalSearch_Click بتاع زرار الشريط وCtrl+K بالظبط</summary>
+        internal void OpenGlobalSearch() => GlobalSearch_Click(this, new RoutedEventArgs());
+
+        /// <summary>تبويب "الحضور والغياب" جوّه تسجيل الإنتاج اليومي — نفس رقم التبويب اللي الجولة بتستخدمه</summary>
+        internal const int DailyEntryAttendanceTab = 3;
+
+        /// <summary>
+        /// يفتح تسجيل الإنتاج اليومي على تبويب معيّن — نفس اللي الجولة بتعمله
+        /// (IsChecked ثم SelectedTabIndex على نفس DailyEntryViewModel بتاع الجلسة)
+        /// </summary>
+        internal void OpenDailyEntryTab(int tabIndex)
+        {
+            NavDailyEntryItem.IsChecked = true;
+            _session.GetRequiredService<ViewModels.DailyEntryViewModel>().SelectedTabIndex = tabIndex;
         }
 
         /// <summary>
@@ -706,7 +777,7 @@ namespace WorkforceManager.UI
             if (e.Key == Key.B && Keyboard.Modifiers == ModifierKeys.Control)
             {
                 e.Handled = true;
-                AnimateSidebarCollapse(!_isSidebarCollapsed);
+                ToggleSidebarByUser();
             }
         }
     }

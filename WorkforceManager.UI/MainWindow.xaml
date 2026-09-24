@@ -78,8 +78,13 @@
                  برّه العنصر ده عمدًا، عشان يفضل ظاهر في الحالتين -->
             <DockPanel x:Name="SidebarContent">
                 <!-- الهوية -->
-                <StackPanel DockPanel.Dock="Top" Margin="20,24,20,20">
-                    <StackPanel Orientation="Horizontal">
+                <StackPanel DockPanel.Dock="Top" Margin="16,20,16,20">
+                    <!-- اللوجو والاسم = "الرئيسية": دوسة عليهم بترجع للرئيسية من أي شاشة
+                         (HomeLogo_Click). وهو مطوي فيه نسخة صغيرة من اللوجو تحت زرار
+                         الطي بتعمل نفس الحاجة (CollapsedHomeButton) -->
+                    <Button x:Name="HomeLogoButton" Style="{StaticResource CardButton}" Click="HomeLogo_Click"
+                            ToolTip="الرئيسية" AutomationProperties.Name="الرئيسية" Padding="0">
+                    <StackPanel Orientation="Horizontal" Margin="4">
                         <views:WmsLogo x:Name="SidebarLogo" Width="46" Height="46" />
                         <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
                             <!-- كان مكتوب "إدارة الإنتاج والأجور" — جملة
@@ -97,6 +102,7 @@
                                        Foreground="{DynamicResource SidebarInkSoftBrush}" />
                         </StackPanel>
                     </StackPanel>
+                    </Button>
 
                     <!-- خط دهبي رفيع بيفصل الهوية عن التنقل -->
                     <Border Height="1" Margin="0,18,0,0" Opacity="0.35"
@@ -382,6 +388,15 @@
                             IsHitTestVisible="False" Visibility="Collapsed" />
                 </Grid>
             </Border>
+            <!-- لوجو صغير = "الرئيسية" وهو مطوي — اللوجو الكبير جوّه SidebarContent
+                 بيختفي مع الطي، والنسخة دي بتفضل ظاهرة في الشريط الضيق تحت زرار
+                 الطي، فالرجوع للرئيسية متاح من أي شاشة في الحالتين -->
+            <Button x:Name="CollapsedHomeButton" Style="{StaticResource CardButton}" Click="HomeLogo_Click"
+                    Width="38" Height="38" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,74,0,0"
+                    ToolTip="الرئيسية" AutomationProperties.Name="الرئيسية"
+                    Visibility="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                <views:WmsLogo Width="30" Height="30" />
+            </Button>
             </Grid>
         </Border>
 
