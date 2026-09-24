@@ -36,6 +36,8 @@ namespace WorkforceManager.Data
         public DbSet<InitialBalanceUsage> InitialBalanceUsages => Set<InitialBalanceUsage>();
         public DbSet<ProductFamily> ProductFamilies => Set<ProductFamily>();
         public DbSet<MonthlyPlan> MonthlyPlans => Set<MonthlyPlan>();
+        public DbSet<MonthlyPlanCorrection> MonthlyPlanCorrections => Set<MonthlyPlanCorrection>();
+        public DbSet<MonthlyWorkCalendarHoliday> MonthlyWorkCalendarHolidays => Set<MonthlyWorkCalendarHoliday>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -252,6 +254,23 @@ namespace WorkforceManager.Data
             modelBuilder.Entity<MonthlyPlan>()
                 .ToTable(t => t.HasCheckConstraint(
                     "CK_MonthlyPlan_Month_Valid", "Month BETWEEN 1 AND 12"));
+
+            // ---------- تصليحات (تعديل يدوي على المحقق) ----------
+            modelBuilder.Entity<MonthlyPlanCorrection>()
+                .HasOne(c => c.Product)
+                .WithMany()
+                .HasForeignKey(c => c.ProductId)
+                .OnDelete(DeleteBehavior.Cascade); // تصليح منتج محذوف مالهوش معنى يفضل قايم
+
+            // يوم واحد لمنتج واحد — تعديله Upsert مش صف جديد
+            modelBuilder.Entity<MonthlyPlanCorrection>()
+                .HasIndex(c => new { c.ProductId, c.Date })
+                .IsUnique();
+
+            // ---------- عطلة يدوية إضافية (تقويم أيام الشغل) ----------
+            modelBuilder.Entity<MonthlyWorkCalendarHoliday>()
+                .HasIndex(h => h.Date)
+                .IsUnique();
 
             // سعر اليومية بالجنيه بدقة عشرية كافية
             modelBuilder.Entity<Worker>()
