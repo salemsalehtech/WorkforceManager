@@ -332,38 +332,12 @@ namespace WorkforceManager.UI.ViewModels
         private bool _hasChartTrend;
 
         /// <summary>
-        /// سلاسل المنتجات — ترتيب ثابت، بيتوزّع على المنتجات بالمعرّف
-        /// مش بالترتيب، فالمنتج بياخد نفس اللون مهما اتغيّر الفلتر.
-        ///
-        /// **دي مفاتيح فُرَش مش أكواد ألوان** (شوف <see cref="ThemeBrush"/>).
-        /// </summary>
-        private static readonly string[] ChartPalette =
-        {
-            "Series1Brush", "Series2Brush", "Series3Brush", "Series4Brush",
-            "Series5Brush", "Series6Brush", "Series7Brush", "Series8Brush"
-        };
-
-        /// <summary>
-        /// لون المنتجات اللي خرجت برّه اللوحة (التاسع فما فوق).
-        ///
-        /// توليد ألوان جديدة أو لفّ اللوحة من أولها كان بيدي لونين
-        /// متطابقين لمنتجين مختلفين — والمستخدم مش هيعرف إن ده حصل.
-        /// </summary>
-        private const string OtherProductsColor = "SeriesOtherBrush";
-
-        private const string OtherProductsLabel = "منتجات تانية";
-
-        /// <summary>لون الهالك — مميز عن ألوان المنتجات عن قصد</summary>
-        private const string ScrapColor = "DangerBrush";
-
-        /// <summary>
-        /// أقصى ارتفاع للعمود بالبكسل — الباقي بيتحسب نسبيًا عليه.
-        /// لازم يفضل أقل من ارتفاع منطقة الرسم في XAML بفرق بسيط.
+        /// أقصى ارتفاع للعمود بالبكسل — الباقي بيتحسب نسبيًا عليه. نفس قيمة
+        /// PlotHeight على ProductOutputChart في ReportsView.xaml (الرسم بيزوّد
+        /// هامش بسيط فوقها بنفسه). بناء الأعمدة والألوان كله في
+        /// ProductOutputChartBuilder المشترك مع شاشة الرئيسية.
         /// </summary>
         private const double MaxBarHeight = 260;
-
-        /// <summary>الفاصل بين شرايح العمود الواحد — بيخلي الحدود تبان</summary>
-        private const double SegmentGap = 2;
 
         /// <summary>نقاط الفترة المعروضة — الفلتر بيشتغل عليها من غير استعلام تاني</summary>
         private List<ProductOutputPointDto> _points = new();
@@ -462,125 +436,20 @@ namespace WorkforceManager.UI.ViewModels
                 ? _points
                 : _points.Where(p => visible.Contains(p.ProductId)).ToList();
 
-            // المنتجات مرتبة بالأكتر إنتاجًا، ولون ثابت لكل منتج
-            var productTotals = points
-                .GroupBy(p => (p.ProductId, p.ProductName))
-                .Select(g => (g.Key.ProductId, g.Key.ProductName, Total: g.Sum(x => x.CompletedPieces)))
-                .OrderByDescending(x => x.Total)
-                .ToList();
+            var chart = ProductOutputChartBuilder.Build(
+                points, ProductionChartService.StartOfLast(count, grain), DateTime.Today, grain,
+                _previousByProduct, MaxBarHeight);
 
-            var namedProducts = productTotals.Take(ChartPalette.Length).ToList();
-
-            var colorByProduct = namedProducts
-                .Select((p, i) => (p.ProductId, Color: ChartPalette[i]))
-                .ToDictionary(x => x.ProductId, x => x.Color);
-
-            string ColorFor(int productId) =>
-                colorByProduct.TryGetValue(productId, out var color) ? color : OtherProductsColor;
-
-            // ترتيب الشرايح جوه العمود: نفس ترتيب المفتاح دايمًا، عشان
-            // العين تلاقي المنتج في نفس المكان من فترة للتانية
-            var orderByProduct = namedProducts
-                .Select((p, i) => (p.ProductId, Order: i))
-                .ToDictionary(x => x.ProductId, x => x.Order);
-
-            int OrderFor(int productId) =>
-                orderByProduct.TryGetValue(productId, out var order) ? order : ChartPalette.Length;
-
-            BuildLegend(productTotals, namedProducts, ColorFor);
-
-            // كل فترات المدى بالترتيب الزمني (حتى الفاضية — محور الزمن
-            // لازم يكون متصل)
-            var firstBucket = ProductionChartService.StartOfLast(count, grain);
-            var pointsByBucket = points.ToLookup(p => p.BucketStart);
-            var currentBucket = ProductionChartService.BucketOf(DateTime.Today, grain).Start;
-
-            // المقياس على **إجمالي الفترة + هالكها**: العمود بقى بيحمل
-            // الاتنين، فلو المقياس على التام لوحده الهالك بيطلع برّه
-            var bucketTotals = points
-                .GroupBy(p => p.BucketStart)
-                .ToDictionary(g => g.Key, g => g.Sum(p => p.CompletedPieces) + g.Sum(p => p.ScrapPieces));
-
-            var maxBucketTotal = bucketTotals.Count == 0 ? 1 : Math.Max(1, bucketTotals.Values.Max());
-
-            // المتوسط على الفترات اللي فيها شغل بس: الفترات الفاضية
-            // بتنزّل المتوسط لرقم مالوش معنى (أجازات ويوم الجمعة)
-            var workedTotals = points
-                .GroupBy(p => p.BucketStart)
-                .Select(g => g.Sum(p => p.CompletedPieces))
-                .Where(t => t > 0)
-                .ToList();
-
-            var average = workedTotals.Count == 0 ? 0 : workedTotals.Average();
-            var averageOffset = average / maxBucketTotal * MaxBarHeight;
-            var showAverage = workedTotals.Count >= 2;
+            ChartLegend.Clear();
+            foreach (var item in chart.Legend) ChartLegend.Add(item);
 
             ChartBuckets.Clear();
+            foreach (var bucket in chart.Buckets) ChartBuckets.Add(bucket);
 
-            for (var bucket = firstBucket;
-                 bucket <= DateTime.Today;
-                 bucket = ProductionChartService.NextBucket(bucket, grain))
-            {
-                var bucketPoints = pointsByBucket[bucket]
-                    .OrderBy(p => OrderFor(p.ProductId))
-                    .ThenBy(p => p.ProductName)
-                    .ToList();
-
-                var completed = bucketPoints.Sum(p => p.CompletedPieces);
-                var scrapped = bucketPoints.Sum(p => p.ScrapPieces);
-                var end = ProductionChartService.BucketOf(bucket, grain).End;
-
-                double HeightOf(int pieces) =>
-                    pieces <= 0 ? 0 : Math.Max(3, (double)pieces / maxBucketTotal * MaxBarHeight - SegmentGap);
-
-                var segments = bucketPoints
-                    .Where(p => p.CompletedPieces > 0)
-                    .Select(p => new ChartBar
-                    {
-                        Color = ColorFor(p.ProductId),
-                        Height = HeightOf(p.CompletedPieces),
-                        Tooltip = $"{p.ProductName}\n{LabelFor(bucket, end, grain)}\n" +
-                                  $"{p.CompletedPieces:N0} قطعة مكتملة"
-                    })
-                    .ToList();
-
-                // الهالك فوق العمود: بيبان كزيادة على الشغل، مش جزء منه
-                if (scrapped > 0)
-                    segments.Insert(0, new ChartBar
-                    {
-                        Color = ScrapColor,
-                        Height = HeightOf(scrapped),
-                        Tooltip = $"هالك\n{LabelFor(bucket, end, grain)}\n{scrapped:N0} قطعة"
-                    });
-
-                ChartBuckets.Add(new ChartBucket
-                {
-                    Label = ShortLabel(bucket, grain),
-                    Total = completed,
-                    TotalText = completed == 0 ? "" : $"{completed:N0}",
-                    HasWork = completed > 0 || scrapped > 0,
-                    IsCurrent = bucket == currentBucket,
-                    AverageOffset = averageOffset,
-                    ShowAverage = showAverage,
-                    Segments = segments
-                });
-            }
-
-            var totalCompleted = points.Sum(p => p.CompletedPieces);
-            var totalScrap = points.Sum(p => p.ScrapPieces);
-
-            ChartTotalText = $"{totalCompleted:N0}";
-            ChartScrapText = $"{totalScrap:N0}";
-
-            // زي شاشة اليوم: "0%" جنب "0 قطعة" بتقول نفس الحاجة مرتين
-            var baseline = totalCompleted + totalScrap;
-            ChartScrapRateText = totalScrap == 0 || baseline == 0
-                ? ""
-                : $"{(double)totalScrap / baseline * 100:0.#}% من الشغل";
-
-            ChartAverageText = showAverage
-                ? $"متوسط {UnitName(grain)}: {average:N0} قطعة"
-                : "";
+            ChartTotalText = $"{chart.TotalCompleted:N0}";
+            ChartScrapText = $"{chart.TotalScrap:N0}";
+            ChartScrapRateText = chart.ScrapRateText;
+            ChartAverageText = chart.AverageText;
 
             ChartHint = grain switch
             {
@@ -589,59 +458,8 @@ namespace WorkforceManager.UI.ViewModels
                 _ => "الشهر بالتقويم. القطع المكتملة فقط، والهالك على كل المراحل."
             };
 
-            ChartHasData = points.Count > 0;
-            RefreshTrend(totalCompleted, grain);
-        }
-
-        private void BuildLegend(
-            List<(int ProductId, string ProductName, int Total)> productTotals,
-            List<(int ProductId, string ProductName, int Total)> namedProducts,
-            Func<int, string> colorFor)
-        {
-            ChartLegend.Clear();
-
-            foreach (var p in namedProducts)
-            {
-                var (changeText, changeColor) = DescribeChange(
-                    p.Total,
-                    _previousByProduct.TryGetValue(p.ProductId, out var before) ? before : 0);
-
-                ChartLegend.Add(new ChartLegendItem
-                {
-                    Color = colorFor(p.ProductId),
-                    ProductName = p.ProductName,
-                    TotalText = $"{p.Total:N0} قطعة",
-                    ChangeText = changeText,
-                    ChangeColor = changeColor
-                });
-            }
-
-            var otherTotal = productTotals.Skip(ChartPalette.Length).Sum(p => p.Total);
-            if (otherTotal > 0)
-                ChartLegend.Add(new ChartLegendItem
-                {
-                    Color = OtherProductsColor,
-                    ProductName = $"{OtherProductsLabel} ({productTotals.Count - namedProducts.Count})",
-                    TotalText = $"{otherTotal:N0} قطعة"
-                });
-        }
-
-        /// <summary>
-        /// نسبة التغيّر عن نفس الرقم في الفترة اللي قبلها. بترجع فاضي
-        /// لو مفيش أساس للمقارنة — "زاد ∞%" مش معلومة.
-        /// </summary>
-        private static (string Text, string Color) DescribeChange(int now, int before)
-        {
-            if (before <= 0) return ("", "InkSoftBrush");
-
-            var change = (double)(now - before) / before * 100;
-
-            return change switch
-            {
-                > 1 => ($"▲ {change:0}%", "GoodBrush"),
-                < -1 => ($"▼ {Math.Abs(change):0}%", "DangerBrush"),
-                _ => ("= زي الفترة اللي فاتت", "InkSoftBrush")
-            };
+            ChartHasData = chart.HasData;
+            RefreshTrend(chart.TotalCompleted, grain);
         }
 
         /// <summary>
@@ -678,28 +496,6 @@ namespace WorkforceManager.UI.ViewModels
                 _ => "InkSoftBrush"
             };
         }
-
-        private static string UnitName(ChartGrain grain) => grain switch
-        {
-            ChartGrain.Day => "اليوم",
-            ChartGrain.Week => "الأسبوع",
-            _ => "الشهر"
-        };
-
-        /// <summary>عنوان قصير تحت العمود — لازم يفضل مقروء وهو 60 عمود</summary>
-        private static string ShortLabel(DateTime bucket, ChartGrain grain) => grain switch
-        {
-            ChartGrain.Month => $"{bucket:MM/yyyy}",
-            _ => $"{bucket:dd/MM}"
-        };
-
-        /// <summary>الوصف الكامل في التلميح</summary>
-        private static string LabelFor(DateTime start, DateTime end, ChartGrain grain) => grain switch
-        {
-            ChartGrain.Day => $"يوم {start:yyyy/MM/dd}",
-            ChartGrain.Week => $"أسبوع {start:dd/MM} → {end:dd/MM}",
-            _ => $"شهر {start:MM/yyyy}"
-        };
 
         // ======================= تبويب متوسط إنتاج العمال =======================
 
