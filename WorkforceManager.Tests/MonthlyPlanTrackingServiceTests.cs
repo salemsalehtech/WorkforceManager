@@ -32,6 +32,15 @@ namespace WorkforceManager.Tests
             await _db.GetService<MonthlyPlanService>(scope).SetPlanAsync(TestDatabase.ProductChainId, Year, Month, quantity);
         }
 
+        private async Task SetClassificationAsync(int productId, decimal? weightGrams, Core.Enums.Material? material)
+        {
+            using var scope = _db.CreateScope();
+            var product = await _db.GetService<AppDbContext>(scope).Products.FindAsync(productId);
+            product!.PieceWeightGrams = weightGrams;
+            product.Material = material;
+            await _db.GetService<AppDbContext>(scope).SaveChangesAsync();
+        }
+
         private Task<List<MonthlyPlanTrackingDto>> GetTrackingAsync(DateTime asOfDate) =>
             _db.InScopeAsync<MonthlyPlanTrackingService, List<MonthlyPlanTrackingDto>>(
                 s => s.GetTrackingAsync(Year, Month, asOfDate));
@@ -77,6 +86,43 @@ namespace WorkforceManager.Tests
             if (row is null) return; // مفيش نشاط ولا خطة، مش متوقع يظهر أصلاً
 
             Assert.Null(row.AchievedPercent);
+        }
+
+        // ═══════════ إجمالي الوزن = وزن القطعة × المحقق الفعلي ═══════════
+
+        [Fact]
+        public async Task TotalWeightGrams_equals_piece_weight_times_effective_achieved()
+        {
+            await RecordChainProductionAsync(100, Today);
+            await SetClassificationAsync(TestDatabase.ProductChainId, weightGrams: 12.5m, Core.Enums.Material.Copper);
+
+            var row = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId);
+
+            Assert.Equal(1250m, row.TotalWeightGrams); // 12.5 × 100
+            Assert.Equal(Core.Enums.Material.Copper, row.Material);
+        }
+
+        [Fact]
+        public async Task TotalWeightGrams_is_null_when_product_has_no_weight()
+        {
+            await RecordChainProductionAsync(100, Today);
+
+            var row = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId);
+
+            Assert.Null(row.TotalWeightGrams);
+        }
+
+        [Fact]
+        public async Task TotalWeightGrams_includes_manual_corrections()
+        {
+            await RecordChainProductionAsync(100, Today);
+            await SetClassificationAsync(TestDatabase.ProductChainId, weightGrams: 10m, Core.Enums.Material.Zamak);
+            await _db.InScopeAsync<MonthlyPlanTrackingService, bool>(async s =>
+            { await s.SetCorrectionAsync(TestDatabase.ProductChainId, Today, 20); return true; });
+
+            var row = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId);
+
+            Assert.Equal(1200m, row.TotalWeightGrams); // 10 × (100 + 20)
         }
 
         // ═══════════ تصليحات — يدوي بالكامل، مقصور على يوم واحد ═══════════
