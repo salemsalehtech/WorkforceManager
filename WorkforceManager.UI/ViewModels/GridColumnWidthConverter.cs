@@ -43,15 +43,37 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>أقصى عدد أعمدة افتراضي لاستخدام Convert الأحادي (بدون معرفة حالة الشريط)</summary>
         private const int DefaultMaxColumns = 6;
 
+        /// <summary>
+        /// هامش أمان لكل كارت. من غيره الكروت كانت بتملا السطر بالظبط من غير
+        /// ولا بكسل زيادة، وتقريب WPF لعرض كل كارت لأقرب بكسل حقيقي (مع
+        /// تكبير الشاشة وUiScale) بيزوّد مجموع السطر كسر بكسل لكل كارت —
+        /// فآخر كارت مبيلاقيش مكان والـWrapPanel بيلفّه لسطر جديد: 4 أعمدة
+        /// بدل 5 على شاشات معيّنة، وسليم على غيرها حسب التقريب بالصدفة.
+        /// </summary>
+        private const double RoundingSlack = 1;
+
+        /// <summary>
+        /// عدد الأعمدة الفعلي لعرض حاوية معيّن — دالة نقية منفصلة عن حساب
+        /// العرض عشان تتختبر لوحدها (شوف GridColumnCountTests).
+        /// </summary>
+        public static int ColumnsFor(double containerWidth, int maxColumns)
+        {
+            // كل كارت محتاج عرضه + هامشه اليمين (حتى آخر كارت في السطر —
+            // Margin="0,0,10,10" على كل الكروت، والـWrapPanel بيحسبه) + هامش الأمان
+            var columnsThatFit = (int)Math.Floor(containerWidth / (MinCardWidth + CardMargin + RoundingSlack));
+            return Math.Clamp(columnsThatFit, MinColumns, maxColumns);
+        }
+
+        /// <summary>نفس ColumnsFor، بس بحالة الشريط الجانبي مباشرة بدل maxColumns يدوي — أقرب لواجهة MultiConvert الفعلية</summary>
+        public static int ColumnsFor(double containerWidth, bool isSidebarCollapsed) =>
+            ColumnsFor(containerWidth, isSidebarCollapsed ? ColumnsSidebarCollapsed : ColumnsWithSidebar);
+
         private static double WidthFor(double containerWidth, int maxColumns)
         {
             if (containerWidth <= 0) return 250d;
 
-            // كام كارت بعرض ≥ MinCardWidth (+ هامشه) ينفع يتسع فعليًا في العرض ده؟
-            var columnsThatFit = (int)Math.Floor((containerWidth + CardMargin) / (MinCardWidth + CardMargin));
-            var columns = Math.Clamp(columnsThatFit, MinColumns, maxColumns);
-
-            var width = (containerWidth - columns * CardMargin) / columns;
+            var columns = ColumnsFor(containerWidth, maxColumns);
+            var width = containerWidth / columns - CardMargin - RoundingSlack;
             return Math.Max(MinCardWidth, width);
         }
 
