@@ -2709,6 +2709,28 @@ Core  <----------------------- UI
   field on `MonthlyPlanView` (next to تصليحات) and its own Excel column, kept separate from "المطلوب
   يوميًا" so neither number overwrites the other's meaning.
 
+- **Bulk family assignment on `ProductsView`** — after shipping product families, a real factory (17
+  products, all "بدون عيلة") made classifying them one product at a time through the edit form clearly
+  too slow. Considered an auto-suggest based on shared name prefixes (e.g. "كبشه X" appears on 7 products)
+  but rejected it for a manual multi-select instead — 100% accurate and predictable, no language-pattern
+  guessing that could silently group the wrong products.
+  **`ProductsViewModel.IsBulkSelectMode`** toggles a selection mode: clicking a card toggles
+  `ProductRow.IsBulkSelected` instead of opening `ProductDetailDialog` (`ProductsView.xaml.cs`'s
+  `ProductTile_Click` checks the mode first). `IsBulkSelected` is a **separate** property from the
+  existing `IsSelected` (which means "this card's details are open") — they render with the same gold
+  border/tint, so entering bulk mode clears `SelectedProduct` (`OnIsBulkSelectModeChanged`) to avoid a
+  leftover single-selection visually looking like a bulk-selected card.
+  A `Border` above the grid (visible only in bulk mode) shows the selected count and an "ضيفهم لعيلة"
+  button, disabled until at least one card is picked. It opens `FamilyPickerDialog` — a minimal picker
+  (existing families + "+ عيلة جديدة", same instant-create-and-save behavior as `ProductEditDialog`'s
+  own family combo) extracted into a shared `FamilyChoiceList.Build` helper so both dialogs build the
+  exact same list from one place. Applying it calls
+  `ProductManagementService.SetFamilyForProductsAsync(productIds, familyId)` — `IProductRepository.GetByIdsAsync`
+  fetches every selected product in **one query**, then one `SaveChangesAsync` for all of them; not a
+  query per product. `null` clears the family for the whole selection (same "بدون" semantics as the
+  single-product form). Turning bulk mode back off (or a successful assignment) clears every
+  `IsBulkSelected` flag.
+
 ## Environment note
 
 .NET 8 SDK was installed via winget but may not be in PATH for fresh shells; if `dotnet` isn't found in
