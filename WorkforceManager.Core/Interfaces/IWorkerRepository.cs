@@ -31,5 +31,13 @@ namespace WorkforceManager.Core.Interfaces
         /// دفعة واحدة (أساس شاشة رحلة الإنتاج: قائمة اختيار مستقلة لكل مرحلة).
         /// </summary>
         Task<IReadOnlyList<WorkerSkill>> GetSkillsForProductAsync(int productId);
+
+        /// <summary>
+        /// عدد العمال النشطين "محتاجين انتباه" (مفيش سعر يومية أو مفيش
+        /// مهارات) — نفس قاعدة WorkerRow.NeedsAttention بالظبط، بس COUNT
+        /// واحد مفهرس مش تحميل قايمة العمال ومهاراتهم كاملة. لجرس
+        /// الإشعارات: رقم رخيص للبادچ، القايمة الحقيقية تفضل شاشة العمال.
+        /// </summary>
+        Task<int> CountNeedingAttentionAsync();
     }
 }

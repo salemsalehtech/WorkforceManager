@@ -74,6 +74,18 @@ namespace WorkforceManager.Data.Repositories
                 .ToListAsync();
         }
 
+        public async Task<int> CountNeedingAttentionAsync()
+        {
+            // IsHourly خاصية محسوبة (HourlyRole is not null) مش عمود حقيقي —
+            // EF Core مايترجمهاش، فبنستخدم HourlyRole == null مباشرة (نفس المعنى بالظبط)
+            return await DbSet
+                .ExcludeDeleted()
+                .Where(w => w.IsActive &&
+                    w.HourlyRole != HourlyRole.DepartmentManager && w.HourlyRole != HourlyRole.DepartmentHead &&
+                    (w.DailyWageEgp <= 0 || (w.HourlyRole == null && !w.Skills.Any())))
+                .CountAsync();
+        }
+
         public async Task<IReadOnlyList<WorkerSkill>> GetSkillsForProductAsync(int productId)
         {
             // استعلام واحد بيرجع (المرحلة، العامل) لكل مراحل المنتج — بدل
