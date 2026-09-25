@@ -2,6 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:views="clr-namespace:WorkforceManager.UI.Views"
+        xmlns:tour="clr-namespace:WorkforceManager.UI.Tour"
         Title="إضافة منتج جديد"
         Width="460" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
@@ -51,7 +53,8 @@
                           SelectionChanged="FamilyBox_SelectionChanged" />
 
                 <!-- وزن القطعة والمادة: بيُستخدموا بس في حساب خطة الإنتاج
-                     الشهرية (شاشة "الخطة الشهرية")، مش فلتر ولا تاج هنا -->
+                     الشهرية (شاشة "الخطة الشهرية")، مش فلتر ولا تاج هنا —
+                     الشرح ده مكانش ظاهر للمستخدم خالص قبل أيقونة "؟" دي -->
                 <Grid Margin="0,0,0,14">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -59,11 +62,17 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="وزن القطعة بالجرام (اختياري)" Style="{StaticResource FieldLabel}" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="وزن القطعة بالجرام (اختياري)" Style="{StaticResource FieldLabel}" />
+                            <views:HelpIcon Text="{x:Static tour:FieldHelpText.PieceWeight}" />
+                        </StackPanel>
                         <TextBox x:Name="WeightBox" />
                     </StackPanel>
                     <StackPanel Grid.Column="2">
-                        <TextBlock Text="المادة (اختياري)" Style="{StaticResource FieldLabel}" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="المادة (اختياري)" Style="{StaticResource FieldLabel}" />
+                            <views:HelpIcon Text="{x:Static tour:FieldHelpText.Material}" />
+                        </StackPanel>
                         <ComboBox x:Name="MaterialBox" DisplayMemberPath="Display" />
                     </StackPanel>
                 </Grid>

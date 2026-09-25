@@ -1,0 +1,70 @@
+<UserControl x:Class="WorkforceManager.UI.Views.HelpIcon"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             x:Name="Root" VerticalAlignment="Center"
+             Foreground="{DynamicResource TextMutedBrush}">
+
+    <!--
+      أيقونة "؟" صغيرة جنب خانة مش واضحة — شرح سطر واحد يظهر بالهوفر
+      **وبالتنقل بالكيبورد (Tab) كمان**، عكس ToolTip العادي في WPF اللي
+      بيشتغل بالهوفر بس. مفيش آلية زي دي في المشروع أصلًا (شوف CLAUDE.md)،
+      فالحل هنا Popup بيتفتح بـIsMouseOver أو IsKeyboardFocused على الزرار
+      نفسه (نفس فكرة WorkerSearchBox's IsKeyboardFocusWithin-driven popup،
+      بس على عنصر واحد مش قايمة اقتراحات).
+
+      FocusVisualStyle مش Null عن قصد (عكس IconButton) — ظهور حلقة تركيز
+      واضحة هنا هو بالظبط اللي بيوصل للمستخدم إن في حاجة يقدر يوصلها
+      بالكيبورد، مش مجرد تحسين بصري.
+
+      Foreground موروثة من UserControl (افتراضيًا TextMutedBrush) —
+      استخدامها فوق خلفية غامقة (زي هيدر InitialBalanceDialog) بيحتاج
+      Foreground="{DynamicResource SidebarInkSoftBrush}" صريحة على العنصر
+      وقت استخدامه، نفس أي عنصر تاني بيورّث لون.
+    -->
+    <Grid>
+        <Button x:Name="HelpButton" Width="18" Height="18" Padding="0"
+                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                VerticalAlignment="Center" Margin="4,0,0,0"
+                ToolTipService.IsEnabled="False"
+                AutomationProperties.Name="مساعدة">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="9" BorderThickness="1.3"
+                            BorderBrush="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                        <materialDesign:PackIcon Kind="HelpCircleOutline" Width="13" Height="13"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                 Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <!-- حالة الهوفر/التركيز اللي بتفتح الـPopup تحتها -->
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GoldBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GoldBrush}" />
+                            <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+
+        <!--
+          IsOpen متحكّم فيه من الكود-behind (HelpIcon.xaml.cs) بحدثين: الماوس
+          دخل/خرج، والفوكس جه/راح — "أو" بسيطة بين الحالتين، أوضح من
+          MultiBinding+Converter جديد لأجل شرط واحد بسيط.
+        -->
+        <Popup x:Name="HelpPopup" PlacementTarget="{Binding ElementName=HelpButton}" Placement="Top"
+               AllowsTransparency="True" PopupAnimation="Fade" IsHitTestVisible="False">
+            <!-- نفس شكروم ToolTip الموحّد في التطبيق بالحرف (Themes/Core.xaml) -->
+            <Border Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource GoldLineBrush}" BorderThickness="1"
+                    CornerRadius="{DynamicResource RadiusSmall}" Padding="10,7"
+                    MaxWidth="280" Effect="{DynamicResource CardShadow}">
+                <TextBlock Text="{Binding Text, ElementName=Root}" FontSize="{DynamicResource FontTiny}"
+                           TextWrapping="Wrap" Foreground="{DynamicResource InkBrush}" />
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>
