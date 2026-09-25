@@ -90,7 +90,7 @@
                     <TextBlock x:Name="ErrorText" Foreground="{DynamicResource DangerBrush}" FontSize="12.5"
                                Visibility="Collapsed" TextWrapping="Wrap" Margin="0,0,0,6" />
 
-                    <Button Content="تسجيل الدخول" Click="Login_Click" IsDefault="True"
+                    <Button x:Name="LoginButton" Content="تسجيل الدخول" Click="Login_Click" IsDefault="True"
                             Style="{StaticResource PrimaryButton}" FontSize="14.5"
                             Padding="0,11" Margin="0,10,0,14"
                             HorizontalAlignment="Stretch" />

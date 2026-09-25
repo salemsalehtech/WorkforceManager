@@ -29,6 +29,31 @@ namespace WorkforceManager.UI.Views
                 PasswordBox.Focus();
                 e.Handled = true;
             };
+
+            // فوق/تحت بيتنقّلوا بين الاسم والباسورد والزرار بنفس ترتيب Tab.
+            // Preview عشان يوصل قبل الـTextBox نفسه (اللي بيبلع الأسهم
+            // لتحريك المؤشر). Enter مالهوش علاقة هنا — لسه شغال زي ما هو فوق.
+            PreviewKeyDown += (_, e) =>
+            {
+                if (e.Key is not (Key.Up or Key.Down)) return;
+
+                LoginFocusTarget? current = Keyboard.FocusedElement switch
+                {
+                    var el when el == UsernameBox => LoginFocusTarget.Username,
+                    var el when el == PasswordBox => LoginFocusTarget.Password,
+                    var el when el == LoginButton => LoginFocusTarget.LoginButton,
+                    _ => null
+                };
+                if (current is null) return;
+
+                e.Handled = true;
+                switch (LoginFocusOrder.Next(current.Value, goingDown: e.Key == Key.Down))
+                {
+                    case LoginFocusTarget.Username: UsernameBox.Focus(); break;
+                    case LoginFocusTarget.Password: PasswordBox.Focus(); break;
+                    case LoginFocusTarget.LoginButton: LoginButton.Focus(); break;
+                }
+            };
         }
 
         /// <summary>المستخدم اللي سجل دخول بنجاح (بيقرأه App بعد إغلاق الشاشة)</summary>
