@@ -454,7 +454,6 @@ namespace WorkforceManager.UI.ViewModels
                 Name = p.Name,
                 Description = p.Description ?? "",
                 IsActive = p.IsActive,
-                ImageData = p.ImageData,
                 RackingWorkerId = p.RackingWorkerId,
                 FamilyId = p.FamilyId,
                 FamilyName = p.Family?.Name,
@@ -594,9 +593,6 @@ namespace WorkforceManager.UI.ViewModels
                 var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
                 var created = await mgmt.CreateProductAsync(dialog.ProductName, dialog.ProductDescription);
 
-                if (dialog.ImageData is not null)
-                    await mgmt.SetProductImageAsync(created.Id, dialog.ImageData);
-
                 if (dialog.RackingWorkerId is not null)
                     await mgmt.SetRackingWorkerAsync(created.Id, dialog.RackingWorkerId);
 
@@ -623,7 +619,6 @@ namespace WorkforceManager.UI.ViewModels
             { Owner = Application.Current.MainWindow, Title = "تعديل منتج" };
             dialog.LoadProduct(SelectedProduct.Name,
                 SelectedProduct.Description,
-                SelectedProduct.ImageData,
                 SelectedProduct.RackingWorkerId,
                 SelectedProduct.FamilyId,
                 SelectedProduct.PieceWeightGrams,
@@ -636,10 +631,6 @@ namespace WorkforceManager.UI.ViewModels
                 var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
                 await mgmt.UpdateProductAsync(SelectedProduct.ProductId,
                     dialog.ProductName, dialog.ProductDescription);
-
-                // الصورة بتتحفظ بس لو المستخدم غيّرها فعلاً
-                if (dialog.ImageChanged)
-                    await mgmt.SetProductImageAsync(SelectedProduct.ProductId, dialog.ImageData);
 
                 if (dialog.RackingWorkerId != SelectedProduct.RackingWorkerId)
                     await mgmt.SetRackingWorkerAsync(SelectedProduct.ProductId, dialog.RackingWorkerId);

@@ -48,25 +48,6 @@
                 <!-- رأس المنتج + أزرار الإدارة -->
                 <StackPanel Grid.Row="0">
                     <DockPanel>
-                        <!-- صورة المنتج أكبر شوية هنا (بتظهر بس لو موجودة) -->
-                        <Border DockPanel.Dock="Left"
-                                Width="64"
-                                Height="64"
-                                CornerRadius="14"
-                                Background="{DynamicResource SubtleBgBrush}"
-                                Margin="0,0,14,0"
-                                VerticalAlignment="Top"
-                                Visibility="{Binding SelectedProduct.HasImage, Converter={StaticResource BoolToVis}}">
-                            <Image Source="{Binding SelectedProduct.Image}"
-                                    Stretch="UniformToFill">
-                                <Image.Clip>
-                                    <RectangleGeometry Rect="0,0,64,64"
-                                            RadiusX="13"
-                                            RadiusY="13"/>
-                                </Image.Clip>
-                            </Image>
-                        </Border>
-
                         <StackPanel>
                             <TextBlock Text="{Binding SelectedProduct.Name}"
                                     Style="{StaticResource HeadingText}"

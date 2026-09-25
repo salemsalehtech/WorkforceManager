@@ -76,25 +76,6 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
-        /// يحدّد صورة المنتج أو يشيلها (<paramref name="imageData"/> = null).
-        ///
-        /// منفصلة عن <see cref="UpdateProductAsync"/> عن قصد: تعديل اسم
-        /// المنتج مالوش لازمة يبعت الصورة كلها معاه في كل مرة، ولا يمسحها
-        /// بالغلط لو المتصل نسي يبعتها.
-        /// </summary>
-        public async Task<Product> SetProductImageAsync(int productId, byte[]? imageData)
-        {
-            var product = await _productRepo.GetByIdAsync(productId)
-                ?? throw new InvalidOperationException("المنتج المحدد غير موجود");
-
-            product.ImageData = imageData is { Length: > 0 } ? imageData : null;
-
-            _productRepo.Update(product);
-            await _productRepo.SaveChangesAsync();
-            return product;
-        }
-
-        /// <summary>
         /// إيقاف منتج (توقف إنتاجه): بيختفي هو ومراحله من شاشة التسجيل،
         /// وكل سجلاته التاريخية بتفضل محفوظة ومحسوبة في التقارير القديمة.
         /// </summary>

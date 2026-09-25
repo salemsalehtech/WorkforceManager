@@ -78,18 +78,14 @@ namespace WorkforceManager.UI.ViewModels
             ? $"{PiecesInPeriod:N0} قطعة في {DaysWorkedInPeriod} يوم"
             : "مفيش شغل في الفترة دي";
 
-        /// <summary>صورة المنتج المخزّنة (null = مفيش صورة)</summary>
-        public byte[]? ImageData { get; init; }
-
         /// <summary>
-        /// الصورة جاهزة للعرض. بتتبني مرة واحدة مع بناء الصف مش مع كل
-        /// رسم للبطاقة — فك تشفير الصورة في كل مرة كان هيتقل القائمة.
+        /// صورة المنتج اتشالت بالكامل من البرنامج — الخاصيتين دول باقيين
+        /// بس عشان كارت شبكة المنتجات (ProductsView.xaml) لسه بيربط
+        /// عليهم، وإعادة تصميم الكارت ده مش من ضمن هذا التغيير.
         /// </summary>
-        public System.Windows.Media.ImageSource? Image => _image ??= StoredImageHelper.ToImageSource(ImageData);
-        private System.Windows.Media.ImageSource? _image;
+        public System.Windows.Media.ImageSource? Image => null;
 
-        /// <summary>عنده صورة؟ (لو لأ بتظهر دايرة الحروف الأولى مكانها)</summary>
-        public bool HasImage => ImageData is { Length: > 0 };
+        public bool HasImage => false;
 
         /// <summary>عنده وصف مكتوب؟ — بيحدد ظهور سطر الوصف في كارت الشبكة، بدل ما يسيب فراغ فاضي لمنتج من غير وصف</summary>
         public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
