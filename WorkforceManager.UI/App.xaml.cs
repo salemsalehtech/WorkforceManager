@@ -133,6 +133,8 @@ namespace WorkforceManager.UI
                     if (settings.AutoBackupOnStartup)
                         DatabaseBackupService.RunDailyBackup(
                             AppPaths.DbPath, settings.ExternalBackupFolder, settings.BackupRetentionDays);
+                    else
+                        await ForceBackupBeforeDestructiveMigrationsAsync(db, settings);
 
                     // تطبيق أي Migration جديدة تلقائيًا (بيُنشئ قاعدة البيانات من الصفر
                     // لو مش موجودة أصلاً) — بديل EnsureCreatedAsync عشان تحديثات
@@ -275,6 +277,48 @@ namespace WorkforceManager.UI
                     "خطأ في بدء التشغيل");
 
                 Shutdown(-1);
+            }
+        }
+
+        /// <summary>
+        /// أسماء الترحيلات (Migrations) اللي بتمسح بيانات مستخدم حقيقية —
+        /// مش بس بتغيّر شكل الجدول. لسه فيها ترحيل واحد دلوقتي: مسح صور
+        /// عمال الإنتاج العاديين (شوف RemoveProductImageAndRestrictWorkerPhoto).
+        /// </summary>
+        private static readonly string[] DestructiveMigrationIds =
+        {
+            "20260925025015_RemoveProductImageAndRestrictWorkerPhoto"
+        };
+
+        /// <summary>
+        /// نسخة احتياطية إجبارية **قبل** أي ترحيل مدمّر، حتى لو المستخدم
+        /// قافل النسخة التلقائية اليومية من الإعدادات (AutoBackupOnStartup).
+        ///
+        /// بيتفحص الترحيلات المعلّقة (Pending) قبل MigrateAsync: لو أي
+        /// واحد منها في <see cref="DestructiveMigrationIds"/>، بناخد نسخة
+        /// فورية (BackupNow، مش RunDailyBackup) عشان تتاخد الآن بالظبط —
+        /// مش نسخة يوم سابق ممكن تكون قبل أي تعديل يدوي حصل النهارده.
+        ///
+        /// فشل النسخة هنا **مبيوقفش بدء التشغيل**: نفس مبدأ النسخ الخارجي
+        /// فوق — لو وقفنا البرنامج كل مرة الباك أب يفشل هيبقى أخطر من
+        /// الترحيل نفسه. بس بننبّه المستخدم صراحةً لأن الحالة دي مسح بيانات
+        /// حقيقي مقصود، مش تنظيف عادي.
+        /// </summary>
+        private static async Task ForceBackupBeforeDestructiveMigrationsAsync(AppDbContext db, AppSettings settings)
+        {
+            var pending = await db.Database.GetPendingMigrationsAsync();
+            if (!pending.Any(DestructiveMigrationIds.Contains)) return;
+
+            try
+            {
+                DatabaseBackupService.BackupNow(AppPaths.DbPath, settings.ExternalBackupFolder, settings.BackupRetentionDays);
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(
+                    $"تعذّر أخذ نسخة احتياطية إجبارية قبل تحديث سيمسح بعض البيانات (صور عمال الإنتاج):\n\n{ex.Message}\n\n" +
+                    "التحديث هيكمل عادي، بس يُفضّل تاخد نسخة يدوية من الإعدادات قبل ما تكمل لو ده مهم عندك.",
+                    "تنبيه نسخة احتياطية");
             }
         }
 

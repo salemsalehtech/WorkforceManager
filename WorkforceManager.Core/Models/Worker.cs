@@ -29,13 +29,19 @@ namespace WorkforceManager.Core.Models
         public string? PhoneNumber { get; set; }
 
         /// <summary>
-        /// صورة العامل (اختيارية) مخزّنة جوه قاعدة البيانات نفسها — نفس
-        /// أسلوب <see cref="Product.ImageData"/> بالظبط وللسبب نفسه:
+        /// صورة العامل (اختيارية) مخزّنة جوه قاعدة البيانات نفسها — عشان
         /// النسخ الاحتياطي بينسخ ملف الـ db بس، فالصور كملفات على الجنب
         /// كانت هتضيع مع أي استرجاع أو نقل لجهاز تاني.
         ///
-        /// بتتصغّر وتتضغط قبل التخزين (ProfileImageHelper في طبقة الواجهة)
+        /// بتتصغّر وتتضغط قبل التخزين (StoredImageHelper في طبقة الواجهة)
         /// فحجمها عشرات الكيلوبايتات مش ميجات.
+        ///
+        /// **حكرًا على الحسابات الإدارية** (<see cref="HourlyRole"/> =
+        /// DepartmentManager/DepartmentHead) — عامل الإنتاج العادي (بالقطعة
+        /// أو بالساعة) مالوش صورة خالص، القاعدة دي متفروضة في
+        /// WorkerManagementService.SetWorkerPhotoAsync مش بس بإخفاء الفورم.
+        /// المنتج (Product.ImageData) اتشال العمود بتاعه خالص لنفس السبب:
+        /// الصور مبقتش خاصية عامة في البرنامج.
         /// </summary>
         public byte[]? PhotoData { get; set; }
 
