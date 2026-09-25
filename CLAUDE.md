@@ -1673,12 +1673,20 @@ Core  <----------------------- UI
   was effectively invisible — users were selecting text and seeing nothing happen. No `TextBox` in the
   app carries an explicit style, so fixing the implicit one covers every screen.
 - **Shared worker rendering**: `Views/WorkerAvatar` (photo, else initials) is the only place a worker's
-  avatar is drawn — worker cards, the best-worker card, and the qualified-workers dialog all use it.
+  avatar is drawn — worker cards, the best-worker card, the qualified-workers dialog, and (since photos
+  became department-account-only) the three places that show the signed-in administrator's own photo:
+  `HomeView`'s welcome header (64px, next to `WelcomeText`), `MainWindow`'s sidebar account row (34px,
+  next to `SignedInAsText`), and each card in `DepartmentAccountsView` (56px) / its profile dialog (72px).
+  The three admin-photo spots read from `CurrentUserContext.PhotoData`/`DisplayName` rather than binding to
+  a row, and re-render on `CurrentUserContext.PhotoChanged` (`HomeView`/`MainWindow` each subscribe in their
+  constructor and unsubscribe on `Unloaded`/`Closed`) so an in-session photo change from Department Accounts
+  shows up immediately everywhere without a restart or re-login.
   Its `PhotoData` DP is typed `object`, not `byte[]`, because XAML rejects array-typed properties inside
   a `DataTemplate` ("Tags of type 'PropertyArrayStart' are not supported in template sections") and the
   control lives inside list templates.
-- **Stored images** (product photos and worker photos) all go through `StoredImageHelper` — downscale to
-  256px, re-encode as JPEG, return null for unreadable data so callers fall back to initials.
+- **Stored images** (worker photos, department-account only) go through `StoredImageHelper` — downscale to
+  256px, re-encode as JPEG, return null for unreadable data so callers fall back to initials. Product photos
+  no longer exist (see `Product.ImageData` below) so this helper is now worker-only in practice.
 
 ### The report engine
 
@@ -1829,20 +1837,38 @@ Core  <----------------------- UI
 - `Product` 1—* `ProductionStage` (cascade delete): each stage carries its own `PiecesPerWorkday`
   ("اليومية" — the Arabic term shown in every UI surface; "كوتة" was retired) — the same stage name can
   repeat across products with an independent quota/price each.
-  `Product.ImageData` (nullable BLOB) holds an optional product photo **inside the DB on purpose** — the
-  backup only copies the `.db` file, so images kept as loose files would be lost on restore or when
-  moving to another machine. Always write it through `ProductManagementService.SetProductImageAsync`
-  (kept separate from `UpdateProductAsync` so renaming a product neither resends nor accidentally clears
-  the photo), and always prepare the bytes with `StoredImageHelper.LoadForStorage` (UI layer), which
-  downscales to 256px and re-encodes as JPEG using WPF's own imaging — no new package, and the stored
-  blob stays tens of KB instead of megabytes multiplied across every daily backup. In the UI the photo
-  occupies the **same 44×44 slot as the initials circle**, so products without one cost no extra space.
+  `Product.ImageData` **was deleted outright** (column and all) in
+  `RemoveProductImageAndRestrictWorkerPhoto`: product photos never earned their keep, and the Products-grid
+  card slot they used to fill now always shows the initials-style fallback (`ProductRow.HasImage`/`.Image`
+  are kept as constants returning `false`/`null` purely so that untouched card template still binds
+  cleanly — do not reintroduce a real image source behind them without redesigning that card explicitly).
+  `ProductManagementService.SetProductImageAsync` is gone with it; there is no product-photo write path
+  anywhere in the app anymore.
   `Product.ProductCode` **was deleted outright** (column and all) in `AddWorkerPhotoDropProductCode`:
   nothing read it — no report, no export, no calculation; it went form → service → displayed as "—".
   `Worker.EmployeeCode` followed it in `DropEmployeeCode` once the seeder stopped needing it.
-  `Worker.PhotoData` mirrors `Product.ImageData` exactly (same reason, same helper) and is written only
-  through `WorkerManagementService.SetWorkerPhotoAsync`, kept out of `UpdateWorkerAsync` for the same
-  reason the product photo is kept out of `UpdateProductAsync`.
+  `Worker.PhotoData` **stays, but is now restricted to department (administrative) accounts**
+  (`HourlyRole.DepartmentManager`/`DepartmentHead`, see `HourlyRoleExtensions.IsDepartmentAccount`). A
+  regular production worker (piece-rate or hourly) has no photo feature anywhere — not just hidden from
+  `WorkerEditDialog` (which never offers a department role, confirmed by its `HourlyRoleBox` options), but
+  actively rejected in the Business layer: `WorkerManagementService.SetWorkerPhotoAsync` throws
+  `InvalidOperationException` if the target worker is not a department account, so no stray caller or old
+  form path can slip a photo onto a production worker. Written only through `SetWorkerPhotoAsync`, kept out
+  of `UpdateWorkerAsync` so renaming a worker neither resends nor accidentally clears the photo, and always
+  prepared with `StoredImageHelper.LoadForStorage` (UI layer, downscales to 256px / JPEG re-encode). The
+  `RemoveProductImageAndRestrictWorkerPhoto` migration also ran a one-time
+  `UPDATE Workers SET PhotoData = NULL WHERE HourlyRole IS NULL OR HourlyRole NOT IN (5, 6)` to clear
+  every regular worker's already-stored photo — intentional, permanent data deletion, not reversible via
+  `Down()`. `App.OnStartup` forces an unconditional `DatabaseBackupService.BackupNow` immediately before
+  this specific migration (`ForceBackupBeforeDestructiveMigrationsAsync`, keyed off the migration id) even
+  when the user has `AutoBackupOnStartup` turned off in settings, specifically because this one is
+  destructive. No automatic post-migration `VACUUM` was added to reclaim the freed page space — deliberate:
+  the deleted photos are already small (256px JPEG), so the reclaimable space is modest, and an unconditional
+  `VACUUM` on every startup risks a real pause on a large production database for a benefit that small.
+  The three places that show a signed-in administrator's own photo (Home welcome header, sidebar account
+  row, Department Accounts card) all read live from `CurrentUserContext.PhotoData`, populated at
+  `SignIn`/updated via `UpdatePhoto` — so an admin who changes their photo from Department Accounts sees it
+  update everywhere immediately without a re-login (`CurrentUserContext.PhotoChanged` event).
 - `Worker.SkillsNotes` is **write-nobody, read-somebody**. Its input was removed from the add/edit form
   (replaced by the per-stage star ratings, surfaced as a rating badge on each product card), so
   `CreateWorkerAsync`/`UpdateWorkerAsync` no longer take or touch it: leaving the parameter in place while
@@ -2390,6 +2416,16 @@ Core  <----------------------- UI
     closes pooled connections for *every* database in the process. With `VACUUM INTO` the backup paths
     no longer need it, and it was also the cause of a 1-in-20 flaky test (`TestDatabase.Dispose` called
     it while other tests were mid-query — use `ClearPool(connection)` for one database).
+  - **A destructive migration forces its own backup regardless of `AutoBackupOnStartup`.** The normal daily
+    backup is opt-out via settings; that is fine for ordinary schema changes but not acceptable for a
+    migration that permanently deletes data. `App.ForceBackupBeforeDestructiveMigrationsAsync` checks
+    `Database.GetPendingMigrationsAsync()` against a small allow-list (`DestructiveMigrationIds`) before
+    `MigrateAsync()` runs, and if a listed migration is pending it calls `BackupNow` unconditionally (not
+    `RunDailyBackup`, so it is not skipped just because today's daily backup already ran before a manual
+    edit). Add a migration id here whenever a future migration does something similarly irreversible. A
+    backup failure here still does not block startup (same "imperfect beats none" principle as the daily
+    backup above) but does surface a loud `Notify.Warn`, since silently proceeding with a data-deleting
+    migration and no safety net would defeat the point.
 - **Creator credit**: `SettingsViewModel.AppCreditText` ("تصميم وتطوير: مهندس سالم صالح") and
   `AppReleaseDatesText` render at the bottom of `SettingsView`, directly under `AppVersionText` and above
   "مكان البيانات". One deliberately placed spot — not the splash screen, not the window title — chosen
