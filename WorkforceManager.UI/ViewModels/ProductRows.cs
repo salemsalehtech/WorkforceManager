@@ -8,7 +8,6 @@ using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
 using WorkforceManager.UI.Views;
 
-using WorkforceManager.Core.Helpers;
 
 namespace WorkforceManager.UI.ViewModels
 {
@@ -78,15 +77,6 @@ namespace WorkforceManager.UI.ViewModels
             ? $"{PiecesInPeriod:N0} قطعة في {DaysWorkedInPeriod} يوم"
             : "مفيش شغل في الفترة دي";
 
-        /// <summary>
-        /// صورة المنتج اتشالت بالكامل من البرنامج — الخاصيتين دول باقيين
-        /// بس عشان كارت شبكة المنتجات (ProductsView.xaml) لسه بيربط
-        /// عليهم، وإعادة تصميم الكارت ده مش من ضمن هذا التغيير.
-        /// </summary>
-        public System.Windows.Media.ImageSource? Image => null;
-
-        public bool HasImage => false;
-
         /// <summary>عنده وصف مكتوب؟ — بيحدد ظهور سطر الوصف في كارت الشبكة، بدل ما يسيب فراغ فاضي لمنتج من غير وصف</summary>
         public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
 
@@ -96,8 +86,6 @@ namespace WorkforceManager.UI.ViewModels
         public int ActiveStagesCount => Stages.Count(s => s.IsActive && !s.IsRackingStage);
         public string StagesCountText => $"{ActiveStagesCount} مرحلة";
 
-        /// <summary>أول حرفين من اسم المنتج — للدايرة على البطاقة</summary>
-        public string Initials => NameInitials.From(Name);
         // ------- التنبيهات -------
 
         /// <summary>منتج من غير أي مرحلة نشطة — مينفعش يتسجل عليه إنتاج خالص</summary>

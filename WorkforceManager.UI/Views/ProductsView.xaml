@@ -610,37 +610,10 @@
                                             </Style>
                                         </Border.Style>
                                         <StackPanel>
-                                            <!-- الأفاتار مكان أيقونة الموضوع في كارت الدليل —
-                                                 المنتج مالوش أيقونة، والأفاتار أصلًا هويته
-                                                 البصرية في كل الشاشة -->
-                                            <Border Width="44" Height="44" CornerRadius="12"
-                                                    Background="{DynamicResource SubtleBgBrush}"
-                                                    HorizontalAlignment="Left">
-                                                <Grid>
-                                                    <TextBlock Text="{Binding Initials}" FontSize="15.5" FontWeight="Bold"
-                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                               Foreground="{DynamicResource BrandBrush}">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Visibility" Value="Visible"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding HasImage}" Value="True">
-                                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                    <Image Source="{Binding Image}" Stretch="UniformToFill"
-                                                           Visibility="{Binding HasImage, Converter={StaticResource BoolToVis}}">
-                                                        <Image.Clip>
-                                                            <RectangleGeometry Rect="0,0,44,44" RadiusX="11" RadiusY="11"/>
-                                                        </Image.Clip>
-                                                    </Image>
-                                                </Grid>
-                                            </Border>
-
-                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13.5" Margin="0,8,0,0"
+                                            <!-- الأفاتار (حروف أولى/صورة) اتشال من هنا — المنتجات مالهاش
+                                                 صورة خالص دلوقتي، فالمربع كان بيعرض الحروف الأولى بس
+                                                 دايمًا، مساحة فاضية فوق الاسم من غير أي معلومة. -->
+                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13.5"
                                                        TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             <!-- مخفي تمامًا لو مفيش وصف، بدل سطر فاضي — ولها ToolTip
                                                  بالنص الكامل عشان القطع بالنقط ميضيّعش المعلومة -->

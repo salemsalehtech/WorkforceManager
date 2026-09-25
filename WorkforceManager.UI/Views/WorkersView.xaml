@@ -730,25 +730,11 @@
                                                     </Style>
                                                 </Border.Style>
                                                 <StackPanel>
-                                                    <!-- أفاتار جنب الاسم أفقيًا بدل فوق بعض — كان بياخد صف
-                                                         رأسي كامل لوحده (~56px مع الهامش)، وده أكبر توفير
-                                                         مساحة رأسية ممكن من غير ما نشيل أي معلومة، عشان
-                                                         صفّين كروت (10 عمال) يبانوا من غير Scroll -->
+                                                    <!-- الأفاتار (صورة/حروف أولى) اتشال من هنا — عمال الإنتاج
+                                                         العاديين ملهمش صورة خالص (شوف الفيتشر اللي شال
+                                                         الصور)، فالدايرة كانت بتعرض الحروف الأولى بس دايمًا،
+                                                         مساحة فاضية بلا أي معلومة إضافية. -->
                                                     <StackPanel Orientation="Horizontal">
-                                                        <views:WorkerAvatar PhotoData="{Binding PhotoData}"
-                                                                            Initials="{Binding Initials}"
-                                                                            VerticalAlignment="Center" Margin="0,0,10,0">
-                                                            <views:WorkerAvatar.Style>
-                                                                <Style TargetType="views:WorkerAvatar">
-                                                                    <Setter Property="Diameter" Value="42" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding DataContext.IsCompactGrid, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                                                            <Setter Property="Diameter" Value="34" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </views:WorkerAvatar.Style>
-                                                        </views:WorkerAvatar>
                                                         <materialDesign:PackIcon Kind="Crown" Width="14" Height="14"
                                                                                  VerticalAlignment="Center" Margin="0,0,5,0"
                                                                                  Foreground="{DynamicResource GoldBrush}"
