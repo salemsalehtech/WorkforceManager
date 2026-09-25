@@ -68,6 +68,11 @@ namespace WorkforceManager.UI
             RefreshActivityBadge();
             RefreshMemoryBadge();
 
+            // لو المدير غيّر صورته من شاشة الحسابات الإدارية وهو داخل،
+            // الأفاتار هنا في القايمة الجانبية لازم يتحدّث فورًا معاها
+            _currentUser.PhotoChanged += ShowIdentity;
+            Closed += (_, _) => _currentUser.PhotoChanged -= ShowIdentity;
+
             // شريط عنوان النافذة بيتلوّن بعد ما الـ Handle يتعمل — قبل
             // كده مفيش نافذة فعلية تتلوّن
             SourceInitialized += (_, _) => WindowChromeColors.Apply(this);
@@ -630,6 +635,9 @@ namespace WorkforceManager.UI
             Title = department.Length == 0 ? factory : $"{factory} — {department}";
 
             SignedInAsText.Text = _currentUser.ActorName;
+
+            AccountAvatar.PhotoData = _currentUser.PhotoData;
+            AccountAvatar.Initials = NameInitials.From(_currentUser.DisplayName ?? _currentUser.Username);
         }
 
         private static bool HasArabic(string text) =>

@@ -68,7 +68,7 @@
                                 <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8"
                                         Padding="14,11" Margin="0,0,0,6">
                                     <DockPanel>
-                                        <views:WorkerAvatar DockPanel.Dock="Left" Diameter="44"
+                                        <views:WorkerAvatar DockPanel.Dock="Left" Diameter="56"
                                                             PhotoData="{Binding PhotoData}"
                                                             Initials="{Binding Initials}"
                                                             VerticalAlignment="Center" Margin="0,0,10,0" />

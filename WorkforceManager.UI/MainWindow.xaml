@@ -173,6 +173,8 @@
                                 AutomationProperties.Name="تسجيل الخروج">
                             <materialDesign:PackIcon Kind="LogoutVariant" Width="20" Height="20" />
                         </Button>
+                        <views:WorkerAvatar x:Name="AccountAvatar" DockPanel.Dock="Left" Diameter="34"
+                                             Margin="6,0,0,0" VerticalAlignment="Center" />
                         <TextBlock x:Name="SignedInAsText" FontSize="13" Margin="8,0,0,0"
                                    FontFamily="{DynamicResource SidebarFontSemiBold}" FontWeight="SemiBold"
                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis"

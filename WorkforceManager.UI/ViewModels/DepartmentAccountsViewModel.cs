@@ -189,7 +189,14 @@ namespace WorkforceManager.UI.ViewModels
                     hourlyRole: role, dailyWageEgp: dailyWage);
 
                 if (dialog.PhotoChanged)
+                {
                     await mgmt.SetWorkerPhotoAsync(row.WorkerId, dialog.PhotoData);
+
+                    // المدير عدّل صورته هو بنفسه: لازم يبان فورًا في
+                    // الرئيسية والقايمة الجانبية من غير إعادة دخول
+                    if (isOwnRow)
+                        _currentUser.UpdatePhoto(dialog.PhotoData);
+                }
 
                 var user = await auth.GetUserByWorkerIdAsync(row.WorkerId);
                 if (user is null)

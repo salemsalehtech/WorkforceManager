@@ -28,7 +28,7 @@
                         <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
                     </Button>
                     <DockPanel VerticalAlignment="Center">
-                        <views:WorkerAvatar DockPanel.Dock="Left" Diameter="34"
+                        <views:WorkerAvatar DockPanel.Dock="Left" Diameter="72"
                                             PhotoData="{Binding PhotoData}" Initials="{Binding Initials}"
                                             Margin="0,0,10,0" />
                         <TextBlock Text="{Binding FullName}"

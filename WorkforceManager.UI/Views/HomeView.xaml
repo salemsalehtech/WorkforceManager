@@ -92,23 +92,27 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{Binding WelcomeText}" FontSize="{DynamicResource FontDisplay}" FontWeight="Bold"
-                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
-                    <WrapPanel Margin="0,6,0,0">
-                        <TextBlock Text="{Binding TodayText}" Style="{StaticResource CardLabel}" />
-                        <TextBlock Text="  •  " Style="{StaticResource CardLabel}" />
-                        <TextBlock Text="{Binding WeekRangeText}" Style="{StaticResource CardLabel}" />
-                        <Border Margin="10,0,0,0" CornerRadius="8" Padding="8,2" VerticalAlignment="Center"
-                                Background="{DynamicResource GoldTintBrush}">
-                            <TextBlock Text="{Binding DaysLeftInWeekText}" FontSize="{DynamicResource FontTiny}"
-                                       FontWeight="Bold" Foreground="{DynamicResource GoldDeepBrush}" />
-                        </Border>
-                    </WrapPanel>
-                    <TextBlock Text="{Binding MotivationalMessage}" TextWrapping="Wrap" Margin="0,8,0,0"
-                               FontSize="{DynamicResource FontBase}" FontWeight="SemiBold"
-                               Foreground="{DynamicResource GoldDeepBrush}" />
-                </StackPanel>
+                <DockPanel VerticalAlignment="Center">
+                    <views:WorkerAvatar x:Name="WelcomeAvatar" DockPanel.Dock="Left" Diameter="64"
+                                         Margin="0,0,14,0" VerticalAlignment="Top" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding WelcomeText}" FontSize="{DynamicResource FontDisplay}" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                        <WrapPanel Margin="0,6,0,0">
+                            <TextBlock Text="{Binding TodayText}" Style="{StaticResource CardLabel}" />
+                            <TextBlock Text="  •  " Style="{StaticResource CardLabel}" />
+                            <TextBlock Text="{Binding WeekRangeText}" Style="{StaticResource CardLabel}" />
+                            <Border Margin="10,0,0,0" CornerRadius="8" Padding="8,2" VerticalAlignment="Center"
+                                    Background="{DynamicResource GoldTintBrush}">
+                                <TextBlock Text="{Binding DaysLeftInWeekText}" FontSize="{DynamicResource FontTiny}"
+                                           FontWeight="Bold" Foreground="{DynamicResource GoldDeepBrush}" />
+                            </Border>
+                        </WrapPanel>
+                        <TextBlock Text="{Binding MotivationalMessage}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                   FontSize="{DynamicResource FontBase}" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource GoldDeepBrush}" />
+                    </StackPanel>
+                </DockPanel>
 
                 <!-- البحث: نفس GlobalSearchDialog بالظبط (MainWindow.OpenGlobalSearch) — شكل خانة
                      كتابة عشان يبان إنه بحث، بس الكتابة الفعلية جوّه الديالوج -->

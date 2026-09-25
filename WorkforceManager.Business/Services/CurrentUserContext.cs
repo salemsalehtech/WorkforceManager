@@ -1,3 +1,4 @@
+using System;
 using WorkforceManager.Core.Enums;
 
 namespace WorkforceManager.Business.Services
@@ -30,6 +31,7 @@ namespace WorkforceManager.Business.Services
         private int? _appUserId;
         private int? _workerId;
         private HourlyRole? _departmentRole;
+        private byte[]? _photoData;
 
         /// <summary>اسم الدخول (null قبل تسجيل الدخول)</summary>
         public string? Username => _username;
@@ -45,6 +47,18 @@ namespace WorkforceManager.Business.Services
 
         /// <summary>دور الحساب الإداري (مدير/رئيس قسم) — null لحساب دخول مش مربوط بحساب إداري</summary>
         public HourlyRole? DepartmentRole => _departmentRole;
+
+        /// <summary>
+        /// صورة الحساب الإداري المرتبط — null لو مفيش حساب إداري مرتبط أو
+        /// الحساب ده مالوش صورة. الشاشات الثلاثة اللي بتعرض صورة المدير
+        /// (الرئيسية، القايمة الجانبية، الحسابات الإدارية) بتقرا من هنا،
+        /// وبتتحدّث فورًا في الكل عن طريق <see cref="PhotoChanged"/> لو
+        /// المدير غيّر صورته من شاشة الحسابات من غير ما يحتاج يعيد الدخول.
+        /// </summary>
+        public byte[]? PhotoData => _photoData;
+
+        /// <summary>بيتطلق كل ما الصورة تتغيّر — الشاشات المشتركة بتسمع عليه وتعيد رسم الصورة</summary>
+        public event Action? PhotoChanged;
 
         /// <summary>الحساب الداخل مدير قسم؟ — ليه أكسس على كل الحسابات الإدارية</summary>
         public bool IsDepartmentManager => _departmentRole == HourlyRole.DepartmentManager;
@@ -77,13 +91,26 @@ namespace WorkforceManager.Business.Services
         /// </summary>
         public void SignIn(
             string username, string? displayName,
-            int? appUserId = null, int? workerId = null, HourlyRole? departmentRole = null)
+            int? appUserId = null, int? workerId = null, HourlyRole? departmentRole = null,
+            byte[]? photoData = null)
         {
             _username = username;
             _displayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName;
             _appUserId = appUserId;
             _workerId = workerId;
             _departmentRole = departmentRole;
+            _photoData = photoData;
+        }
+
+        /// <summary>
+        /// بيتنادى بعد ما المدير يغيّر صورته من شاشة الحسابات الإدارية —
+        /// عشان الشاشات المفتوحة (الرئيسية، القايمة الجانبية) تعرض
+        /// الصورة الجديدة فورًا من غير ما تحتاج إعادة تشغيل أو دخول تاني.
+        /// </summary>
+        public void UpdatePhoto(byte[]? photoData)
+        {
+            _photoData = photoData;
+            PhotoChanged?.Invoke();
         }
 
         /// <summary>
@@ -111,6 +138,7 @@ namespace WorkforceManager.Business.Services
             _appUserId = null;
             _workerId = null;
             _departmentRole = null;
+            _photoData = null;
         }
     }
 }

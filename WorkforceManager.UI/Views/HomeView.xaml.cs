@@ -3,6 +3,8 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using WorkforceManager.Business.Services;
+using WorkforceManager.Core.Helpers;
 using WorkforceManager.UI.ViewModels;
 
 namespace WorkforceManager.UI.Views
@@ -30,13 +32,21 @@ namespace WorkforceManager.UI.Views
         private const double NarrowWidth = 980;
 
         private readonly HomeViewModel _viewModel;
+        private readonly CurrentUserContext _currentUser;
 
-        public HomeView(HomeViewModel viewModel)
+        public HomeView(HomeViewModel viewModel, CurrentUserContext currentUser)
         {
             InitializeComponent();
 
             _viewModel = viewModel;
+            _currentUser = currentUser;
             DataContext = viewModel;
+
+            ShowWelcomeAvatar();
+            // HomeView Transient وبتتبنى تاني كل رجوع للرئيسية — الاشتراك
+            // بيتشال مع Unloaded عشان مايفضلش تراكم مستمعين على الـSingleton
+            _currentUser.PhotoChanged += ShowWelcomeAvatar;
+            Unloaded += (_, _) => _currentUser.PhotoChanged -= ShowWelcomeAvatar;
 
             SizeChanged += (_, e) => ApplyResponsiveLayout(e.NewSize.Width);
 
@@ -61,6 +71,12 @@ namespace WorkforceManager.UI.Views
                     PlayEntrance();
                 }
             };
+        }
+
+        private void ShowWelcomeAvatar()
+        {
+            WelcomeAvatar.PhotoData = _currentUser.PhotoData;
+            WelcomeAvatar.Initials = NameInitials.From(_currentUser.DisplayName ?? _currentUser.Username);
         }
 
         private FrameworkElement[] Sections =>

@@ -66,17 +66,19 @@ namespace WorkforceManager.UI.Views
             // دوره من هنا — عليه فرز الوصول في شاشة الحسابات الإدارية
             // وكلمة سر العمليات بتاعته لوحده
             Core.Enums.HourlyRole? departmentRole = null;
+            byte[]? photoData = null;
             if (user.WorkerId is { } workerId)
             {
                 var worker = await scope.ServiceProvider.GetRequiredService<IWorkerRepository>()
                     .GetByIdAsync(workerId);
                 departmentRole = worker?.HourlyRole;
+                photoData = worker?.PhotoData;
             }
 
             // الهوية المشتركة: من هنا ورايح كل حذف وكل حدث في السجل
             // بياخد اسم الشخص ده. Singleton فبيتقري من أي Scope بعدين.
             App.AppHost.Services.GetRequiredService<CurrentUserContext>()
-                .SignIn(user.Username, user.DisplayName, user.Id, user.WorkerId, departmentRole);
+                .SignIn(user.Username, user.DisplayName, user.Id, user.WorkerId, departmentRole, photoData);
 
             DialogResult = true;
         }
