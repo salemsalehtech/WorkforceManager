@@ -67,6 +67,7 @@ namespace WorkforceManager.UI
             ShowIdentity();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
 
             // لو المدير غيّر صورته من شاشة الحسابات الإدارية وهو داخل،
             // الأفاتار هنا في القايمة الجانبية لازم يتحدّث فورًا معاها
@@ -129,7 +130,26 @@ namespace WorkforceManager.UI
             })
             {
                 item.Checked += NavItem_Checked;
+                item.Click += NavItem_Click;
             }
+        }
+
+        /// <summary>
+        /// الدوسة على بند في القايمة بتطوي الشريط تلقائيًا (نفس حركة وحفظ زرار
+        /// الطي بالظبط، AnimateSidebarCollapse) عشان الشاشة تاخد العرض كله.
+        ///
+        /// Click مش Checked عن قصد: Click بس للدوسة الحقيقية بالماوس/الكيبورد
+        /// (حتى على البند المختار أصلًا)، لكن Checked بيتنادى كمان مع التنقّل
+        /// البرمجي — الجولة، بلاطات الرئيسية، البحث السريع، فتح التسجيل من
+        /// الذاكرة — ودول مش "تنقّل من القايمة". والجولة بالذات بتفتح الشريط
+        /// لو العنصر المستهدف جوّاه (MainWindow.Tour.cs)، فالطي على Checked كان
+        /// هيعمل طي وفتح ورا بعض. WPF بيطلق Checked قبل Click، فالشاشة الجديدة
+        /// بتكون اتحطت في MainContent خلاص لما الطي يبدأ.
+        /// </summary>
+        private void NavItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (SidebarNavigationRule.ShouldAutoCollapse(sender == NavHomeItem, _isSidebarCollapsed))
+                AnimateSidebarCollapse(true);
         }
 
         /// <summary>
@@ -369,7 +389,7 @@ namespace WorkforceManager.UI
             // كل المحتوى اللي جواه — Opacity=0 لوحدها بتخفي بصريًا بس
             // تسيب العناصر قابلة للدوسة/التنقل بالكيبورد وهي مش باينة
             SidebarContent.IsEnabled = !_isSidebarCollapsed;
-            SidebarToggleButton.ToolTip = _isSidebarCollapsed ? "فتح القائمة الجانبية" : "طي القائمة الجانبية";
+            SidebarToggleButton.ToolTip = _isSidebarCollapsed ? "فتح القائمة الجانبية (Ctrl+B)" : "طي القائمة الجانبية (Ctrl+B)";
             // العرض الفعلي بيتظبط في أول ApplyUiScale (SizeChanged عند فتح
             // النافذة) — مفيش داعي نكرره هنا
 
@@ -437,7 +457,7 @@ namespace WorkforceManager.UI
             _isSidebarCollapsed = collapse;
             IsSidebarCollapsed = collapse;
             SidebarToggleIcon.Kind = collapse ? PackIconKind.ChevronDoubleLeft : PackIconKind.ChevronDoubleRight;
-            SidebarToggleButton.ToolTip = collapse ? "فتح القائمة الجانبية" : "طي القائمة الجانبية";
+            SidebarToggleButton.ToolTip = collapse ? "فتح القائمة الجانبية (Ctrl+B)" : "طي القائمة الجانبية (Ctrl+B)";
             // بيتقفل فورًا وقت الطي (قبل الحركة) عشان محدش يقدر يدوس على
             // عنصر لسه شبه باين وسط التصغير؛ بيترجع يتفتح بعد الفتح كامل
             // (جوّه Completed) عشان ميبقاش قابل للتفاعل قبل ما يكون باين خالص
@@ -479,11 +499,7 @@ namespace WorkforceManager.UI
             };
             storyboard.Begin();
 
-            if (!persist) return;
-
-            var settings = AppSettingsStore.Load();
-            settings.SidebarCollapsed = collapse;
-            AppSettingsStore.Save(settings);
+            if (persist) SidebarNavigationRule.PersistCollapsed(collapse);
         }
 
         /// <summary>
@@ -565,7 +581,7 @@ namespace WorkforceManager.UI
             var log = scope.ServiceProvider.GetRequiredService<ActivityLogService>();
             var count = await log.GetUnseenCountAsync(_currentUser.AppUserId);
 
-            ActivityBadgeText.Text = count > 99 ? "٩٩+" : count.ToString();
+            ActivityBadgeText.Text = BadgeFormat.CountText(count);
             ActivityBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
             RefreshSidebarToggleBadge();
         }
@@ -581,21 +597,70 @@ namespace WorkforceManager.UI
             var memories = scope.ServiceProvider.GetRequiredService<ProductionMemoryService>();
             var count = (await memories.GetDueAsync(DateTime.Today)).Count;
 
-            MemoryBadgeText.Text = count > 99 ? "٩٩+" : count.ToString();
+            MemoryBadgeText.Text = BadgeFormat.CountText(count);
             MemoryBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
             RefreshSidebarToggleBadge();
         }
 
         /// <summary>
+        /// جرس الإشعارات: يجمّع بس التنبيهات اللي مالهاش مكان عام تاني —
+        /// عمليات سجل غير مشاهَدة، وعمال محتاجين انتباه (مفيش سعر يومية أو
+        /// مهارات). الذاكرة المستحقة والأرصدة القديمة ليهم كارت خاص بأفعاله
+        /// (ابدأ الآن/أجّل) في الرئيسية، فمش متكرّرين هنا عن قصد — شوف
+        /// CLAUDE.md. خطة الشهر "المتأخرة" مستبعدة كمان: حسابها الحلقة
+        /// الثقيلة (~110 استعلام) اللي تشخيص الأداء السابق لقاها، وحسابها
+        /// هنا كل تنقّل كان هيرجّع نفس المشكلة.
+        ///
+        /// الاستعلامين رخيصين ومفهرسين (COUNT بس، مش تحميل قايمة كاملة) —
+        /// نفس فلسفة RefreshActivityBadge/RefreshMemoryBadge بالحرف.
+        /// </summary>
+        private async void RefreshNotificationBell()
+        {
+            using var scope = App.AppHost.Services.CreateScope();
+            var unseenActivity = await scope.ServiceProvider.GetRequiredService<ActivityLogService>()
+                .GetUnseenCountAsync(_currentUser.AppUserId);
+            var needsAttention = await scope.ServiceProvider.GetRequiredService<IWorkerRepository>()
+                .CountNeedingAttentionAsync();
+
+            NotificationActivityText.Text = $"{unseenActivity} عملية جديدة في سجل العمليات";
+            NotificationActivityItem.Visibility = unseenActivity > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            NotificationAttentionText.Text = $"{needsAttention} عامل محتاج انتباه";
+            NotificationAttentionItem.Visibility = needsAttention > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            var total = unseenActivity + needsAttention;
+            NotificationEmptyText.Visibility = total == 0 ? Visibility.Visible : Visibility.Collapsed;
+            NotificationBellBadgeText.Text = BadgeFormat.CountText(total);
+            NotificationBellBadge.Visibility = total > 0 ? Visibility.Visible : Visibility.Collapsed;
+            RefreshSidebarToggleBadge();
+        }
+
+        private void NotificationActivityItem_Click(object sender, RoutedEventArgs e)
+        {
+            NotificationBellToggle.IsChecked = false;
+            NavActivityLogItem.IsChecked = true;
+        }
+
+        /// <summary>بيهبط على شاشة العمال وبيفعّل نفس فلتر "محتاج انتباه" اللي زرارها فوق الشاشة بيعمله — مفيش قايمة تانية بتتبني هنا</summary>
+        private void NotificationAttentionItem_Click(object sender, RoutedEventArgs e)
+        {
+            NotificationBellToggle.IsChecked = false;
+            NavWorkersItem.IsChecked = true;
+            if (MainContent.Content is Views.WorkersView { DataContext: ViewModels.WorkersViewModel vm })
+                vm.ShowNeedsAttentionCommand.Execute(null);
+        }
+
+        /// <summary>
         /// نقطة صغيرة على زرار طي الشريط بتبان لو فيه تنبيه معلّق (عمليات
-        /// جديدة أو خطط ذاكرة مستحقة) — عشان التنبيه ميضيعش لمجرد إن
-        /// المستخدم طاوي الشريط ومابيشوفش ActivityBadge/MemoryBadge نفسهم.
-        /// بتتنادى من ذيل RefreshActivityBadge/RefreshMemoryBadge الاتنين.
+        /// جديدة أو خطط ذاكرة مستحقة أو إشعار) — عشان التنبيه ميضيعش لمجرد
+        /// إن المستخدم طاوي الشريط ومابيشوفش البادچات نفسها. بتتنادى من ذيل
+        /// RefreshActivityBadge/RefreshMemoryBadge/RefreshNotificationBell التلاتة.
         /// </summary>
         private void RefreshSidebarToggleBadge()
         {
             SidebarToggleBadgeDot.Visibility =
                 ActivityBadge.Visibility == Visibility.Visible || MemoryBadge.Visibility == Visibility.Visible
+                || NotificationBellBadge.Visibility == Visibility.Visible
                     ? Visibility.Visible
                     : Visibility.Collapsed;
         }
@@ -650,6 +715,7 @@ namespace WorkforceManager.UI
             MainContent.Content = _session.GetRequiredService<HomeView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         private void NavWorkers_Checked(object sender, RoutedEventArgs e)
@@ -659,6 +725,7 @@ namespace WorkforceManager.UI
             MainContent.Content = _session.GetRequiredService<WorkersView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         private void NavProducts_Checked(object sender, RoutedEventArgs e)
@@ -668,6 +735,7 @@ namespace WorkforceManager.UI
             MainContent.Content = _session.GetRequiredService<ProductsView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         private void NavMonthlyPlan_Checked(object sender, RoutedEventArgs e)
@@ -677,6 +745,7 @@ namespace WorkforceManager.UI
             MainContent.Content = _session.GetRequiredService<MonthlyPlanView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         private void NavDailyEntry_Checked(object sender, RoutedEventArgs e)
@@ -686,6 +755,7 @@ namespace WorkforceManager.UI
             MainContent.Content = _session.GetRequiredService<DailyEntryView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         private void NavEvaluation_Checked(object sender, RoutedEventArgs e)
@@ -695,6 +765,7 @@ namespace WorkforceManager.UI
             MainContent.Content = _session.GetRequiredService<ReportsView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         private void NavReports_Checked(object sender, RoutedEventArgs e)
@@ -704,6 +775,7 @@ namespace WorkforceManager.UI
             MainContent.Content = _session.GetRequiredService<ReportBuilderView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         /// <summary>
@@ -721,9 +793,64 @@ namespace WorkforceManager.UI
             NavDailyEntryItem.IsChecked = true;
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
 
             await _session.GetRequiredService<ViewModels.DailyEntryViewModel>()
                 .StartFromMemoryAsync(memoryId, productId, stageOrder);
+        }
+
+        /// <summary>
+        /// قائمة كارت العامل ← التسجيل اليومي على تبويب الحضور/الجزاءات/السلف
+        /// والعامل متحدد. نفس شكل OpenDailyEntryForMemoryAsync بالظبط (الشاشة
+        /// Scoped، فالتنقّل ده بيرجع لنفس النسخة بشغلها اللي لسه مش محفوظ).
+        /// </summary>
+        public async Task OpenDailyEntryForWorkerAsync(int workerId, string workerName, ViewModels.DailyEntryWorkerTarget target)
+        {
+            if (MainContent is null) return;
+
+            MainContent.Content = _session.GetRequiredService<DailyEntryView>();
+            NavDailyEntryItem.IsChecked = true;
+            RefreshActivityBadge();
+            RefreshMemoryBadge();
+            RefreshNotificationBell();
+
+            await _session.GetRequiredService<ViewModels.DailyEntryViewModel>()
+                .FocusWorkerAsync(workerId, workerName, target);
+        }
+
+        /// <summary>
+        /// قائمة كارت المنتج ← "تقرير الإنتاج": شاشة التقارير، موضوع الإنتاج،
+        /// المنتج ده محدد بس.
+        ///
+        /// IsChecked = true بس، زي هبوط البحث السريع بالظبط (MainWindow.
+        /// GlobalSearch.cs) — النداء ده مش بيبني الشاشة بنفسه: NavReports_Checked
+        /// (اللي IsChecked بيطلقه) هو اللي بيبني الـView الجديد ويحطه في
+        /// MainContent، فـMainContent.Content بعد السطر ده هو نفس النسخة
+        /// بالظبط (View وViewModel، ReportBuilderViewModel Transient). لو
+        /// الشاشة مفتوحة أصلًا IsChecked مبيتغيّرش فمفيش Checked تاني —
+        /// وWhenLoaded بتاعة النسخة الحالية اتحلّت خلاص فـawait بيرجع فورًا.
+        /// </summary>
+        public async Task OpenProductReportAsync(int productId)
+        {
+            if (MainContent is null) return;
+
+            NavReportsItem.IsChecked = true;
+            if (MainContent.Content is not ReportBuilderView view) return;
+
+            await view.WhenLoaded;
+            ((ViewModels.ReportBuilderViewModel)view.DataContext).ShowProductionFor(productId);
+        }
+
+        /// <summary>قائمة كارت المنتج ← "الخطة الشهرية": مؤشر الكيبورد على خانة كمية المنتج ده، نفس منطق OpenProductReportAsync بالظبط</summary>
+        public async Task OpenMonthlyPlanForProductAsync(int productId)
+        {
+            if (MainContent is null) return;
+
+            NavMonthlyPlanItem.IsChecked = true;
+            if (MainContent.Content is not MonthlyPlanView view) return;
+
+            await view.WhenLoaded;
+            view.FocusProductQuantity(productId);
         }
 
         private void NavMemory_Checked(object sender, RoutedEventArgs e)
@@ -733,6 +860,7 @@ namespace WorkforceManager.UI
             MainContent.Content = _session.GetRequiredService<MemoryView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         private void NavActivityLog_Checked(object sender, RoutedEventArgs e)
@@ -744,6 +872,7 @@ namespace WorkforceManager.UI
             // الرجوع هنا بعد شوية (تنقّل تاني) هو اللي بيعرض الصفر فعليًا
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         private void NavSettings_Checked(object sender, RoutedEventArgs e)
@@ -753,6 +882,7 @@ namespace WorkforceManager.UI
             MainContent.Content = _session.GetRequiredService<SettingsView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         private void NavDepartmentAccounts_Checked(object sender, RoutedEventArgs e)
@@ -762,6 +892,7 @@ namespace WorkforceManager.UI
             MainContent.Content = _session.GetRequiredService<DepartmentAccountsView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         private void NavHelp_Checked(object sender, RoutedEventArgs e)
@@ -771,6 +902,7 @@ namespace WorkforceManager.UI
             MainContent.Content = _session.GetRequiredService<HelpView>();
             RefreshActivityBadge();
             RefreshMemoryBadge();
+            RefreshNotificationBell();
         }
 
         /// <summary>
@@ -796,6 +928,27 @@ namespace WorkforceManager.UI
                 e.Handled = true;
                 ToggleSidebarByUser();
             }
+
+            // Ctrl+N/S/F بيتوجّهوا للشاشة المعروضة دلوقتي بس (IScreenShortcuts) —
+            // الديالوجات نوافذ لوحدها فمفيش اختصار من هنا بيوصل لشاشة ورا ديالوج مفتوح
+            var action = KeyboardShortcuts.Resolve(e.Key, Keyboard.Modifiers);
+            if (action == ShortcutAction.None) return;
+
+            var screen = MainContent?.Content as IScreenShortcuts;
+            e.Handled = action switch
+            {
+                ShortcutAction.QuickAdd => screen?.TryQuickAdd() ?? false,
+                ShortcutAction.Save => screen?.TrySave() ?? false,
+                // الشاشة اللي مالهاش خانة بحث خاصة بيها → البحث السريع الشامل (زي Ctrl+K)
+                ShortcutAction.Search => screen?.TryFocusSearch() == true || OpenGlobalSearchFromShortcut(),
+                _ => false
+            };
+        }
+
+        private bool OpenGlobalSearchFromShortcut()
+        {
+            GlobalSearch_Click(this, new RoutedEventArgs());
+            return true;
         }
     }
 }

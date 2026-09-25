@@ -125,16 +125,83 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- بحث سريع: عامل أو منتج، من أي شاشة، من غير ما تفتح شاشته الأول -->
-                    <Button x:Name="GlobalSearchButton" Margin="0,14,0,0" Padding="10,7" HorizontalContentAlignment="Left"
-                            Style="{StaticResource GhostButton}"
-                            Click="GlobalSearch_Click" ToolTip="بحث سريع عن عامل أو منتج"
-                            AutomationProperties.Name="بحث سريع">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="Magnify" Width="16" Height="16" VerticalAlignment="Center" />
-                            <TextBlock Text="بحث سريع" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="12.5" />
-                        </StackPanel>
-                    </Button>
+                    <!-- بحث سريع + جرس الإشعارات جنب بعض، صف واحد -->
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Button x:Name="GlobalSearchButton" Grid.Column="1" Padding="10,7" HorizontalContentAlignment="Left"
+                                Style="{StaticResource GhostButton}"
+                                Click="GlobalSearch_Click" ToolTip="بحث سريع عن عامل أو منتج (Ctrl+K)"
+                                AutomationProperties.Name="بحث سريع">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Magnify" Width="16" Height="16" VerticalAlignment="Center" />
+                                <TextBlock Text="بحث سريع" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="12.5" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- جرس الإشعارات: تجميع تنبيهات مش ليها مكان تاني حاليًا (سجل
+                             العمليات، عمال محتاجين انتباه) — الذاكرة والأرصدة القديمة
+                             ليهم كارت خاص في الرئيسية بأفعاله (ابدأ الآن/أجّل)، فمش
+                             مكرّرين هنا (شوف CLAUDE.md) -->
+                        <Grid Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center">
+                            <ToggleButton x:Name="NotificationBellToggle" Style="{StaticResource ToolbarToggle}"
+                                          Padding="9" ToolTip="الإشعارات"
+                                          AutomationProperties.Name="الإشعارات">
+                                <materialDesign:PackIcon Kind="BellOutline" Width="17" Height="17" />
+                            </ToggleButton>
+
+                            <!-- بادچ العدد — نفس شكل ActivityBadge/MemoryBadge بالظبط -->
+                            <Border x:Name="NotificationBellBadge" Background="{DynamicResource DangerBrush}"
+                                    CornerRadius="8" MinWidth="16" Height="16" Padding="4,0"
+                                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="-4,-4,0,0"
+                                    Visibility="Collapsed" IsHitTestVisible="False">
+                                <TextBlock x:Name="NotificationBellBadgeText" FontSize="9.5" FontWeight="Bold"
+                                           Foreground="White" HorizontalAlignment="Center" />
+                            </Border>
+
+                            <Popup IsOpen="{Binding IsChecked, ElementName=NotificationBellToggle, Mode=TwoWay}"
+                                   StaysOpen="False" PlacementTarget="{Binding ElementName=NotificationBellToggle}"
+                                   Placement="Bottom" AllowsTransparency="True" PopupAnimation="Fade">
+                                <Border Style="{StaticResource ToolbarPopupCard}" FlowDirection="RightToLeft" Width="270">
+                                    <StackPanel>
+                                        <TextBlock Text="الإشعارات" FontWeight="Bold" FontSize="13"
+                                                   Margin="0,0,0,8" Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                                        <TextBlock x:Name="NotificationEmptyText" Text="كله تمام، مفيش حاجة محتاجة انتباهك دلوقتي"
+                                                   FontSize="12" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource TextMutedBrush}" />
+
+                                        <Button x:Name="NotificationActivityItem" Click="NotificationActivityItem_Click"
+                                                Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left"
+                                                Padding="8,7" Margin="0,0,0,4" Visibility="Collapsed">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="History" Width="16" Height="16"
+                                                                         VerticalAlignment="Center" Foreground="{DynamicResource InfoBrush}" />
+                                                <TextBlock x:Name="NotificationActivityText" Margin="8,0,0,0" FontSize="12.5"
+                                                           TextWrapping="Wrap" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                            </StackPanel>
+                                        </Button>
+
+                                        <Button x:Name="NotificationAttentionItem" Click="NotificationAttentionItem_Click"
+                                                Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left"
+                                                Padding="8,7" Visibility="Collapsed">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="AccountAlertOutline" Width="16" Height="16"
+                                                                         VerticalAlignment="Center" Foreground="{DynamicResource WarnBrush}" />
+                                                <TextBlock x:Name="NotificationAttentionText" Margin="8,0,0,0" FontSize="12.5"
+                                                           TextWrapping="Wrap" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </Grid>
                 </StackPanel>
 
                 <!-- توقيع نهاية اليوم — آخر عنصر في القائمة الجانبية
@@ -386,7 +453,7 @@
                     HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,26,10,0">
                 <Grid>
                     <Button x:Name="SidebarToggleButton" Click="SidebarToggle_Click" Style="{StaticResource IconButton}" Padding="0"
-                            Width="36" Height="36" ToolTip="طي القائمة الجانبية"
+                            Width="36" Height="36" ToolTip="طي القائمة الجانبية (Ctrl+B)"
                             AutomationProperties.Name="طي أو فتح القائمة الجانبية">
                         <materialDesign:PackIcon x:Name="SidebarToggleIcon" Kind="ChevronDoubleRight"
                                                   Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
