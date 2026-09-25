@@ -929,25 +929,86 @@ Core  <----------------------- UI
     `sender.DataContext`, `WorkersViewModel` from the `UserControl`'s own `DataContext`) rather than
     fighting `RelativeSource` chains to reach a ViewModel command from inside a popup that was never in
     the right tree for it.
+  - **The card menu grew to 7 items** (later request), still the same `Click`-in-code-behind /
+    `PlacementTarget.DataContext` mechanism: «افتح الملف الكامل» (reuses `SelectWorkerCommand` +
+    `WorkerDetailDialog`, the same path as the flip card's own back-face button, now factored into one
+    `ShowProfileDialog` helper both call); «عدّل المهارات» — **hidden** (not disabled) for an hourly
+    worker via `WorkerRow.CanEditSkills => !IsHourly`, since hourly workers have no skills at all by
+    design; «سجّل الحضور/الغياب» / «سجّل جزاء» / «سجّل سلفة/حافز» — **disabled** for an inactive worker
+    (`WorkerRow.CanRecordDailyEntry => IsActive`, since the Daily Entry forms only list active workers)
+    and each navigates to `تسجيل الإنتاج اليومي` on the matching tab with the worker pre-selected
+    (`MainWindow.OpenDailyEntryForWorkerAsync` → `DailyEntryViewModel.FocusWorkerAsync`, mirroring the
+    existing `OpenDailyEntryForMemoryAsync`/`StartFromMemoryAsync` shape exactly — `DailyEntryViewModel`
+    is session-`Scoped`, so this lands on the same in-progress screen, not a fresh one) — nothing is
+    written directly from the card, the user still sees and confirms the real form. **Keyboard
+    equivalent**: a small "⋮" `IconButton` in the opposite top corner from the status dot
+    (`AutomationProperties.Name="إجراءات"`, tooltip "(Shift+F10)") opens the *same* `ContextMenu`
+    (`KeyboardShortcuts.OpenOwningContextMenu` — walks up from the button to the first ancestor with a
+    `ContextMenu` and opens it there), so there's one menu to keep in sync, not two; Shift+F10/the Apps
+    key on a focused card already opened it natively even before this, since the card was always a
+    focusable `Button` with a real `ContextMenu`.
+  - **Product cards got the same treatment** (`ProductsView.xaml`, no prior menu existed): «تفاصيل
+    المنتج» (same as a left click — products have no separate profile dialog), «تعديل», «تقرير
+    الإنتاج», «الخطة الشهرية» (**disabled** when the product is inactive, `ProductRow.CanUseMonthlyPlan
+    => IsActive`), «إيقاف/تفعيل», «حذف» — the last three via the same `SelectedProduct = product;
+    await Original()` wrapper shape as Workers (simpler here: `OnSelectedProductChanged` sets `Stages`
+    **synchronously**, so no `LoadDetailAsync`-style race to guard against). **Report/Monthly-Plan
+    navigation reuses the quick-search landing pattern, not the DailyEntry one**: both
+    `ReportBuilderViewModel` and `MonthlyPlanViewModel` are **Transient** (a fresh instance per
+    navigation, unlike `DailyEntryViewModel`), so `MainWindow.OpenProductReportAsync`/
+    `OpenMonthlyPlanForProductAsync` only ever set `NavXItem.IsChecked = true` and then read back
+    `MainContent.Content` — exactly how quick-search's `LandOnWorkerAsync` already lands on a fresh
+    screen — instead of resolving the ViewModel a second time from DI (which for a Transient service
+    would silently be a *different* instance from the one just placed on screen, the exact
+    "second, never-displayed instance" trap documented above for the tour engine). Both views expose a
+    `WhenLoaded` task (a `TaskCompletionSource` resolved right after their own `Loaded`-triggered
+    `InitializeAsync`/`LoadAsync` finishes) so the navigation method waits for the screen's *own* load
+    instead of racing it with a second one — `ReportBuilderViewModel.ShowProductionFor(productId)`
+    selects the "الإنتاج" subject and checks only that product once `Products` is actually populated;
+    `MonthlyPlanView.FocusProductQuantity(productId)` walks the visual tree for the `TextBox` named
+    `QuantityBox` whose `Tag` (bound to the row, same convention as the daily-target box) matches, and
+    focuses/selects it. **Bulk-select mode disables the whole menu and hides the ⋮**
+    (`ProductsViewModel.CanShowCardMenu => !IsBulkSelectMode`) — a click there means "select this
+    product for the family," not "open its menu." One WPF wrinkle: `ContextMenu` is a popup, not part of
+    the button's real visual tree, so `RelativeSource AncestorType=UserControl` can't reach the
+    ViewModel from inside it (same root cause as the `DataContext`-inheritance pitfall above) — the fix
+    stashes `CanShowCardMenu` on the card `Button.Tag` (real tree, `AncestorType` works there) and reads
+    it back inside the `ContextMenu` via `PlacementTarget.Tag`, the same indirection already used for
+    `PlacementTarget.DataContext`.
   - **`IsBestOfWeek` gets a `GoodBrush` card border**, ordered *before* `NeedsAttention` and
     `IsSelected` in the same `Style.Triggers` block (last matching trigger wins in WPF) — a worker can
     be a celebrated top performer and *also* have a real problem flagged, and the problem should stay
     visible over the celebration; selection, being the user's own live action, still wins over both.
 
-  **A follow-up prompt replaced the guessed-and-wrong 260px card width with a computed one.** 260px
-  had been picked to target "5 columns on a typical maximized desktop" — it rendered 4 on the user's
-  actual screen, and there is no single width constant that is correct on every monitor/sidebar-state
-  combination, since `WrapPanel` column count is a function of the container's real width. The fix:
-  `GridColumnWidthConverter` (`WorkforceManager.UI\ViewModels`) takes the `ItemsControl`'s live
-  `ActualWidth` and returns `(width − columns × margin) / columns` for a fixed `columns` (5, passed as
-  `ConverterParameter`) — each card's `Width` binds to
-  `{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}, Converter=...}`,
-  so column count stays exactly 5 across any resize, with no code-behind `SizeChanged` handler needed
-  (`ActualWidth` is a bindable `DependencyProperty` that WPF's layout system already renotifies on
-  every layout pass — the same "bind straight to `ActualWidth`" idiom used for other auto-sizing
-  elsewhere in WPF). `IsCompactGrid` no longer touches `Width` at all now that it's computed — it only
-  shrinks the avatar/name/stat fonts, which stays coherent alongside a column count that is no longer
-  something the toggle can override.
+  **A follow-up prompt replaced the guessed-and-wrong 260px card width with a computed one, later made
+  sidebar-aware.** 260px had been picked to target "5 columns on a typical maximized desktop" — it
+  rendered 4 on the user's actual screen, and there is no single width constant that is correct on
+  every monitor/sidebar-state combination, since `WrapPanel` column count is a function of the
+  container's real width. `GridColumnWidthConverter` (`WorkforceManager.UI\ViewModels`) is the current
+  shape: `MultiConvert` takes `[ActualWidth of the ItemsControl, MainWindow.IsSidebarCollapsed]` and
+  targets **5 columns sidebar-open, 6 collapsed** (`ColumnsWithSidebar`/`ColumnsSidebarCollapsed`),
+  clamped down to `MinColumns=3` on narrow containers via `ColumnsFor` (a pure static method, covered
+  by `GridColumnCountTests` in `WorkforceManager.UiTests`) — no code-behind `SizeChanged` handler
+  needed, since `ActualWidth` is a bindable `DependencyProperty` WPF's layout system renotifies on
+  every layout pass, including every frame of the sidebar's collapse/expand animation. The result flows
+  through `ui:AnimatedWidth.Value` (`WorkforceManager.UI\AnimatedWidth.cs`), which smoothly animates
+  each card's `Width` to the new target instead of snapping.
+  **"4 columns instead of 5" (fixed later) was a rounding overflow, not a stale width.** The converter
+  already picked 5 — but sized the cards to fill the row with *zero* slack
+  (`(width − columns × margin) / columns`), and WPF's layout rounding to whole device pixels (under
+  DPI scaling and the root `UiScale` `LayoutTransform`) rounds each card up by a fraction of a pixel,
+  so the row's total exceeded the container by 1–4px and `WrapPanel` wrapped the last card. Measured
+  live via UI Automation: 1280×800 sidebar-open, container 939px vs 5 cards ≈ 943px → 4 columns;
+  900×560, 824 vs 825 → 4; maximized, 1496 vs 1495 → 5 only by luck — which is why it depended on the
+  user's exact screen and why toggling the sidebar seemed to "fix" it (a different width happened to
+  round in its favor). Fix: `RoundingSlack = 1` logical px reserved per card, and `columnsThatFit`
+  now divides by `MinCardWidth + CardMargin + RoundingSlack` *without* the old `+ CardMargin` on the
+  container — every card, including the last one in a row, carries `Margin="0,0,10,10"` and `WrapPanel`
+  counts it, so the old formula claimed N columns fit up to 10px before they physically could.
+  Breakpoints moved by ~15px as a result (5 columns now needs ≥905 logical px, 6 needs ≥1086).
+  `FullRow_LeavesRoundingSlack` pins the invariant across real measured widths. **`IsCompactGrid` no
+  longer touches `Width` at all** now that it's computed — it only shrinks the avatar/name/stat fonts,
+  which stays coherent alongside a column count that is no longer something the toggle can override.
   **The user also wanted a specific instance to fit — their 10 workers as two full rows, no
   scrolling** — but building height to auto-fit *exactly N rows* is a fundamentally worse idea than
   the width fix, not just a smaller version of it: row count is `ceil(workerCount / 5)`, so a
@@ -1157,10 +1218,12 @@ Core  <----------------------- UI
   narrow `ListBox` of `WorkerCard`-styled rows sitting beside a permanent detail column. This wasn't a
   blind copy — `HelpView`'s `TopicTile` binds to static content (`Title`/`Description`/`Icon`/
   `FeatureCount`) that `ProductRow` doesn't have the same shape of, so each slot was mapped deliberately:
-  the product's existing avatar/initials circle (`ProductRow.Initials`/`Image`/`HasImage`, already this
-  app's product-identity visual everywhere else) takes the icon's spot instead of a generic
-  `PackIconKind` — products have no meaningful per-item icon, and inventing one would say less than the
-  avatar already does. The stage-count badge reuses the *already-computed* `ProductRow.StagesCountText`
+  `TopicTile`'s icon slot was dropped entirely rather than filled with a generic `PackIconKind` —
+  products have no meaningful per-item icon, and a fake one would say less than the name itself already
+  does. (An earlier iteration of this card briefly reused a `ProductRow.Initials`/`Image`/`HasImage`
+  avatar circle in that slot; that was removed in a later pass — see "Product cards: centered column
+  layout" below — products have no photo concept anywhere in the app now, see the `Worker`/`Product`
+  photo-removal entry above.) The stage-count badge reuses the *already-computed* `ProductRow.StagesCountText`
   ("N مرحلة") in exactly `TopicTile`'s `FeatureCount` badge position — no new field needed. Two things
   the old row showed that `TopicTile` has no equivalent for were kept rather than dropped for a cleaner
   look: the inactive "موقوف" pill (now shown *instead of* the stage-count badge, in the same badge slot,
@@ -1203,6 +1266,44 @@ Core  <----------------------- UI
   `Dispatcher.BeginInvoke(DispatcherPriority.Loaded)` into a single animation pass, which also gives the
   `WrapPanel` a chance to finish laying out its new row count first (same reason `AnimateTilesIn` itself
   calls `UpdateLayout()` before walking containers).
+  **Every sidebar screen now has an entrance animation.** Card-grid screens keep their own staggered
+  `AnimateTilesIn` (`WorkersView`, `ProductsView`, `HelpView`), and `HomeView` keeps `PlayEntrance`
+  (full section stagger + count-up once per app run via the static `s_entrancePlayed`, a quick 150ms
+  fade on every later return — not documented anywhere before this line). The other 8 —
+  `MonthlyPlanView`, `DailyEntryView`, `ReportsView`, `ReportBuilderView`, `MemoryView`,
+  `ActivityLogView`, `SettingsView`, `DepartmentAccountsView` — call the shared
+  `EntranceAnimation.PlayFadeSlideIn(this)` (`WorkforceManager.UI/EntranceAnimation.cs`) from their own
+  `Loaded`: the whole screen fades 0→1 and slides 14→0px up, 280ms `CubicEase` EaseOut — the exact
+  per-tile values, just once for the whole screen, so it reads as the same motion language. It's
+  registered as a separate `Loaded` handler *before* the data-load one, so the chrome animates in while
+  data arrives (tens of ms) instead of the screen sitting blank until the load finishes. The helper
+  builds a fresh `TranslateTransform` in code every time (XAML-literal `Freezable`s get frozen — same
+  trap as the worker flip card) and clears its animations on `Completed`, so `Opacity` isn't held by
+  an animation clock afterward. Lives in each *View*, not `MainWindow`, so every path that puts one of
+  these screens into `MainContent` (sidebar, `OpenDailyEntryForMemoryAsync`, sandbox swaps) gets it
+  for free; `LoginWindow` and dialogs never go through `MainContent` and are untouched.
+  Re-navigation: the 7 `Transient` screens are rebuilt on every click, so each fresh instance animates
+  once — a normal reload, no overlap. `DailyEntryView` is session-`Scoped`: `Loaded` fires again each
+  time it re-enters the tree (animates on every visit), and clicking it while it's already shown sets
+  `Content` to the same instance — a no-op, no replay. **Tour timing is tied to it**: `RunTourAsync`
+  and `RunGuidedPracticeAsync` wait before measuring a target with `TransformToVisual` (which includes
+  `RenderTransform`); their non-`SelectFirstWorker` wait was 150ms — shorter than the slide — and is
+  now `EntranceAnimation.DurationMs + 70`, so retiming the entrance moves the tour wait with it.
+  **Product cards: centered column layout.** Once the avatar/initials slot above was removed for good
+  (products have no photo concept left anywhere in the app), the card's `StackPanel` became a single
+  centered column instead of a centered name over left/right-aligned rows: `Name` (`FontSize="16"`, up
+  from 13.5, `TextAlignment="Center"`, the card's visual centerpiece now), `Description`, the
+  `NeedsAttention` warning row, and the stage-count/activity/"موقوف" pill rows all get
+  `HorizontalAlignment="Center"` (or `TextAlignment="Center"` for the wrapping `TextBlock`s, since a
+  centered `TextBlock` needs to stay `HorizontalAlignment="Stretch"` to keep wrapping at the card's
+  actual width instead of shrinking to its longest line). Card `Border` padding and the row margins
+  between Name/Description/warning/pills were tightened (`14,12`→`14,10` padding; `0,8,0,0`→`0,6,0,0`
+  margins) now that there's no avatar reserving vertical space, so more cards fit on screen without
+  cramping the larger name. A new `ProductCardButton` style (`ProductsView.xaml`'s own
+  `UserControl.Resources`, `BasedOn="{StaticResource CardButton}"`) adds the same `-3px` hover-lift
+  `WorkersView.xaml`'s `WorkerCardButton` already has — kept local to each view rather than folded into
+  the shared `CardButton`, same reasoning as `WorkerCardButton`'s own comment: a shared-style edit would
+  silently lift every card grid in the app, not just the one being asked for.
   **The screen is driven by a period**, defaulting to the current work week and served by
   `ProductActivityService` (which delegates to `WeeklySummaryService.GetWorkWeekRange` — do not define a
   second "this week" anywhere). The period controls the filter and the stats together, so the number on
@@ -1607,6 +1708,26 @@ Core  <----------------------- UI
   **Persisted the same way `DarkMode` already is**: `AppSettingsStore.SidebarCollapsed` (`WorkforceManager.
   Data`), read once at startup (`ApplyInitialSidebarState`, applied with **no** animation — the Storyboard
   is only for a live click) and written on every toggle.
+  **Sidebar navigation auto-collapses the sidebar** (later request: the user kept collapsing it by hand
+  after every navigation to get the width). Clicking any sidebar nav item except Home calls the same
+  `AnimateSidebarCollapse(true)` the toggle uses — same Storyboard, same timing, and it **persists**,
+  so the collapsed state is the new saved state exactly as if the toggle had been clicked, and survives a
+  restart. It fires on **every** such click, no special case for "the user just reopened it by hand" —
+  reopen, click an item, it collapses again. Already collapsed → nothing (no re-animation, no flicker).
+  The decision and the single write path live in `SidebarNavigationRule` (`ShouldAutoCollapse`,
+  `PersistCollapsed` — the toggle's own persist now goes through the same method, so there is one flag,
+  `SidebarCollapsed`, and one writer; covered by `SidebarNavigationRuleTests`). **Hooked on the nav
+  `RadioButton`s' `Click`, not `Checked`** (`NavItem_Click`, added in the same loop as `NavItem_Checked`):
+  `Click` is only a real mouse/keyboard activation, while `Checked` also fires for programmatic
+  navigation — tour steps, Home tiles, quick-search landing, `OpenDailyEntryForMemoryAsync` — which
+  aren't "navigating from the sidebar", and the tour in particular re-expands the sidebar when its target
+  lives inside it (`FindTourTargetAsync`), so collapsing on `Checked` would collapse-then-expand mid-step.
+  WPF raises `Checked` before `Click`, so the new screen is already in `MainContent` when the collapse
+  starts, and the card grids re-flow through the same `IsSidebarCollapsed` → `GridColumnWidthConverter`
+  path as a manual toggle. **Home is the exception and keeps `ApplyHomeSidebarRule` untouched**: clicking
+  Home doesn't trigger this; landing there still collapses via Home's own non-persisted rule. Leaving
+  Home *by a sidebar click* can never hit Home's "restore on exit" branch — sidebar items are disabled
+  while it's collapsed, so the user has already reopened it by hand, which clears `_homeAutoCollapsed`.
   **The tour/guided-practice engines needed one change, not a rewrite**: `RunTourAsync`/
   `RunGuidedStepAsync` already skip any step whose target isn't actually visible (`ActualWidth/Height <=
   0`), so a step targeting a now-hidden sidebar element (`LearnFeaturesContent.cs` has four:
@@ -1642,14 +1763,72 @@ Core  <----------------------- UI
     so the same physical click would expand-then-immediately-re-collapse. Enlarging the `Button`'s own
     bounds avoids the double-fire entirely.
   - **Badge dot**: a small `DangerBrush` dot (`SidebarToggleBadgeDot`) appears on the toggle whenever
-    `ActivityBadge` or `MemoryBadge` would be visible, so a pending alert isn't invisible just because the
-    sidebar is collapsed. `RefreshSidebarToggleBadge()` runs from the tail of both existing badge-refresh
-    methods rather than duplicating their count logic.
+    `ActivityBadge`, `MemoryBadge`, or the notification bell's badge (below) would be visible, so a pending
+    alert isn't invisible just because the sidebar is collapsed. `RefreshSidebarToggleBadge()` runs from
+    the tail of all three badge-refresh methods rather than duplicating their count logic.
+  - **Notification bell** (later request — a single place for alerts that had no aggregate home of their
+    own): a `ToolbarToggle`/`Popup`/`ToolbarPopupCard` button next to `GlobalSearchButton` at the top of
+    the sidebar, `RefreshNotificationBell()` called at the exact same 15 call sites as
+    `RefreshActivityBadge`/`RefreshMemoryBadge` (constructor + every `NavX_Checked`). It reads exactly two
+    existing, already-cheap sources — **never a third calculation of something already computed
+    elsewhere**: `ActivityLogService.GetUnseenCountAsync` (same query the sidebar's own activity badge
+    already runs) and a new `IWorkerRepository.CountNeedingAttentionAsync()` (a single indexed `COUNT`
+    matching `WorkerRow.NeedsAttention`'s exact predicate — `HasNoWage || HasNoSkills`, active,
+    non-department, non-hourly-for-skills — added specifically because nothing cheap existed to read; the
+    only prior source was `WorkersViewModel`'s own ~9-query full load, too expensive to run on every nav
+    just for a badge count). The badge number is the literal sum of both. Clicking either of the panel's
+    two rows (each hidden when its count is 0) navigates via `NavXItem.IsChecked = true` — سجل العمليات
+    for unseen activity, or العمال for "needs attention," where it re-invokes the screen's own existing
+    `ShowNeedsAttentionCommand` rather than building a second worker list inside the panel. Empty state:
+    "كله تمام، مفيش حاجة محتاجة انتباهك دلوقتي".
+    **Deliberately excludes three things already considered and rejected**: (1) Memory-due and stale
+    initial balances — Home's "خطط إنتاج قريبة"/"محتاج انتباهك" cards already own these with real actions
+    ("ابدأ الآن"/"أجّل") a generic bell row can't replicate, so the bell complements Home rather than
+    listing the same items a second time; (2) Monthly Plan's per-product "متأخر" count — computing it
+    means running `MonthlyPlanTrackingService`'s day-loop (the same ~110-query cost the earlier
+    performance pass flagged), and doing that on every navigation just to keep a badge number correct
+    would reopen exactly that problem, so it stays screen-local until that query is fixed; (3) the
+    sign-off catch-up gate — already rejected for Home for the same reason (CLAUDE.md above): it's a
+    one-time non-dismissible startup dialog, not a revisitable item with anywhere to click through to
+    once acknowledged. `BadgeFormat.CountText` (new, `WorkforceManager.UI/BadgeFormat.cs`) is the
+    `>99 → "٩٩+"` rule extracted once and reused by all three badges (activity, memory, bell) instead of
+    being copy-pasted a third time.
   - **First-run hint pulse**: a three-cycle scale pulse (`ScaleTransform` + `DoubleAnimation`,
     `AutoReverse`, `RepeatBehavior(2)`) plays once on the toggle button, gated on a new
     `AppSettings.SidebarToggleHintShown` bool — same "show once, then persist" shape as
     `LastSeenTourVersion`/`LastSeenLearnVersion`, checked in `ApplyInitialSidebarState` and only fired when
     the sidebar starts expanded (no point pulsing a control the user can't see).
+- **Field-help "؟" tooltips** (paired prompt with the notification bell above): a small focusable "؟"
+  icon (`Views/HelpIcon.xaml(.cs)`, `PackIconKind.HelpCircleOutline`) next to a handful of genuinely
+  non-obvious field labels, showing a one-sentence Arabic explanation. **This is the first
+  focus-triggered tooltip in the app** — stock WPF `ToolTip`/`ToolTipService` is hover-only everywhere
+  else, but a "؟" icon that only a mouse user can ever see defeats its own accessibility point, so
+  `HelpIcon`'s `Popup` opens on `IsMouseOver` **or** `IsKeyboardFocused` (plain event wiring in the
+  code-behind — `MouseEnter`/`MouseLeave`/`GotKeyboardFocus`/`LostKeyboardFocus` each toggle one of two
+  private bools, `Popup.IsOpen` is their OR — not a `MultiTrigger`, to avoid a one-off converter for a
+  single boolean OR). Visible focus ring is intentional (`FocusVisualStyle` is **not** nulled, unlike
+  `IconButton`) — for this control the ring itself is what tells a keyboard user the icon is reachable.
+  Popup chrome is copied from the app's shared `ToolTip` style (`SurfaceBrush`/`GoldLineBrush`/
+  `RadiusSmall`/`CardShadow`/`InkBrush`) so it reads as "the same tooltip" everywhere despite being a
+  different mechanism. Text lives in one place, `WorkforceManager.UI/Tour/FieldHelpText.cs` (one
+  `const string` per field, same shape as `KeyboardShortcutsContent`), never inline in XAML, so
+  `HelpIconTests` can sanity-check every constant is non-empty and ends with Arabic punctuation without
+  parsing XAML.
+  **Fields covered, and why each earns one** (all six confirmed with the user against a shortlist —
+  not every field, only ones with zero existing explanation anywhere in the app):
+  `ProductEditDialog`'s وزن القطعة/المادة (`FieldHelpText.PieceWeight`/`.Material` — both feed only the
+  Monthly Plan's math, with no other visible effect, which is exactly the kind of "why does this field
+  exist" gap a tooltip is for); `MonthlyPlanView`'s نسبة المحقق/المطلوب النهارده/pace-status pills
+  (`.AchievedPercent`/`.RequiredDailyOutput`/`.PaceStatus`); `InitialBalanceDialog`'s header رصيد أولي
+  (`.InitialBalance`, a short complement, not a re-explanation of the Tour's full mechanics).
+  **Explicitly excluded**: معامل الصعوبة (`StageEditDialog`) already has permanent hint text under the
+  field plus a full Tour step — a third explanation via "؟" would be redundant stacking, not help.
+  **`MonthlyPlanView` placement is one screen-level pair of icons in the summary bar (next to the three
+  pace pills), not one per product row** — `AchievedPercent`/`RequiredDailyOutput` render inside a
+  per-product `ItemsControl`, and the explanation is identical regardless of which row it sits next to,
+  so a per-row icon would have meant one "؟" per product (potentially dozens) for zero added meaning;
+  consolidating to the summary bar keeps the "don't clutter the form" rule intact while still covering
+  the field once, visibly, on the same screen.
 - **`HomeView` is the landing screen shown right after login, and the permanent `NavHomeItem` entry to
   return to it** — a later, separate prompt. **The startup sequence in `App.xaml.cs` did not change at
   all**: the late sign-off catch-up dialog, memory reminders, and the "إيه الجديد"/"تعلم مميزات التحديث"
@@ -2003,6 +2182,47 @@ Core  <----------------------- UI
   window inherits the application dictionaries like every other screen. `ApplyTheme` already runs in
   `OnStartup` before the first `LoginWindow` is built, and nothing reverts it on logout, so the theme
   holds across logout → login too.
+  **Keyboard on `LoginWindow`**: Enter in the username field moves to the password (a constructor-wired
+  `UsernameBox.KeyDown`, deliberately not submitting a name without a password); Enter in the password
+  submits via the button's `IsDefault`. **Up/Down arrows** move focus username ↔ password ↔ `LoginButton`
+  in Tab order, no wrap — a window-level `PreviewKeyDown` (Preview so it runs before the `TextBox` eats
+  the arrow for caret movement) that maps `Keyboard.FocusedElement` to a `LoginFocusTarget` and asks
+  `LoginFocusOrder.Next` (pure, covered by `LoginFocusOrderTests`). The close button and the "تغيير
+  كلمة المرور" link are intentionally outside the arrow order — arrows only act when focus is on one of
+  the three form controls. First real arrow-key *focus* navigation in the app; the other Up/Down
+  handlers (`WorkerSearchBox`, `DailyEntryView`, `GlobalSearchDialog`) move a highlighted list index.
+- **App-wide keyboard shortcuts** (for repetitive daily entry). Map — the user-facing copy lives in
+  `Tour/KeyboardShortcutsContent.cs` (rendered as the last section of الدليل, plus an FAQ entry so بحث
+  سريع finds it); **any new shortcut must be added there too**:
+  | Keys | Where | Does |
+  |---|---|---|
+  | Ctrl+K | anywhere | global quick search (pre-existing) |
+  | Ctrl+F | العمال / المنتجات / الذاكرة / سجل العمليات | focus + select-all that screen's own search box; any other screen → global search |
+  | Ctrl+N | العمال / المنتجات / الحسابات الإدارية | `AddWorkerCommand` / `AddProductCommand` / `AddAccountCommand` |
+  | Ctrl+S | edit dialogs marked `ISaveShortcutDialog` | clicks the `IsDefault` save button |
+  | Ctrl+S | الذاكرة | `SaveCommand` |
+  | Ctrl+S | تسجيل الإنتاج | attendance tab → `SaveAttendanceCommand`; production tab → `SaveFlowCommand` of the flow card holding focus, or the only card — never a guess between several |
+  | Ctrl+B | anywhere | sidebar toggle (pre-existing) |
+  | Ctrl+Z | سجلات اليوم | undo (pre-existing `KeyBinding`) |
+  | Enter | تسجيل الإنتاج | next field (Tab order) in single-line `TextBox`es and closed `ComboBox`es |
+  | Esc | dialogs | `IsCancel` (pre-existing on 31 of 34; added to `DepartmentAccountProfileDialog` and `ProductFamilyManagerDialog`, whose `Close_Click` was just `Close()` and is gone) |
+  **Scoping**: main-window shortcuts go through the existing `Window_PreviewKeyDown` →
+  `KeyboardShortcuts.Resolve` (Ctrl-only, so typing a letter never triggers one) → `MainContent.Content`
+  **only if it implements `IScreenShortcuts`** (`TryQuickAdd`/`TrySave`/`TryFocusSearch`, default
+  `false`, implemented in View code-behind calling *existing* ViewModel commands through
+  `KeyboardShortcuts.TryExecute`, which respects `CanExecute`). So a Workers shortcut can't fire on
+  Products, and nothing reaches a screen while a modal dialog (its own `Window`) owns the keyboard.
+  **Dialog Ctrl+S is opt-in on purpose**: one `EventManager.RegisterClassHandler(typeof(Window), PreviewKeyDown)`
+  in `App.OnStartup` acts only on windows implementing the marker `ISaveShortcutDialog` (the 18 add/edit
+  forms). Question/confirmation dialogs (`MessageDialog`, `SensitiveActionDialog`, sign-off, reminders)
+  are deliberately excluded — their default button can be "أيوه" on a discard or a delete confirmation,
+  and Ctrl+S must never approve that. The click goes through `ButtonAutomationPeer` (same validation as
+  the mouse; a disabled or hidden button is skipped). **Daily Entry Enter** is a *bubbling* `KeyDown` on
+  the view root: the stage worker picker marks Enter handled in its own `PreviewKeyDown` (add + jump to
+  next stage), so that behaviour is untouched and never double-handled. Not bound: `LoginWindow` Esc
+  (would exit the app), `LateSignOffCatchUpDialog` (uncloseable by design), F3. No MaterialDesign
+  `DialogHost` exists in the app, so there's no MD Esc to collide with. Tooltips now carry the key
+  ("عامل جديد (Ctrl+N)", "(Ctrl+K)", "(Ctrl+B)"). Covered by `KeyboardShortcutsTests`.
 - **No window sets `Icon` in XAML — `AppIcon.ApplyTo` is the only thing that sets a window icon.**
   `LoginWindow.xaml` and `MainWindow.xaml` both used to carry `Icon="…/Assets/app.ico"`, which is loaded
   *inside* `InitializeComponent()` with no error handling: a transient failure reading that resource
@@ -2447,6 +2667,53 @@ Core  <----------------------- UI
   background work, so `ShowCore` marshals through `Application.Current.Dispatcher`), and `Owner` throws
   if the main window has not been shown yet — messages like "the program is already running" fire before
   that, so the dialog falls back to `CenterScreen`.
+- **Undo toast («تراجع») replaces "متأكد؟" only where the undo is a real, exact inverse.** Inventory of
+  every delete/destructive-edit confirmation (later request) found exactly four that qualify — turning a
+  **worker**, **admin account**, **product** or **stage** off/on. Each is a pure `IsActive` flip with an
+  existing inverse (`Deactivate`/`ReactivateWorkerAsync`, `…ProductAsync`, `…StageAsync`), and
+  `DeletedRowsCleaner` never touches those rows. They now run **immediately** and call
+  `Notify.SuccessWithUndo(message, undo)`: «اتوقف العامل "…"» with a «تراجع» button that calls the exact
+  inverse and reloads (then «اترجع زي ما كان»). The change is real in the DB from the first moment —
+  nothing is pending, so navigating away can't orphan anything; `UndoToggleActiveTests` proves toggle →
+  undo leaves **every column** of the row identical. **Everything else keeps its blocking confirmation**,
+  because none of it has a restore path: delete worker/account/product/stage (`SoftDeleteService` decides
+  at runtime between a hard delete with cascade and an `IsDeleted` flag, and there is no un-delete
+  anywhere), memory plan delete, single/whole-day production delete, initial-balance delete, penalty,
+  advance/bonus, scrap, product family, report template/payslip format. **Toast mechanics**
+  (`ToastHost`/`ToastPolicy`): `ToastItem` gained an optional action button; undo toasts live
+  `UndoLifetime` = 8s (plain 4s, warnings 7s unchanged); each toast keeps its own countdown so a second
+  action never cancels the first one's undo, and past `MaxVisible` the oldest toast **without** an action
+  is evicted first; an undo toast's countdown **pauses while the main window isn't active** (a detail
+  dialog on top, or alt-tab) so the undo can't expire unseen; `ToastActionCommand` runs once, dismisses
+  the toast, and surfaces failure as `Notify.Warn`. This doesn't break the "questions stay dialogs" rule:
+  an undo isn't a question — the action already happened. Not converted: the Daily Entry production
+  undo stack (Ctrl+Z, still behind `AskDangerous`). **Known wrong text, flagged not fixed**: the
+  whole-day delete confirmation (`DailyEntryViewModel.DeleteDayAsync`) says the records "مش بتتمسح
+  فعليًا", but `DeleteProductionDayAsync` always hard-deletes them.
+- **Field-level validation shows inline under the field (`FieldError`); business rules stay `Notify`.**
+  `Views/FieldError.xaml` is the one shared control: a `Message` dependency property, collapsed when
+  empty, drawn as the `DangerBgBrush`/`DangerBrush` tint-ink pair with an `AlertCircleOutline` icon (the
+  look the Daily Entry range errors already had — their copy-pasted XAML now uses the control, and the
+  unused `FlowRangeRow.HasError` was removed). Pattern: each field gets an `[ObservableProperty] string
+  XError`, the submit method fills **every** error at once through `ViewModels/FieldRules`
+  (`Required`, `PositiveDecimal`, `OptionalNonNegativeInt` — same parse the save uses, so validation and
+  the stored value can't disagree) and returns if any is set, and `partial void OnXChanged` clears that
+  one error the moment the user edits the field. Save stays enabled (validate-on-submit is the codebase's
+  existing style); the exception is Report Builder's "احفظ باسم" boxes, which were already gated by
+  `CanSaveTemplate`/`CanSavePayslipFormat` and were left that way. **Converted** (were toasts or silent):
+  Daily Entry penalty form (worker, reason, deduction) and advance/bonus form (worker, type, amount) —
+  one-row forms rebuilt as a 2-row `Grid` so each error sits under its own field's column without
+  un-centring the labels; flow card product (`SaveFlow`, `RepeatLastDay`); initial-balance product;
+  Memory product; Monthly Plan الخطة اليومية (per row, `MonthlyPlanProductRow.DailyTargetError`);
+  Report Builder rename-template and rename-payslip-format (empty); Settings scrap-reason name (empty).
+  **Deliberately kept as `Notify`**: service exceptions and delete guards; the attendance
+  "شغل مسجّل مع غياب" conflict; "لازم تفضل رحلة منتج واحدة"; data-state notices ("مفيش نطاقات…",
+  "مفيش أي تعديل جديد يتحفظ"); "no staffed stages" (form-level, not one field); every duplicate-name
+  check (family, username, stage, template/payslip, scrap reason — they depend on stored data);
+  credential/password checks. **Not touched**: the ~20 edit dialogs already show their field errors
+  inline in one line above Save (`ErrorLine`) — never popups — and were left as they are by decision;
+  Monthly Plan quantity/correction boxes still reset invalid input to 0 by design. Covered by
+  `InlineValidationTests`.
 - **A coloured dialog header uses the tint/ink *pair*, never the solid severity colour.** `DangerBrush`
   is `#A0342A` (dark) in the light theme and `#E08A6E` (light) in the dark one — the severity colours
   **invert**, while `SidebarInkBrush` stays light in both. So a solid `DangerBrush` header with
@@ -2679,10 +2946,9 @@ Core  <----------------------- UI
   report — they exist purely as Monthly Plan input, and `ProductManagementService.SetClassificationAsync`
   (family + weight + material together, since they're edited from the same form section in one save —
   unlike the image, which tracks its own separate "changed" flag) is the one write path for all three.
-  **`ProductsView`'s card itself is untouched** — it still shows the avatar/image slot next to the name
-  exactly as before this feature; a prompt describing a "name-centered, no image slot" redesign as already
-  shipped was checked against the actual XAML and found not to match reality, so this pass built on the
-  card as it actually exists rather than an assumed design.
+  **`ProductsView`'s card itself was untouched by this feature** — family/weight/material classification
+  is Monthly Plan input only, nothing on the card. (The card's own avatar-removal and name-centering
+  redesign is a separate, later change — see "Product cards: centered column layout" above.)
   **The Products grid is now grouped by family** (`ProductsViewModel.FamilyGroups`, built by
   `RebuildFamilyGroups()` from the same filtered/sorted `Products` list `ApplyFilter()` already produces —
   grouping is a display-only reshaping, never a second filter/sort pass) — one section per family
