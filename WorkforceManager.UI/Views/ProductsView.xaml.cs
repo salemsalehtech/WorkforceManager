@@ -55,6 +55,13 @@ namespace WorkforceManager.UI.Views
             if (sender is not FrameworkElement { DataContext: ProductRow product }) return;
             if (DataContext is not ProductsViewModel viewModel) return;
 
+            // وضع "تحديد للعيلة": الدوسة بتحدد/تلغي بدل ما تفتح التفاصيل
+            if (viewModel.IsBulkSelectMode)
+            {
+                viewModel.ToggleBulkSelectionCommand.Execute(product);
+                return;
+            }
+
             viewModel.SelectProductCommand.Execute(product);
 
             var dialog = new ProductDetailDialog(viewModel) { Owner = Window.GetWindow(this) };

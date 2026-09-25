@@ -667,6 +667,87 @@ namespace WorkforceManager.UI.ViewModels
                 await ReloadKeepingSelectionAsync();
         }
 
+        // ------- تعيين جماعي لعيلة (بند تحديد أكتر من منتج دفعة واحدة) -------
+
+        /// <summary>
+        /// وضع "تحديد للعيلة": الكروت بتحدد/تلغي بدل ما تفتح التفاصيل عند
+        /// الدوسة. الحل ده مقصود بدل اقتراح تلقائي بالاسم — دقيق ومضمون
+        /// 100%، المستخدم هو اللي بيقرر إيه اللي فعلاً عيلة واحدة.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isBulkSelectMode;
+
+        partial void OnIsBulkSelectModeChanged(bool value)
+        {
+            if (!value)
+            {
+                ClearBulkSelection();
+                return;
+            }
+
+            // الحد الدهبي بتاع IsSelected (المنتج المفتوح تفاصيله) بيستخدم نفس
+            // لون IsBulkSelected — لو المستخدم كان فاتح منتج قبل ما يدخل وضع
+            // التحديد، الحد ده هيفضل باين ويتلخبط مع تحديد العيلة. الدخول
+            // للوضع بيمسحه.
+            SelectedProduct = null;
+        }
+
+        public int BulkSelectedCount => _allProducts.Count(p => p.IsBulkSelected);
+
+        [RelayCommand]
+        private void ToggleBulkSelectMode() => IsBulkSelectMode = !IsBulkSelectMode;
+
+        /// <summary>دوسة على كارت وإحنا في وضع التحديد — بديل فتح التفاصيل، شوف ProductsView.xaml.cs</summary>
+        [RelayCommand]
+        private void ToggleBulkSelection(ProductRow? product)
+        {
+            if (product is null) return;
+            product.IsBulkSelected = !product.IsBulkSelected;
+            OnPropertyChanged(nameof(BulkSelectedCount));
+            OnPropertyChanged(nameof(HasBulkSelection));
+        }
+
+        public bool HasBulkSelection => BulkSelectedCount > 0;
+
+        private void ClearBulkSelection()
+        {
+            foreach (var p in _allProducts) p.IsBulkSelected = false;
+            OnPropertyChanged(nameof(BulkSelectedCount));
+            OnPropertyChanged(nameof(HasBulkSelection));
+        }
+
+        /// <summary>
+        /// "ضيفهم لعيلة" — بيفتح نفس منطق اختيار/إنشاء عيلة (FamilyPickerDialog)،
+        /// وبيطبّق العيلة المختارة على كل المنتجات المحددة دفعة واحدة
+        /// (ProductManagementService.SetFamilyForProductsAsync، حفظة واحدة).
+        /// </summary>
+        [RelayCommand(AllowConcurrentExecutions = false)]
+        private async Task AssignSelectedToFamilyAsync()
+        {
+            var selectedIds = _allProducts.Where(p => p.IsBulkSelected).Select(p => p.ProductId).ToList();
+            if (selectedIds.Count == 0) return;
+
+            using var scope = _scopeFactory.CreateScope();
+            var families = await scope.ServiceProvider.GetRequiredService<ProductFamilyService>().GetAllWithCountsAsync();
+
+            var dialog = new FamilyPickerDialog(families, selectedIds.Count, _scopeFactory)
+            { Owner = Application.Current.MainWindow };
+            if (dialog.ShowDialog() != true) return;
+
+            try
+            {
+                await scope.ServiceProvider.GetRequiredService<ProductManagementService>()
+                    .SetFamilyForProductsAsync(selectedIds, dialog.SelectedFamilyId);
+
+                IsBulkSelectMode = false; // بيمسح التحديد كمان (OnIsBulkSelectModeChanged)
+                await ReloadKeepingSelectionAsync();
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "خطأ في تعيين العيلة");
+            }
+        }
+
         [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task ToggleProductActiveAsync()
         {

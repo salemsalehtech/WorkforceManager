@@ -121,6 +121,15 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>الكارت ده هو المختار دلوقتي في الشبكة؟ — بيحدد الحد الدهبي، شوف ProductsViewModel.SelectProduct</summary>
         [ObservableProperty]
         private bool _isSelected;
+
+        /// <summary>
+        /// محدد في وضع "تحديد للعيلة" (تعيين جماعي، شوف
+        /// ProductsViewModel.IsBulkSelectMode) — منفصل تمامًا عن IsSelected
+        /// (اللي معناه "الكارت المفتوح تفاصيله دلوقتي")، عشان الاتنين
+        /// يقدروا يتعايشوا من غير ما يبوّظوا بعض.
+        /// </summary>
+        [ObservableProperty]
+        private bool _isBulkSelected;
     }
 
     /// <summary>

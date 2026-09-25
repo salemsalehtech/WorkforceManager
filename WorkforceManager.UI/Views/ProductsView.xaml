@@ -13,6 +13,7 @@
     <Grid Margin="14,10,14,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -48,6 +49,39 @@
                     <materialDesign:PackIcon Kind="TagMultipleOutline" Width="16" Height="16"
                                              VerticalAlignment="Center"/>
                     <TextBlock Text="إدارة العائلات" Margin="6,0,0,0"/>
+                </StackPanel>
+            </Button>
+
+            <!-- تعيين جماعي لعيلة: بديل التصنيف منتج-منتج — تحدد أكتر من
+                 كارت وتضيفهم لعيلة دفعة واحدة، شوف ProductsViewModel -->
+            <Button Command="{Binding ToggleBulkSelectModeCommand}"
+                    VerticalAlignment="Center"
+                    Padding="16,10" Margin="0,0,16,8">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsBulkSelectMode}" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource GoldDeepBrush}"/>
+                                <Setter Property="Background" Value="{DynamicResource GoldTintBrush}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="CheckboxMultipleMarkedOutline" Width="16" Height="16"
+                                             VerticalAlignment="Center"/>
+                    <TextBlock Margin="6,0,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="تحديد للعيلة"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsBulkSelectMode}" Value="True">
+                                        <Setter Property="Text" Value="إلغاء التحديد"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </Button>
 
@@ -455,7 +489,26 @@
              بتفتح Modal (ProductDetailDialog) عند الدوسة على كارت، مش لوحة
              تحت الشبكة زي قبل كده — شوف ProductTile_Click في
              ProductsView.xaml.cs -->
-        <ScrollViewer Grid.Row="1"
+        <!-- شريط التعيين الجماعي — بيظهر بس في وضع "تحديد للعيلة" -->
+        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="12,9" Margin="0,0,0,10"
+                Background="{DynamicResource GoldTintBrush}"
+                Visibility="{Binding IsBulkSelectMode, Converter={StaticResource BoolToVis}}">
+            <DockPanel>
+                <Button DockPanel.Dock="Left" Command="{Binding AssignSelectedToFamilyCommand}"
+                        Style="{StaticResource PrimaryButton}" Padding="16,7"
+                        IsEnabled="{Binding HasBulkSelection}">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="TagPlusOutline" Width="15" Height="15" VerticalAlignment="Center"/>
+                        <TextBlock Text="ضيفهم لعيلة" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Button>
+                <TextBlock VerticalAlignment="Center" Margin="0,0,14,0" Foreground="{DynamicResource GoldDeepBrush}">
+                    <Run Text="{Binding BulkSelectedCount, Mode=OneWay}" FontWeight="Bold"/><Run Text=" منتج محدد — دوس على أي كارت تحدده"/>
+                </TextBlock>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="2"
                 VerticalScrollBarVisibility="Auto"
                 HorizontalScrollBarVisibility="Disabled">
 
@@ -530,6 +583,7 @@
                                     <Button.RenderTransform>
                                         <TranslateTransform Y="14"/>
                                     </Button.RenderTransform>
+                                    <Grid>
                                     <Border Padding="14,12">
                                         <Border.Style>
                                             <!-- Effect={x:Null} بيلغي ظل Card الموروث: DropShadowEffect على عنصر
@@ -546,6 +600,11 @@
                                                     <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                         <Setter Property="BorderBrush" Value="{DynamicResource GoldBrush}"/>
                                                         <Setter Property="BorderThickness" Value="2"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsBulkSelected}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource GoldBrush}"/>
+                                                        <Setter Property="BorderThickness" Value="2"/>
+                                                        <Setter Property="Background" Value="{DynamicResource GoldTintBrush}"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -640,6 +699,15 @@
                                             </Border>
                                         </StackPanel>
                                     </Border>
+
+                                    <!-- Checkbox التعيين الجماعي — بيظهر بس في وضع "تحديد للعيلة"،
+                                         IsBulkSelectMode من DataContext الشاشة نفسها (مش من ProductRow) -->
+                                    <CheckBox IsChecked="{Binding IsBulkSelected}" IsHitTestVisible="False"
+                                              HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8"
+                                              Visibility="{Binding DataContext.IsBulkSelectMode,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl},
+                                                  Converter={StaticResource BoolToVis}}"/>
+                                    </Grid>
                                 </Button>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
