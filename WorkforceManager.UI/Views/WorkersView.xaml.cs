@@ -72,12 +72,19 @@ namespace WorkforceManager.UI.Views
         /// الوصول للـGrid عن طريق Content/Child (خصائص object model عادية)
         /// مش VisualTreeHelper جوّه قالب CardButton — أبسط ومش مربوط
         /// بتفاصيل الـControlTemplate اللي ممكن تتغيّر.
+        ///
+        /// ScaleTransform بتتعمل هنا في الكود كل مرة، مش بتتقرا من XAML:
+        /// WPF بيجمّد Freezable قيمه ثابتة من غير Binding (زي ScaleX=1
+        /// المكتوبة في XAML) كتحسين أداء، وBeginAnimation بيرمي استثناء
+        /// على أي حاجة متجمّدة ("Cannot animate ... sealed or frozen").
+        /// نسخة جديدة في الكود كل قلبة تفضل قابلة للتعديل مضمون.
         /// </summary>
         private void AnimateFlip(Button cardButton, Action toggleFlip)
         {
-            if (cardButton.Content is not Border { Child: Grid flipHost } ||
-                flipHost.RenderTransform is not ScaleTransform scale)
-                return;
+            if (cardButton.Content is not Border { Child: Grid flipHost }) return;
+
+            var scale = new ScaleTransform(1, 1);
+            flipHost.RenderTransform = scale;
 
             _flipAnimating = true;
             var ease = new CubicEase { EasingMode = EasingMode.EaseIn };

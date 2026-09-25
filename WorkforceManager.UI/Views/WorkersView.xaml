@@ -765,12 +765,13 @@
                                                      Grid عادي (مش x:Name) عشان الكود بيوصلهم بـChildren[0]/[1]
                                                      من Content/Child مباشرة، مش FindName جوّه DataTemplate
                                                      (نفس القاعدة اللي الجولة الإرشادية ماشية عليها في CLAUDE.md).
-                                                     ScaleTransform هنا هو اللي حركة القلب (AnimateFlip كود-behind)
-                                                     بتحرّكه — عنصر واحد بيتحرك، مش وجه لوحده وتاني لوحده. -->
+                                                     RenderTransform (ScaleTransform حركة القلب) متعمول هنا في
+                                                     XAML عن قصد — WPF بيجمّد (Freeze) أي Freezable قيمه ثابتة
+                                                     من غير Binding عليها كتحسين أداء (ScaleX=ScaleY=1 بالظبط
+                                                     نموذج مثالي لده)، والحركة كانت بترمي "Cannot animate ...
+                                                     sealed or frozen". AnimateFlip كود-behind بيعمل واحد جديد
+                                                     في الكود قبل كل حركة بدل ما يعتمد على حاجة معمولة في XAML. -->
                                                 <Grid RenderTransformOrigin="0.5,0.5">
-                                                    <Grid.RenderTransform>
-                                                        <ScaleTransform ScaleX="1" ScaleY="1" />
-                                                    </Grid.RenderTransform>
                                                     <!-- ═══ الوش الأول ═══ -->
                                                     <StackPanel Visibility="{Binding IsFlipped, Converter={StaticResource InverseBoolToVis}}">
                                                         <Grid>
