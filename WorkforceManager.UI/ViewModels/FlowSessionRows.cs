@@ -444,10 +444,6 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private string _error = "";
 
-        partial void OnErrorChanged(string value) => OnPropertyChanged(nameof(HasError));
-
-        public bool HasError => Error.Length > 0;
-
         [RelayCommand]
         private void Remove() => _onRemove(this);
     }

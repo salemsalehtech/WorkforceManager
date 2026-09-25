@@ -284,6 +284,11 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private string _newScrapReason = "";
 
+        /// <summary>خطأ خانة اسم السبب (فاضية) — تحتها بـFieldError؛ السبب المكرر بيفضل إشعار (بيعتمد على الأسباب المحفوظة)</summary>
+        [ObservableProperty] private string _newScrapReasonError = "";
+
+        partial void OnNewScrapReasonChanged(string value) => NewScrapReasonError = "";
+
         private async Task LoadScrapReasonsAsync()
         {
             using var scope = _scopeFactory.CreateScope();
@@ -299,7 +304,8 @@ namespace WorkforceManager.UI.ViewModels
         private async Task AddScrapReasonAsync()
         {
             var name = NewScrapReason.Trim();
-            if (name.Length == 0) return;
+            NewScrapReasonError = FieldRules.Required(name, "اكتب اسم السبب");
+            if (NewScrapReasonError.Length > 0) return;
 
             try
             {

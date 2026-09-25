@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="clr-namespace:WorkforceManager.UI"
              xmlns:vm="clr-namespace:WorkforceManager.UI.ViewModels"
+             xmlns:views="clr-namespace:WorkforceManager.UI.Views"
+             xmlns:tour="clr-namespace:WorkforceManager.UI.Tour"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -96,6 +98,21 @@
                     <Run Text="{Binding AheadCount, Mode=OneWay}" /><Run Text=" سابق" />
                 </TextBlock>
             </Border>
+            <!-- أيقونة واحدة بتشرح الحدود التلاتة مع بعض، بدل ما تتكرر على كل بادچ لوحده -->
+            <views:HelpIcon Text="{x:Static tour:FieldHelpText.PaceStatus}" Margin="0,0,14,0" />
+
+            <!-- نسبة المحقق والمطلوب النهارده بيتكرروا لكل منتج تحت — الشرح
+                 مرة واحدة هنا بدل أيقونة على كل كارت منتج -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,10,0">
+                <TextBlock Text="نسبة المحقق" FontSize="11" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextMutedBrush}" />
+                <views:HelpIcon Text="{x:Static tour:FieldHelpText.AchievedPercent}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="المطلوب النهارده" FontSize="11" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextMutedBrush}" />
+                <views:HelpIcon Text="{x:Static tour:FieldHelpText.RequiredDailyOutput}" />
+            </StackPanel>
         </WrapPanel>
 
         <!-- ═══════════ 3. تنبيه لطيف — عيلة واطية عن الإيقاع (البند 6) ═══════════ -->
@@ -237,7 +254,7 @@
                                                                        TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}" />
                                                         </DockPanel>
 
-                                                        <TextBox Grid.Column="1" Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
+                                                        <TextBox Name="QuantityBox" Grid.Column="1" Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
                                                                  Width="80" TextAlignment="Center" Tag="{Binding}"
                                                                  LostFocus="QuantityBox_LostFocus" ToolTip="الكمية المخططة" />
 
@@ -294,6 +311,7 @@
                                                                      LostFocus="DailyTargetBox_LostFocus"
                                                                      ToolTip="هدف يومي يدوي — سايبه فاضي يعني مفيش هدف محدد لهذا المنتج" />
                                                         </StackPanel>
+                                                        <views:FieldError Message="{Binding DailyTargetError}" Margin="0,0,0,4" />
                                                         <Border Background="{DynamicResource GoldTintBrush}" CornerRadius="8" Padding="7,1" Margin="0,0,0,4"
                                                                 Visibility="{Binding IsOutsidePlan, Converter={StaticResource BoolToVis}}">
                                                             <TextBlock Text="إنتاج خارج الخطة" FontSize="10.5" FontWeight="Bold"

@@ -19,6 +19,15 @@ namespace WorkforceManager.UI.Views
     public partial class ReportBuilderView : UserControl
     {
         private readonly ReportBuilderViewModel _viewModel;
+        private readonly TaskCompletionSource _loadedTcs = new();
+
+        /// <summary>
+        /// بيتحل لما تحميل الشاشة الذاتي (Loaded) يخلص — عشان تنقّل من كارت
+        /// منتج (MainWindow.OpenProductReportAsync) يستنى نفس التحميل ده بدل
+        /// ما يعمل نداء تاني منافس (Products بتتملى جوّه InitializeAsync
+        /// بالظبط، فنداء تاني كان هيلاقيها فاضية لحد ما يخلص هو كمان).
+        /// </summary>
+        public Task WhenLoaded => _loadedTcs.Task;
 
         public ReportBuilderView(ReportBuilderViewModel viewModel)
         {
@@ -30,7 +39,12 @@ namespace WorkforceManager.UI.Views
             viewModel.PreviewHeaders.CollectionChanged += OnHeadersChanged;
             Unloaded += (_, _) => viewModel.PreviewHeaders.CollectionChanged -= OnHeadersChanged;
 
-            Loaded += async (_, _) => await viewModel.InitializeAsync();
+            Loaded += (_, _) => EntranceAnimation.PlayFadeSlideIn(this);
+            Loaded += async (_, _) =>
+            {
+                await viewModel.InitializeAsync();
+                _loadedTcs.TrySetResult();
+            };
         }
 
         /// <summary>مستني إعادة بناء متجدولة — بيمنع تجدولة تانية معاها</summary>

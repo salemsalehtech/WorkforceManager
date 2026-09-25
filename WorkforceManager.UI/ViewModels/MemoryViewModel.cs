@@ -118,7 +118,14 @@ namespace WorkforceManager.UI.ViewModels
         /// اختيار منتج تاني بيصفّر الترتيب: مراحل المنتج القديم مالهاش
         /// أي معنى مع المنتج الجديد، وسيبانها كانت هترمي عند الحفظ
         /// </summary>
-        partial void OnSelectedProductChanged(MemoryProductOption? value) => StageOrder = new List<int>();
+        partial void OnSelectedProductChanged(MemoryProductOption? value)
+        {
+            StageOrder = new List<int>();
+            ProductError = "";
+        }
+
+        /// <summary>خطأ خانة المنتج وقت الحفظ — بيتعرض تحتها بـFieldError</summary>
+        [ObservableProperty] private string _productError = "";
 
         public async Task LoadAsync()
         {
@@ -200,11 +207,8 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task SaveAsync()
         {
-            if (SelectedProduct is null)
-            {
-                Notify.Warn("اختار المنتج الأول");
-                return;
-            }
+            ProductError = FieldRules.Required(SelectedProduct, "اختار المنتج الأول");
+            if (SelectedProduct is null) return;
 
             // الترتيب الفاضي معناه "كل المراحل بترتيب المنتج" — أوضح
             // للمستخدم من إنه يتفرض عليه يفتح نافذة الترتيب لخطة عادية

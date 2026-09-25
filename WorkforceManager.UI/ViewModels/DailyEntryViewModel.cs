@@ -180,6 +180,39 @@ namespace WorkforceManager.UI.ViewModels
         /// Singleton وممكن يكون فيها توزيع لسه مش محفوظ من قبل التذكير،
         /// والدوس على ترتيب خطة فوقه كان هيضيّعه من غير ما المستخدم يطلب.
         /// </summary>
+        // ترتيب التبويبات في DailyEntryView.xaml — مكان واحد بس للأرقام دي
+        public const int ProductionTab = 0;
+        public const int AttendanceTab = 3;
+        public const int PenaltiesTab = 4;
+        public const int AdjustmentsTab = 5;
+
+        public static int TabIndexFor(DailyEntryWorkerTarget target) => target switch
+        {
+            DailyEntryWorkerTarget.Penalty => PenaltiesTab,
+            DailyEntryWorkerTarget.Adjustment => AdjustmentsTab,
+            _ => AttendanceTab
+        };
+
+        /// <summary>
+        /// "سجّل حضور/جزاء/سلفة" من كارت العامل: التبويب المطلوب والعامل متحدد
+        /// في الفورم — نفس الفورم ونفس التأكيدات، مفيش تسجيل من برّاه.
+        /// التاريخ بيفضل زي ما المستخدم سايبه (EntryDate): تغييره بيعيد تحميل
+        /// رحلات لسه مش محفوظة، والتاريخ ظاهر في رأس الشاشة.
+        /// </summary>
+        public async Task FocusWorkerAsync(int workerId, string workerName, DailyEntryWorkerTarget target)
+        {
+            await InitializeAsync();
+            SelectedTabIndex = TabIndexFor(target);
+
+            var row = AttendanceRows.FirstOrDefault(r => r.WorkerId == workerId);
+            switch (target)
+            {
+                case DailyEntryWorkerTarget.Penalty: PenaltyWorker = row; break;
+                case DailyEntryWorkerTarget.Adjustment: AdjustmentWorker = row; break;
+                default: AttendanceSearch = workerName; break;
+            }
+        }
+
         public async Task StartFromMemoryAsync(int memoryId, int productId, IReadOnlyList<int> stageOrder)
         {
             await InitializeAsync();
@@ -339,9 +372,13 @@ namespace WorkforceManager.UI.ViewModels
 
         partial void OnSelectedInitialBalanceProductChanged(ProductOption? value)
         {
+            InitialBalanceProductError = "";
             if (_suppressInitialBalanceReload) return;
             SafeAsync.Run(LoadInitialBalanceTabAsync);
         }
+
+        /// <summary>خطأ خانة المنتج في تبويب الرصيد الأولي (بيتعرض تحتها بـFieldError)</summary>
+        [ObservableProperty] private string _initialBalanceProductError = "";
 
         /// <summary>أرصدة المنتج المختار النشطة — كارت لكل رصيد بنطاقاته</summary>
         public ObservableCollection<InitialBalanceDto> InitialBalanceCards { get; } = new();
@@ -411,11 +448,8 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddInitialBalanceAsync()
         {
-            if (SelectedInitialBalanceProduct is not { } product)
-            {
-                Notify.Info("اختار المنتج الأول", "تنبيه");
-                return;
-            }
+            InitialBalanceProductError = FieldRules.Required(SelectedInitialBalanceProduct, "اختار المنتج الأول");
+            if (SelectedInitialBalanceProduct is not { } product) return;
 
             var dialog = new InitialBalanceDialog
             {
@@ -1503,6 +1537,25 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private DeductionOption? _selectedDeduction;
 
+        // أخطاء الخانات تحتها مباشرة (FieldError) — بتتملى كلها مرة واحدة وقت
+        // الحفظ، وكل واحدة بتتمسح أول ما خانتها تتعدّل
+        [ObservableProperty] private string _penaltyWorkerError = "";
+        [ObservableProperty] private string _penaltyReasonError = "";
+        [ObservableProperty] private string _penaltyDeductionError = "";
+
+        partial void OnPenaltyWorkerChanged(AttendanceRow? value) => PenaltyWorkerError = "";
+        partial void OnPenaltyReasonChanged(string value) => PenaltyReasonError = "";
+        partial void OnSelectedDeductionChanged(DeductionOption? value) => PenaltyDeductionError = "";
+
+        /// <summary>بيملا أخطاء فورم الجزاء كلها ويرجّع true لو الفورم سليم</summary>
+        public bool ValidatePenaltyForm()
+        {
+            PenaltyWorkerError = FieldRules.Required(PenaltyWorker, "اختار العامل الأول");
+            PenaltyReasonError = FieldRules.Required(PenaltyReason, "اكتب سبب الجزاء");
+            PenaltyDeductionError = FieldRules.Required(SelectedDeduction, "اختار قيمة الخصم");
+            return PenaltyWorkerError.Length == 0 && PenaltyReasonError.Length == 0 && PenaltyDeductionError.Length == 0;
+        }
+
         public ObservableCollection<PenaltyRow> DayPenalties { get; } = new();
 
         private async Task LoadPenaltiesAsync()
@@ -1527,17 +1580,7 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddPenaltyAsync()
         {
-            if (PenaltyWorker is null)
-            {
-                Notify.Info("اختار العامل الأول", "تنبيه");
-                return;
-            }
-            if (string.IsNullOrWhiteSpace(PenaltyReason))
-            {
-                Notify.Info("اكتب سبب الجزاء", "تنبيه");
-                return;
-            }
-            if (SelectedDeduction is null) return;
+            if (!ValidatePenaltyForm() || PenaltyWorker is null || SelectedDeduction is null) return;
 
             // Tier B — بدون باسورد فوري، بس المستخدم لسه بيتأكّد قبل الحفظ
             var gate = SensitiveActionDialog.AskConfirm(
@@ -1652,6 +1695,23 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private string _adjustmentNote = string.Empty;
 
+        [ObservableProperty] private string _adjustmentWorkerError = "";
+        [ObservableProperty] private string _adjustmentTypeError = "";
+        [ObservableProperty] private string _adjustmentAmountError = "";
+
+        partial void OnAdjustmentWorkerChanged(AttendanceRow? value) => AdjustmentWorkerError = "";
+        partial void OnSelectedAdjustmentTypeChanged(AdjustmentTypeOption? value) => AdjustmentTypeError = "";
+        partial void OnAdjustmentAmountChanged(string value) => AdjustmentAmountError = "";
+
+        /// <summary>بيملا أخطاء فورم السلفة/الحافز كلها ويرجّع true لو الفورم سليم</summary>
+        public bool ValidateAdjustmentForm()
+        {
+            AdjustmentWorkerError = FieldRules.Required(AdjustmentWorker, "اختار العامل الأول");
+            AdjustmentTypeError = FieldRules.Required(SelectedAdjustmentType, "اختار النوع (سلفة/حافز)");
+            AdjustmentAmountError = FieldRules.PositiveDecimal(AdjustmentAmount, "اكتب مبلغ صحيح أكبر من صفر");
+            return AdjustmentWorkerError.Length == 0 && AdjustmentTypeError.Length == 0 && AdjustmentAmountError.Length == 0;
+        }
+
         public ObservableCollection<AdjustmentRow> DayAdjustments { get; } = new();
 
         private async Task LoadAdjustmentsAsync()
@@ -1679,21 +1739,8 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task AddAdjustmentAsync()
         {
-            if (AdjustmentWorker is null)
-            {
-                Notify.Info("اختار العامل الأول", "تنبيه");
-                return;
-            }
-            if (SelectedAdjustmentType is null)
-            {
-                Notify.Info("اختار النوع (سلفة/حافز)", "تنبيه");
-                return;
-            }
-            if (!decimal.TryParse(AdjustmentAmount, out var amount) || amount <= 0)
-            {
-                Notify.Info("اكتب مبلغ صحيح أكبر من صفر", "تنبيه");
-                return;
-            }
+            if (!ValidateAdjustmentForm() || AdjustmentWorker is null || SelectedAdjustmentType is null) return;
+            var amount = decimal.Parse(AdjustmentAmount); // ValidateAdjustmentForm اتأكد إنه رقم موجب بنفس الـParse
 
             // فلوس بتتضاف أو تتخصم من الأجر مباشرة — بوابة زي الجزاءات
             var typeName = SelectedAdjustmentType.Value == WageAdjustmentType.Bonus ? "حافز" : "سلفة";

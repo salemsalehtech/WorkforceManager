@@ -28,6 +28,11 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty] private string _dailyTargetText = "";
         public int? DailyTarget => int.TryParse(DailyTargetText, out var t) ? t : null;
 
+        /// <summary>خطأ خانة الخطة اليومية للمنتج ده بالذات — تحتها بـFieldError، بيتمسح أول ما تتعدّل</summary>
+        [ObservableProperty] private string _dailyTargetError = "";
+
+        partial void OnDailyTargetTextChanged(string value) => DailyTargetError = "";
+
         // ------- تتبّع (من MonthlyPlanTrackingDto) -------
 
         public int AchievedToDate { get; set; }

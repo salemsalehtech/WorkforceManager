@@ -12,7 +12,7 @@ namespace WorkforceManager.UI.Views
     /// الكيبورد في قايمة اقتراحات العمال) — كل منطق الشغل في
     /// DailyEntryViewModel حسب نمط MVVM المتبع في المشروع.
     /// </summary>
-    public partial class DailyEntryView : UserControl
+    public partial class DailyEntryView : UserControl, IScreenShortcuts
     {
         public DailyEntryView(DailyEntryViewModel viewModel)
         {
@@ -20,7 +20,49 @@ namespace WorkforceManager.UI.Views
             DataContext = viewModel;
 
             // تحميل المنتجات والعمال أول ما الشاشة تظهر
+            Loaded += (_, _) => EntranceAnimation.PlayFadeSlideIn(this);
             Loaded += async (_, _) => await viewModel.InitializeAsync();
+
+            // KeyDown (مش Preview) عن قصد: خانة اختيار العامل في المرحلة بتعلّم
+            // Enter إنه اتعالج في PreviewKeyDown بتاعها (إضافة عامل + نقل للمرحلة
+            // اللي بعدها)، فالحدث ده مابيوصلش هنا أصلًا — مفيش معالجة مزدوجة
+            KeyDown += AdvanceOnEnter;
+        }
+
+        /// <summary>Enter في خانة إدخال عادية (قطع، سبب، مبلغ...) = انتقل للخانة اللي بعدها بترتيب Tab</summary>
+        private static void AdvanceOnEnter(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None) return;
+            if (!KeyboardShortcuts.ShouldAdvanceOnEnter(e.OriginalSource)) return;
+
+            ((UIElement)e.OriginalSource).MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+            e.Handled = true;
+        }
+
+        /// <summary>
+        /// Ctrl+S حسب التبويب المفتوح: الحضور → حفظ الحضور؛ الإنتاج → حفظ الرحلة
+        /// اللي فيها المؤشر، أو الرحلة الوحيدة لو مفيش غيرها. لو فيه أكتر من
+        /// رحلة والمؤشر برّاهم مفيش حفظ — منخمّنش أنهي واحدة المقصودة.
+        /// </summary>
+        public bool TrySave()
+        {
+            if (DataContext is not DailyEntryViewModel vm) return false;
+
+            return vm.SelectedTabIndex switch
+            {
+                DailyEntryViewModel.AttendanceTab => KeyboardShortcuts.TryExecute(vm.SaveAttendanceCommand),
+                DailyEntryViewModel.ProductionTab => KeyboardShortcuts.TryExecute(FocusedFlow(vm)?.SaveFlowCommand),
+                _ => false
+            };
+        }
+
+        private static FlowSessionViewModel? FocusedFlow(DailyEntryViewModel vm)
+        {
+            for (var node = Keyboard.FocusedElement as DependencyObject; node is not null;
+                 node = node is Visual ? VisualTreeHelper.GetParent(node) : LogicalTreeHelper.GetParent(node))
+                if (node is FrameworkElement { DataContext: FlowSessionViewModel flow }) return flow;
+
+            return vm.FlowSessions.Count == 1 ? vm.FlowSessions[0] : null;
         }
 
         // ============ خانة البحث عن عامل في بطاقة المرحلة ============

@@ -179,6 +179,8 @@
                                                     </StackPanel>
                                                 </Border>
 
+                                                <!-- Dock=Bottom قبل عناصر السطر: شريط تحت السطر كله، والخطأ بيبدأ تحت "المنتج:" -->
+                                                <views:FieldError DockPanel.Dock="Bottom" Message="{Binding ProductError}" />
                                                 <TextBlock DockPanel.Dock="Left" Text="المنتج:" FontWeight="Bold"
                                                            VerticalAlignment="Center" Margin="0,0,6,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding Products}"
@@ -714,18 +716,7 @@
                                                                             <!-- خطأ النطاق ده تحته مباشرة: المستخدم بيشوف
                                                                                  المشكلة في مكانها بدل ما يدوّر في بلوك
                                                                                  تحذيرات فوق بيتكلم عن كل النطاقات -->
-                                                                            <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="5"
-                                                                                    Padding="7,4" Margin="0,6,0,0"
-                                                                                    Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
-                                                                                <StackPanel Orientation="Horizontal">
-                                                                                    <materialDesign:PackIcon Kind="AlertCircleOutline" Width="13" Height="13"
-                                                                                                            VerticalAlignment="Top" Margin="0,1,0,0"
-                                                                                                            Foreground="{DynamicResource DangerBrush}" />
-                                                                                    <TextBlock Text="{Binding Error}" FontSize="11.5" Margin="5,0,0,0"
-                                                                                               TextWrapping="Wrap" MaxWidth="300"
-                                                                                               Foreground="{DynamicResource DangerBrush}" />
-                                                                                </StackPanel>
-                                                                            </Border>
+                                                                            <views:FieldError Message="{Binding Error}" />
                                                                         </StackPanel>
                                                                     </Border>
                                                                 </DataTemplate>
@@ -860,10 +851,13 @@
 
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="16,0,16,0"
                                         VerticalAlignment="Center">
-                                <TextBlock Text="المنتج:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <ComboBox ItemsSource="{Binding Products}"
-                                          SelectedItem="{Binding SelectedInitialBalanceProduct}"
-                                          DisplayMemberPath="Name" Width="200" VerticalAlignment="Center" />
+                                <TextBlock Text="المنتج:" FontWeight="Bold" VerticalAlignment="Top" Margin="0,6,8,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <StackPanel>
+                                    <ComboBox ItemsSource="{Binding Products}"
+                                              SelectedItem="{Binding SelectedInitialBalanceProduct}"
+                                              DisplayMemberPath="Name" Width="200" VerticalAlignment="Center" />
+                                    <views:FieldError MaxWidth="200" Message="{Binding InitialBalanceProductError}" />
+                                </StackPanel>
                             </StackPanel>
                         </DockPanel>
                     </Border>
@@ -1483,28 +1477,45 @@
                             CornerRadius="12" Padding="14" Margin="0,0,0,10">
                         <StackPanel>
                             <TextBlock Text="تسجيل جزاء جديد" FontWeight="Bold" Foreground="{DynamicResource DangerBrush}" Margin="0,0,0,8" />
-                            <StackPanel Orientation="Horizontal">
+                            <!-- صف الخانات في صف 0، وخطأ كل خانة تحت عمودها بالظبط في صف 1
+                                 (FieldError) — عشان التسمية تفضل في نص الخانة لما خطأ يظهر -->
+                            <Grid HorizontalAlignment="Left">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
                                 <TextBlock Text="العامل:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <views:WorkerSearchBox Workers="{Binding AttendanceRows}"
+                                <views:WorkerSearchBox Grid.Column="1" Workers="{Binding AttendanceRows}"
                                                        SelectedWorker="{Binding PenaltyWorker, Mode=TwoWay}"
                                                        Placeholder="دوّر على العامل بالاسم…"
                                                        Width="220" Margin="0,0,14,0" />
-                                <TextBlock Text="الخصم:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <ComboBox ItemsSource="{Binding DeductionOptions}" SelectedItem="{Binding SelectedDeduction}"
+                                <TextBlock Grid.Column="2" Text="الخصم:" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <ComboBox Grid.Column="3" ItemsSource="{Binding DeductionOptions}" SelectedItem="{Binding SelectedDeduction}"
                                           DisplayMemberPath="Display" Width="110" Margin="0,0,14,0" />
-                            </StackPanel>
+                                <views:FieldError Grid.Row="1" Grid.Column="1" MaxWidth="220" Message="{Binding PenaltyWorkerError}" />
+                                <views:FieldError Grid.Row="1" Grid.Column="3" MaxWidth="160" Message="{Binding PenaltyDeductionError}" />
+                            </Grid>
                             <DockPanel Margin="0,8,0,0">
                                 <Button x:Name="AddPenaltyButton" DockPanel.Dock="Left" Command="{Binding AddPenaltyCommand}"
-                                        Style="{StaticResource DangerButton}">
+                                        Style="{StaticResource DangerButton}" VerticalAlignment="Top">
                                     <StackPanel Orientation="Horizontal">
                                         <materialDesign:PackIcon Kind="Plus" Width="15" Height="15" VerticalAlignment="Center" />
                                         <TextBlock Text="تسجيل الجزاء" Margin="5,0,0,0" />
                                     </StackPanel>
                                 </Button>
-                                <TextBlock Text="السبب:" VerticalAlignment="Center" Margin="12,0,6,0" DockPanel.Dock="Left" />
+                                <TextBlock Text="السبب:" VerticalAlignment="Top" Margin="12,8,6,0" DockPanel.Dock="Left" />
                                 <!-- سبب الجزاء نص حر: شرب سجاير، لبس هاندفري، ... -->
-                                <TextBox Text="{Binding PenaltyReason, UpdateSourceTrigger=PropertyChanged}"
-                                         VerticalAlignment="Center" />
+                                <StackPanel>
+                                    <TextBox Text="{Binding PenaltyReason, UpdateSourceTrigger=PropertyChanged}"
+                                             VerticalAlignment="Center" />
+                                    <views:FieldError Message="{Binding PenaltyReasonError}" />
+                                </StackPanel>
                             </DockPanel>
                         </StackPanel>
                     </Border>
@@ -1574,20 +1585,37 @@
                         <StackPanel>
                             <TextBlock Text="تسجيل سلفة أو حافز (بالجنيه)" FontWeight="Bold"
                                        Foreground="{DynamicResource BrandBrush}" Margin="0,0,0,8" />
-                            <StackPanel Orientation="Horizontal">
+                            <!-- نفس ترتيب فورم الجزاء: الخانات صف 0، خطأ كل خانة تحتها صف 1 -->
+                            <Grid HorizontalAlignment="Left">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
                                 <TextBlock Text="العامل:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <views:WorkerSearchBox Workers="{Binding AttendanceRows}"
+                                <views:WorkerSearchBox Grid.Column="1" Workers="{Binding AttendanceRows}"
                                                        SelectedWorker="{Binding AdjustmentWorker, Mode=TwoWay}"
                                                        Placeholder="دوّر على العامل بالاسم…"
                                                        Width="200" Margin="0,0,14,0" />
-                                <TextBlock Text="النوع:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <ComboBox ItemsSource="{Binding AdjustmentTypeOptions}" SelectedItem="{Binding SelectedAdjustmentType}"
+                                <TextBlock Grid.Column="2" Text="النوع:" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <ComboBox Grid.Column="3" ItemsSource="{Binding AdjustmentTypeOptions}" SelectedItem="{Binding SelectedAdjustmentType}"
                                           DisplayMemberPath="Display" Width="110" Margin="0,0,14,0" />
-                                <TextBlock Text="المبلغ:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <TextBox Text="{Binding AdjustmentAmount, UpdateSourceTrigger=PropertyChanged}"
+                                <TextBlock Grid.Column="4" Text="المبلغ:" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBox Grid.Column="5" Text="{Binding AdjustmentAmount, UpdateSourceTrigger=PropertyChanged}"
                                          Width="110" Padding="8,6" VerticalAlignment="Center" />
-                                <TextBlock Text="ج" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="Bold"  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            </StackPanel>
+                                <TextBlock Grid.Column="6" Text="ج" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="Bold"  Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <views:FieldError Grid.Row="1" Grid.Column="1" MaxWidth="200" Message="{Binding AdjustmentWorkerError}" />
+                                <views:FieldError Grid.Row="1" Grid.Column="3" MaxWidth="160" Message="{Binding AdjustmentTypeError}" />
+                                <views:FieldError Grid.Row="1" Grid.Column="5" Grid.ColumnSpan="2" MaxWidth="180" Message="{Binding AdjustmentAmountError}" />
+                            </Grid>
                             <DockPanel Margin="0,8,0,0">
                                 <Button x:Name="AddAdjustmentButton" DockPanel.Dock="Left" Command="{Binding AddAdjustmentCommand}"
                                         Style="{StaticResource PrimaryButton}">

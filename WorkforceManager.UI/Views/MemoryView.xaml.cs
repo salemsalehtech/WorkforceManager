@@ -12,9 +12,13 @@ namespace WorkforceManager.UI.Views
     /// مالوش وصول لنوافذ: ترتيب المراحل، وتأجيل سريع من الكارت. الشاشة
     /// بتجيب المدخلات من الـ ViewModel، تعرض النافذة، وترجّعله النتيجة.
     /// </summary>
-    public partial class MemoryView : UserControl
+    public partial class MemoryView : UserControl, IScreenShortcuts
     {
         private readonly MemoryViewModel _viewModel;
+
+        public bool TrySave() => KeyboardShortcuts.TryExecute(_viewModel.SaveCommand);
+
+        public bool TryFocusSearch() => KeyboardShortcuts.FocusSearchBox(MemorySearchBox);
 
         public MemoryView(MemoryViewModel viewModel)
         {
@@ -23,6 +27,7 @@ namespace WorkforceManager.UI.Views
             _viewModel = viewModel;
             DataContext = viewModel;
 
+            Loaded += (_, _) => EntranceAnimation.PlayFadeSlideIn(this);
             Loaded += async (_, _) => await viewModel.LoadAsync();
         }
 

@@ -93,6 +93,9 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private ProductOption? _selectedProduct;
 
+        /// <summary>خطأ خانة المنتج (حفظ أو "كرّر يوم" من غير منتج) — تحتها بـFieldError</summary>
+        [ObservableProperty] private string _productError = "";
+
         /// <summary>
         /// بيمنع إعادة التحميل التلقائي عند تغيير المنتج برمجيًا — لما
         /// <see cref="PrepareWithdrawalAsync"/> بتظبط المنتج بنفسها وبتنادي
@@ -138,6 +141,8 @@ namespace WorkforceManager.UI.ViewModels
 
         partial void OnSelectedProductChanged(ProductOption? value)
         {
+            ProductError = "";
+
             // منتج تاني = خطة تانية. ترتيب الخطة القديمة بيشاور على مراحل
             // منتج مختلف، فسيبانه كان هيرمي عند الحفظ في أحسن الأحوال
             _memoryStageOrder = null;
@@ -788,11 +793,8 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand]
         private async Task RepeatLastDayAsync()
         {
-            if (SelectedProduct is not { } product)
-            {
-                Notify.Info("اختار المنتج الأول", "تنبيه");
-                return;
-            }
+            ProductError = FieldRules.Required(SelectedProduct, "اختار المنتج الأول");
+            if (SelectedProduct is not { } product) return;
 
             IReadOnlyList<FlowDayOptionDto> days;
             using (var scope = _scopeFactory.CreateScope())
@@ -1097,11 +1099,8 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task SaveFlowAsync()
         {
-            if (SelectedProduct is null)
-            {
-                Notify.Info("اختار المنتج الأول", "تنبيه");
-                return;
-            }
+            ProductError = FieldRules.Required(SelectedProduct, "اختار المنتج الأول");
+            if (SelectedProduct is null) return;
 
             var entryDate = _getEntryDate();
 

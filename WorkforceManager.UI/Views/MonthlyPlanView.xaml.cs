@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using WorkforceManager.UI.ViewModels;
@@ -11,6 +13,10 @@ namespace WorkforceManager.UI.Views
     public partial class MonthlyPlanView : UserControl
     {
         private readonly MonthlyPlanViewModel _viewModel;
+        private readonly TaskCompletionSource _loadedTcs = new();
+
+        /// <summary>بيتحل لما LoadAsync الذاتي يخلص — نفس سبب ReportBuilderView.WhenLoaded بالظبط</summary>
+        public Task WhenLoaded => _loadedTcs.Task;
 
         public MonthlyPlanView(MonthlyPlanViewModel viewModel)
         {
@@ -18,7 +24,37 @@ namespace WorkforceManager.UI.Views
             _viewModel = viewModel;
             DataContext = viewModel;
 
-            Loaded += async (_, _) => await viewModel.LoadAsync();
+            Loaded += (_, _) => EntranceAnimation.PlayFadeSlideIn(this);
+            Loaded += async (_, _) =>
+            {
+                await viewModel.LoadAsync();
+                _loadedTcs.TrySetResult();
+            };
+        }
+
+        /// <summary>
+        /// "الخطة الشهرية" من قائمة كارت منتج: مؤشر الكيبورد على خانة الكمية
+        /// بتاعته والنص متحدد. تدوير على شجرة العرض (زي DailyEntryView
+        /// FocusedFlow) لأن الصفوف جوّه ItemsControl من غير x:Name خارجي.
+        /// </summary>
+        public void FocusProductQuantity(int productId)
+        {
+            var box = FindDescendants<TextBox>(this)
+                .FirstOrDefault(t => t.Name == "QuantityBox" && t.Tag is MonthlyPlanProductRow row && row.ProductId == productId);
+            if (box is null) return;
+
+            box.Focus();
+            box.SelectAll();
+        }
+
+        private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
+        {
+            for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+                if (child is T match) yield return match;
+                foreach (var descendant in FindDescendants<T>(child)) yield return descendant;
+            }
         }
 
         private async void QuantityBox_LostFocus(object sender, RoutedEventArgs e)
@@ -89,21 +125,20 @@ namespace WorkforceManager.UI.Views
             if (sender is not TextBox { Tag: MonthlyPlanProductRow row }) return;
 
             var text = row.DailyTargetText.Trim();
-            int? target;
 
-            if (text.Length == 0)
+            // الخطأ تحت الخانة نفسها بدل إشعار طاير — والقيمة الغلط مابتتحفظش
+            var error = FieldRules.OptionalNonNegativeInt(text, "الخطة اليومية لازم تكون رقم صحيح أو فاضية");
+            if (error.Length > 0)
             {
-                target = null;
-            }
-            else if (int.TryParse(text, out var parsed) && parsed >= 0)
-            {
-                target = parsed;
-                row.DailyTargetText = parsed.ToString(); // بيشيل أصفار زيادة زي "007"
-            }
-            else
-            {
-                Notify.Warn("الخطة اليومية لازم تكون رقم صحيح أو فاضية", "قيمة غير صحيحة");
+                row.DailyTargetError = error;
                 return;
+            }
+
+            int? target = null;
+            if (text.Length > 0)
+            {
+                target = int.Parse(text);
+                row.DailyTargetText = target.Value.ToString(); // بيشيل أصفار زيادة زي "007"
             }
 
             try

@@ -57,6 +57,18 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private SubjectOption _selectedSubject;
 
+        /// <summary>
+        /// "تقرير الإنتاج" من قائمة كارت المنتج: موضوع الإنتاج ومنتج واحد
+        /// محدد بس. لازم تتنادى بعد InitializeAsync (Products لسه فاضية
+        /// قبلها) — MainWindow.OpenProductReportAsync بيستنى تحميل الشاشة
+        /// الطبيعي (View.Loaded) قبل ما ينادّيها، مش تحميل تاني موازي.
+        /// </summary>
+        public void ShowProductionFor(int productId)
+        {
+            SelectedSubject = Subjects.First(s => s.Subject == ReportSubject.Production);
+            foreach (var p in Products) p.IsChecked = p.Id == productId;
+        }
+
         partial void OnSelectedSubjectChanged(SubjectOption value)
         {
             RefreshGroupings();
@@ -902,6 +914,11 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private string _renamePayslipFormatText = "";
 
+        /// <summary>خطأ خانة إعادة التسمية (فاضية) — تحتها بـFieldError؛ الاسم المكرر بيفضل إشعار (بيعتمد على الفورمات المحفوظة)</summary>
+        [ObservableProperty] private string _renamePayslipFormatError = "";
+
+        partial void OnRenamePayslipFormatTextChanged(string value) => RenamePayslipFormatError = "";
+
         public bool CanRenameSelectedPayslipFormat =>
             SelectedPayslipFormat is not null && !SelectedPayslipFormat.IsBuiltIn;
 
@@ -934,11 +951,8 @@ namespace WorkforceManager.UI.ViewModels
             var oldName = SelectedPayslipFormat.Name;
             var newName = RenamePayslipFormatText.Trim();
 
-            if (newName.Length == 0)
-            {
-                Notify.Warn("اسم الفورمات مينفعش يبقى فاضي", "مش هينفع");
-                return;
-            }
+            RenamePayslipFormatError = FieldRules.Required(newName, "اسم الفورمات مينفعش يبقى فاضي");
+            if (RenamePayslipFormatError.Length > 0) return;
 
             if (!string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase)
                 && PayslipFormats.Any(f => !f.IsBuiltIn && string.Equals(f.Name, newName, StringComparison.OrdinalIgnoreCase)))
@@ -1228,6 +1242,11 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private string _renameTemplateText = "";
 
+        /// <summary>خطأ خانة إعادة تسمية القالب (فاضية) — تحتها بـFieldError؛ الاسم المكرر بيفضل إشعار</summary>
+        [ObservableProperty] private string _renameTemplateError = "";
+
+        partial void OnRenameTemplateTextChanged(string value) => RenameTemplateError = "";
+
         public bool CanRenameSelectedTemplate =>
             SelectedTemplate is not null && !SelectedTemplate.IsBuiltIn;
 
@@ -1244,6 +1263,10 @@ namespace WorkforceManager.UI.ViewModels
         private void ConfirmRenameTemplate()
         {
             if (SelectedTemplate is null) return;
+
+            // الفاضي قبل ما نوصل للمخزن — نفس رسالته، بس تحت الخانة
+            RenameTemplateError = FieldRules.Required(RenameTemplateText, "اسم القالب مينفعش يبقى فاضي");
+            if (RenameTemplateError.Length > 0) return;
 
             try
             {
