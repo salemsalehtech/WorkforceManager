@@ -48,6 +48,9 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>الكارت ده هو اللي مفتوح حاليًا في اللوحة الجانبية — بيتظبط من WorkersViewModel.OnSelectedWorkerChanged، مش هنا</summary>
         [ObservableProperty] private bool _isSelected;
 
+        /// <summary>الكارت ده بيوري وشه التاني دلوقتي — بيتظبط من WorkersViewModel.OnFlippedWorkerChanged، مش هنا</summary>
+        [ObservableProperty] private bool _isFlipped;
+
         public int WorkerId { get; init; }
         public string FullName { get; init; } = "";
         public bool IsActive { get; init; }
@@ -86,6 +89,18 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>حالة حضوره النهارده (null = مفيش تسجيل)</summary>
         public AttendanceStatus? TodayStatus { get; init; }
+
+        /// <summary>مفتاح فرشاة نقطة حالة النهارده على الكارت — نفس ألوان شاشة الحضور بالظبط (AttendanceVisuals)</summary>
+        public string TodayStatusColor => AttendanceVisuals.ColorFor(TodayStatus);
+
+        /// <summary>نص حالة النهارده على وش الكارت التاني</summary>
+        public string TodayStatusText => TodayStatus switch
+        {
+            AttendanceStatus.Present => "حاضر النهارده",
+            AttendanceStatus.AbsentWithPermission => "غايب بإذن النهارده",
+            AttendanceStatus.AbsentWithoutPermission => "غايب من غير إذن النهارده",
+            _ => "لسه معملش تسجيل النهارده"
+        };
 
         /// <summary>المنتج اللي تقييمه فيه الأعلى (فاضي = مالوش مهارات)</summary>
         public string TopSkillProduct { get; init; } = "";
@@ -133,6 +148,9 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>أول حرفين من الاسم للدايرة (نفس أسلوب شاشة الحضور)</summary>
         public string Initials => NameInitials.From(FullName);
+
+        /// <summary>الاسم المختصر على وش الكارت الأول — الاسم الكامل يبان بالتولتيب أو على وش الكارت التاني</summary>
+        public string ShortDisplayName => ShortName.From(FullName);
         // سعر اليومية مقصود إنه مش معروض على الكارت — بيان حساس، بيتشاف من
         // البروفايل بس. DailyWageEgp باقي هنا للتنبيه (HasNoWage) والترتيب فقط.
         public string SkillsText => IsHourly ? "بالساعة" : $"{SkillsCount} مهارة";

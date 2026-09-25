@@ -23,6 +23,16 @@ namespace WorkforceManager.UI.Views
         /// </summary>
         private bool _tileAnimationPending;
 
+        /// <summary>
+        /// true لو فيه كارت لسه بيتقلب — بيمنع أي كارت (نفسه أو غيره) من
+        /// بدء قلب جديد لحد ما ده يخلص. من غيرها دبل-كليك سريع كان ممكن
+        /// يسيب الكارت واقف نص قلبة (ScaleX في نص الطريق) أو يعرض الوش
+        /// الغلط لو نداءين اتزنقوا فوق بعض.
+        /// </summary>
+        private bool _flipAnimating;
+
+        private const int FlipHalfDurationMs = 140;
+
         public WorkersView(WorkersViewModel viewModel)
         {
             InitializeComponent();
@@ -38,13 +48,75 @@ namespace WorkforceManager.UI.Views
         }
 
         /// <summary>
-        /// دوسة على كارت عامل في الشبكة: بيحدد العامل (SelectWorkerCommand)
-        /// وبيفتح تفاصيله Modal دايركت — نفس أسلوب ProductTile_Click بالحرف.
-        /// الـDialog بياخد نفس الـViewModel (مش نسخة تانية) عشان كل أوامره
-        /// تفضل شغالة زي ما هي.
+        /// دوسة على كارت عامل في الشبكة: بتقلبه بحركة (AnimateFlip) —
+        /// مبقتش بتفتح الديالوج على طول، ده بقى شغل زرار "افتح الملف
+        /// الكامل" على الوش التاني (OpenFullProfile_Click تحت).
         /// </summary>
         private void WorkerTile_Click(object sender, RoutedEventArgs e)
         {
+            if (_flipAnimating) return; // كارت تاني (أو نفسه) لسه بيتقلب
+            if (sender is not Button { DataContext: WorkerRow worker } button) return;
+            if (DataContext is not WorkersViewModel viewModel) return;
+
+            AnimateFlip(button, () => viewModel.ToggleFlipCommand.Execute(worker));
+        }
+
+        /// <summary>
+        /// حركة القلب: تصغير الـScaleX لصفر (نص عرض تقريبًا زمنيًا)، وعند
+        /// الوصول لصفر (العرض بقى خط رفيع، الوش القديم مش باين أصلًا)
+        /// تنفيذ toggleFlip (بيبدّل IsFlipped فيبدّل مين الظاهر بالـBinding
+        /// جوّه DataTemplate)، وبعدها تكبير الـScaleX تاني لـ1 — عنصر واحد
+        /// بيتحرك (الـGrid الحاوي للوشين، شوف تعليق WorkersView.xaml)، مش
+        /// وش لوحده وتاني لوحده، فمفيش مزامنة بين Storyboard-ين منفصلين.
+        ///
+        /// الوصول للـGrid عن طريق Content/Child (خصائص object model عادية)
+        /// مش VisualTreeHelper جوّه قالب CardButton — أبسط ومش مربوط
+        /// بتفاصيل الـControlTemplate اللي ممكن تتغيّر.
+        /// </summary>
+        private void AnimateFlip(Button cardButton, Action toggleFlip)
+        {
+            if (cardButton.Content is not Border { Child: Grid flipHost } ||
+                flipHost.RenderTransform is not ScaleTransform scale)
+                return;
+
+            _flipAnimating = true;
+            var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
+
+            var shrink = new DoubleAnimation
+            {
+                From = 1, To = 0, Duration = TimeSpan.FromMilliseconds(FlipHalfDurationMs),
+                EasingFunction = ease
+            };
+            shrink.Completed += (_, _) =>
+            {
+                toggleFlip();
+
+                var grow = new DoubleAnimation
+                {
+                    From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(FlipHalfDurationMs),
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                };
+                grow.Completed += (_, _) => _flipAnimating = false;
+                scale.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
+            };
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, shrink);
+        }
+
+        /// <summary>
+        /// زرار "افتح الملف الكامل" على وش الكارت التاني — نفس اللي
+        /// WorkerTile_Click كان بيعمله قبل ما يبقى للقلب: يحدد العامل
+        /// ويفتح تفاصيله Modal، نفس الـViewModel (مش نسخة تانية) عشان
+        /// كل أوامره تفضل شغالة زي ما هي.
+        ///
+        /// e.Handled = true إجباري: الزرار ده جوّه الزرار الأكبر بتاع
+        /// الكارت (نفس أسلوب Button-جوّه-Button)، وClick بيطلع Bubble
+        /// للأب افتراضيًا في WPF — من غيرها كان هيقلب الكارت **كمان**
+        /// في نفس اللحظة اللي بيفتح فيها الديالوج.
+        /// </summary>
+        private void OpenFullProfile_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+
             if (sender is not FrameworkElement { DataContext: WorkerRow worker }) return;
             if (DataContext is not WorkersViewModel viewModel) return;
 

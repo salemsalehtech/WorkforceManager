@@ -225,6 +225,15 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private WorkerDetail? _detail;
 
+        /// <summary>
+        /// الكارت المقلوب حاليًا (بيوري وشه التاني) — واحد بس في المرة،
+        /// منفصل تمامًا عن SelectedWorker: القلب فعل بصري بحت على الشبكة،
+        /// والتحديد معناه "بروفايله اتفتح Modal". قلب كارت لا يفتحش ولا
+        /// يقفل حاجة في WorkerDetailDialog.
+        /// </summary>
+        [ObservableProperty]
+        private WorkerRow? _flippedWorker;
+
         /// <summary>العمال المعروضين دلوقتي بعد البحث والفلترة والترتيب</summary>
         public ObservableCollection<WorkerRow> Workers { get; } = new();
 
@@ -535,6 +544,27 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand]
         private void SelectWorker(WorkerRow? worker) => SelectedWorker = worker;
 
+        /// <summary>
+        /// دوسة على كارت في الشبكة: بتقلبه. قرار "واحد بس في المرة" قاعدة
+        /// نقية بلا أي حالة زيادة — نفسه نفس حاجة اتقلبت لحد دلوقتي (اقفلها)
+        /// أو غيره (اقفل القديم وافتح الجديد)، شوف WorkerCardFlipTests.
+        /// </summary>
+        public static WorkerRow? NextFlippedWorker(WorkerRow? currentlyFlipped, WorkerRow clicked) =>
+            ReferenceEquals(currentlyFlipped, clicked) ? null : clicked;
+
+        [RelayCommand]
+        private void ToggleFlip(WorkerRow? worker)
+        {
+            if (worker is null) return;
+            FlippedWorker = NextFlippedWorker(FlippedWorker, worker);
+        }
+
+        /// <summary>نفس أسلوب OnSelectedWorkerChanged بالظبط — IsFlipped على _allWorkers كلها مش Workers المفلترة بس</summary>
+        partial void OnFlippedWorkerChanged(WorkerRow? value)
+        {
+            foreach (var row in _allWorkers) row.IsFlipped = ReferenceEquals(row, value);
+        }
+
         [RelayCommand]
         private void ToggleBestWorkers() => IsBestWorkersExpanded = !IsBestWorkersExpanded;
 
@@ -760,6 +790,11 @@ namespace WorkforceManager.UI.ViewModels
                 // الصف الجديد ويحدّث لوحة التفاصيل ببيانات طازة
                 if (selectedWorkerId is not null)
                     SelectedWorker = Workers.FirstOrDefault(w => w.WorkerId == selectedWorkerId.Value);
+
+                // أي كارت مقلوب بيرجع لوشه الأول بعد أي إعادة تحميل — الصفوف
+                // القديمة اتشالت خالص (_allWorkers.Clear() فوق)، فالمرجع القديم
+                // بقى يتيم على أي حال؛ التصفير هنا للوضوح مش لضرورة تقنية
+                FlippedWorker = null;
             }
             finally
             {

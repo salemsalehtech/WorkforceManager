@@ -9,6 +9,35 @@
              mc:Ignorable="d"
              d:DesignHeight="700" d:DesignWidth="1200">
 
+    <UserControl.Resources>
+        <!-- CardButton (Themes/Core.xaml) مشتركة مع شاشة المنتجات — الحلقة
+             الدهبية عند الهوفر جاهزة منها. الرفعة البسيطة دي مطلوبة لكارت
+             العمال بس، فستايل جديد محلي هنا بدل تعديل CardButton نفسها
+             (كان هيأثر على كروت المنتجات كمان، برّه نطاق الفيتشر ده). -->
+        <Style x:Key="WorkerCardButton" TargetType="Button" BasedOn="{StaticResource CardButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                 To="-3" Duration="0:0:0.14" EasingFunction="{StaticResource EaseOut}" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                 To="0" Duration="0:0:0.14" EasingFunction="{StaticResource EaseOut}" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
     <!--
       ═══════════ شاشة العمال والمهارات ═══════════
 
@@ -662,7 +691,7 @@
                                              بس ظاهرين) — تكبير النافذة أو طي الشريط ماكانش بيضمن عمود
                                              سادس زي المطلوب. IsCompactGrid بقى بيأثّر على حجم العناصر
                                              جوّه الكارت بس (أفاتار/خط)، مش على عرض الكارت نفسه. -->
-                                        <Button Style="{StaticResource CardButton}" Opacity="0" Click="WorkerTile_Click"
+                                        <Button Style="{StaticResource WorkerCardButton}" Opacity="0" Click="WorkerTile_Click"
                                                 Margin="0,0,10,10">
                                             <ui:AnimatedWidth.Value>
                                                 <MultiBinding Converter="{StaticResource GridColumnWidth}">
@@ -729,45 +758,56 @@
                                                         </Style.Triggers>
                                                     </Style>
                                                 </Border.Style>
-                                                <StackPanel>
-                                                    <!-- الأفاتار (صورة/حروف أولى) اتشال من هنا — عمال الإنتاج
-                                                         العاديين ملهمش صورة خالص (شوف الفيتشر اللي شال
-                                                         الصور)، فالدايرة كانت بتعرض الحروف الأولى بس دايمًا،
-                                                         مساحة فاضية بلا أي معلومة إضافية. -->
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Kind="Crown" Width="14" Height="14"
-                                                                                 VerticalAlignment="Center" Margin="0,0,5,0"
-                                                                                 Foreground="{DynamicResource GoldBrush}"
-                                                                                 Visibility="{Binding IsBestOfWeek, Converter={StaticResource BoolToVis}}" />
-                                                        <TextBlock Text="{Binding FullName}" VerticalAlignment="Center"
-                                                                   FontWeight="Bold" TextWrapping="Wrap"
-                                                                   Foreground="{DynamicResource TextPrimaryBrush}">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="FontSize" Value="15" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding DataContext.IsCompactGrid, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                                                            <Setter Property="FontSize" Value="13" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-                                                    </StackPanel>
+                                                <!-- كارت بوشين: الأول مختصر (اسم مختصر + نقطة حضور النهارده +
+                                                     أرقام الفترة)، والتاني كل التفاصيل. الدوسة على الكارت
+                                                     بتقلبه (WorkerTile_Click بقى بيقلب مش بيفتح الديالوج على
+                                                     طول) — "افتح الملف الكامل" في الوش التاني هو اللي بيفتحه.
+                                                     Grid عادي (مش x:Name) عشان الكود بيوصلهم بـChildren[0]/[1]
+                                                     من Content/Child مباشرة، مش FindName جوّه DataTemplate
+                                                     (نفس القاعدة اللي الجولة الإرشادية ماشية عليها في CLAUDE.md).
+                                                     ScaleTransform هنا هو اللي حركة القلب (AnimateFlip كود-behind)
+                                                     بتحرّكه — عنصر واحد بيتحرك، مش وجه لوحده وتاني لوحده. -->
+                                                <Grid RenderTransformOrigin="0.5,0.5">
+                                                    <Grid.RenderTransform>
+                                                        <ScaleTransform ScaleX="1" ScaleY="1" />
+                                                    </Grid.RenderTransform>
+                                                    <!-- ═══ الوش الأول ═══ -->
+                                                    <StackPanel Visibility="{Binding IsFlipped, Converter={StaticResource InverseBoolToVis}}">
+                                                        <Grid>
+                                                            <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                                                                <materialDesign:PackIcon Kind="Crown" Width="14" Height="14"
+                                                                                         VerticalAlignment="Center" Margin="0,0,5,0"
+                                                                                         Foreground="{DynamicResource GoldBrush}"
+                                                                                         Visibility="{Binding IsBestOfWeek, Converter={StaticResource BoolToVis}}" />
+                                                                <TextBlock Text="{Binding ShortDisplayName}" VerticalAlignment="Center"
+                                                                           ToolTip="{Binding FullName}"
+                                                                           FontWeight="Bold" TextWrapping="Wrap"
+                                                                           Foreground="{DynamicResource TextPrimaryBrush}">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="FontSize" Value="15" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding DataContext.IsCompactGrid, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                                    <Setter Property="FontSize" Value="13" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </StackPanel>
 
-                                                    <!-- النوع + "موقوف" — WrapPanel مش StackPanel أفقي
-                                                         (خطر قص صامت عند 900px، شوف CLAUDE.md) -->
-                                                    <WrapPanel Margin="0,6,0,-6">
-                                                        <Border Background="{DynamicResource SurfaceAltBrush}"
-                                                                CornerRadius="{DynamicResource RadiusPill}"
-                                                                Padding="8,2" Margin="0,0,6,6">
-                                                            <TextBlock Text="{Binding TypeText}"
-                                                                       FontSize="{DynamicResource FontMicro}" FontWeight="Medium"
-                                                                       Foreground="{DynamicResource InkSoftBrush}" />
-                                                        </Border>
+                                                            <!-- نقطة حالة حضور النهارده — نفس ألوان شاشة الحضور
+                                                                 بالظبط (AttendanceVisuals عن طريق TodayStatusColor) -->
+                                                            <Ellipse Width="9" Height="9" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                                     ToolTip="{Binding TodayStatusText}"
+                                                                     ui:ThemeBrush.ForegroundKey="{Binding TodayStatusColor}" />
+                                                        </Grid>
+
+                                                        <!-- "موقوف" لوحدها هنا — النوع (بالإنتاج/بالساعة) بقى على
+                                                             الوش التاني، مفيش داعي يتكرر على الأول -->
                                                         <Border Background="{DynamicResource DangerTintBrush}"
                                                                 CornerRadius="{DynamicResource RadiusPill}"
-                                                                Padding="8,2" Margin="0,0,6,6">
+                                                                Padding="8,2" Margin="0,6,0,-6" HorizontalAlignment="Left">
                                                             <Border.Style>
                                                                 <Style TargetType="Border">
                                                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -782,162 +822,210 @@
                                                                        FontWeight="Medium"
                                                                        Foreground="{DynamicResource DangerBrush}" />
                                                         </Border>
-                                                    </WrapPanel>
 
-                                                    <!-- المهارات + نجوم% + تنبيهات — لغاية 4 Pills هنا لوحدها،
-                                                         WrapPanel إجباري -->
-                                                    <WrapPanel Margin="0,2,0,-6">
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,6,6">
-                                                            <materialDesign:PackIcon Kind="StarCircleOutline"
-                                                                                     Width="13" Height="13"
-                                                                                     VerticalAlignment="Center"
-                                                                                     Foreground="{DynamicResource InkFaintBrush}" />
-                                                            <TextBlock Text="{Binding SkillsText}"
-                                                                       FontSize="{DynamicResource FontTiny}" Margin="4,0,0,0"
-                                                                       VerticalAlignment="Center"
-                                                                       Foreground="{DynamicResource InkSoftBrush}" />
-                                                        </StackPanel>
-
-                                                        <!-- نسبة % تلخّص تقييمه بالنجوم = (متوسط النجوم ÷ 5) × 100 -->
-                                                        <Border Background="{DynamicResource GoldTintBrush}"
-                                                                CornerRadius="{DynamicResource RadiusPill}"
-                                                                Padding="8,2" Margin="0,0,6,6"
-                                                                Visibility="{Binding HasStarsPercent, Converter={StaticResource BoolToVis}}">
-                                                            <TextBlock Text="{Binding StarsPercentText}"
-                                                                       FontSize="{DynamicResource FontMicro}" FontWeight="Bold"
-                                                                       ui:ThemeBrush.ForegroundKey="GoldDeepBrush" />
-                                                        </Border>
-
-                                                        <Border Background="{DynamicResource WarnTintBrush}"
-                                                                CornerRadius="{DynamicResource RadiusPill}"
-                                                                Padding="8,2" Margin="0,0,6,6"
-                                                                Visibility="{Binding NeedsAttention, Converter={StaticResource BoolToVis}}">
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <materialDesign:PackIcon Kind="AlertOutline"
-                                                                                         Width="11" Height="11"
-                                                                                         VerticalAlignment="Center"
-                                                                                         Foreground="{DynamicResource WarnBrush}" />
-                                                                <TextBlock Text="{Binding AttentionText}"
-                                                                           FontSize="{DynamicResource FontMicro}"
-                                                                           Margin="4,0,0,0" FontWeight="Medium"
-                                                                           VerticalAlignment="Center"
-                                                                           Foreground="{DynamicResource WarnBrush}" />
+                                                        <!-- أرقام الفترة المختارة: 3 أعمدة متساوية، عددهم ثابت
+                                                             دايمًا فـGrid مش WrapPanel -->
+                                                        <Grid Margin="0,10,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0">
+                                                                <!-- الصفر بيبقى باهت: رقم مالوش قيمة بلون قوي
+                                                                     بيسحب النظر لحاجة مش موجودة أصلًا. Style مبني
+                                                                     على StatNumber المشتركة (BasedOn لازم
+                                                                     StaticResource، شوف WorkerDetailDialog لنفس
+                                                                     السبب) بدل تعديلها هي نفسها — مستخدمة في
+                                                                     شاشات تانية (شرائح الرئيسية مثلًا) -->
+                                                                <TextBlock Text="{Binding PresentDays}"
+                                                                           ui:ThemeBrush.ForegroundKey="{Binding PresentColor}">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock" BasedOn="{StaticResource StatNumber}">
+                                                                            <Setter Property="FontSize" Value="18" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding DataContext.IsCompactGrid, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                                    <Setter Property="FontSize" Value="15" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <TextBlock Text="حضور" Style="{DynamicResource StatCaption}" />
                                                             </StackPanel>
-                                                        </Border>
-
-                                                        <!-- إنتاج النهارده أقل بشكل ملحوظ من متوسط أيام شغله (ProductionTrendService) -->
-                                                        <Border Background="{DynamicResource WarnTintBrush}"
-                                                                CornerRadius="{DynamicResource RadiusPill}"
-                                                                Padding="8,2" Margin="0,0,6,6"
-                                                                Visibility="{Binding NeedsProductionReview, Converter={StaticResource BoolToVis}}">
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <materialDesign:PackIcon Kind="TrendingDown"
-                                                                                         Width="11" Height="11"
-                                                                                         VerticalAlignment="Center"
-                                                                                         Foreground="{DynamicResource WarnBrush}" />
-                                                                <TextBlock Text="{Binding ProductionReviewText}"
-                                                                           FontSize="{DynamicResource FontMicro}"
-                                                                           Margin="4,0,0,0" FontWeight="Medium"
-                                                                           VerticalAlignment="Center"
-                                                                           Foreground="{DynamicResource WarnBrush}" />
+                                                            <StackPanel Grid.Column="1">
+                                                                <TextBlock Text="{Binding AbsentWithoutPermissionDays}"
+                                                                           ui:ThemeBrush.ForegroundKey="{Binding AbsentColor}">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock" BasedOn="{StaticResource StatNumber}">
+                                                                            <Setter Property="FontSize" Value="18" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding DataContext.IsCompactGrid, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                                    <Setter Property="FontSize" Value="15" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <TextBlock Text="غياب" Style="{DynamicResource StatCaption}" />
                                                             </StackPanel>
-                                                        </Border>
-                                                    </WrapPanel>
-
-                                                    <!-- الألقاب الرسمية الثابتة (أسبوعي/شهري) — بتفضل معلّقة على
-                                                         اسمه لحد ما حد تاني ياخدها منه، مختلفة عن تاج IsBestOfWeek فوق -->
-                                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                                                        <StackPanel.Style>
-                                                            <Style TargetType="StackPanel">
-                                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding HasCurrentWeeklyTitle}" Value="True">
-                                                                        <Setter Property="Visibility" Value="Visible" />
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding HasCurrentMonthlyTitle}" Value="True">
-                                                                        <Setter Property="Visibility" Value="Visible" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </StackPanel.Style>
-
-                                                        <TextBlock Text="{Binding CurrentWeeklyTitleText}" FontSize="{DynamicResource FontMicro}"
-                                                                   FontWeight="Medium" Foreground="{DynamicResource GoldDeepBrush}"
-                                                                   TextWrapping="Wrap"
-                                                                   Visibility="{Binding HasCurrentWeeklyTitle, Converter={StaticResource BoolToVis}}" />
-                                                        <TextBlock Text="{Binding CurrentMonthlyTitleText}" FontSize="{DynamicResource FontMicro}"
-                                                                   FontWeight="Medium" Foreground="{DynamicResource GoldDeepBrush}"
-                                                                   Margin="10,0,0,0" TextWrapping="Wrap"
-                                                                   Visibility="{Binding HasCurrentMonthlyTitle, Converter={StaticResource BoolToVis}}" />
+                                                            <StackPanel Grid.Column="2">
+                                                                <TextBlock Text="{Binding NetWorkdays}"
+                                                                           FontWeight="Bold" HorizontalAlignment="Center"
+                                                                           ui:ThemeBrush.ForegroundKey="{Binding NetColor}">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="FontSize" Value="21" />
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding DataContext.IsCompactGrid, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                                                                    <Setter Property="FontSize" Value="18" />
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                                <TextBlock Text="الصافي" FontSize="{DynamicResource FontMicro}"
+                                                                           HorizontalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkFaintBrush}" />
+                                                            </StackPanel>
+                                                        </Grid>
                                                     </StackPanel>
 
-                                                    <!-- أرقام الفترة المختارة: 3 أعمدة متساوية، عددهم ثابت
-                                                         دايمًا فـGrid مش WrapPanel -->
-                                                    <Grid Margin="0,6,0,0">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="*" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <StackPanel Grid.Column="0">
-                                                            <!-- الصفر بيبقى باهت: رقم مالوش قيمة بلون قوي
-                                                                 بيسحب النظر لحاجة مش موجودة أصلًا. Style مبني
-                                                                 على StatNumber المشتركة (BasedOn لازم
-                                                                 StaticResource، شوف WorkerDetailDialog لنفس
-                                                                 السبب) بدل تعديلها هي نفسها — مستخدمة في
-                                                                 شاشات تانية (شرائح الرئيسية مثلًا) -->
-                                                            <TextBlock Text="{Binding PresentDays}"
-                                                                       ui:ThemeBrush.ForegroundKey="{Binding PresentColor}">
-                                                                <TextBlock.Style>
-                                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource StatNumber}">
-                                                                        <Setter Property="FontSize" Value="18" />
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding DataContext.IsCompactGrid, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                                                                <Setter Property="FontSize" Value="15" />
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </TextBlock.Style>
-                                                            </TextBlock>
-                                                            <TextBlock Text="حضور" Style="{DynamicResource StatCaption}" />
+                                                    <!-- ═══ الوش التاني ═══ -->
+                                                    <StackPanel Visibility="{Binding IsFlipped, Converter={StaticResource BoolToVis}}">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <materialDesign:PackIcon Kind="Crown" Width="14" Height="14"
+                                                                                     VerticalAlignment="Center" Margin="0,0,5,0"
+                                                                                     Foreground="{DynamicResource GoldBrush}"
+                                                                                     Visibility="{Binding IsBestOfWeek, Converter={StaticResource BoolToVis}}" />
+                                                            <TextBlock Text="{Binding FullName}" VerticalAlignment="Center"
+                                                                       FontWeight="Bold" FontSize="13.5" TextWrapping="Wrap"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
                                                         </StackPanel>
-                                                        <StackPanel Grid.Column="1">
-                                                            <TextBlock Text="{Binding AbsentWithoutPermissionDays}"
-                                                                       ui:ThemeBrush.ForegroundKey="{Binding AbsentColor}">
-                                                                <TextBlock.Style>
-                                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource StatNumber}">
-                                                                        <Setter Property="FontSize" Value="18" />
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding DataContext.IsCompactGrid, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                                                                <Setter Property="FontSize" Value="15" />
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </TextBlock.Style>
-                                                            </TextBlock>
-                                                            <TextBlock Text="غياب" Style="{DynamicResource StatCaption}" />
+
+                                                        <TextBlock Text="{Binding TodayStatusText}" FontSize="{DynamicResource FontMicro}"
+                                                                   Margin="0,3,0,0" Foreground="{DynamicResource InkSoftBrush}" />
+
+                                                        <Border Background="{DynamicResource SurfaceAltBrush}"
+                                                                CornerRadius="{DynamicResource RadiusPill}"
+                                                                Padding="8,2" Margin="0,6,0,0" HorizontalAlignment="Left">
+                                                            <TextBlock Text="{Binding TypeText}"
+                                                                       FontSize="{DynamicResource FontMicro}" FontWeight="Medium"
+                                                                       Foreground="{DynamicResource InkSoftBrush}" />
+                                                        </Border>
+
+                                                        <!-- وزن اليومية: وجودها بس مش الرقم — سعر اليومية بيان حساس
+                                                             بيتشاف من البروفايل بس (شوف WorkerRow.DailyWageEgp) -->
+                                                        <TextBlock Margin="0,6,0,0" FontSize="{DynamicResource FontMicro}">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Text" Value="له سعر يومية محدد" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource InkSoftBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding HasNoWage}" Value="True">
+                                                                            <Setter Property="Text" Value="مفيش سعر يومية محدد" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource WarnBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+
+                                                        <!-- المهارات + نجوم% + تنبيهات — لغاية 3 Pills هنا، WrapPanel إجباري -->
+                                                        <WrapPanel Margin="0,8,0,-6">
+                                                            <StackPanel Orientation="Horizontal" Margin="0,0,6,6">
+                                                                <materialDesign:PackIcon Kind="StarCircleOutline"
+                                                                                         Width="13" Height="13"
+                                                                                         VerticalAlignment="Center"
+                                                                                         Foreground="{DynamicResource InkFaintBrush}" />
+                                                                <TextBlock Text="{Binding SkillsText}"
+                                                                           FontSize="{DynamicResource FontTiny}" Margin="4,0,0,0"
+                                                                           VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource InkSoftBrush}" />
+                                                            </StackPanel>
+
+                                                            <!-- نسبة % تلخّص تقييمه بالنجوم = (متوسط النجوم ÷ 5) × 100 -->
+                                                            <Border Background="{DynamicResource GoldTintBrush}"
+                                                                    CornerRadius="{DynamicResource RadiusPill}"
+                                                                    Padding="8,2" Margin="0,0,6,6"
+                                                                    Visibility="{Binding HasStarsPercent, Converter={StaticResource BoolToVis}}">
+                                                                <TextBlock Text="{Binding StarsPercentText}"
+                                                                           FontSize="{DynamicResource FontMicro}" FontWeight="Bold"
+                                                                           ui:ThemeBrush.ForegroundKey="GoldDeepBrush" />
+                                                            </Border>
+
+                                                            <Border Background="{DynamicResource WarnTintBrush}"
+                                                                    CornerRadius="{DynamicResource RadiusPill}"
+                                                                    Padding="8,2" Margin="0,0,6,6"
+                                                                    Visibility="{Binding NeedsAttention, Converter={StaticResource BoolToVis}}">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <materialDesign:PackIcon Kind="AlertOutline"
+                                                                                             Width="11" Height="11"
+                                                                                             VerticalAlignment="Center"
+                                                                                             Foreground="{DynamicResource WarnBrush}" />
+                                                                    <TextBlock Text="{Binding AttentionText}"
+                                                                               FontSize="{DynamicResource FontMicro}"
+                                                                               Margin="4,0,0,0" FontWeight="Medium"
+                                                                               VerticalAlignment="Center"
+                                                                               Foreground="{DynamicResource WarnBrush}" />
+                                                                </StackPanel>
+                                                            </Border>
+
+                                                            <!-- إنتاج النهارده أقل بشكل ملحوظ من متوسط أيام شغله (ProductionTrendService) -->
+                                                            <Border Background="{DynamicResource WarnTintBrush}"
+                                                                    CornerRadius="{DynamicResource RadiusPill}"
+                                                                    Padding="8,2" Margin="0,0,6,6"
+                                                                    Visibility="{Binding NeedsProductionReview, Converter={StaticResource BoolToVis}}">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <materialDesign:PackIcon Kind="TrendingDown"
+                                                                                             Width="11" Height="11"
+                                                                                             VerticalAlignment="Center"
+                                                                                             Foreground="{DynamicResource WarnBrush}" />
+                                                                    <TextBlock Text="{Binding ProductionReviewText}"
+                                                                               FontSize="{DynamicResource FontMicro}"
+                                                                               Margin="4,0,0,0" FontWeight="Medium"
+                                                                               VerticalAlignment="Center"
+                                                                               Foreground="{DynamicResource WarnBrush}" />
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </WrapPanel>
+
+                                                        <!-- الألقاب الرسمية الثابتة (أسبوعي/شهري) — بتفضل معلّقة على
+                                                             اسمه لحد ما حد تاني ياخدها منه، مختلفة عن تاج IsBestOfWeek فوق -->
+                                                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                            <StackPanel.Style>
+                                                                <Style TargetType="StackPanel">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding HasCurrentWeeklyTitle}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding HasCurrentMonthlyTitle}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </StackPanel.Style>
+
+                                                            <TextBlock Text="{Binding CurrentWeeklyTitleText}" FontSize="{DynamicResource FontMicro}"
+                                                                       FontWeight="Medium" Foreground="{DynamicResource GoldDeepBrush}"
+                                                                       TextWrapping="Wrap"
+                                                                       Visibility="{Binding HasCurrentWeeklyTitle, Converter={StaticResource BoolToVis}}" />
+                                                            <TextBlock Text="{Binding CurrentMonthlyTitleText}" FontSize="{DynamicResource FontMicro}"
+                                                                       FontWeight="Medium" Foreground="{DynamicResource GoldDeepBrush}"
+                                                                       Margin="10,0,0,0" TextWrapping="Wrap"
+                                                                       Visibility="{Binding HasCurrentMonthlyTitle, Converter={StaticResource BoolToVis}}" />
                                                         </StackPanel>
-                                                        <StackPanel Grid.Column="2">
-                                                            <TextBlock Text="{Binding NetWorkdays}"
-                                                                       FontWeight="Bold" HorizontalAlignment="Center"
-                                                                       ui:ThemeBrush.ForegroundKey="{Binding NetColor}">
-                                                                <TextBlock.Style>
-                                                                    <Style TargetType="TextBlock">
-                                                                        <Setter Property="FontSize" Value="21" />
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding DataContext.IsCompactGrid, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
-                                                                                <Setter Property="FontSize" Value="18" />
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </TextBlock.Style>
-                                                            </TextBlock>
-                                                            <TextBlock Text="الصافي" FontSize="{DynamicResource FontMicro}"
-                                                                       HorizontalAlignment="Center"
-                                                                       Foreground="{DynamicResource InkFaintBrush}" />
-                                                        </StackPanel>
-                                                    </Grid>
-                                                </StackPanel>
+
+                                                        <!-- بتفتح ملف العامل الكامل (WorkerDetailDialog) — لازم
+                                                             e.Handled = true في الكود عشان الدوسة متبقاش كمان قلب
+                                                             للكارت (Click بيطلع Bubble من الزرار الداخلي للخارجي) -->
+                                                        <Button Content="افتح الملف الكامل" Click="OpenFullProfile_Click"
+                                                                Style="{StaticResource GhostButton}"
+                                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                                Padding="10,7" Margin="0,10,0,0" />
+                                                    </StackPanel>
+                                                </Grid>
                                             </Border>
                                         </Button>
                                     </DataTemplate>
