@@ -11,7 +11,7 @@ namespace WorkforceManager.UI.Views
     /// واسم الدخول بس — أي تحقق أعمق مسؤولية WorkerManagementService/
     /// AuthService عشان القاعدة تتطبق من أي مكان مش من الشاشة دي بس.
     /// </summary>
-    public partial class DepartmentAccountEditDialog : Window
+    public partial class DepartmentAccountEditDialog : Window, ISaveShortcutDialog
     {
         private record RoleOption(HourlyRoleEnum Role, string Display);
 

@@ -29,7 +29,7 @@ namespace WorkforceManager.UI.Views
     /// الفورم بعدها، العيلة تفضل موجودة كخيار مستقبلي، وده مقبول لأنها
     /// كيان مستقل عن المنتج نفسه.
     /// </summary>
-    public partial class ProductEditDialog : Window
+    public partial class ProductEditDialog : Window, ISaveShortcutDialog
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private List<FamilyChoice> _familyChoices = new();

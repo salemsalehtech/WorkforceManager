@@ -79,11 +79,28 @@ namespace WorkforceManager.UI
             }
         }
 
+        /// <summary>
+        /// بيشتغل على أي Window، بس بيعمل حاجة في الديالوجات المعلّمة
+        /// ISaveShortcutDialog بس (شوف تعليقها ليه مش كل النوافذ)
+        /// </summary>
+        private static void SaveShortcutInDialog(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (sender is not ISaveShortcutDialog dialog) return;
+            if (KeyboardShortcuts.Resolve(e.Key, System.Windows.Input.Keyboard.Modifiers) != ShortcutAction.Save) return;
+
+            if (KeyboardShortcuts.TryClickDefaultButton((Window)dialog)) e.Handled = true;
+        }
+
         protected override async void OnStartup(StartupEventArgs e)
         {
             // قبل أي نافذة تتعمل: كل نوافذ البرنامج ترسم حادّة على
             // الشاشات المكبّرة، مش MainWindow لوحدها (شوف CrispWindows)
             CrispWindows.Enable();
+
+            // Ctrl+S في ديالوجات الإدخال = زرار الحفظ — معالج واحد على مستوى
+            // النوع بدل كود في كل ديالوج (مفيش كلاس أساسي مشترك للديالوجات)
+            EventManager.RegisterClassHandler(typeof(Window), UIElement.PreviewKeyDownEvent,
+                new System.Windows.Input.KeyEventHandler(SaveShortcutInDialog));
 
             // منع تشغيل نسخة تانية من البرنامج (النسخة الأولى بتفضل هي الشغالة)
             _singleInstanceMutex = new Mutex(true, @"Local\WorkforceManager_SingleInstance", out var isFirstInstance);

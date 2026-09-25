@@ -15,7 +15,7 @@ namespace WorkforceManager.UI.Views
     ///   • **ينفع تشيل مرحلة**: الخطة ممكن تتخطى مراحل عن قصد، فالترقيم
     ///     بيتحسب على المختارة بس.
     /// </summary>
-    public partial class MemoryStageOrderDialog : Window
+    public partial class MemoryStageOrderDialog : Window, ISaveShortcutDialog
     {
         private readonly List<StageOrderRow> _rows;
         private Point _dragStart;

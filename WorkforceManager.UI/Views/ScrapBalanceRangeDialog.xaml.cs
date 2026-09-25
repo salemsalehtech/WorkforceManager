@@ -10,7 +10,7 @@ namespace WorkforceManager.UI.Views
     /// <see cref="ScrapDialog"/> العام، المنتج/المرحلة هنا محددين بالفعل
     /// من النطاق المختار، فالحوار بيسأل بس عن الكمية/سبب/ملاحظة/تاريخ.
     /// </summary>
-    public partial class ScrapBalanceRangeDialog : Window
+    public partial class ScrapBalanceRangeDialog : Window, ISaveShortcutDialog
     {
         private readonly int _remainingQuantity;
 

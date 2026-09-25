@@ -8,7 +8,7 @@ namespace WorkforceManager.UI.Views
     /// اختيارية: بترجع رسالة خطأ لو القيمة مش مقبولة (مثلاً اسم مكرر)،
     /// null لو تمام.
     /// </summary>
-    public partial class TextPromptDialog : Window
+    public partial class TextPromptDialog : Window, ISaveShortcutDialog
     {
         private readonly Func<string, string?>? _validate;
 

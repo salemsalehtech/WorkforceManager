@@ -6,7 +6,7 @@ using WorkforceManager.UI.ViewModels;
 
 namespace WorkforceManager.UI.Views
 {
-    public partial class InitialBalanceDialog : Window
+    public partial class InitialBalanceDialog : Window, ISaveShortcutDialog
     {
         public InitialBalanceDialog()
         {

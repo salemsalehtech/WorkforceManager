@@ -23,6 +23,9 @@ namespace WorkforceManager.UI.ViewModels
     {
         public IReadOnlyList<HelpTopic> Topics => HelpTopics.Topics;
         public IReadOnlyList<FaqEntry> Faq => HelpFaq.Entries;
+
+        /// <summary>جدول "اختصارات لوحة المفاتيح" — آخر قسم في الدليل</summary>
+        public IReadOnlyList<KeyboardShortcut> Shortcuts => KeyboardShortcutsContent.Entries;
         public IReadOnlyList<LearnFeaturesVersion> LearnVersions => LearnFeaturesContent.Versions;
 
         /// <summary>أكورديون إصدار واحد مفتوح بس في قسم "تعلم مميزات التحديث".</summary>

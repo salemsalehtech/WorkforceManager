@@ -14,7 +14,7 @@ namespace WorkforceManager.UI.Views
     /// نطاق عادي (شوف FlowSessionViewModel.QueueWithdrawal). المتاح
     /// المعروض هنا تقريبي — WithdrawAsync بيتحقق من الحقيقي وقت الحفظ.
     /// </summary>
-    public partial class WithdrawInitialBalancePickerDialog : Window
+    public partial class WithdrawInitialBalancePickerDialog : Window, ISaveShortcutDialog
     {
         private sealed record BalanceChoice(InitialBalanceDto Balance, string Display);
         private sealed record RangeChoice(InitialBalanceRangeDto? Range, string Display, int DefaultQuantity);

@@ -10,7 +10,7 @@ namespace WorkforceManager.UI.Views
     /// أي تحقق أعمق مسؤولية WorkerManagementService عشان القاعدة تتطبق
     /// من أي مكان مش من الشاشة دي بس.
     /// </summary>
-    public partial class WorkerEditDialog : Window
+    public partial class WorkerEditDialog : Window, ISaveShortcutDialog
     {
         /// <summary>خيار نوع الحساب في القائمة (Role == null = عامل إنتاج بالقطعة)</summary>
         private record HourlyRoleOption(HourlyRoleEnum? Role, string Display);

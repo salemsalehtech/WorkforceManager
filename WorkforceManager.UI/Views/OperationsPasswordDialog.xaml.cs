@@ -11,7 +11,7 @@ namespace WorkforceManager.UI.Views
     /// الكلمة القديمة والتشفير في OperationsPasswordService — الشاشة
     /// عمرها ما بتشوف hash ولا بتقارن كلمة سر.
     /// </summary>
-    public partial class OperationsPasswordDialog : Window
+    public partial class OperationsPasswordDialog : Window, ISaveShortcutDialog
     {
         private OperationsPasswordDialog(bool requiresCurrent)
         {

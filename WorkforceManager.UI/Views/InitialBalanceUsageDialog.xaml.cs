@@ -9,7 +9,7 @@ namespace WorkforceManager.UI.Views
     /// العامل والمرحلة بيتم من كروت المراحل العادية بعد التأكيد (شوف
     /// FlowSessionViewModel.QueueWithdrawal).
     /// </summary>
-    public partial class InitialBalanceUsageDialog : Window
+    public partial class InitialBalanceUsageDialog : Window, ISaveShortcutDialog
     {
         public InitialBalanceUsageDialog(string balanceName, string rangeDescription, int remainingQuantity)
         {

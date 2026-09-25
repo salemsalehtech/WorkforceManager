@@ -184,8 +184,6 @@ namespace WorkforceManager.UI.Views
             }
         }
 
-        private void Close_Click(object sender, RoutedEventArgs e) => Close();
-
         private void Window_Drag(object sender, MouseButtonEventArgs e)
         {
             if (e.ButtonState == MouseButtonState.Pressed)

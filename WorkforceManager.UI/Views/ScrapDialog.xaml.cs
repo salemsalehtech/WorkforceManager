@@ -21,7 +21,7 @@ namespace WorkforceManager.UI.Views
     ///
     /// الكود هنا شكلي بس — القاعدة والحساب في ScrapService.
     /// </summary>
-    public partial class ScrapDialog : Window
+    public partial class ScrapDialog : Window, ISaveShortcutDialog
     {
         private int _maxPieces;
 

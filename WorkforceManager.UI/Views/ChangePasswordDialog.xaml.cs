@@ -9,7 +9,7 @@ namespace WorkforceManager.UI.Views
     /// نافذة تغيير كلمة المرور — بتتطلب كلمة المرور الحالية،
     /// وقواعد التحقق كلها في AuthService.
     /// </summary>
-    public partial class ChangePasswordDialog : Window
+    public partial class ChangePasswordDialog : Window, ISaveShortcutDialog
     {
         public ChangePasswordDialog()
         {

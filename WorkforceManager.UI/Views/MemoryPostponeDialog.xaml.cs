@@ -10,7 +10,7 @@ namespace WorkforceManager.UI.Views
     /// اليوم لازم يكون بكرة أو بعده: تأجيل لليوم الحالي أو قبله معناه
     /// إن التذكير هيضرب تاني أول تشغيل جاي — يعني المستخدم ماأجّلش حاجة.
     /// </summary>
-    public partial class MemoryPostponeDialog : Window
+    public partial class MemoryPostponeDialog : Window, ISaveShortcutDialog
     {
         private MemoryPostponeDialog(DateTime current)
         {

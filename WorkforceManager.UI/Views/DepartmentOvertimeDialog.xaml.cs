@@ -12,7 +12,7 @@ namespace WorkforceManager.UI.Views
     /// مباشرة (بعد ما تشيل أي سجل شغل بالساعة لليوم ده لو موجود —
     /// نفس قاعدة "الغياب مع شغل مسجّل ممنوع" في AttendanceService).
     /// </summary>
-    public partial class DepartmentOvertimeDialog : Window
+    public partial class DepartmentOvertimeDialog : Window, ISaveShortcutDialog
     {
         private record StatusOption(AttendanceStatus Status, string Label);
 

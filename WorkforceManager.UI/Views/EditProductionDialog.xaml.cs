@@ -11,7 +11,7 @@ namespace WorkforceManager.UI.Views
     /// التعديل الفعلي ونقل اليومية بين العمال مسؤولية
     /// WorkdayCalculationService.UpdateProductionAsync.
     /// </summary>
-    public partial class EditProductionDialog : Window
+    public partial class EditProductionDialog : Window, ISaveShortcutDialog
     {
         private int _originalWorkerId;
 

@@ -12,7 +12,7 @@ namespace WorkforceManager.UI.Views
     /// ProductsViewModel.AssignSelectedToFamilyAsync). "+ عيلة جديدة"
     /// بتتحفظ فورًا، نفس منطق ProductEditDialog بالحرف.
     /// </summary>
-    public partial class FamilyPickerDialog : Window
+    public partial class FamilyPickerDialog : Window, ISaveShortcutDialog
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private List<FamilyChoice> _familyChoices = new();

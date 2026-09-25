@@ -19,7 +19,7 @@
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Foreground="{DynamicResource SidebarInkBrush}"
-                            Style="{StaticResource IconButton}" Padding="7,4" Click="Close_Click"
+                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
                             ToolTip="إغلاق">
                         <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
                     </Button>
@@ -31,7 +31,7 @@
             <Border DockPanel.Dock="Bottom" Background="{DynamicResource SubtleBgBrush}"
                     CornerRadius="0,0,18,18" Padding="18,12">
                 <Button HorizontalAlignment="Left" Style="{StaticResource GhostButton}"
-                        Content="قفل" Click="Close_Click" Padding="22,8" />
+                        Content="قفل" IsCancel="True" Padding="22,8" />
             </Border>
 
             <Grid Margin="18,16,18,10">
