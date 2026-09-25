@@ -991,9 +991,90 @@ Core  <----------------------- UI
   four-rows-to-two consolidation predating this session) got the identical treatment in the same round**
   — merged into one `WrapPanel` from the start this time, not a `Grid` first and a `WrapPanel` fix
   after a bug report. The lesson generalizes: **any toolbar/header row assembled from more than a
-  handful of `Auto`-sized pieces should default to `WrapPanel`, not `Grid`with column definitions** —
-  a `Grid` only belongs there when the exact item count and their relative order are fixed and known to
-  fit, which a page header accumulating buttons over several rounds of edits reliably is not.
+  handful of `Auto`-sized pieces should default to `WrapPanel`, not `Grid` with column definitions**
+  — a `Grid` only belongs there when the exact item count and their relative order are fixed and
+  known to fit, which a page header accumulating buttons over several rounds of edits reliably is not.
+
+  **A later prompt turned the grid card into a flip card**, front-and-back, once photos were gone
+  from regular workers entirely (see the photo-removal feature above) and the initials-only badge
+  it left behind got removed too — a card with nothing left to click into felt like dead space, not
+  a design decision.
+  - **Short name on the front face**: `WorkforceManager.Core/Helpers/ShortName.cs` (same placement/
+    style as `NameInitials.cs`), pure `From(string?)` — first **two name parts**, where a part isn't
+    always one word: `عبد`/`أبو`/`ابو` merge with the following word into a single part so a name never
+    gets cut mid-meaning ("عبد الله محمد علي" → "عبد الله محمد", not "عبد الله"-truncated-to-"عبد"). A
+    dangling prefix with nothing after it (rare, name ends on it) stands alone. Tested in
+    `WorkforceManager.Tests/ShortNameTests.cs` — multi-part, single word, extra spaces, both compound
+    prefixes, prefix mid-name, dangling prefix, empty/null. `WorkerRow.ShortDisplayName` exposes it;
+    `WorkerRow.FullName` is unchanged and shows as a `ToolTip` on the short name and in full on the
+    back face.
+  - **Click flips the card; it no longer opens `WorkerDetailDialog` directly.** That's now the back
+    face's own "افتح الملف الكامل" button (`WorkersView.xaml.cs`'s `OpenFullProfile_Click`, the exact
+    body `WorkerTile_Click` used to have). This is a clean swap specifically *because* the profile had
+    already moved into a modal `Window` in an earlier round — there was no inline panel left to protect,
+    so "click selects and opens" simply became "click flips; a button on the flip opens." The inner
+    button sets `e.Handled = true` first — a `Button` nested inside another `Button`'s `Click` bubbles
+    by default in WPF, so without it, opening the profile would also flip the card back underneath.
+  - **One card flipped at a time**: `WorkersViewModel.FlippedWorker` (mirrors `SelectedWorker`/
+    `OnSelectedWorkerChanged` exactly — `OnFlippedWorkerChanged` loops `_allWorkers` setting
+    `WorkerRow.IsFlipped`) plus a pure, tested decision function,
+    `WorkersViewModel.NextFlippedWorker(WorkerRow? currentlyFlipped, WorkerRow clicked)` — same card
+    clicked again → `null` (flips back), a different card → that card (implicitly closing the old one
+    once `OnFlippedWorkerChanged` re-loops). Tested directly against plain `WorkerRow` instances in
+    `WorkforceManager.UiTests/WorkerCardFlipTests.cs`, no DB or ViewModel construction needed — the
+    same reason the pure-function split exists at all. **A reload always resets to the front face**:
+    `LoadAsync()` sets `FlippedWorker = null` after rebuilding `_allWorkers` (the old row references
+    are orphaned anyway once `_allWorkers.Clear()` runs; the explicit reset is for clarity, not
+    correctness). `IsFlipped` is deliberately independent of `IsSelected`/the gold selection border —
+    flipping is a pure front-end interaction, selection still means "this worker's profile dialog was
+    opened," and the two can disagree (a flipped-but-never-opened card has no gold border).
+  - **Field split**: front face kept to crown (best-of-week) + short name + a small today's-attendance
+    status dot in the corner (`WorkerRow.TodayStatusColor`/`TodayStatusText`, reusing
+    `AttendanceVisuals.ColorFor`/the exact same palette tokens the attendance screen uses — not a new
+    color scheme) + the "موقوف" pill + the 3-column present/absent/net stat row, since that's the one
+    thing worth scanning across the whole roster at a glance. Everything else that used to live on the
+    front (full name, type pill, the skill/stars/attention/production-review pills, the weekly/monthly
+    title row) moved to the back, next to the "افتح الملف الكامل" button. The wage figure itself still
+    never appears on either face — only whether one is set (`HasNoWage`) — same sensitivity rule
+    `WorkerRow.DailyWageEgp`'s own comment already states.
+  - **Mechanism, not a `ControlTemplate`**: front/back are two sibling `StackPanel`s inside one `Grid`
+    (the card `Border`'s `Child`), each `Visibility`-bound to `IsFlipped`/`InverseBoolToVis` (both
+    already existed as app-wide converters) — that binding is the single source of truth for which
+    face shows; no `x:Name`/`FindName` inside the `DataTemplate` (that restriction is specifically
+    about the tour engine's spotlight lookup, unrelated here, but avoided anyway for consistency).
+    The animation (`WorkersView.xaml.cs`'s `AnimateFlip`) reaches the front/back `Grid` via
+    `Button.Content` → `Border.Child`, plain object-model properties — deliberately not
+    `VisualTreeHelper` drilling into `CardButton`'s `ControlTemplate` chrome, which would break if that
+    template's structure ever changes. It scales the shared `Grid`'s `ScaleTransform.ScaleX` 1→0
+    (140ms), executes the actual flip (`ToggleFlipCommand`, which flips the `IsFlipped` binding — the
+    face swap happens at the zero-width instant, invisible to the user) in the shrink's `Completed`,
+    then 0→1 (140ms). A single code-behind `_flipAnimating` guard blocks *any* card's click (not just
+    the one mid-flip) until both halves finish — the simplest guard that can't leave a card stuck
+    half-flipped or two flips racing each other.
+  - **Hover lift is scoped, not added to `CardButton`.** `CardButton` (`Themes/Core.xaml`) is shared
+    with the Products screen and already gives the gold-ring-on-hover for free — reused as-is. The
+    "gentle lift" is a new `WorkerCardButton` style (`WorkersView.xaml`'s `UserControl.Resources`,
+    `BasedOn={StaticResource CardButton}`) applied only to the Workers grid card, animating the
+    Button's own `RenderTransform.(TranslateTransform.Y)` toward `-3` on `IsMouseOver` — targeting the
+    styled element itself needs no `TargetName`, so this is plain `Style.Triggers`, not the
+    `ControlTemplate.Triggers` `Storyboard.TargetName` workaround `CardButton`'s own hover-ring needed.
+    That same `TranslateTransform.Y` is also what the tile-entrance animation drives once at load
+    (14→0) — the two don't functionally conflict since a user can't hover before the ~1s entrance
+    settles, but they're sharing one property on the same object, worth knowing if either animation
+    ever gets retimed.
+  - **Tour engine gap found while verifying this didn't break anything, not caused by it**:
+    `WorkerActionsRow`, `SkillsSectionHeader`, `ToggleAddSkillsButton`, `SkillsListPanel`, and
+    `WeeklyHistoryHeader` all now live inside `WorkerDetailDialog.xaml` (a separate modal `Window`,
+    per the profile-panel move documented above), but `FindTourTarget`/`FindTourTargetAsync`
+    (`MainWindow.Tour.cs`, `.Sandbox.cs`) only search `MainWindow` itself and `MainContent.Content` —
+    never an open child `Window`. Nothing opens `WorkerDetailDialog` during a spotlight tour or guided
+    practice run, so those targets are never found and the affected steps silently auto-skip
+    (`FindTourTarget` returning `null` is treated the same as "exists but conditionally hidden," by
+    design, for cases like a manager-only button). Net effect: 3 Workers spotlight-tour steps and the
+    entire "إضافة مهارة لعامل" guided-practice flow have been non-functional since the profile-dialog
+    move, independent of the flip-card change — confirmed by reading the code, not fixed, since it's
+    outside this feature's scope. Whoever picks this up next: the fix is teaching `FindTourTarget` to
+    also search any currently-open owned `Window`, not touching the flip-card mechanism above.
 
   There is deliberately **no banner** inside add-mode: it held a hint line, a duplicate "خلصت إضافة"
   button (the header's "إضافة مهارات"/"خلصت" toggle already does it), and a `RecentlyAdded` chip
