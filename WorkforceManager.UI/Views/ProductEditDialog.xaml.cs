@@ -61,9 +61,7 @@ namespace WorkforceManager.UI.Views
 
         private void RebuildFamilyChoices(IReadOnlyList<ProductFamilyDto> families, int? selectedId)
         {
-            _familyChoices = new List<FamilyChoice> { new(null, "بدون") };
-            _familyChoices.AddRange(families.Select(f => new FamilyChoice(f.Id, f.Name)));
-            _familyChoices.Add(new FamilyChoice(null, "+ عيلة جديدة…", IsCreateNew: true));
+            _familyChoices = FamilyChoiceList.Build(families);
 
             FamilyBox.ItemsSource = _familyChoices;
             FamilyBox.SelectedItem = _familyChoices.FirstOrDefault(c => !c.IsCreateNew && c.FamilyId == selectedId)
