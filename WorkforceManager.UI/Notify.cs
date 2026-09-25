@@ -22,6 +22,14 @@ namespace WorkforceManager.UI
         public static void Success(string message, string? title = null) =>
             Toast(message, title, ToastKind.Success);
 
+        /// <summary>
+        /// عملية اتنفذت فعلًا ومعاها زرار "تراجع" لمدة 8 ثواني بيعكسها — بدل
+        /// "متأكد؟" قبلها. **للعمليات اللي ليها عكس حقيقي بس** (إيقاف/تشغيل)،
+        /// عمره ما يتحط على حذف نهائي: التراجع لازم يرجّع الحالة بالظبط.
+        /// </summary>
+        public static void SuccessWithUndo(string message, Func<Task> undo) =>
+            Toast(message, null, ToastKind.Success, "تراجع", undo);
+
         /// <summary>خبر أو نتيجة، مفيش قرار مطلوب</summary>
         public static void Info(string message, string? title = null) =>
             Toast(message, title, ToastKind.Info);
@@ -60,17 +68,19 @@ namespace WorkforceManager.UI
         /// ما النافذة الرئيسية تفتح، زي "البرنامج شغال بالفعل")
         /// بيرجع لنافذة الرسالة — الرسالة توصل أهم من شكلها.
         /// </summary>
-        private static void Toast(string message, string? title, ToastKind kind)
+        private static void Toast(string message, string? title, ToastKind kind,
+            string? actionText = null, Func<Task>? action = null)
         {
             var host = ToastHost.Current;
 
+            // من غير حاوية مفيش مكان للزرار — الرسالة بتوصل من غير تراجع
             if (host is null)
             {
                 MessageDialog.Show(message, title ?? "تنبيه", MessageKind.Info);
                 return;
             }
 
-            host.Dispatcher.Invoke(() => host.Show(message, title, kind));
+            host.Dispatcher.Invoke(() => host.Show(message, title, kind, actionText, action));
         }
     }
 }

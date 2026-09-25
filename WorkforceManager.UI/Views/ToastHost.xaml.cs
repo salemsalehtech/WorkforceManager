@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -15,21 +16,16 @@ namespace WorkforceManager.UI.Views
     /// حاجة عايز يعرف إنها اتحفظت ويكمّل، مش يدوس زرار عشان يكمّل.
     ///
     /// **الأسئلة بتفضل نوافذ** عن قصد: السؤال لازم يوقف، والإشعار اللي
-    /// بيروح لوحده مش مكان لقرار.
+    /// بيروح لوحده مش مكان لقرار. الاستثناء الوحيد "تراجع": ده مش سؤال،
+    /// العملية اتنفذت خلاص — الزرار فرصة اختيارية لعكسها (Notify.SuccessWithUndo).
     ///
     /// مكان واحد بيستقبل كل الإشعارات من أي شاشة عن طريق
     /// <see cref="Notify"/> — الشاشات مش بتعرف إن الحاجة دي موجودة.
     /// </summary>
     public partial class ToastHost : UserControl
     {
-        /// <summary>مدة عرض الإشعار العادي</summary>
-        private static readonly TimeSpan Lifetime = TimeSpan.FromSeconds(4);
-
-        /// <summary>التحذير بيقعد أطول — المستخدم محتاج وقت يقراه</summary>
-        private static readonly TimeSpan WarnLifetime = TimeSpan.FromSeconds(7);
-
-        /// <summary>أكتر من كده بيتحوّل لحيطة إشعارات</summary>
-        private const int MaxVisible = 4;
+        /// <summary>كل قد إيه العدّاد بيتحدّث — دقة كفاية لعدّ بالثواني</summary>
+        private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(200);
 
         private readonly ObservableCollection<ToastItem> _items = new();
 
@@ -58,22 +54,33 @@ namespace WorkforceManager.UI.Views
             if (ReferenceEquals(Current, this)) Current = null;
         }
 
-        public void Show(string message, string? title, ToastKind kind)
+        /// <param name="actionText">نص زرار إجراء على الإشعار (زي "تراجع") — null = إشعار عادي</param>
+        /// <param name="action">اللي بيتنفّذ لما المستخدم يدوس الزرار — مرة واحدة بس</param>
+        public void Show(string message, string? title, ToastKind kind,
+            string? actionText = null, Func<Task>? action = null)
         {
-            var item = new ToastItem(message, title, kind, Remove);
+            var item = new ToastItem(message, title, kind, Remove, actionText, action);
 
             _items.Add(item);
 
-            while (_items.Count > MaxVisible) _items.RemoveAt(0);
+            while (_items.Count > ToastPolicy.MaxVisible) _items.RemoveAt(ToastPolicy.EvictionIndex(_items));
 
-            var timer = new DispatcherTimer
-            {
-                Interval = kind == ToastKind.Warn ? WarnLifetime : Lifetime
-            };
+            // عدّاد بخطوات صغيرة بدل Timer بمدة الإشعار كلها — عشان إشعار
+            // التراجع يقدر يوقف العد والنافذة مش نشطة (شوف ToastCountdown)
+            var countdown = new ToastCountdown(ToastPolicy.LifetimeFor(kind, item.HasAction), pauseWhileInactive: item.HasAction);
+            var clock = Stopwatch.StartNew();
+            var timer = new DispatcherTimer { Interval = TickInterval };
             timer.Tick += (_, _) =>
             {
-                timer.Stop();
-                Remove(item);
+                var elapsed = clock.Elapsed;
+                clock.Restart();
+
+                // اتشال خلاص (إخفاء بإيد المستخدم، تراجع، أو زحمة) → مفيش داعي يكمّل يعدّ
+                if (!_items.Contains(item) || countdown.Advance(elapsed, Window.GetWindow(this)?.IsActive ?? true))
+                {
+                    timer.Stop();
+                    Remove(item);
+                }
             };
             timer.Start();
         }
@@ -88,13 +95,20 @@ namespace WorkforceManager.UI.Views
     {
         private readonly Action<ToastItem> _dismiss;
 
-        public ToastItem(string message, string? title, ToastKind kind, Action<ToastItem> dismiss)
+        public ToastItem(string message, string? title, ToastKind kind, Action<ToastItem> dismiss,
+            string? actionText = null, Func<Task>? action = null)
         {
             Message = message;
             Title = title ?? "";
             Kind = kind;
             _dismiss = dismiss;
             DismissCommand = new DismissToastCommand(() => _dismiss(this));
+
+            if (actionText is not null && action is not null)
+            {
+                ActionText = actionText;
+                ActionCommand = new ToastActionCommand(action, () => _dismiss(this));
+            }
         }
 
         public string Message { get; }
@@ -103,6 +117,11 @@ namespace WorkforceManager.UI.Views
         public ToastKind Kind { get; }
 
         public ICommand DismissCommand { get; }
+
+        /// <summary>زرار إجراء اختياري على الإشعار (زي "تراجع")</summary>
+        public string? ActionText { get; }
+        public ICommand? ActionCommand { get; }
+        public bool HasAction => ActionCommand is not null;
 
         /// <summary>الأيقونة واللون بيتحددوا من النوع — مفيش نداء بيختارهم بنفسه</summary>
         public string Icon => Kind switch

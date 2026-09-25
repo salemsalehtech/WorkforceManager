@@ -255,19 +255,30 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (!CanManage || row is null) return;
 
-            var message = row.IsActive
-                ? $"إيقاف الحساب \"{row.FullName}\"؟\nهيختفي من القايمة لكن سجلاته التاريخية هتفضل محفوظة."
-                : $"إعادة تفعيل الحساب \"{row.FullName}\"؟";
+            // زي إيقاف العامل بالظبط: على طول + "تراجع" بدل "متأكد؟"
+            var workerId = row.WorkerId;
+            var name = row.FullName;
+            var isDeactivating = row.IsActive;
 
-            if (!Notify.Ask(message, "تأكيد")) return;
+            await SetAccountActiveAsync(workerId, active: !isDeactivating);
 
-            using var scope = _scopeFactory.CreateScope();
-            var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
+            Notify.SuccessWithUndo(
+                isDeactivating ? $"اتوقف الحساب \"{name}\"" : $"رجع يشتغل الحساب \"{name}\"",
+                async () =>
+                {
+                    await SetAccountActiveAsync(workerId, active: isDeactivating);
+                    Notify.Success("اترجع زي ما كان");
+                });
+        }
 
-            if (row.IsActive)
-                await mgmt.DeactivateWorkerAsync(row.WorkerId);
-            else
-                await mgmt.ReactivateWorkerAsync(row.WorkerId);
+        private async Task SetAccountActiveAsync(int workerId, bool active)
+        {
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
+                if (active) await mgmt.ReactivateWorkerAsync(workerId);
+                else await mgmt.DeactivateWorkerAsync(workerId);
+            }
 
             await LoadAsync();
         }
