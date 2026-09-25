@@ -1010,12 +1010,9 @@ namespace WorkforceManager.UI.ViewModels
             {
                 using var scope = _scopeFactory.CreateScope();
                 var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
-                var created = await mgmt.CreateWorkerAsync(
+                await mgmt.CreateWorkerAsync(
                     dialog.WorkerName, dialog.PhoneNumber,
                     dialog.HireDate, dialog.HourlyRole, dialog.DailyWageEgp);
-
-                if (dialog.PhotoData is not null)
-                    await mgmt.SetWorkerPhotoAsync(created.Id, dialog.PhotoData);
 
                 await LoadAsync();
             }
@@ -1050,7 +1047,7 @@ namespace WorkforceManager.UI.ViewModels
             dialog.LoadWorker(Detail.FullName,
                 Detail.PhoneNumber == "—" ? null : Detail.PhoneNumber,
                 Detail.HireDateText == "—" ? null : DateTime.Parse(Detail.HireDateText),
-                Detail.HourlyRole, Detail.DailyWageEgp, Detail.PhotoData);
+                Detail.HourlyRole, Detail.DailyWageEgp);
 
             if (dialog.ShowDialog() != true) return;
 
@@ -1082,10 +1079,6 @@ namespace WorkforceManager.UI.ViewModels
                     SelectedWorker.WorkerId, dialog.WorkerName,
                     dialog.PhoneNumber, dialog.HireDate, dialog.HourlyRole, dialog.DailyWageEgp,
                     operationsPassword: password);
-
-                // الصورة بتتحفظ بس لو المستخدم غيّرها فعلاً
-                if (dialog.PhotoChanged)
-                    await mgmt.SetWorkerPhotoAsync(SelectedWorker.WorkerId, dialog.PhotoData);
 
                 await LoadAsync();
             }

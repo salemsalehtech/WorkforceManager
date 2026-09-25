@@ -146,11 +146,20 @@ namespace WorkforceManager.Business.Services
         /// منفصلة عن <see cref="UpdateWorkerAsync"/> لنفس سبب
         /// <c>SetProductImageAsync</c>: تعديل الاسم مالوش لازمة يبعت الصورة
         /// كلها معاه في كل مرة، ولا يمسحها بالغلط لو المتصل نسي يبعتها.
+        ///
+        /// **الصورة بقت حكرًا على الحسابات الإدارية** (مدير/رئيس قسم) —
+        /// عامل الإنتاج العادي (بالقطعة أو بالساعة) يترفض هنا، مش بس
+        /// بإخفاء الزرار من الفورم؛ فرض القاعدة في الواجهة بس كان
+        /// هيسيب استدعاء مباشر (أو فورم قديم متبنيش) يعدّي من غير مانع.
         /// </summary>
         public async Task<Worker> SetWorkerPhotoAsync(int workerId, byte[]? photoData)
         {
             var worker = await _workerRepo.GetByIdAsync(workerId)
                 ?? throw new InvalidOperationException("العامل المحدد غير موجود");
+
+            if (worker.HourlyRole is not { } role || !role.IsDepartmentAccount())
+                throw new InvalidOperationException(
+                    "الصورة متاحة للحسابات الإدارية (مدير/رئيس قسم) بس — مش لعمال الإنتاج");
 
             worker.PhotoData = photoData is { Length: > 0 } ? photoData : null;
 
