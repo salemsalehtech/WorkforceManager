@@ -15,6 +15,7 @@ namespace WorkforceManager.UI.Views
             DataContext = viewModel;
 
             // تحديث المعلومات المعروضة أول ما الشاشة تظهر
+            Loaded += (_, _) => EntranceAnimation.PlayFadeSlideIn(this);
             Loaded += async (_, _) =>
             {
                 viewModel.LoadInfo();                        // ملفات النسخ

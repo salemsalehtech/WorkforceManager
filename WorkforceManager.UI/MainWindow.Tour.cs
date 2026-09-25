@@ -72,8 +72,10 @@ namespace WorkforceManager.UI
                         workersVm.SelectedWorker = workersVm.Workers.FirstOrDefault();
 
                     // تحديد عامل بيحمّل بروفايله (SelectedWorker/OnSelectedWorkerChanged) async
-                    // في الخلفية، فمحتاج وقت أطول من مجرد استقرار تخطيط الشاشة
-                    await Task.Delay(step.SelectFirstWorker ? 400 : 150);
+                    // في الخلفية، فمحتاج وقت أطول من مجرد استقرار تخطيط الشاشة.
+                    // الحالة العادية لازم تعدّي دخول الشاشة (EntranceAnimation) كله،
+                    // وإلا مكان الإضاءة بيتقاس على عنصر لسه بينزلق
+                    await Task.Delay(step.SelectFirstWorker ? 400 : EntranceAnimation.DurationMs + 70);
 
                     if (await FindTourTargetAsync(step.TargetElementName) is not { } target ||
                         target.Visibility != Visibility.Visible || target.ActualWidth <= 0 || target.ActualHeight <= 0)

@@ -15,6 +15,7 @@ namespace WorkforceManager.UI.Views
             DataContext = viewModel;
 
             // تحميل تقرير اليوم وكشف الأسبوع أول ما الشاشة تظهر
+            Loaded += (_, _) => EntranceAnimation.PlayFadeSlideIn(this);
             Loaded += async (_, _) => await viewModel.InitializeAsync();
         }
     }

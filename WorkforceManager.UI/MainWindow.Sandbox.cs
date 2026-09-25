@@ -132,7 +132,8 @@ namespace WorkforceManager.UI
                         (MainContent.Content as FrameworkElement)?.DataContext is ViewModels.WorkersViewModel workersVm)
                         workersVm.SelectedWorker = workersVm.Workers.FirstOrDefault();
 
-                    await Task.Delay(flow.SelectFirstWorker ? 400 : 150);
+                    // نفس سبب RunTourAsync: لازم تعدّي دخول الشاشة (EntranceAnimation) قبل القياس
+                    await Task.Delay(flow.SelectFirstWorker ? 400 : EntranceAnimation.DurationMs + 70);
 
                     TourOverlay.Visibility = Visibility.Visible;
                     var i = 0;
