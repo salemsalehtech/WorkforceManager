@@ -209,6 +209,26 @@ namespace WorkforceManager.Business.Services
             return product;
         }
 
+        /// <summary>
+        /// تعيين عيلة لعدة منتجات دفعة واحدة — استعلام واحد يجيب كل
+        /// المنتجات المحددة (GetByIdsAsync)، وحفظة واحدة، مش استعلام/حفظ
+        /// لكل منتج على حدة. المطلوب لأن التصنيف اليدوي منتج-منتج كان
+        /// بطيء جدًا مع مصنع فيه عشرات المنتجات بدون عيلة.
+        /// </summary>
+        public async Task SetFamilyForProductsAsync(IReadOnlyCollection<int> productIds, int? familyId)
+        {
+            if (productIds.Count == 0) return;
+
+            var products = await _productRepo.GetByIdsAsync(productIds);
+            foreach (var product in products)
+            {
+                product.FamilyId = familyId;
+                _productRepo.Update(product);
+            }
+
+            await _productRepo.SaveChangesAsync();
+        }
+
         // ======================= المراحل =======================
 
         /// <summary>

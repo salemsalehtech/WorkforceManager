@@ -12,5 +12,8 @@ namespace WorkforceManager.Core.Interfaces
 
         /// <summary>كل المنتجات (النشطة والموقوفة) مع كل مراحلها — لشاشة إدارة المنتجات</summary>
         Task<IReadOnlyList<Product>> GetAllWithStagesAsync();
+
+        /// <summary>منتجات بعينها بمعرّفاتها — استعلام واحد للتعيين الجماعي (مش واحد لكل منتج)</summary>
+        Task<IReadOnlyList<Product>> GetByIdsAsync(IReadOnlyCollection<int> ids);
     }
 }

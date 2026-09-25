@@ -44,5 +44,13 @@ namespace WorkforceManager.Data.Repositories
                 .OrderBy(p => p.Name)
                 .ToListAsync();
         }
+
+        public async Task<IReadOnlyList<Product>> GetByIdsAsync(IReadOnlyCollection<int> ids)
+        {
+            return await DbSet
+                .ExcludeDeleted()
+                .Where(p => ids.Contains(p.Id))
+                .ToListAsync();
+        }
     }
 }
