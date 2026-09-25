@@ -9,6 +9,35 @@
              d:DesignHeight="650"
         d:DesignWidth="1100">
 
+    <UserControl.Resources>
+        <!-- CardButton (Themes/Core.xaml) مشتركة مع شاشة العمال — الحلقة الدهبية
+             عند الهوفر جاهزة منها. رفعة بسيطة زي WorkerCardButton بالظبط
+             (WorkersView.xaml)، بس ستايل محلي هنا برضه بدل تعديل CardButton
+             نفسها عشان ميأثرش على أي كارت تاني بيستخدمها. -->
+        <Style x:Key="ProductCardButton" TargetType="Button" BasedOn="{StaticResource CardButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                 To="-3" Duration="0:0:0.14" EasingFunction="{StaticResource EaseOut}" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                 To="0" Duration="0:0:0.14" EasingFunction="{StaticResource EaseOut}" />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
     <!-- شاشة المنتجات: ملخص + بحث وفلاتر + بطاقات المنتجات + خط إنتاج المنتج المحدد -->
     <Grid Margin="14,10,14,10">
         <Grid.RowDefinitions>
@@ -24,7 +53,7 @@
              المتاح (نفس المشكلة اللي اتصلحت في شاشة العمال) — أي عنصر هنا
              مايلاقيش مكان بيلف لسطر تاني بدل ما يختفي. -->
         <WrapPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-            <Button x:Name="AddProductButton"
+            <Button x:Name="AddProductButton" ToolTip="إضافة منتج (Ctrl+N)"
                     Command="{Binding AddProductCommand}"
                     Style="{StaticResource PrimaryButton}"
                     VerticalAlignment="Center"
@@ -220,7 +249,7 @@
                                     Width="13"
                                     Height="13"/>
                         </Button>
-                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox x:Name="ProductsSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                  Margin="8,0"
                                 BorderThickness="0"
                                 VerticalAlignment="Center"
@@ -571,9 +600,58 @@
                                      (GridColumnWidthConverter.MultiConvert، نفس شاشة العمال بالحرف) —
                                      الشريط ظاهر = 5 أعمدة، مطوي = 6. كان عرض ثابت 250px، فعدد الأعمدة
                                      كان بيطلع عشوائي حسب حجم النافذة من غير أي ضمان. -->
-                                <Button Style="{StaticResource CardButton}" Margin="0,0,10,10"
+                                <Button Style="{StaticResource ProductCardButton}" Margin="0,0,10,10"
                                         Opacity="0"
-                                        Click="ProductTile_Click">
+                                        Click="ProductTile_Click"
+                                        Tag="{Binding DataContext.CanShowCardMenu, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                    <!-- نفس أسلوب قائمة كارت العامل بالحرف (WorkersView.xaml): DataContext
+                                         صريح على PlacementTarget.DataContext عشان ContextMenu مش وارثة
+                                         DataContext تلقائيًا؛ الأوامر بتتنفذ من كود-behind. مقفولة في وضع
+                                         "تحديد للعيلة" (الدوسة هناك معناها تحديد مش فتح قائمة) — ContextMenu
+                                         مش جوّه شجرة العرض العادية، فـAncestorType=UserControl مش هيوصل من
+                                         جواها؛ الحل تخزين القيمة في Tag بتاع الزرار نفسه (شجرة عادية) وقراءتها
+                                         من هنا عن طريق PlacementTarget، نفس حيلة DataContext بالظبط -->
+                                    <Button.ContextMenu>
+                                        <ContextMenu FlowDirection="RightToLeft"
+                                                     DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                                                     IsEnabled="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
+                                            <MenuItem Header="تفاصيل المنتج" Click="ShowDetailsMenuItem_Click">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="InformationOutline" Width="15" Height="15" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="تعديل" Click="EditProductMenuItem_Click">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="PencilOutline" Width="15" Height="15" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator />
+                                            <MenuItem Header="تقرير الإنتاج" Click="ShowProductionReportMenuItem_Click">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="ChartBar" Width="15" Height="15" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <!-- منتج موقوف مالوش خطة شهرية تتحدد -->
+                                            <MenuItem Header="الخطة الشهرية" Click="ShowMonthlyPlanMenuItem_Click"
+                                                      IsEnabled="{Binding CanUseMonthlyPlan}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="CalendarMonth" Width="15" Height="15" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <Separator />
+                                            <MenuItem Header="إيقاف/تفعيل" Click="ToggleActiveMenuItem_Click">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="PackageVariantClosedRemove" Width="15" Height="15" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="حذف" Click="DeleteProductMenuItem_Click"
+                                                      Foreground="{DynamicResource DangerBrush}">
+                                                <MenuItem.Icon>
+                                                    <materialDesign:PackIcon Kind="DeleteOutline" Width="15" Height="15" Foreground="{DynamicResource DangerBrush}" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
                                     <ui:AnimatedWidth.Value>
                                         <MultiBinding Converter="{StaticResource GridColumnWidth}">
                                             <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
@@ -584,7 +662,7 @@
                                         <TranslateTransform Y="14"/>
                                     </Button.RenderTransform>
                                     <Grid>
-                                    <Border Padding="14,12">
+                                    <Border Padding="14,10">
                                         <Border.Style>
                                             <!-- Effect={x:Null} بيلغي ظل Card الموروث: DropShadowEffect على عنصر
                                                  بيجبر WPF يرسمه في طبقة Bitmap منفصلة، وده بيلغي ClearType
@@ -609,22 +687,26 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
+                                        <!-- عمود متوسط بالكامل: الاسم بقى محور الكارت (مفيش أفاتار
+                                             حروف/صورة بيتنافس معاه على الاهتمام دلوقتي)، فكل حاجة
+                                             تحته (وصف/تنبيه/بادجات) بتتوسط معاه بدل ما تفضل يمين
+                                             لوحدها تحت اسم متوسط — عمود واحد متّسق العين بتقرأه بسهولة -->
                                         <StackPanel>
-                                            <!-- الأفاتار (حروف أولى/صورة) اتشال من هنا — المنتجات مالهاش
-                                                 صورة خالص دلوقتي، فالمربع كان بيعرض الحروف الأولى بس
-                                                 دايمًا، مساحة فاضية فوق الاسم من غير أي معلومة. -->
-                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13.5"
-                                                       TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="16"
+                                                       TextWrapping="Wrap" TextAlignment="Center"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             <!-- مخفي تمامًا لو مفيش وصف، بدل سطر فاضي — ولها ToolTip
                                                  بالنص الكامل عشان القطع بالنقط ميضيّعش المعلومة -->
-                                            <TextBlock Text="{Binding Description}" FontSize="11" Margin="0,4,0,0"
+                                            <TextBlock Text="{Binding Description}" FontSize="11" Margin="0,3,0,0"
                                                        TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                       TextAlignment="Center"
                                                        ToolTip="{Binding Description}"
                                                        Visibility="{Binding HasDescription, Converter={StaticResource BoolToVis}}"
                                                        Foreground="{DynamicResource CardBadgeTextBrush}"/>
 
                                             <!-- تنبيه المنتج — نفس معلومة الكارت القديم، مضغوطة -->
-                                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                            <StackPanel Orientation="Horizontal" Margin="0,5,0,0"
+                                                        HorizontalAlignment="Center"
                                                         Visibility="{Binding NeedsAttention, Converter={StaticResource BoolToVis}}">
                                                 <materialDesign:PackIcon Kind="AlertOutline" Width="13" Height="13"
                                                                          VerticalAlignment="Center" Foreground="{DynamicResource WarnBrush}"/>
@@ -638,7 +720,8 @@
                                                  مكان بادج "N ميزة" في الدليل، مع بادج إضافي مقترح:
                                                  ProductRow.ActivityText موجودة أصلًا (بتغذّي فلتر
                                                  "شغّالين" في الشاشة) بس مكانتش ظاهرة على الكارت خالص -->
-                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0"
+                                                        HorizontalAlignment="Center"
                                                         Visibility="{Binding IsActive, Converter={StaticResource BoolToVis}}">
                                                 <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8"
                                                         Padding="7,1">
@@ -656,7 +739,7 @@
                                             <!-- بادج "موقوف" بدل عدد المراحل لمنتج متوقف — نفس
                                                  المعلومة اللي كانت في الكارت القديم -->
                                             <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="8"
-                                                    Padding="7,1" Margin="0,8,0,0" HorizontalAlignment="Left">
+                                                    Padding="7,1" Margin="0,6,0,0" HorizontalAlignment="Center">
                                                 <Border.Style>
                                                     <Style TargetType="Border">
                                                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -680,6 +763,19 @@
                                               Visibility="{Binding DataContext.IsBulkSelectMode,
                                                   RelativeSource={RelativeSource AncestorType=UserControl},
                                                   Converter={StaticResource BoolToVis}}"/>
+
+                                    <!-- ⋮ بديل الكيبورد لزرار اليمين — بيفتح نفس القائمة (CardMenuButton_Click)،
+                                         ومختفي في وضع "تحديد للعيلة" زي القائمة نفسها بالظبط -->
+                                    <Button Click="CardMenuButton_Click" Style="{StaticResource IconButton}"
+                                            Padding="3" Margin="6" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            Foreground="{DynamicResource TextMutedBrush}"
+                                            ToolTip="إجراءات (Shift+F10)"
+                                            AutomationProperties.Name="إجراءات"
+                                            Visibility="{Binding DataContext.CanShowCardMenu,
+                                                RelativeSource={RelativeSource AncestorType=UserControl},
+                                                Converter={StaticResource BoolToVis}}">
+                                        <materialDesign:PackIcon Kind="DotsVertical" Width="15" Height="15" />
+                                    </Button>
                                     </Grid>
                                 </Button>
                                             </DataTemplate>

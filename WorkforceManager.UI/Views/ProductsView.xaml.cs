@@ -19,8 +19,13 @@ namespace WorkforceManager.UI.Views
     /// (كارتات المنتجات نفسها)، وindex الحركة تراكمي عبر الأقسام كلها
     /// (مش بيتصفّر لكل قسم) عشان التتابع البصري يفضل متدرج قسم بعد قسم.
     /// </summary>
-    public partial class ProductsView : UserControl
+    public partial class ProductsView : UserControl, IScreenShortcuts
     {
+        public bool TryQuickAdd() =>
+            KeyboardShortcuts.TryExecute((DataContext as ProductsViewModel)?.AddProductCommand);
+
+        public bool TryFocusSearch() => KeyboardShortcuts.FocusSearchBox(ProductsSearchBox);
+
         /// <summary>
         /// true لو حركة مجدولة لسه مستنية تتنفذ — بيمنع تكرار الحركة لكل
         /// عنصر بيتضاف/يتشال من Products وقت ApplyFilter (Clear ثم N من
@@ -63,9 +68,73 @@ namespace WorkforceManager.UI.Views
             }
 
             viewModel.SelectProductCommand.Execute(product);
+            ShowDetailsDialog(viewModel);
+        }
 
+        private void ShowDetailsDialog(ProductsViewModel viewModel)
+        {
             var dialog = new ProductDetailDialog(viewModel) { Owner = Window.GetWindow(this) };
             dialog.ShowDialog();
+        }
+
+        // ------- القائمة السياقية على الكارت (زرار يمين / ⋮) -------
+        // نفس أسلوب WorkersView بالحرف: WorkerRow/ProductRow من DataContext
+        // الـsender، والـViewModel من DataContext الشاشة نفسها.
+
+        private void CardMenuButton_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            KeyboardShortcuts.OpenOwningContextMenu(sender as DependencyObject);
+        }
+
+        private void ShowDetailsMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { DataContext: ProductRow product }) return;
+            if (DataContext is not ProductsViewModel viewModel) return;
+
+            viewModel.SelectProductCommand.Execute(product);
+            ShowDetailsDialog(viewModel);
+        }
+
+        private void EditProductMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { DataContext: ProductRow product }) return;
+            if (DataContext is not ProductsViewModel viewModel) return;
+
+            viewModel.EditProductFromCardCommand.Execute(product);
+        }
+
+        private void ToggleActiveMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { DataContext: ProductRow product }) return;
+            if (DataContext is not ProductsViewModel viewModel) return;
+
+            viewModel.ToggleProductActiveFromCardCommand.Execute(product);
+        }
+
+        private void DeleteProductMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { DataContext: ProductRow product }) return;
+            if (DataContext is not ProductsViewModel viewModel) return;
+
+            viewModel.DeleteProductFromCardCommand.Execute(product);
+        }
+
+        /// <summary>التنقّل لشاشة التقارير/الخطة الشهرية بإيد MainWindow (هي اللي بتبدّل الشاشة المعروضة)</summary>
+        private void ShowProductionReportMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { DataContext: ProductRow product }) return;
+            if (Window.GetWindow(this) is not MainWindow main) return;
+
+            SafeAsync.Run(() => main.OpenProductReportAsync(product.ProductId));
+        }
+
+        private void ShowMonthlyPlanMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { DataContext: ProductRow product }) return;
+            if (Window.GetWindow(this) is not MainWindow main) return;
+
+            SafeAsync.Run(() => main.OpenMonthlyPlanForProductAsync(product.ProductId));
         }
 
         /// <summary>

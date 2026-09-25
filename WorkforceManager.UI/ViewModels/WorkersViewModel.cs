@@ -615,6 +615,32 @@ namespace WorkforceManager.UI.ViewModels
             await DeleteWorkerAsync();
         }
 
+        /// <summary>
+        /// "عدّل المهارات" من الكارت: بيحدد العامل ويفتح وضع إضافة المهارات أول
+        /// ما بروفايله يوصل. مش await LoadDetailAsync تاني زي الأوامر اللي فوق:
+        /// تحديد العامل بيبدأ تحميل لوحده (OnSelectedWorkerChanged)، وتحميل
+        /// تاني موازي كان ممكن يخلص بعد ما نفتح الوضع ويبدّل Detail بنسخة جديدة
+        /// وضعها مقفول. فبنستنى التحميل الوحيد ده بدل ما ننافسه.
+        /// </summary>
+        public void SelectForSkillsEdit(WorkerRow worker)
+        {
+            if (ReferenceEquals(SelectedWorker, worker) && Detail?.WorkerId == worker.WorkerId)
+            {
+                if (!Detail.IsAddingSkills) ToggleAddSkillsCommand.Execute(null);
+                return;
+            }
+
+            System.ComponentModel.PropertyChangedEventHandler? onDetail = null;
+            onDetail = (_, e) =>
+            {
+                if (e.PropertyName != nameof(Detail) || Detail?.WorkerId != worker.WorkerId) return;
+                PropertyChanged -= onDetail;
+                if (!Detail.IsAddingSkills) ToggleAddSkillsCommand.Execute(null);
+            };
+            PropertyChanged += onDetail;
+            SelectedWorker = worker;
+        }
+
         // لما العامل المحدد يتغير، حمّل تفاصيله في اللوحة الجانبية
         partial void OnSelectedWorkerChanged(WorkerRow? value)
         {
@@ -1128,22 +1154,32 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (SelectedWorker is null) return;
 
-            // رسالة تأكيد مختلفة حسب الحالة الحالية — الإيقاف قرار أكبر من التفعيل
+            // من غير "متأكد؟": الإيقاف/التفعيل ليه عكس حقيقي، فبيتنفذ على طول
+            // ومعاه "تراجع" 8 ثواني (Notify.SuccessWithUndo). الرقم والاسم
+            // بيتحفظوا قبل التحميل — SelectedWorker ممكن يتغيّر بعده
+            var workerId = SelectedWorker.WorkerId;
+            var name = SelectedWorker.FullName;
             var isDeactivating = SelectedWorker.IsActive;
-            var message = isDeactivating
-                ? $"إيقاف العامل \"{SelectedWorker.FullName}\"؟\nهيختفي من القوائم لكن كل سجلاته التاريخية هتفضل محفوظة."
-                : $"إعادة تفعيل العامل \"{SelectedWorker.FullName}\"؟";
 
-            if (!Notify.Ask(message, "تأكيد"))
-                return;
+            await SetWorkerActiveAsync(workerId, active: !isDeactivating);
 
-            using var scope = _scopeFactory.CreateScope();
-            var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
+            Notify.SuccessWithUndo(
+                isDeactivating ? $"اتوقف العامل \"{name}\"" : $"رجع يشتغل العامل \"{name}\"",
+                async () =>
+                {
+                    await SetWorkerActiveAsync(workerId, active: isDeactivating);
+                    Notify.Success("اترجع زي ما كان");
+                });
+        }
 
-            if (isDeactivating)
-                await mgmt.DeactivateWorkerAsync(SelectedWorker.WorkerId);
-            else
-                await mgmt.ReactivateWorkerAsync(SelectedWorker.WorkerId);
+        private async Task SetWorkerActiveAsync(int workerId, bool active)
+        {
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var mgmt = scope.ServiceProvider.GetRequiredService<WorkerManagementService>();
+                if (active) await mgmt.ReactivateWorkerAsync(workerId);
+                else await mgmt.DeactivateWorkerAsync(workerId);
+            }
 
             await LoadAsync();
         }

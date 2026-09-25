@@ -147,7 +147,7 @@
                             </Button.Style>
                             <materialDesign:PackIcon Kind="Close" Width="13" Height="13" />
                         </Button>
-                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                        <TextBox x:Name="WorkersSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                  Margin="8,0" VerticalContentAlignment="Center"
                                  BorderThickness="0" Background="Transparent" Padding="0">
                             <TextBox.Template>
@@ -358,7 +358,7 @@
                 <materialDesign:PackIcon Kind="SwapVertical" Width="17" Height="17" />
             </Button>
 
-            <Button x:Name="AddWorkerButton" Command="{Binding AddWorkerCommand}"
+            <Button x:Name="AddWorkerButton" ToolTip="عامل جديد (Ctrl+N)" Command="{Binding AddWorkerCommand}"
                     Style="{DynamicResource GoldButton}" VerticalAlignment="Center" Margin="0,0,0,8">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="AccountPlus" Width="17" Height="17"
@@ -710,6 +710,40 @@
                                                      الأوامر عايشة في WorkersViewModel مش في WorkerRow. -->
                                                 <ContextMenu FlowDirection="RightToLeft"
                                                              DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                                    <MenuItem Header="افتح الملف الكامل" Click="OpenProfileMenuItem_Click">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="AccountDetails" Width="15" Height="15" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <!-- العامل بالساعة مالوش مهارات بالتصميم — مخفي مش مقفول -->
+                                                    <MenuItem Header="عدّل المهارات" Click="EditSkillsMenuItem_Click"
+                                                              Visibility="{Binding CanEditSkills, Converter={StaticResource BoolToVis}}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="StarOutline" Width="15" Height="15" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <Separator />
+                                                    <!-- بتفتح التسجيل اليومي على الفورم والعامل متحدد؛ مقفولة للعامل
+                                                         الموقوف لأن فورمات التسجيل بتعرض العمال النشطين بس -->
+                                                    <MenuItem Header="سجّل الحضور/الغياب" Click="RecordAttendanceMenuItem_Click"
+                                                              IsEnabled="{Binding CanRecordDailyEntry}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="CalendarCheck" Width="15" Height="15" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <MenuItem Header="سجّل جزاء" Click="RecordPenaltyMenuItem_Click"
+                                                              IsEnabled="{Binding CanRecordDailyEntry}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="Gavel" Width="15" Height="15" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <MenuItem Header="سجّل سلفة/حافز" Click="RecordAdjustmentMenuItem_Click"
+                                                              IsEnabled="{Binding CanRecordDailyEntry}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="CashMultiple" Width="15" Height="15" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <Separator />
                                                     <MenuItem Header="تعديل" Click="EditWorkerMenuItem_Click">
                                                         <MenuItem.Icon>
                                                             <materialDesign:PackIcon Kind="PencilOutline" Width="15" Height="15" />
@@ -775,7 +809,8 @@
                                                     <!-- ═══ الوش الأول ═══ -->
                                                     <StackPanel Visibility="{Binding IsFlipped, Converter={StaticResource InverseBoolToVis}}">
                                                         <Grid>
-                                                            <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                                                            <!-- 38 = مساحة النقطة + ⋮ في الركن، عشان الاسم الطويل مايدخلش تحتهم -->
+                                                            <StackPanel Orientation="Horizontal" Margin="0,0,38,0">
                                                                 <materialDesign:PackIcon Kind="Crown" Width="14" Height="14"
                                                                                          VerticalAlignment="Center" Margin="0,0,5,0"
                                                                                          Foreground="{DynamicResource GoldBrush}"
@@ -799,9 +834,21 @@
 
                                                             <!-- نقطة حالة حضور النهارده — نفس ألوان شاشة الحضور
                                                                  بالظبط (AttendanceVisuals عن طريق TodayStatusColor) -->
-                                                            <Ellipse Width="9" Height="9" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                                     ToolTip="{Binding TodayStatusText}"
-                                                                     ui:ThemeBrush.ForegroundKey="{Binding TodayStatusColor}" />
+                                                            <!-- ⋮ في الركن والنقطة جنبها لجوّه: الزرار ده بيفتح نفس قائمة
+                                                                 الزرار اليمين (CardMenuButton_Click) — الطريق للكيبورد (Tab
+                                                                 ثم Enter)، زائد Shift+F10 على الكارت نفسه -->
+                                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                                                <Ellipse Width="9" Height="9" VerticalAlignment="Center"
+                                                                         ToolTip="{Binding TodayStatusText}"
+                                                                         ui:ThemeBrush.ForegroundKey="{Binding TodayStatusColor}" />
+                                                                <Button Click="CardMenuButton_Click" Style="{StaticResource IconButton}"
+                                                                        Padding="3" Margin="4,-4,-6,0"
+                                                                        Foreground="{DynamicResource TextMutedBrush}"
+                                                                        ToolTip="إجراءات (Shift+F10)"
+                                                                        AutomationProperties.Name="إجراءات">
+                                                                    <materialDesign:PackIcon Kind="DotsVertical" Width="15" Height="15" />
+                                                                </Button>
+                                                            </StackPanel>
                                                         </Grid>
 
                                                         <!-- "موقوف" لوحدها هنا — النوع (بالإنتاج/بالساعة) بقى على

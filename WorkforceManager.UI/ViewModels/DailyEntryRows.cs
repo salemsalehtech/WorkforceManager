@@ -375,6 +375,9 @@ namespace WorkforceManager.UI.ViewModels
     /// أقسام شريط ملخص الحضور. كل عدّاد في الشريط بيفتح القسم بتاعه،
     /// و<see cref="AttendanceFilter.All"/> معناها الشريط مقفول والكل ظاهر.
     /// </summary>
+    /// <summary>أنهي فورم في التسجيل اليومي بيتفتح من قائمة كارت العامل (DailyEntryViewModel.FocusWorkerAsync)</summary>
+    public enum DailyEntryWorkerTarget { Attendance, Penalty, Adjustment }
+
     /// <summary>شرايح قايمة الحضور. كلها بتشتغل على نفس القايمة الموحّدة.</summary>
     public enum AttendanceFilter
     {

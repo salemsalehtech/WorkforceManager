@@ -151,6 +151,14 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>الاسم المختصر على وش الكارت الأول — الاسم الكامل يبان بالتولتيب أو على وش الكارت التاني</summary>
         public string ShortDisplayName => ShortName.From(FullName);
+
+        // ------- قائمة الكارت (زرار يمين / ⋮) -------
+
+        /// <summary>"عدّل المهارات" — العامل بالساعة مالوش مهارات أصلًا (بالتصميم)</summary>
+        public bool CanEditSkills => !IsHourly;
+
+        /// <summary>حضور/جزاء/سلفة من الكارت — فورمات التسجيل اليومي بتعرض العمال النشطين بس</summary>
+        public bool CanRecordDailyEntry => IsActive;
         // سعر اليومية مقصود إنه مش معروض على الكارت — بيان حساس، بيتشاف من
         // البروفايل بس. DailyWageEgp باقي هنا للتنبيه (HasNoWage) والترتيب فقط.
         public string SkillsText => IsHourly ? "بالساعة" : $"{SkillsCount} مهارة";

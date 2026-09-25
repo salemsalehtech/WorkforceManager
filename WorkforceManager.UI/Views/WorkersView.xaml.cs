@@ -13,8 +13,13 @@ namespace WorkforceManager.UI.Views
     /// كروت الشبكة، منقولة ومُكيَّفة من ProductsView.xaml.cs's
     /// AnimateTilesIn (شوف تعليقها هناك للتفاصيل الكاملة عن الآلية).
     /// </summary>
-    public partial class WorkersView : UserControl
+    public partial class WorkersView : UserControl, IScreenShortcuts
     {
+        public bool TryQuickAdd() =>
+            KeyboardShortcuts.TryExecute((DataContext as WorkersViewModel)?.AddWorkerCommand);
+
+        public bool TryFocusSearch() => KeyboardShortcuts.FocusSearchBox(WorkersSearchBox);
+
         /// <summary>
         /// true لو حركة مجدولة لسه مستنية تتنفذ — بيمنع تكرار الحركة لكل
         /// عنصر بيتضاف/يتشال من Workers وقت ApplyFilters (Clear ثم N من
@@ -128,9 +133,7 @@ namespace WorkforceManager.UI.Views
             if (DataContext is not WorkersViewModel viewModel) return;
 
             viewModel.SelectWorkerCommand.Execute(worker);
-
-            var dialog = new WorkerDetailDialog(viewModel) { Owner = Window.GetWindow(this) };
-            dialog.ShowDialog();
+            ShowProfileDialog(viewModel);
         }
 
         // ------- القائمة السياقية على الكارت (زرار يمين) -------
@@ -140,6 +143,59 @@ namespace WorkforceManager.UI.Views
         // الشاشة نفسها مباشرة، بدل أي محاولة نربط الأمر جوّه XAML على
         // WorkersViewModel من جوّه ContextMenu (اللي مش وارث DataContext
         // من مالكه أصلًا، شوف تعليق XAML).
+
+        /// <summary>
+        /// ⋮ على الكارت: بيفتح نفس ContextMenu بتاع الكارت (مش قائمة تانية) — الطريق
+        /// للكيبورد والماوس معًا. e.Handled إجباري زي OpenFullProfile_Click: الزرار
+        /// جوّه زرار الكارت، وClick بيطلع للأب فكان هيقلب الكارت كمان.
+        /// </summary>
+        private void CardMenuButton_Click(object sender, RoutedEventArgs e)
+        {
+            e.Handled = true;
+            KeyboardShortcuts.OpenOwningContextMenu(sender as DependencyObject);
+        }
+
+        private void OpenProfileMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { DataContext: WorkerRow worker }) return;
+            if (DataContext is not WorkersViewModel viewModel) return;
+
+            viewModel.SelectWorkerCommand.Execute(worker);
+            ShowProfileDialog(viewModel);
+        }
+
+        private void EditSkillsMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { DataContext: WorkerRow worker }) return;
+            if (DataContext is not WorkersViewModel viewModel) return;
+
+            viewModel.SelectForSkillsEdit(worker);
+            ShowProfileDialog(viewModel);
+        }
+
+        private void RecordAttendanceMenuItem_Click(object sender, RoutedEventArgs e) =>
+            OpenDailyEntryFor(sender, DailyEntryWorkerTarget.Attendance);
+
+        private void RecordPenaltyMenuItem_Click(object sender, RoutedEventArgs e) =>
+            OpenDailyEntryFor(sender, DailyEntryWorkerTarget.Penalty);
+
+        private void RecordAdjustmentMenuItem_Click(object sender, RoutedEventArgs e) =>
+            OpenDailyEntryFor(sender, DailyEntryWorkerTarget.Adjustment);
+
+        /// <summary>التنقّل للتسجيل اليومي بإيد MainWindow (هي اللي بتبدّل الشاشة المعروضة)</summary>
+        private void OpenDailyEntryFor(object sender, DailyEntryWorkerTarget target)
+        {
+            if (sender is not FrameworkElement { DataContext: WorkerRow worker }) return;
+            if (Window.GetWindow(this) is not MainWindow main) return;
+
+            SafeAsync.Run(() => main.OpenDailyEntryForWorkerAsync(worker.WorkerId, worker.FullName, target));
+        }
+
+        private void ShowProfileDialog(WorkersViewModel viewModel)
+        {
+            var dialog = new WorkerDetailDialog(viewModel) { Owner = Window.GetWindow(this) };
+            dialog.ShowDialog();
+        }
 
         private void EditWorkerMenuItem_Click(object sender, RoutedEventArgs e)
         {

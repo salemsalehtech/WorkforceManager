@@ -41,6 +41,9 @@ namespace WorkforceManager.UI.ViewModels
         public string Name { get; init; } = "";
         public string Description { get; init; } = "";
         public bool IsActive { get; init; }
+
+        /// <summary>"الخطة الشهرية" من قائمة الكارت — منتج موقوف مالوش خطة تتحدد</summary>
+        public bool CanUseMonthlyPlan => IsActive;
         public List<StageRow> Stages { get; init; } = new();
 
         /// <summary>عامل الرص الثابت بتاع المنتج (null = مفيش)</summary>

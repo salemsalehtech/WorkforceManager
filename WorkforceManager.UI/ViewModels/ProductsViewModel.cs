@@ -341,6 +341,34 @@ namespace WorkforceManager.UI.ViewModels
         [RelayCommand]
         private void SelectProduct(ProductRow? product) => SelectedProduct = product;
 
+        // ------- قائمة الكارت (زرار يمين / ⋮) -------
+        // نفس فكرة WorkersViewModel FromCard بالظبط، بس أبسط: OnSelectedProductChanged
+        // بيظبط Stages فورًا (مش async)، فمفيش سباق يستحق await منفصل قبل الأمر الأصلي
+
+        [RelayCommand]
+        private async Task EditProductFromCardAsync(ProductRow? product)
+        {
+            if (product is null) return;
+            SelectedProduct = product;
+            await EditProductAsync();
+        }
+
+        [RelayCommand]
+        private async Task ToggleProductActiveFromCardAsync(ProductRow? product)
+        {
+            if (product is null) return;
+            SelectedProduct = product;
+            await ToggleProductActiveAsync();
+        }
+
+        [RelayCommand]
+        private async Task DeleteProductFromCardAsync(ProductRow? product)
+        {
+            if (product is null) return;
+            SelectedProduct = product;
+            await DeleteProductAsync();
+        }
+
         partial void OnSelectedProductChanged(ProductRow? value)
         {
             // الحد الدهبي على كارت الشبكة (شوف ProductRow.IsSelected) — بيتظبط
@@ -668,8 +696,12 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         private bool _isBulkSelectMode;
 
+        /// <summary>قائمة الكارت مقفولة في وضع "تحديد للعيلة" — الدوسة هناك معناها تحديد مش فتح قائمة</summary>
+        public bool CanShowCardMenu => !IsBulkSelectMode;
+
         partial void OnIsBulkSelectModeChanged(bool value)
         {
+            OnPropertyChanged(nameof(CanShowCardMenu));
             if (!value)
             {
                 ClearBulkSelection();
@@ -744,21 +776,31 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (SelectedProduct is null) return;
 
+            // على طول + "تراجع" 8 ثواني بدل "متأكد؟" — الإيقاف ليه عكس حقيقي.
+            // الرقم والاسم قبل التحميل عشان SelectedProduct ممكن يتغيّر بعده
+            var productId = SelectedProduct.ProductId;
+            var name = SelectedProduct.Name;
             var isDeactivating = SelectedProduct.IsActive;
-            var message = isDeactivating
-                ? $"إيقاف المنتج \"{SelectedProduct.Name}\"؟\nهيختفي هو ومراحله من شاشة التسجيل، وكل السجلات التاريخية هتفضل محفوظة."
-                : $"إعادة تفعيل المنتج \"{SelectedProduct.Name}\"؟";
 
-            if (!Notify.Ask(message, "تأكيد"))
-                return;
+            await SetProductActiveAsync(productId, active: !isDeactivating);
 
-            using var scope = _scopeFactory.CreateScope();
-            var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
+            Notify.SuccessWithUndo(
+                isDeactivating ? $"اتوقف المنتج \"{name}\"" : $"رجع يشتغل المنتج \"{name}\"",
+                async () =>
+                {
+                    await SetProductActiveAsync(productId, active: isDeactivating);
+                    Notify.Success("اترجع زي ما كان");
+                });
+        }
 
-            if (isDeactivating)
-                await mgmt.DeactivateProductAsync(SelectedProduct.ProductId);
-            else
-                await mgmt.ReactivateProductAsync(SelectedProduct.ProductId);
+        private async Task SetProductActiveAsync(int productId, bool active)
+        {
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
+                if (active) await mgmt.ReactivateProductAsync(productId);
+                else await mgmt.DeactivateProductAsync(productId);
+            }
 
             await LoadAsync();
         }
@@ -917,21 +959,30 @@ namespace WorkforceManager.UI.ViewModels
         {
             if (stage is null) return;
 
+            // على طول + "تراجع" بدل "متأكد؟" — نفس نمط إيقاف المنتج
+            var stageId = stage.StageId;
+            var name = stage.StageName;
             var isDeactivating = stage.IsActive;
-            var message = isDeactivating
-                ? $"إيقاف مرحلة \"{stage.StageName}\"؟\nهتختفي من شاشة التسجيل وسجلاتها التاريخية هتفضل محفوظة."
-                : $"إعادة تفعيل مرحلة \"{stage.StageName}\"؟";
 
-            if (!Notify.Ask(message, "تأكيد"))
-                return;
+            await SetStageActiveAsync(stageId, active: !isDeactivating);
 
-            using var scope = _scopeFactory.CreateScope();
-            var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
+            Notify.SuccessWithUndo(
+                isDeactivating ? $"اتوقفت مرحلة \"{name}\"" : $"رجعت تشتغل مرحلة \"{name}\"",
+                async () =>
+                {
+                    await SetStageActiveAsync(stageId, active: isDeactivating);
+                    Notify.Success("اترجع زي ما كان");
+                });
+        }
 
-            if (isDeactivating)
-                await mgmt.DeactivateStageAsync(stage.StageId);
-            else
-                await mgmt.ReactivateStageAsync(stage.StageId);
+        private async Task SetStageActiveAsync(int stageId, bool active)
+        {
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var mgmt = scope.ServiceProvider.GetRequiredService<ProductManagementService>();
+                if (active) await mgmt.ReactivateStageAsync(stageId);
+                else await mgmt.DeactivateStageAsync(stageId);
+            }
 
             await LoadAsync();
         }
