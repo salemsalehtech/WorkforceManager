@@ -1171,8 +1171,8 @@ Core  <----------------------- UI
   here, never in `Suggestions_Click`, so mouse-add and Enter-add behave identically.
   "كرّر يوم فات" is `RepeatLastDayAsync` (see `GetLastFlowAsync`).
   One or MORE products per day: each product gets its own
-  `FlowSessionViewModel` card — stages as ordered cards, qualified-only workers per stage with equal
-  auto-split + manual override, stage ranges "from stage X to Y: N pieces", live per-worker workdays
+  `FlowSessionViewModel` card — stages as ordered cards, every active worker listed per stage (skilled
+  first, see below) with equal auto-split + manual override, stage ranges "from stage X to Y: N pieces", live per-worker workdays
   preview, independent save. A range has no "where did these pieces come from?" picker: that question
   died with the batch entity (see Business logic notes), so a range is just from-stage/to-stage/pieces.
   "add product" button appends sessions; row-level commands live on the row
@@ -1188,6 +1188,85 @@ Core  <----------------------- UI
   Mutual exclusion lives in `AttendanceRow.OnChoiceToggled`; picking a shift also marks the worker
   Present. Then penalties (add with reason/deduction, list + delete for the day), and an "السلف والحوافز" tab
   (advances/bonuses in EGP: pick worker + type + amount + note, list with delete; سلفة red, حافز green).
+
+  **Stage-worker pickers now show every active worker, not just the qualified ones** (first task of a
+  later multi-task prompt on the skill/rating system — the other two, auto-adding a skill at 1★ and
+  growing it automatically, land in later commits). Previously `FlowStageRow.QualifiedWorkers` came
+  straight from `SkillRatingService.Rank(skillsByStage[...])` — a worker with no `WorkerSkill` row for
+  that stage simply never appeared, so training someone new into a stage meant leaving the daily entry
+  screen to add the skill manually first. `FlowSessionViewModel.BuildStageWorkerPicks` (`public static`,
+  no DB access — same "pure logic on a ViewModel" shape as `WorkersViewModel.NextFlippedWorker`, tested
+  the same way in `WorkforceManager.UiTests`) now concatenates three groups for a non-racking stage:
+  skilled workers (unchanged `Rank` order — stage `Stars` desc, then `MeasuredRatio` desc), then every
+  other active worker **without** the stage's skill, ordered by their **overall rating** — the exact same
+  formula `WorkerRow.AverageStars` already uses (mean `Stars` across every skill the worker has, 0 if
+  none; a worker can't be excluded here — an empty mean just sorts them last, same as "unknown stages
+  don't count as zero" elsewhere in this file, but the list itself is still "everyone"), then trainees
+  (tag-only, unchanged). Workers with `HourlyRole.Training`/`.Racking` are excluded from the new
+  unskilled group — they already appear via the existing `trainees`/`rackingWorkers` tag-only lists, and
+  including them twice would duplicate the row. No extra query: `IWorkerRepository.GetActiveWithSkillsAsync()`
+  was already being loaded in this method (for the trainee/racking split) with `Skills` eager-included,
+  so the unskilled group's overall-rating sort comes from data already in memory. The `EditProductionDialog`
+  worker-correction picker (`DailyEntryViewModel.EditDayRecordAsync`) got the same "everyone, unskilled
+  after" treatment, appended after its existing qualified-workers order (left as `SortOrder`, not
+  switched to `Rank`, since that picker's own sort wasn't part of this change). Unskilled entries carry
+  `WorkerPick.TagLabel = "غير مؤهل بعد"` — `HasTagLabel` and the star row are independent bindings in the
+  existing `DataTemplate` (confirmed before relying on it), so a "غير مؤهل بعد" badge and a real
+  (overall) star rating show side by side, unlike trainees where `IsTagOnly` hides the stars entirely.
+
+  **The "qualified-only" save-time rule is gone — an unqualified worker auto-gains the skill at 1★
+  instead of being rejected** (task 2/3 of the same prompt). Both write paths that used to throw
+  `"فيه عامل غير مؤهل لمرحلة..."` /`"العامل الجديد مش من العمال المؤهلين..."` —
+  `ProductionFlowService.RecordFlowAsync` and `WorkdayCalculationService.UpdateProductionAsync`'s
+  worker-transfer branch — now call `WorkerManagementService.AutoAssignSkillAsync(workerId, stageId)`
+  instead of throwing, **inside the same write transaction** so an auto-added skill never survives a
+  save that fails for some other reason (a range conflict, a duplicate assignment) later in the same
+  request. `RecordFlowAsync` had to stop building its `workersById` lookup from
+  `GetSkillsForProductAsync` (which only returns workers *already* skilled on the product) and instead
+  load every active worker via `GetActiveWithSkillsAsync` — the old lookup would have thrown
+  `KeyNotFoundException` the moment a genuinely unqualified worker's name was needed downstream.
+  **`WorkerSkill.IsAutoAdded`** (new bool column, `AddWorkerSkillIsAutoAdded` migration, default `false`
+  for every existing row) is the only new schema — it marks origin, not "still automatic": confirmed
+  with the user that a manager manually re-rating an auto-added skill does **not** flip it back to
+  manual or stop later auto-growth. `AutoAssignSkillAsync` sets `Stars = 1`, `IsAutoAdded = true`, and
+  deliberately leaves `StarsUpdatedAt`/`StarsUpdatedBy` `null` — those two audit fields mean "a manager
+  touched this," which never happened here; using the existing `SetStarsAsync` (manager-only path)
+  would have stamped them incorrectly.
+  **One-time notice, shown at the moment of picking, not at save** — `FlowSessionViewModel.
+  AddWorkerToStageAsync` and `DailyEntryViewModel.EditDayRecordAsync` both check
+  `pick.IsUnskilledForStage` (a new bool on `WorkerPick`, separate from the display-only `TagLabel`)
+  and, if `!AppSettingsStore.Load().SeenAutoSkillAddNotice`, show a `Notify.Info` toast explaining what
+  will happen *before* the save, then persist the flag regardless of what the user does next — same
+  shape as `SidebarToggleHintShown`/`LastSeenTourVersion`, shown once ever in the app's lifetime, not
+  once per unqualified pick. The actual skill row is only created later, at save time, inside the
+  transaction — picking then cancelling the session never creates a skill.
+  **Auto-growth is a separate concern from auto-adding**, kept in its own pure function,
+  `SkillGrowthCalculator.ComputeNextStars(currentStars, timesSelected, measuredRatio)`
+  (`WorkforceManager.Business/Services/SkillGrowthCalculator.cs`, no DB, fully unit-tested) — hybrid by
+  design (confirmed with the user): a milestone table `(2★ needs 3 selections, 3★ needs 8, 4★-the-cap
+  needs 15)` requires **both** enough selections *and* `SkillRatingService.StarsForRatio(measuredRatio)`
+  (the same existing quality-band classifier `MeasureAllAsync` already uses — not a second quality
+  definition) to clear that milestone's star level before it counts; `Math.Max(currentStars, ...)`
+  makes the whole thing one-directional, matching "any decrease stays manual, exactly as today."
+  **5★ is permanently out of reach for this algorithm** (`AutoGrowthCap = 4`, confirmed with the user) —
+  reaching the top rating stays a human decision.
+  `SkillRatingService.TryGrowAutoAddedSkillAsync(workerId, stageId, asOf)` is the orchestration: it
+  no-ops immediately if the skill isn't `IsAutoAdded` (a manual skill is never touched, checked first,
+  before any measurement work happens), otherwise re-measures **that one pair** via the new
+  `MeasureOneAsync` (`IDailyProductionRepository.GetByWorkerAndRangeAsync`, filtered to the one stage in
+  memory — a single indexed query for the one worker just involved, not `MeasureAllAsync`'s whole-table
+  30-day scan), reads the lifetime selection count from a new
+  `IDailyProductionRepository.CountByWorkerAndStageAsync` (one more single-pair `COUNT`, unbounded by
+  date — "times selected" is a lifetime signal, not a rolling-window one like the quality ratio is),
+  and only writes/logs when the calculator's result is actually higher. Called unconditionally after
+  every relevant save (once per distinct worker+stage pair in `RecordFlowAsync`, once per transfer in
+  `UpdateProductionAsync`) — cheap to call on a skill that isn't eligible, since it returns immediately.
+  **Audit trail reuses the generic activity log, one new type** — `ActivityEventType.SkillAutoAdjusted`
+  covers both the initial 0→1★ add and every later growth step, distinguished only by its `Details`
+  text ("0 → 1★, أول تكليف..." vs "N → M★ بعد X اختيار، متوسط إنتاج Y"); not added to
+  `ActivityEventRetention`'s `ShortLived` set, so it gets long-lived retention automatically — the
+  retention list is inverted by design specifically so a new type never needs a decision to "do the
+  right thing" by default.
   **The reports and the monitoring screens are separate on purpose**, because they do two different jobs.
   `ReportsView` (nav: "التقييم والمتابعة") is looked at, not exported: two tabs only.
   1. **إنتاج اليوم** — three numbers for the day (completed / started / scrapped) then a card per product.
@@ -1829,6 +1908,43 @@ Core  <----------------------- UI
   so a per-row icon would have meant one "؟" per product (potentially dozens) for zero added meaning;
   consolidating to the summary bar keeps the "don't clutter the form" rule intact while still covering
   the field once, visibly, on the same screen.
+- **Collapsed sidebar shows icon-only navigation** (later prompt on the collapsible-sidebar feature
+  above): collapsing used to hide everything down to the toggle and `CollapsedHomeButton` (Home's small
+  logo shortcut), with no way to reach any other screen without expanding first. Added 11 more small
+  buttons — one per nav item except Home — to that same always-visible strip, so every screen stays
+  reachable while collapsed. **Proxy buttons, not the real `RadioButton`s moved out of `SidebarContent`**:
+  moving the real 12-item nav list out from under `SidebarContent` was considered and rejected, since
+  that `DockPanel` (identity block docked `Top`, nav list filling the rest) would need re-deriving
+  layout for both sidebar states — real risk to the expanded layout for no benefit. Instead, each new
+  button is a pure addition living outside `SidebarContent` (same `Grid`, same
+  `IsSidebarCollapsed`+`BoolToVis` visibility pattern `CollapsedHomeButton` already established) whose
+  `Click` does exactly one thing: `FindName((string)Tag) as RadioButton).IsChecked = true` — one shared
+  handler (`CollapsedNavIcon_Click`, `Tag` carries the target `RadioButton`'s `x:Name`), delegating
+  100% to the existing `Checked` pipeline (screen swap, badge refresh, nav indicator). Zero new
+  navigation logic exists anywhere in this feature.
+  **Selected-state pill, not the sliding `NavIndicator`**: each button is wrapped in its own `Border`
+  with a `DataTrigger` on `{Binding IsChecked, ElementName=NavXxxItem}` toggling `Background` between
+  `Transparent` and `SidebarAltBrush` — the same alt-fill the expanded list's selected pill already uses
+  — rather than replicating the gold sliding `NavIndicator` for a second, narrow layout, which would
+  have meant a second position-tracking engine for a nice-to-have. Icons stay `GoldBrush` always,
+  selected or not, matching the expanded list's own explicit "icon colour never state-tracks" rule.
+  `CollapsedHomeButton` got the identical `DataTrigger` (bound to `NavHomeItem`) in the same pass, since
+  it previously had no selected treatment at all and the requirement covers every nav item, Home
+  included. **Reused the app's plain hover `ToolTip`+`AutomationProperties.Name` pattern** (same as
+  `SidebarToggleButton`/`GlobalSearchButton`) for the label each icon no longer shows — no new tooltip
+  mechanism, unlike the focus-triggered `HelpIcon` above (that one exists specifically because a "؟" icon
+  needs to be keyboard-reachable; a nav icon that's always keyboard-focusable via Tab doesn't).
+  **Buttons deliberately share their `AutomationProperties.Name` with the real (hidden) `RadioButton`s**
+  (e.g. both say "العمال") — harmless for a screen reader since only one of the pair is
+  `IsEnabled`/visible at a time depending on collapse state, but worth knowing if UI-Automation tooling
+  ever needs to disambiguate them (filter on `ControlType=Button` vs `RadioButton`).
+  **No dedicated unit test** — the click handler is a one-line delegation to already-tested `NavX_Checked`
+  handlers and the selected state is a declarative `DataTrigger`, not code; `XamlLoadTests` (which loads
+  `MainWindow.xaml` and already caught the `HistoryOutline` icon-name typo earlier in this file) is the
+  safety net for XAML mistakes here, and the click-through/selected-visual/tooltip behavior was verified
+  live instead, the same boundary this session has used for every `MainWindow`-level behavior (nothing
+  in this codebase instantiates the full `MainWindow` in a test — it needs a live
+  `CurrentUserContext`/DI session).
 - **`HomeView` is the landing screen shown right after login, and the permanent `NavHomeItem` entry to
   return to it** — a later, separate prompt. **The startup sequence in `App.xaml.cs` did not change at
   all**: the late sign-off catch-up dialog, memory reminders, and the "إيه الجديد"/"تعلم مميزات التحديث"
@@ -2476,6 +2592,28 @@ Core  <----------------------- UI
     ask the same way and write the same kind of row. `LateSignOffCatchUpDialog` has no working close
     button — `Window_Closing` cancels unconditionally until acknowledgement succeeds — because unlike
     every other dialog in the app, walking away from this one without answering isn't a valid choice.
+  - **Pre-sign-off completeness checklist** (later prompt): a different axis entirely from everything
+    above — this is about *data* completeness (did every active product/worker get today's entries),
+    not *activity-log* coverage. Lives inside the existing `DailySignOffSummaryDialog` (no fourth gate,
+    no new call sites — the three triggers all funnel through `RunFinalSaveFlowAsync`, so extending that
+    one dialog reaches all three automatically) as a new section shown *above* the activity list —
+    what's missing matters more than what happened. Three items: products with zero production entries
+    today, workers with no attendance today, and a due-today Memory plan whose product still has zero
+    entries. **Advisory, never blocking** (confirmed explicitly) — a legitimately idle product/worker
+    that day is normal, not an error — but requires an explicit acknowledgment checkbox
+    (`ChecklistAcknowledge`) before `ConfirmButton` enables, whenever the checklist has anything to show;
+    a clean day enables the button immediately, same as before this feature existed.
+    `DailySignOffChecklistService` (`WorkforceManager.Business/Services/`) is a **separate service from
+    `DailyOperationsSignOffService`** on purpose — different question, different dependencies — computed
+    from five existing cheap indexed queries (`IProductRepository.GetActiveWithStagesAsync`,
+    `IWorkerRepository.GetActiveWithSkillsAsync`, `IDailyProductionRepository.GetByDateAsync`,
+    `IAttendanceRepository.GetByDateAsync`, `ProductionMemoryService.GetDueAsync`), then plain in-memory
+    `HashSet`/`Where` — no extra DB round trips, nothing like the ~110-query Monthly Plan day-loop
+    flagged elsewhere in this file. **Does not use `ProductionMemoryDto.IsDueToday`** — that property is
+    hardcoded to real `DateTime.Today`, which silently broke the very first test run against
+    `TestDatabase.Today` (a fixed date). `BuildAsync(date)` takes `date` explicitly (same reason
+    `DailyOperationsSignOffService`'s own methods do) and compares `RemindOn.Date == date.Date` itself
+    instead.
 - **Department accounts** (`DepartmentAttendanceService`, `Worker.HourlyRole` values `DepartmentManager`/
   `DepartmentHead`, the `DepartmentAccounts*` views): a manager/department-head login that is paid a full
   daily wage automatically, every day, with zero manual action. `WorkerRepository.GetDepartmentAccountsAsync`
@@ -3113,6 +3251,36 @@ Core  <----------------------- UI
   query per product. `null` clears the family for the whole selection (same "بدون" semantics as the
   single-product form). Turning bulk mode back off (or a successful assignment) clears every
   `IsBulkSelected` flag.
+
+- **Multi-select bulk actions — shell, starting with Workers** (a multi-screen feature shipped one use
+  case at a time; this entry covers the shell only). `ProductsView`'s bulk-select mode above is the
+  reference implementation, and Workers gets a **second, independent copy of the same shape**
+  (`WorkersViewModel.IsBulkSelectMode`/`WorkerRow.IsBulkSelected`/`BulkSelectedCount`/
+  `HasBulkSelection`/`ClearBulkSelection`), not a shared base class — CommunityToolkit's
+  `[ObservableProperty]` source generator doesn't compose cleanly across a non-ViewModel base, and two
+  consumers doesn't justify a new abstraction over matching a convention that's already proven.
+  `WorkerTile_Click` checks `IsBulkSelectMode` **before** its flip-animation guard (`_flipAnimating`)
+  and returns early if so — bulk mode and the flip interaction never fight over the same click, exactly
+  like `ProductTile_Click` branches before opening `ProductDetailDialog`. Entering bulk mode clears both
+  `SelectedWorker` **and** `FlippedWorker` (`OnIsBulkSelectModeChanged`) — either one left over would
+  show its own gold border/open face at the same time as a bulk-selected card. The card menu (`⋮` +
+  right-click) is disabled the same way Products does it: `CanShowCardMenu => !IsBulkSelectMode`, wired
+  through the outer card `Button.Tag` → `ContextMenu.IsEnabled="{Binding PlacementTarget.Tag, ...}"`
+  (`ContextMenu` is a separate visual tree, so `PlacementTarget.Tag` is how a value from the real tree
+  reaches it — the same trick already used for `DataContext`). No bulk action is wired up yet in this
+  commit — the action-bar `Border` exists (shows the selected count) but has no button, since the shell
+  intentionally ships before the first use case (bulk حضور/غياب next).
+  **A test-writing trap worth flagging**: a unit test that sets `WorkersViewModel.SelectedWorker` with
+  `scopeFactory: null!` will crash the test host, not just fail the assertion.
+  `OnSelectedWorkerChanged` fire-and-forgets a real detail load
+  (`SafeAsync.Run(() => LoadDetailAsync(value))`); with no scope factory that load throws, and
+  `SafeAsync`'s failure handler tries to pop a `Notify.Warn` toast — constructing a `MessageDialog`
+  `Window` off the test thread (not STA) throws `InvalidOperationException`, unhandled, on a background
+  `Task` continuation, which **terminates the whole test host process** (VSTest reports it as "Test host
+  process crashed" — no failed assertion, no stack trace pointing at the real test, just every other
+  test in the run silently never completing). `FlippedWorker` has no such side effect and is safe to set
+  directly; `CardContextMenuTests.WorkersViewModel_EnteringBulkSelectMode_ClearsFlip` covers only that
+  one, deliberately, with a comment explaining why `SelectedWorker` isn't exercised the same way.
 
 ## Environment note
 
