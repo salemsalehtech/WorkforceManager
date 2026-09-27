@@ -37,10 +37,14 @@ namespace WorkforceManager.UI.Views
             {
                 if (e.Key is not (Key.Up or Key.Down)) return;
 
+                // PasswordBox بقى PasswordEntryBox (صندوقين جواه، شوف
+                // تعريفه) — الفوكس الحقيقي على أنهي صندوق ظاهر جواه، مش
+                // على PasswordEntryBox نفسها، فـ== مباشرة مش هتشتغل زي
+                // UsernameBox/LoginButton العاديين
                 LoginFocusTarget? current = Keyboard.FocusedElement switch
                 {
                     var el when el == UsernameBox => LoginFocusTarget.Username,
-                    var el when el == PasswordBox => LoginFocusTarget.Password,
+                    var el when PasswordBox.IsKeyboardFocusWithin => LoginFocusTarget.Password,
                     var el when el == LoginButton => LoginFocusTarget.LoginButton,
                     _ => null
                 };
