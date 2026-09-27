@@ -52,5 +52,18 @@ namespace WorkforceManager.Core.Models
         public int? WorkerId { get; set; }
 
         public virtual Worker? Worker { get; set; }
+
+        /// <summary>
+        /// عدد محاولات دخول غلط متتالية — نفس فكرة OperationsCredential.FailedAttempts
+        /// بالحرف (شوف OperationsPasswordService). بيترجع صفر مع أول محاولة صح.
+        /// </summary>
+        public int FailedAttempts { get; set; }
+
+        /// <summary>
+        /// مقفول لحد اللحظة دي بسبب محاولات غلط كتير (null = مفتوح) — شاشة
+        /// الدخول قبل كده كانت البوابة الوحيدة في البرنامج من غير قفل مؤقت
+        /// (كلمة سر العمليات ليها واحد أصلاً)، فكانت قابلة لتخمين بلا حدود.
+        /// </summary>
+        public DateTime? LockedUntil { get; set; }
     }
 }

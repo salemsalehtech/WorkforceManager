@@ -22,6 +22,12 @@ namespace WorkforceManager.Business.Services
         /// <summary>أقل طول لكلمة المرور — نفس الحد في كل مسارات التغيير</summary>
         public const int MinPasswordLength = 4;
 
+        /// <summary>عدد محاولات الدخول الغلط المسموحة قبل القفل المؤقت — نفس رقم OperationsPasswordService.MaxFailedAttempts</summary>
+        public const int MaxFailedAttempts = 5;
+
+        /// <summary>مدة القفل بالدقايق — نفس رقم OperationsPasswordService.LockoutMinutes</summary>
+        public const int LockoutMinutes = 10;
+
         private readonly IGenericRepository<AppUser> _users;
         private readonly IWorkerRepository _workers;
         private readonly CurrentUserContext _currentUser;
@@ -69,7 +75,15 @@ namespace WorkforceManager.Business.Services
         /// <summary>
         /// يتحقق من بيانات الدخول: بيرجع المستخدم لو صحيحة، أو null لو
         /// غلط — من غير ما يفرّق في الرسالة بين "الاسم غلط" و"الباسورد
-        /// غلط" (معلومة زيادة للمتطفلين).
+        /// غلط" (معلومة زيادة للمتطفلين). نفس المبدأ ده هو اللي خلّى القفل
+        /// المؤقت (تحت) بيرجع null عادي برضه وقت القفل — بلا رسالة "اتقفل
+        /// كذا دقيقة" مميزة زي كلمة سر العمليات، عشان مايبقاش فيه فرق
+        /// ملحوظ بين الحالتين يوريه للمتطفل إن الاسم ده حساب حقيقي.
+        ///
+        /// **قفل مؤقت بعد <see cref="MaxFailedAttempts"/> محاولة غلط متتالية**
+        /// (نفس منطق OperationsPasswordService.VerifyAsync بالحرف) — قبل كده
+        /// شاشة الدخول كانت البوابة الوحيدة في البرنامج من غير قفل، رغم إن
+        /// كلمة سر العمليات (بوابة أقل حساسية منها) كان ليها واحد أصلاً.
         ///
         /// لو الحساب ده مربوط بحساب إداري موقوف (Worker.IsActive = false،
         /// عن طريق DeactivateWorkerAsync أو "إيقاف" من شاشة الحسابات
@@ -85,7 +99,30 @@ namespace WorkforceManager.Business.Services
             var user = (await _users.FindAsync(u => u.Username == trimmed)).FirstOrDefault();
             if (user is null) return null;
 
-            if (!VerifyPassword(password, user.PasswordHash, user.PasswordSalt)) return null;
+            if (user.LockedUntil is { } until && until > DateTime.Now) return null;
+
+            if (!VerifyPassword(password, user.PasswordHash, user.PasswordSalt))
+            {
+                user.FailedAttempts++;
+                if (user.FailedAttempts >= MaxFailedAttempts)
+                {
+                    user.LockedUntil = DateTime.Now.AddMinutes(LockoutMinutes);
+                    user.FailedAttempts = 0;
+                }
+
+                _users.Update(user);
+                await _users.SaveChangesAsync();
+                return null;
+            }
+
+            // نجاح بيصفّر العداد — المحاولات الغلط المتتالية هي اللي بتقفل، مش المتفرقة
+            if (user.FailedAttempts != 0 || user.LockedUntil is not null)
+            {
+                user.FailedAttempts = 0;
+                user.LockedUntil = null;
+                _users.Update(user);
+                await _users.SaveChangesAsync();
+            }
 
             if (user.WorkerId is { } workerId)
             {

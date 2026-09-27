@@ -135,6 +135,56 @@ namespace WorkforceManager.Tests
                 auth.ChangePasswordAsync(AuthService.DefaultUsername, Password, "12"));
         }
 
+        // ======================= القفل المؤقت بعد محاولات غلط =======================
+        // anti-koshary: كانت شاشة الدخول البوابة الوحيدة في البرنامج من
+        // غير قفل مؤقت، رغم إن كلمة سر العمليات (بوابة أقل حساسية) كان
+        // ليها واحد أصلاً — نفس منطق OperationsPasswordService بالحرف
+        // (شوف SharedSystemsTests.Gate_locks_out_after_repeated_wrong_attempts).
+
+        [Fact]
+        public async Task Login_locks_out_after_repeated_wrong_passwords()
+        {
+            using var scope = NewScope();
+            var auth = await AuthAsync(scope);
+
+            for (var i = 0; i < AuthService.MaxFailedAttempts; i++)
+                await auth.ValidateLoginAsync(AuthService.DefaultUsername, "غلط");
+
+            // القفل بيمنع حتى كلمة السر الصح — ده اللي بيوقف التخمين
+            Assert.Null(await auth.ValidateLoginAsync(AuthService.DefaultUsername, Password));
+        }
+
+        [Fact]
+        public async Task Login_success_resets_the_failed_attempts_counter()
+        {
+            using var scope = NewScope();
+            var auth = await AuthAsync(scope);
+
+            for (var i = 0; i < AuthService.MaxFailedAttempts - 1; i++)
+                await auth.ValidateLoginAsync(AuthService.DefaultUsername, "غلط");
+
+            // لسه ما وصلناش للقفل — دخول صح هنا يصفّر العداد
+            Assert.NotNull(await auth.ValidateLoginAsync(AuthService.DefaultUsername, Password));
+
+            for (var i = 0; i < AuthService.MaxFailedAttempts - 1; i++)
+                await auth.ValidateLoginAsync(AuthService.DefaultUsername, "غلط");
+
+            // لو العداد ما اتصفرش كان المفروض يتقفل هنا بمحاولة واحدة زيادة
+            Assert.NotNull(await auth.ValidateLoginAsync(AuthService.DefaultUsername, Password));
+        }
+
+        [Fact]
+        public async Task A_wrong_username_never_locks_out_a_different_real_account()
+        {
+            using var scope = NewScope();
+            var auth = await AuthAsync(scope);
+
+            for (var i = 0; i < AuthService.MaxFailedAttempts; i++)
+                await auth.ValidateLoginAsync("مش_موجود", "أي حاجة");
+
+            Assert.NotNull(await auth.ValidateLoginAsync(AuthService.DefaultUsername, Password));
+        }
+
         // ======================= حساب تاني =======================
 
         [Fact]
