@@ -470,12 +470,226 @@
             <!-- لوجو صغير = "الرئيسية" وهو مطوي — اللوجو الكبير جوّه SidebarContent
                  بيختفي مع الطي، والنسخة دي بتفضل ظاهرة في الشريط الضيق تحت زرار
                  الطي، فالرجوع للرئيسية متاح من أي شاشة في الحالتين -->
-            <Button x:Name="CollapsedHomeButton" Style="{StaticResource CardButton}" Click="HomeLogo_Click"
-                    Width="38" Height="38" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,74,0,0"
-                    ToolTip="الرئيسية" AutomationProperties.Name="الرئيسية"
+            <Border x:Name="CollapsedHomeButtonPill" Width="38" Height="38" CornerRadius="10"
+                    HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,74,0,0"
                     Visibility="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
-                <views:WmsLogo Width="30" Height="30" />
-            </Button>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsChecked, ElementName=NavHomeItem}" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Button x:Name="CollapsedHomeButton" Style="{StaticResource CardButton}" Click="HomeLogo_Click"
+                        ToolTip="الرئيسية" AutomationProperties.Name="الرئيسية">
+                    <views:WmsLogo Width="30" Height="30" />
+                </Button>
+            </Border>
+
+            <!-- أيقونات التنقل وهو مطوي — نفس الأيقونات بالظبط اللي في القايمة
+                 المفرودة (Kind منسوخ حرفيًا، مش مصدر جديد)، كل واحدة بس بتحط
+                 IsChecked=true على الـRadioButton الحقيقي بتاعها (CollapsedNavIcon_Click
+                 بياخد اسمه من Tag) — نفس مسار Checked/Navigate الحالي بالظبط،
+                 صفر منطق تنقل جديد. الدائرة (Border) اللي لافة كل زرار هي خلفية
+                 "مختار" فاتحة (SidebarAltBrush) لما الشاشة دي هي المفتوحة، بنفس
+                 لون خلفية البند المختار في القايمة المفرودة — الأيقونة نفسها
+                 فاضلة دهبية دايمًا زي القايمة المفرودة بالظبط (مفيش تتبّع حالة
+                 على لون الأيقونة، نفس القاعدة). ScrollViewer هنا زي NavScrollViewer
+                 بالظبط، احتياطًا لشاشة قصيرة. -->
+            <ScrollViewer Margin="0,118,0,10" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Visibility="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                <StackPanel x:Name="CollapsedNavStack" HorizontalAlignment="Center">
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavWorkersItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavWorkersItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="العمال" AutomationProperties.Name="العمال">
+                            <materialDesign:PackIcon Kind="AccountGroup" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavProductsItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavProductsItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="المنتجات والمراحل" AutomationProperties.Name="المنتجات والمراحل">
+                            <materialDesign:PackIcon Kind="PackageVariantClosed" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavMonthlyPlanItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavMonthlyPlanItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="الخطة الشهرية" AutomationProperties.Name="الخطة الشهرية">
+                            <materialDesign:PackIcon Kind="CalendarMonthOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavDailyEntryItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavDailyEntryItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="تسجيل الإنتاج اليومي" AutomationProperties.Name="تسجيل الإنتاج اليومي">
+                            <materialDesign:PackIcon Kind="ClipboardEditOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavMemoryItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavMemoryItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="الذاكرة" AutomationProperties.Name="الذاكرة">
+                            <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavEvaluationItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavEvaluationItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="التقييم والمتابعة" AutomationProperties.Name="التقييم والمتابعة">
+                            <materialDesign:PackIcon Kind="ChartBar" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavReportsItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavReportsItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="التقارير" AutomationProperties.Name="التقارير">
+                            <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavActivityLogItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavActivityLogItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="سجل العمليات" AutomationProperties.Name="سجل العمليات">
+                            <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavSettingsItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavSettingsItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="الإعدادات والنسخ" AutomationProperties.Name="الإعدادات والنسخ">
+                            <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavDepartmentAccountsItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavDepartmentAccountsItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="الحسابات الإدارية" AutomationProperties.Name="الحسابات الإدارية">
+                            <materialDesign:PackIcon Kind="AccountTie" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,0">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavHelpItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavHelpItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="الدليل" AutomationProperties.Name="الدليل">
+                            <materialDesign:PackIcon Kind="HelpCircleOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
             </Grid>
         </Border>
 

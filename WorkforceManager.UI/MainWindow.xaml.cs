@@ -533,6 +533,18 @@ namespace WorkforceManager.UI
         /// </summary>
         private void HomeLogo_Click(object sender, RoutedEventArgs e) => NavHomeItem.IsChecked = true;
 
+        /// <summary>
+        /// أيقونة تنقل وهو مطوي (الشريط الجانبي) — Tag بيحمل اسم الـRadioButton
+        /// الحقيقي (NavWorkersItem وهكذا)، فالدوسة بتحط IsChecked=true عليه
+        /// مباشرة، نفس مسار Checked/التنقل الحالي بالظبط (تبديل الشاشة، تحديث
+        /// البادچات، تحريك المؤشر) — صفر منطق تنقل جديد هنا.
+        /// </summary>
+        private void CollapsedNavIcon_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement { Tag: string name } && FindName(name) is RadioButton item)
+                item.IsChecked = true;
+        }
+
         /// <summary>خانة البحث في الرئيسية — نفس GlobalSearch_Click بتاع زرار الشريط وCtrl+K بالظبط</summary>
         internal void OpenGlobalSearch() => GlobalSearch_Click(this, new RoutedEventArgs());
 
