@@ -226,14 +226,21 @@ namespace WorkforceManager.Business.Services
 
             var keysToProcess = previouslyMeasuredKeys
                 .Union(byWorkerStage.Keys)
-                .Distinct();
+                .Distinct()
+                .ToList();
+
+            // استعلام واحد لكل مهارات العمال المعنيين، بدل نداء GetAsync
+            // منفصل لكل (عامل، مرحلة) — كانت N+1 هنا، وده بيتنفذ في كل
+            // مراجعة شهرية على كل عمال المصنع
+            var relevantWorkerIds = keysToProcess.Select(k => k.WorkerId).Distinct().ToList();
+            var skillsByKey = (await _skills.FindAsync(s => relevantWorkerIds.Contains(s.WorkerId)))
+                .ToDictionary(s => (s.WorkerId, s.ProductionStageId));
 
             var measured = 0;
             var cleared = 0;
             foreach (var (workerId, stageId) in keysToProcess)
             {
-                var skill = await _skills.GetAsync(workerId, stageId);
-                if (skill is null) continue;
+                if (!skillsByKey.TryGetValue((workerId, stageId), out var skill)) continue;
 
                 var sample = byWorkerStage.TryGetValue((workerId, stageId), out var stageRecords)
                     ? MeasureFromRecords(stageRecords)
