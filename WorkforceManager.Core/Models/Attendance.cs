@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Interfaces;
 
 namespace WorkforceManager.Core.Models
 {
@@ -19,7 +20,7 @@ namespace WorkforceManager.Core.Models
     /// </summary>
     // فهرس (WorkerId, Date) يونيك — يوم واحد بالظبط لكل عامل، منع تكرار
     // التسجيل. معرّف بـ fluent API في AppDbContext.OnModelCreating
-    public class Attendance
+    public class Attendance : IHasDate
     {
         [Key]
         public int Id { get; set; }

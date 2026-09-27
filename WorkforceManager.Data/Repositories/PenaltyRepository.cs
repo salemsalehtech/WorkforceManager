@@ -11,7 +11,8 @@ namespace WorkforceManager.Data.Repositories
         public async Task<IReadOnlyList<Penalty>> GetByWorkerAndRangeAsync(int workerId, DateTime from, DateTime to)
         {
             return await DbSet
-                .Where(p => p.WorkerId == workerId && p.Date >= from.Date && p.Date <= to.Date)
+                .Where(p => p.WorkerId == workerId)
+                .InDateRange(from, to)
                 .OrderBy(p => p.Date)
                 .ToListAsync();
         }
@@ -20,7 +21,7 @@ namespace WorkforceManager.Data.Repositories
         {
             return await DbSet
                 .Include(p => p.Worker) // اسم العامل مطلوب في التقرير الأسبوعي المجمّع
-                .Where(p => p.Date >= from.Date && p.Date <= to.Date)
+                .InDateRange(from, to)
                 .OrderBy(p => p.Date)
                 .ToListAsync();
         }

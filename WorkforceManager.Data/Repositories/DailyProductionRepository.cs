@@ -23,7 +23,8 @@ namespace WorkforceManager.Data.Repositories
             return await DbSet
                 .Include(dp => dp.ProductionStage)
                     .ThenInclude(ps => ps.Product)
-                .Where(dp => dp.WorkerId == workerId && dp.Date >= from.Date && dp.Date <= to.Date)
+                .Where(dp => dp.WorkerId == workerId)
+                .InDateRange(from, to)
                 .OrderBy(dp => dp.Date)
                 .ToListAsync();
         }
@@ -34,7 +35,7 @@ namespace WorkforceManager.Data.Repositories
                 .Include(dp => dp.Worker) // اسم العامل مطلوب في تجميع الملخص الأسبوعي
                 .Include(dp => dp.ProductionStage)
                     .ThenInclude(ps => ps.Product)
-                .Where(dp => dp.Date >= from.Date && dp.Date <= to.Date)
+                .InDateRange(from, to)
                 .OrderBy(dp => dp.Date)
                 .ToListAsync();
         }

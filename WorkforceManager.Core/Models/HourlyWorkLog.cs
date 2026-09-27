@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using WorkforceManager.Core.Interfaces;
 
 namespace WorkforceManager.Core.Models
 {
@@ -16,7 +17,7 @@ namespace WorkforceManager.Core.Models
     // فهرس (WorkerId, Date) يونيك (سجل واحد لكل عامل في اليوم) وفهرس Date
     // مستقل (لاستعلامات اليوم/الأسبوع) — معرّفين بـ fluent API في
     // AppDbContext.OnModelCreating
-    public class HourlyWorkLog
+    public class HourlyWorkLog : IHasDate
     {
         [Key]
         public int Id { get; set; }

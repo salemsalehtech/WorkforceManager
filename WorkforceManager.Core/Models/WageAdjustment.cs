@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using WorkforceManager.Core.Enums;
+using WorkforceManager.Core.Interfaces;
 
 namespace WorkforceManager.Core.Models
 {
@@ -14,7 +15,7 @@ namespace WorkforceManager.Core.Models
     /// </summary>
     // فهرس (WorkerId, Date) لتسريع تجميع تعديلات العامل خلال فترة معينة.
     // معرّف بـ fluent API في AppDbContext.OnModelCreating
-    public class WageAdjustment
+    public class WageAdjustment : IHasDate
     {
         [Key]
         public int Id { get; set; }

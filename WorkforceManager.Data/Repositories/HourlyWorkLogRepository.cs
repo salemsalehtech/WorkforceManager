@@ -25,7 +25,7 @@ namespace WorkforceManager.Data.Repositories
         {
             return await DbSet
                 .Include(h => h.Worker) // اسم العامل مطلوب في تجميع الملخص الأسبوعي
-                .Where(h => h.Date >= from.Date && h.Date <= to.Date)
+                .InDateRange(from, to)
                 .OrderBy(h => h.Date)
                 .ToListAsync();
         }

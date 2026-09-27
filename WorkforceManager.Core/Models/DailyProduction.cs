@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using WorkforceManager.Core.Interfaces;
 
 namespace WorkforceManager.Core.Models
 {
@@ -35,7 +36,7 @@ namespace WorkforceManager.Core.Models
     // جوّه الفهرس ده الفلتر هيرجّع SQLite للجدول صف صف — يعني نفس
     // الـ1047 مللي اللي الفهرس اتعمل أصلًا عشانها. معرّف بـ fluent API في
     // AppDbContext.OnModelCreating
-    public class DailyProduction : SoftDeletableEntity
+    public class DailyProduction : SoftDeletableEntity, IHasDate
     {
         [Key]
         public int Id { get; set; }
