@@ -62,5 +62,8 @@ namespace WorkforceManager.Data.Repositories
 
         public Task<bool> HasAnyForStageAsync(int stageId) =>
             DbSet.IgnoreQueryFilters().AnyAsync(dp => dp.ProductionStageId == stageId);
+
+        public Task<int> CountByWorkerAndStageAsync(int workerId, int stageId) =>
+            DbSet.CountAsync(dp => dp.WorkerId == workerId && dp.ProductionStageId == stageId);
     }
 }

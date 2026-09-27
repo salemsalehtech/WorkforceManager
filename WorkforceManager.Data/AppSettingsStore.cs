@@ -76,6 +76,14 @@ namespace WorkforceManager.Data
         /// </summary>
         public bool SidebarToggleHintShown { get; set; }
 
+        /// <summary>
+        /// اتعرض تنبيه "هنضيف المهارة تلقائيًا" قبل كده؟ نفس نمط
+        /// SidebarToggleHintShown — مرة واحدة بس، أول ما حد يحدد عامل
+        /// غير مؤهل لمرحلة من رحلة الإنتاج، ثم يتسجّل بغضّ النظر عن
+        /// النتيجة (شوف FlowSessionViewModel.AddWorkerToStageAsync).
+        /// </summary>
+        public bool SeenAutoSkillAddNotice { get; set; }
+
         // ------- هوية التقارير المطبوعة -------
 
         /// <summary>

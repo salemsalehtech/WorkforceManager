@@ -9,6 +9,7 @@ using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Models;
+using WorkforceManager.Data;
 using WorkforceManager.UI.Views;
 
 namespace WorkforceManager.UI.ViewModels
@@ -972,9 +973,30 @@ namespace WorkforceManager.UI.ViewModels
             {
                 var workerSkillRepo = lookupScope.ServiceProvider.GetRequiredService<IWorkerSkillRepository>();
                 var qualified = await workerSkillRepo.GetByStageAsync(row.ProductionStageId);
+                var qualifiedIds = qualified.Select(ws => ws.WorkerId).ToHashSet();
+
+                // زي رحلة الإنتاج بالظبط: المؤهلين الأول (بنفس ترتيبهم الحالي)،
+                // وبعدهم كل عامل نشط تاني مالوش مهارة على المرحلة دي، مرتبين
+                // بتقييمهم العام (متوسط تقييماتهم على كل مهاراتهم) — عشان
+                // تصحيح سجل لعامل جديد على مرحلة يبقى ممكن من هنا كمان
+                var workerRepo = lookupScope.ServiceProvider.GetRequiredService<IWorkerRepository>();
+                var allWorkers = await workerRepo.GetActiveWithSkillsAsync();
+                var unskilled = allWorkers
+                    .Where(w => !qualifiedIds.Contains(w.Id)
+                        && w.HourlyRole != HourlyRole.Training && w.HourlyRole != HourlyRole.Racking)
+                    .OrderByDescending(w => w.Skills.Count == 0 ? 0m : Math.Round((decimal)w.Skills.Average(s => s.Stars), 2))
+                    .ThenBy(w => w.SortOrder)
+                    .Select(w => new WorkerPick(
+                        w.Id, w.FullName,
+                        Stars: w.Skills.Count == 0 ? 0 : (int)Math.Round(w.Skills.Average(s => s.Stars)),
+                        TagLabel: "غير مؤهل بعد",
+                        IsUnskilledForStage: true))
+                    .ToList();
+
                 workerOptions = qualified
                     .OrderBy(ws => ws.Worker.SortOrder)
                     .Select(ws => new WorkerPick(ws.WorkerId, ws.Worker.FullName))
+                    .Concat(unskilled)
                     .ToList();
             }
 
@@ -985,6 +1007,19 @@ namespace WorkforceManager.UI.ViewModels
             var workerChanged = dialog.WorkerChanged;
             var piecesChanged = dialog.NewPieceCount != row.PieceCount;
             if (!workerChanged && !piecesChanged) return; // مفيش أي تغيير فعلي
+
+            // نفس تنبيه رحلة الإنتاج العادية (FlowSessionViewModel.AddWorkerToStageAsync)
+            // بالحرف — مرة واحدة في عمر البرنامج، قبل ما مهارة تتضاف تلقائيًا
+            if (workerChanged && dialog.SelectedWorker.IsUnskilledForStage && !AppSettingsStore.Load().SeenAutoSkillAddNotice)
+            {
+                Notify.Info(
+                    $"\"{dialog.SelectedWorker.Name}\" مش من العمال المؤهلين لمرحلة \"{row.StageDisplay}\" — لو أكّدت، هتتضاف له المهارة دي تلقائيًا بتقييم نجمة واحدة، وهتزيد لوحدها بعدين حسب إنتاجه.",
+                    "مهارة جديدة هتتضاف تلقائيًا");
+
+                var settings = AppSettingsStore.Load();
+                settings.SeenAutoSkillAddNotice = true;
+                AppSettingsStore.Save(settings);
+            }
 
             // تصحيح القطع (أو نقل السجل لعامل تاني) بيعيد حساب اليومية —
             // Tier B، بدون باسورد فوري. السبب هنا اختياري: تغيير العامل

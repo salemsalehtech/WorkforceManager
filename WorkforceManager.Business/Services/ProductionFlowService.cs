@@ -12,9 +12,11 @@ namespace WorkforceManager.Business.Services
     /// كذا اتنتج عدد معين" — والخدمة بتتولى الباقي:
     ///
     /// 1) بتحسب إنتاج كل مرحلة من النطاقات (كل مرحلة في النطاق بتاخد عدده).
-    /// 2) بتتحقق من كل حاجة: النطاقات بترتيب صحيح ومش متداخلة، كل مرحلة
-    ///    مغطاة عليها عمال، وكل عامل مؤهل فعلاً لمرحلته (قرار متفق عليه:
-    ///    المؤهلين بس إجباري). **مجموع أنصبة العمال مايتحققش من إنتاج
+    /// 2) بتتحقق من كل حاجة: النطاقات بترتيب صحيح ومش متداخلة، وكل مرحلة
+    ///    مغطاة عليها عمال. عامل غير مؤهل لمرحلته **مبيرفضش الحفظ**
+    ///    (قرار اتغيّر لاحقًا) — مهارته بتتضاف تلقائيًا بنجمة واحدة جوه
+    ///    نفس المعاملة (<see cref="WorkerManagementService.AutoAssignSkillAsync"/>).
+    ///    **مجموع أنصبة العمال مايتحققش من إنتاج
     ///    المرحلة عن قصد** — قطعة العامل عدد ضرباته على المكنة (أساس
     ///    يوميته)، ومش لازم تساوي الإنتاج الفعلي، شوف
     ///    <see cref="ProductionStageOutputService"/>.
@@ -48,6 +50,8 @@ namespace WorkforceManager.Business.Services
         private readonly HourlyWorkdayService _hourlyWorkdayService;
         private readonly IInitialBalanceRepository _initialBalances;
         private readonly ScrapService _scrap;
+        private readonly WorkerManagementService _workerManagement;
+        private readonly SkillRatingService _skillRating;
 
         public ProductionFlowService(
             IProductRepository productRepo,
@@ -60,7 +64,9 @@ namespace WorkforceManager.Business.Services
             ProductionStageOutputService productionOutput,
             HourlyWorkdayService hourlyWorkdayService,
             IInitialBalanceRepository initialBalances,
-            ScrapService scrap)
+            ScrapService scrap,
+            WorkerManagementService workerManagement,
+            SkillRatingService skillRating)
         {
             _log = log;
             _productRepo = productRepo;
@@ -73,6 +79,8 @@ namespace WorkforceManager.Business.Services
             _hourlyWorkdayService = hourlyWorkdayService;
             _initialBalances = initialBalances;
             _scrap = scrap;
+            _workerManagement = workerManagement;
+            _skillRating = skillRating;
         }
 
         /// <summary>
@@ -270,14 +278,21 @@ namespace WorkforceManager.Business.Services
             var piecesPerStage = StageRangeValidator.ValidateAndComputePiecesPerStage(orderedStages, rangeList, out var rangeIndexByStage);
 
             // ---------- 3) التحقق من توزيع العمال على المراحل ----------
-            // المؤهلين لكل مراحل المنتج باستعلام واحد (القرار المتفق عليه: المؤهلين بس)
+            // المؤهلين لكل مراحل المنتج باستعلام واحد
             var productSkills = await _workerRepo.GetSkillsForProductAsync(productId);
             var qualifiedPairs = productSkills
                 .Select(ws => (ws.ProductionStageId, ws.WorkerId))
                 .ToHashSet();
-            var workersById = productSkills
-                .GroupBy(ws => ws.WorkerId)
-                .ToDictionary(g => g.Key, g => g.First().Worker);
+
+            // القرار اتغيّر: عامل غير مؤهل لمرحلة مبيرفضش الحفظ خالص —
+            // مهارته بتتضاف تلقائيًا بنجمة واحدة جوه المعاملة تحت (شوف
+            // WorkerManagementService.AutoAssignSkillAsync). عشان كده
+            // workersById لازم يغطي **كل** عامل واصل في shares، مش بس
+            // اللي عندهم مهارة على المنتج ده فعلًا زي الأول — لو فضل
+            // مبني من productSkills بس كان هيرمي KeyNotFound أول ما عامل
+            // غير مؤهل يوصل هنا.
+            var allWorkers = await _workerRepo.GetActiveWithSkillsAsync();
+            var workersById = allWorkers.ToDictionary(w => w.Id, w => w);
 
             // عمال رص/تدريب متحطين تاج على مراحل لليوم بس — بلا قطع وبلا
             // تحقق تأهيل عن قصد. التحقق هنا على **كل** مراحل المنتج
@@ -294,6 +309,13 @@ namespace WorkforceManager.Business.Services
                         "عامل رص/تدريب متحط تاج على مرحلة مش من مراحل المنتج المحدد");
 
             var taggedStageIds = taggedList.Select(t => t.ProductionStageId).ToHashSet();
+
+            // عمال غير مؤهلين اتحددوا فعلاً — هتتضاف مهاراتهم تلقائيًا جوه
+            // المعاملة تحت، بعد ما كل التحققات التانية (نطاق، تكرار،
+            // إعادة عمل) تعدي بسلام. عمدًا بعد الحلقة مش جواها: لو أي
+            // تحقق تاني فشل لأي share، المعاملة كلها بترجع ومفيش مهارة
+            // اتضافت من غير داعي.
+            var needsAutoAddSkill = new List<(int StageId, int WorkerId)>();
 
             var seenPairs = new HashSet<(int StageId, int WorkerId)>();
             foreach (var share in shares)
@@ -317,8 +339,7 @@ namespace WorkforceManager.Business.Services
                         $"مرحلة \"{stageName}\" عليها عمال لكن مش داخلة في أي نطاق إنتاج — إما ضيفها لنطاق أو شيل عمالها");
 
                 if (!qualifiedPairs.Contains((share.ProductionStageId, share.WorkerId)))
-                    throw new InvalidOperationException(
-                        $"فيه عامل غير مؤهل لمرحلة \"{stageName}\" — اربط المهارة من شاشة العمال الأول");
+                    needsAutoAddSkill.Add((share.ProductionStageId, share.WorkerId));
             }
 
             // كل مرحلة مغطاة بنطاق: لازم يكون عليها عمال، ومجموع أنصبتهم = إنتاجها بالظبط.
@@ -358,6 +379,12 @@ namespace WorkforceManager.Business.Services
             // نسخة تانية من البرنامج تغيّرها قبل ما نخلّص كتابة (منع سباق)
             await using (var transaction = await _unitOfWork.BeginWriteTransactionAsync())
             {
+                // مهارات العمال الغير مؤهلين المكتشفين فوق — بنجمة واحدة،
+                // جوه نفس المعاملة، فلو أي خطوة تالية فشلت (تعارض تكليف
+                // مثلًا) المهارة الجديدة بترجع مع كل حاجة تانية
+                foreach (var (stageId, workerId) in needsAutoAddSkill.Distinct())
+                    await _workerManagement.AutoAssignSkillAsync(workerId, stageId);
+
                 var requestedAssignments = shares
                     .Select(share => new WorkerAssignmentDto
                     {
@@ -411,6 +438,12 @@ namespace WorkforceManager.Business.Services
                             : -1
                     })
                     .ToList();
+
+                // ---------- نمو تقييم المهارات المتضافة تلقائيًا (لكل شير، مش بس اللي اتضاف دلوقتي) ----------
+                // مهارة يدوية بترجع فورًا من جوّه TryGrowAutoAddedSkillAsync
+                // نفسها (IsAutoAdded false) — الاستدعاء هنا غير مشروط عن قصد
+                foreach (var share in shares.Select(s => (s.WorkerId, s.ProductionStageId)).Distinct())
+                    await _skillRating.TryGrowAutoAddedSkillAsync(share.WorkerId, share.ProductionStageId, date);
 
                 // ---------- الإنتاج الفعلي لكل مرحلة مغطاة — منفصل تمامًا عن نصيب العمال ----------
                 // نفس رقم النطاق بيروح لكل مرحلة فيه (زي ما كان بيتحقق منه

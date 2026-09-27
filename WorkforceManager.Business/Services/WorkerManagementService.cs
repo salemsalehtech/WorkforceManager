@@ -331,6 +331,44 @@ namespace WorkforceManager.Business.Services
             return skill;
         }
 
+        /// <summary>
+        /// عامل غير مؤهل اتحدد لمرحلة من رحلة الإنتاج — المهارة بتتضاف
+        /// تلقائيًا بنجمة واحدة، مش بإيد حد. مختلفة عن AssignSkillAsync
+        /// عن قصد: دي مش فعل مدير، فـStarsUpdatedAt/By بيفضلوا null (مش
+        /// تعديل يدوي)، وIsAutoAdded=true عشان SkillGrowthCalculator بعدين
+        /// يعرف يفرّق مهارة اتضافت لوحدها عن مهارة المدير ضافها بإيده.
+        /// Upsert بنفس منطق AssignSkillAsync: لو المهارة موجودة فعلًا (نادر
+        /// جدًا هنا، بس ممكن لو سباق توقيت) بيرجعها زي ما هي من غير لمسها.
+        /// </summary>
+        public async Task<WorkerSkill> AutoAssignSkillAsync(int workerId, int productionStageId)
+        {
+            var existing = (await _skillRepo.FindAsync(
+                s => s.WorkerId == workerId && s.ProductionStageId == productionStageId))
+                .FirstOrDefault();
+            if (existing is not null) return existing;
+
+            var skill = new WorkerSkill
+            {
+                WorkerId = workerId,
+                ProductionStageId = productionStageId,
+                Level = SkillLevel.Beginner,
+                Stars = 1,
+                IsAutoAdded = true,
+                CreatedAt = DateTime.Now
+            };
+
+            await _skillRepo.AddAsync(skill);
+            await _skillRepo.SaveChangesAsync();
+
+            var worker = await _workerRepo.GetByIdAsync(workerId);
+            await _log.LogAsync(
+                ActivityEventType.SkillAutoAdjusted, nameof(WorkerSkill), skill.Id,
+                entityName: worker?.FullName,
+                details: "0 → 1★ (أول تكليف على هذه المرحلة، مهارة اتضافت تلقائيًا)");
+
+            return skill;
+        }
+
         /// <summary>يشيل مهارة من عامل (حذف فعلي لسطر الربط — مش بيأثر على سجلات الإنتاج التاريخية)</summary>
         public async Task RemoveSkillAsync(int workerId, int productionStageId)
         {

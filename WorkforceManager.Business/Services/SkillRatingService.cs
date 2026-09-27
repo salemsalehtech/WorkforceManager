@@ -59,16 +59,22 @@ namespace WorkforceManager.Business.Services
 
         private readonly IWorkerSkillRepository _skills;
         private readonly IDailyProductionRepository _production;
+        private readonly IWorkerRepository _workers;
         private readonly CurrentUserContext _currentUser;
+        private readonly ActivityLogService _log;
 
         public SkillRatingService(
             IWorkerSkillRepository skills,
             IDailyProductionRepository production,
-            CurrentUserContext currentUser)
+            IWorkerRepository workers,
+            CurrentUserContext currentUser,
+            ActivityLogService log)
         {
             _skills = skills;
             _production = production;
+            _workers = workers;
             _currentUser = currentUser;
+            _log = log;
         }
 
         // ======================= قواعد نقية =======================
@@ -131,6 +137,36 @@ namespace WorkforceManager.Business.Services
             if (perDay.Count < MinSampleDays) return null;
 
             return (Math.Round(perDay.Average(), 2), perDay.Count);
+        }
+
+        /// <summary>
+        /// نفس MeasureFromRecords، بس لزوج (عامل، مرحلة) واحد بس — استعلام
+        /// واحد على سجلات العامل ده (مفهرس)، مفلتر بالمرحلة في الميموري،
+        /// مش مسح كل الجدول زي MeasureAllAsync. للحظة "عامل اتحدد للمرحلة
+        /// دي دلوقتي" (شوف TryGrowAutoAddedSkillAsync)، مش للمراجعة
+        /// الشهرية الجماعية.
+        /// </summary>
+        public async Task<WorkerSkill?> MeasureOneAsync(int workerId, int stageId, DateTime asOf)
+        {
+            var skill = await _skills.GetAsync(workerId, stageId);
+            if (skill is null) return null;
+
+            var from = asOf.Date.AddDays(-LookbackDays);
+            var records = (await _production.GetByWorkerAndRangeAsync(workerId, from, asOf.Date))
+                .Where(r => r.ProductionStageId == stageId)
+                .ToList();
+
+            var sample = MeasureFromRecords(records);
+            if (sample is not null)
+            {
+                skill.MeasuredRatio = sample.Value.Ratio;
+                skill.MeasuredDays = sample.Value.Days;
+                skill.MeasuredAt = DateTime.Now;
+                _skills.Update(skill);
+                await _skills.SaveChangesAsync();
+            }
+
+            return skill;
         }
 
         // ======================= رأي المدير =======================
@@ -223,6 +259,41 @@ namespace WorkforceManager.Business.Services
 
             if (measured > 0 || cleared > 0) await _skills.SaveChangesAsync();
             return measured;
+        }
+
+        /// <summary>
+        /// نمو تلقائي بعد كل اختيار — بتتنادى بعد كل تسجيل/نقل إنتاج
+        /// (ProductionFlowService.RecordFlowAsync، WorkdayCalculationService.
+        /// UpdateProductionAsync) على مهارة اتضافت تلقائيًا بس
+        /// (<see cref="WorkerSkill.IsAutoAdded"/>) — مهارة يدوية مبتتلمسش
+        /// خالص، حتى لو المدير عدّل نجومها بعد كده (قرار اتأكّد مع
+        /// المستخدم: IsAutoAdded بيفضل true للأبد، مش بيرجع false).
+        ///
+        /// القياس بيتحدّث الأول (MeasureOneAsync) عشان الصيغة تشتغل على
+        /// أحدث بيانات، وبعدين SkillGrowthCalculator النقية هي اللي
+        /// بتقرر — الخدمة دي بس بتجيب المدخلات وتحفظ النتيجة وتسجّلها.
+        /// </summary>
+        public async Task TryGrowAutoAddedSkillAsync(int workerId, int stageId, DateTime asOf)
+        {
+            var skill = await MeasureOneAsync(workerId, stageId, asOf);
+            if (skill is null || !skill.IsAutoAdded) return;
+
+            var timesSelected = await _production.CountByWorkerAndStageAsync(workerId, stageId);
+            var measuredRatio = skill.MeasuredDays >= MinSampleDays ? (decimal?)skill.MeasuredRatio : null;
+            var newStars = SkillGrowthCalculator.ComputeNextStars(skill.Stars, timesSelected, measuredRatio);
+
+            if (newStars <= skill.Stars) return;
+
+            var oldStars = skill.Stars;
+            skill.Stars = newStars;
+            _skills.Update(skill);
+            await _skills.SaveChangesAsync();
+
+            var worker = await _workers.GetByIdAsync(workerId);
+            await _log.LogAsync(
+                ActivityEventType.SkillAutoAdjusted, nameof(WorkerSkill), skill.Id,
+                entityName: worker?.FullName,
+                details: $"{oldStars} → {newStars}★ بعد {timesSelected} اختيار، متوسط إنتاج {skill.MeasuredRatio:0.00}");
         }
 
         // ======================= المراجعة الشهرية =======================

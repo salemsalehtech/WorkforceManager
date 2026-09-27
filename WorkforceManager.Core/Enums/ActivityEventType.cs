@@ -142,7 +142,15 @@ namespace WorkforceManager.Core.Enums
         ProductionMemoryEdited = 32,
 
         /// <summary>خطة ذاكرة اتشالت</summary>
-        ProductionMemoryDeleted = 33
+        ProductionMemoryDeleted = 33,
+
+        /// <summary>
+        /// مهارة اتضافت تلقائيًا (عامل غير مؤهل اتحدد لمرحلة، شوف
+        /// WorkerManagementService.AutoAssignSkillAsync) أو تقييمها المتضاف
+        /// تلقائيًا زاد لوحده (SkillGrowthCalculator) — الاتنين نفس النوع،
+        /// الفرق في نص Details ("0 → 1" ضد "2 → 3" مثلًا)
+        /// </summary>
+        SkillAutoAdjusted = 34
 
         // مفيش نوع لاسترجاع النسخة الاحتياطية عن قصد: الاسترجاع بيستبدل
         // ملف قاعدة البيانات كله وبيعيد تشغيل البرنامج، فالحدث اللي

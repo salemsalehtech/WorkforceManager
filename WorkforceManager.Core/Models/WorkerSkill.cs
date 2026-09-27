@@ -91,6 +91,15 @@ namespace WorkforceManager.Core.Models
         /// </summary>
         public DateTime CreatedAt { get; set; }
 
+        /// <summary>
+        /// المهارة دي اتضافت لوحدها لما عامل غير مؤهل اتحدد لمرحلة (شوف
+        /// WorkerManagementService.AutoAssignSkillAsync)، مش بإيد حد من
+        /// شاشة العمال. أصلها بس — بتفضل true للأبد حتى لو المدير عدّل
+        /// النجوم بعد كده بإيده، لأن نمو التقييم التلقائي (SkillGrowthCalculator)
+        /// بيفضل شغال عليها برضه (قرار متعمّد، اتأكّد مع المستخدم).
+        /// </summary>
+        public bool IsAutoAdded { get; set; }
+
         public virtual Worker Worker { get; set; } = null!;
         public virtual ProductionStage ProductionStage { get; set; } = null!;
     }

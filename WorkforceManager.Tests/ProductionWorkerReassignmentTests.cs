@@ -148,22 +148,28 @@ namespace WorkforceManager.Tests
         // ---------------- تأهيل العامل الجديد ----------------
 
         [Fact]
-        public async Task ReassigningToAnUnqualifiedWorker_IsRejected()
+        public async Task ReassigningToAnUnqualifiedWorker_NoLongerRejected_AutoAddsTheSkillInstead()
         {
+            // القرار اتغيّر (شوف SkillAutoAddTests): عامل غير مؤهل مبيترفضش،
+            // مهارته بتتضاف تلقائيًا بنجمة واحدة بدل الرفض
             var recordId = await RecordAhmedOnChainAsync(100);
 
             using (var scope = _db.CreateScope())
-            {
                 // منى عاملة بالساعة، مالهاش أي مهارة على أي مرحلة بالقطعة
-                var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                    _db.GetService<WorkdayCalculationService>(scope).UpdateProductionAsync(
-                        recordId, 100, newWorkerId: TestDatabase.WorkerMonaHourlyId, confirmOverride: true));
-
-                Assert.Contains("مؤهل", ex.Message);
-            }
+                await _db.GetService<WorkdayCalculationService>(scope).UpdateProductionAsync(
+                    recordId, 100, newWorkerId: TestDatabase.WorkerMonaHourlyId, confirmOverride: true);
 
             var record = Assert.Single(await _db.GetProductionAsync());
-            Assert.Equal(TestDatabase.WorkerAhmedId, record.WorkerId);
+            Assert.Equal(TestDatabase.WorkerMonaHourlyId, record.WorkerId);
+
+            using var checkScope = _db.CreateScope();
+            var skill = await _db.GetService<AppDbContext>(checkScope).WorkerSkills
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.WorkerId == TestDatabase.WorkerMonaHourlyId
+                    && s.ProductionStageId == TestDatabase.ChainStage1Id);
+            Assert.NotNull(skill);
+            Assert.Equal(1, skill!.Stars);
+            Assert.True(skill.IsAutoAdded);
         }
 
         // ---------------- تعارض/تكرار التكليف ----------------

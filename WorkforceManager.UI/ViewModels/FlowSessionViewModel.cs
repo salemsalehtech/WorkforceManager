@@ -9,6 +9,7 @@ using WorkforceManager.Core.Helpers;
 using WorkforceManager.Core.Interfaces;
 using WorkforceManager.Core.Enums;
 using WorkforceManager.Core.Models;
+using WorkforceManager.Data;
 using WorkforceManager.UI.Views;
 using System.Linq;
 
@@ -283,15 +284,16 @@ namespace WorkforceManager.UI.ViewModels
                         IsRackingStage = stage.IsRackingStage,
                         // مرحلة الرص: عمالها من HourlyRole.Racking بس، مش
                         // من WorkerSkill (مالهاش أصلًا). أي مرحلة عادية:
-                        // المؤهلين + المتدرّبين (مرتبين بالتقييم للمؤهلين
-                        // أولًا — نفس قاعدة SkillRatingService.Rank اللي
-                        // شاشة المنتجات شغالة بيها).
+                        // المؤهلين (بتقييم المرحلة، زي الأول) + المتدرّبين،
+                        // وبعدهم غير المؤهلين للمرحلة دي بس بترتيب تقييمهم
+                        // العام (متوسط تقييماتهم على كل مهاراتهم — نفس تعريف
+                        // WorkerRow.AverageStars بالحرف، مش مقياس تاني) —
+                        // عشان تقدر تكلّف عامل جديد على مرحلة، مش مؤهل
+                        // ليها بعد. عامل مالوش مهارات خالص متوسطه صفر
+                        // فبيرتّب آخر واحد طبيعي، مش مستبعد.
                         QualifiedWorkers = stage.IsRackingStage
                             ? rackingWorkers
-                            : SkillRatingService.Rank(skillsByStage[stage.StageId])
-                                .Select(ws => new WorkerPick(ws.WorkerId, ws.Worker.FullName, ws.Stars))
-                                .Concat(trainees)
-                                .ToList(),
+                            : BuildStageWorkerPicks(skillsByStage[stage.StageId], allHourly, trainees),
                         AlreadyText = already > 0 ? $"مسجل اليوم: {already}" : ""
                     };
 
@@ -323,6 +325,41 @@ namespace WorkforceManager.UI.ViewModels
             }
 
             await LoadInitialBalancesAsync();
+        }
+
+        /// <summary>
+        /// قايمة عمال مرحلة عادية (مش رص): المؤهلين أولًا بتقييم المرحلة
+        /// (زي ما كان)، وبعدهم كل عامل نشط تاني مالوش مهارة على المرحلة
+        /// دي، مرتبين بتقييمهم العام (متوسط تقييماتهم على كل مهاراتهم —
+        /// نفس WorkerRow.AverageStars بالحرف). المتدرّبين (تاج بس، مالوش
+        /// تقييم) بينزلوا آخر القايمة زي ما كانوا، بعد الاتنين.
+        ///
+        /// من غير استعلام إضافي: allWorkers جاية محمّلة بمهاراتها بالفعل
+        /// (GetActiveWithSkillsAsync)، فالتصنيف والترتيب كله في الميموري.
+        /// </summary>
+        public static List<WorkerPick> BuildStageWorkerPicks(
+            IEnumerable<WorkerSkill> stageSkills, IReadOnlyList<Worker> allWorkers, List<WorkerPick> trainees)
+        {
+            var skilled = SkillRatingService.Rank(stageSkills).ToList();
+            var skilledWorkerIds = skilled.Select(ws => ws.WorkerId).ToHashSet();
+
+            var unskilled = allWorkers
+                .Where(w => !skilledWorkerIds.Contains(w.Id)
+                    && w.HourlyRole != HourlyRole.Training && w.HourlyRole != HourlyRole.Racking)
+                .OrderByDescending(w => w.Skills.Count == 0 ? 0m : Math.Round((decimal)w.Skills.Average(s => s.Stars), 2))
+                .ThenBy(w => w.SortOrder)
+                .Select(w => new WorkerPick(
+                    w.Id, w.FullName,
+                    Stars: w.Skills.Count == 0 ? 0 : (int)Math.Round(w.Skills.Average(s => s.Stars)),
+                    TagLabel: "غير مؤهل بعد",
+                    IsUnskilledForStage: true))
+                .ToList();
+
+            return skilled
+                .Select(ws => new WorkerPick(ws.WorkerId, ws.Worker.FullName, ws.Stars))
+                .Concat(unskilled)
+                .Concat(trainees)
+                .ToList();
         }
 
         /// <summary>
@@ -926,6 +963,21 @@ namespace WorkforceManager.UI.ViewModels
                 RecomputeFlow();
                 WorkerAdded?.Invoke(stage);
                 return;
+            }
+
+            // عامل غير مؤهل للمرحلة دي (Task 1): مفيش رفض، هتتضاف مهارته
+            // تلقائيًا بنجمة واحدة وقت الحفظ (ProductionFlowService)، بس
+            // أول مرة يحصل ده في عمر البرنامج بنوريه تنبيه قبل ما يحفظ —
+            // مش صامت، ومرة واحدة بس زي SidebarToggleHintShown بالظبط
+            if (pick.IsUnskilledForStage && !AppSettingsStore.Load().SeenAutoSkillAddNotice)
+            {
+                Notify.Info(
+                    $"\"{pick.Name}\" مش من العمال المؤهلين لمرحلة \"{stage.StageName}\" — لو حفظت، هتتضاف له المهارة دي تلقائيًا بتقييم نجمة واحدة، وهتزيد لوحدها بعدين حسب إنتاجه.",
+                    "مهارة جديدة هتتضاف تلقائيًا");
+
+                var settings = AppSettingsStore.Load();
+                settings.SeenAutoSkillAddNotice = true;
+                AppSettingsStore.Save(settings);
             }
 
             var attempted = new WorkerAssignmentDto

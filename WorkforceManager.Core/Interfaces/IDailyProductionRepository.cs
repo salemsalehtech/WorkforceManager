@@ -40,5 +40,13 @@ namespace WorkforceManager.Core.Interfaces
 
         /// <summary>نفس الفكرة بالظبط بس على المرحلة</summary>
         Task<bool> HasAnyForStageAsync(int stageId);
+
+        /// <summary>
+        /// عدد سجلات إنتاج عامل على مرحلة معينة، طول عمره — مش محصور
+        /// بفترة زمنية. أساس "عدد مرات الاختيار" في نمو تقييم المهارة
+        /// المتضافة تلقائيًا (شوف SkillGrowthCalculator) — استعلام COUNT
+        /// واحد مفهرس على الزوج ده بس، مش على العمال كلهم.
+        /// </summary>
+        Task<int> CountByWorkerAndStageAsync(int workerId, int stageId);
     }
 }

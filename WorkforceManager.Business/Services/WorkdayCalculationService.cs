@@ -27,6 +27,8 @@ namespace WorkforceManager.Business.Services
         private readonly IWorkerSkillRepository _workerSkillRepo;
         private readonly IGenericRepository<InitialBalanceUsage> _initialBalanceUsages;
         private readonly ProductionFlowService _productionFlow;
+        private readonly WorkerManagementService _workerManagement;
+        private readonly SkillRatingService _skillRating;
 
         public WorkdayCalculationService(
             IDailyProductionRepository productionRepo,
@@ -42,7 +44,9 @@ namespace WorkforceManager.Business.Services
             ProductionStageOutputService productionOutput,
             IWorkerSkillRepository workerSkillRepo,
             IGenericRepository<InitialBalanceUsage> initialBalanceUsages,
-            ProductionFlowService productionFlow)
+            ProductionFlowService productionFlow,
+            WorkerManagementService workerManagement,
+            SkillRatingService skillRating)
         {
             _log = log;
             _productionRepo = productionRepo;
@@ -58,6 +62,8 @@ namespace WorkforceManager.Business.Services
             _workerSkillRepo = workerSkillRepo;
             _initialBalanceUsages = initialBalanceUsages;
             _productionFlow = productionFlow;
+            _workerManagement = workerManagement;
+            _skillRating = skillRating;
         }
 
         /// <summary>
@@ -208,18 +214,21 @@ namespace WorkforceManager.Business.Services
             var stage = await _stageRepo.GetByIdAsync(record.ProductionStageId)
                 ?? throw new InvalidOperationException("المرحلة المحددة غير موجودة");
 
-            // العامل الجديد لازم يكون من العمال المؤهلين على المرحلة دي
-            // فعلاً — نفس شرط شاشة التسجيل العادية، مش أي عامل عشوائي
-            _ = await _workerSkillRepo.GetAsync(newWorkerId!.Value, record.ProductionStageId)
-                ?? throw new InvalidOperationException("العامل الجديد مش من العمال المؤهلين على هذه المرحلة");
-
-            var newWorker = await _workerRepo.GetByIdAsync(newWorkerId.Value)
+            var newWorker = await _workerRepo.GetByIdAsync(newWorkerId!.Value)
                 ?? throw new InvalidOperationException("العامل الجديد غير موجود");
 
             var oldWorker = await _workerRepo.GetByIdAsync(oldWorkerId);
             var product = await _productRepo.GetByIdAsync(stage.ProductId);
 
+            var isNewWorkerQualified = await _workerSkillRepo.GetAsync(newWorkerId.Value, record.ProductionStageId) is not null;
+
             await using var transaction = await _unitOfWork.BeginWriteTransactionAsync();
+
+            // العامل الجديد مش مؤهل للمرحلة دي — نفس قرار رحلة الإنتاج
+            // العادية (ProductionFlowService): مبيترفضش النقل، مهارته
+            // بتتضاف تلقائيًا بنجمة واحدة جوه نفس المعاملة
+            if (!isNewWorkerQualified)
+                await _workerManagement.AutoAssignSkillAsync(newWorkerId.Value, record.ProductionStageId);
 
             // حالة النقل الفعلي لسجل موجود بين العمال/المراحل: التعارضات
             // بتتجاهلها لأنها جزء من العملية نفسها، لأن الهدف هو "نقل شغل
@@ -252,6 +261,11 @@ namespace WorkforceManager.Business.Services
             }
 
             await _productionRepo.SaveChangesAsync();
+
+            // نمو تقييم مهارة العامل الجديد لو اتضافت تلقائيًا — نفس منطق
+            // ProductionFlowService.RecordFlowAsync بالحرف
+            await _skillRating.TryGrowAutoAddedSkillAsync(newWorkerId.Value, record.ProductionStageId, record.Date);
+
             await transaction.CommitAsync();
 
             var pieceChangeNote = oldPieceCount == newPieceCount

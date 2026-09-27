@@ -23,7 +23,8 @@ namespace WorkforceManager.UI.ViewModels
         string Name,
         int Stars = SkillRatingService.DefaultStars,
         bool IsTagOnly = false,
-        string TagLabel = "")
+        string TagLabel = "",
+        bool IsUnskilledForStage = false)
     {
         /// <summary>النجوم كنص ("★★★★☆")</summary>
         public string StarsText => RtlSafeText.Stars(Stars);
