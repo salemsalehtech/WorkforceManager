@@ -116,9 +116,9 @@ namespace WorkforceManager.UI
         private bool _navIndicatorPositioned;
 
         /// <summary>
-        /// بيوصّل مستمع Checked مشترك على كل بنود التنقل العشرة — **زيادة
-        /// على** الـhandlers الموجودة (NavWorkers_Checked إلخ)، مش بديل
-        /// عنهم؛ الاتنين بيشتغلوا مع بعض على نفس الحدث من غير تعارض. غرضه
+        /// بيوصّل مستمع Checked مشترك على كل بنود التنقل الاتناشر — **زيادة
+        /// على** NavigateToView_Checked (المسؤولة عن تغيير الشاشة)، مش بديل
+        /// عنه؛ الاتنين بيشتغلوا مع بعض على نفس الحدث من غير تعارض. غرضه
         /// الوحيد تحريك NavIndicator، منفصل تمامًا عن منطق التنقل نفسه.
         /// </summary>
         private void InitializeNavIndicator()
@@ -720,71 +720,19 @@ namespace WorkforceManager.UI
         private static bool HasArabic(string text) =>
             text.Any(c => c >= '؀' && c <= 'ۿ');
 
-        private void NavHome_Checked(object sender, RoutedEventArgs e)
+        /// <summary>
+        /// Handler عام لكل بنود التنقل الـ12 — كانوا 12 نسخة متطابقة
+        /// (فرق نوع الشاشة بس)، أي شارة رابعة أو تغيير في شرط الـsandbox
+        /// كان محتاج يتعدّل في الـ12 مكان مع بعض. الشاشة المطلوبة بتتحدد من
+        /// Tag بتاع الزرار نفسه (مضبوط في XAML)، زي CollapsedNavIcon_Click.
+        /// </summary>
+        private void NavigateToView_Checked(object sender, RoutedEventArgs e)
         {
             if (MainContent is null) return; // بيحصل مرة واحدة أثناء تهيئة النافذة
             if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<HomeView>();
-            RefreshActivityBadge();
-            RefreshMemoryBadge();
-            RefreshNotificationBell();
-        }
+            if (sender is not FrameworkElement { Tag: Type viewType }) return;
 
-        private void NavWorkers_Checked(object sender, RoutedEventArgs e)
-        {
-            if (MainContent is null) return; // بيحصل مرة واحدة أثناء تهيئة النافذة
-            if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<WorkersView>();
-            RefreshActivityBadge();
-            RefreshMemoryBadge();
-            RefreshNotificationBell();
-        }
-
-        private void NavProducts_Checked(object sender, RoutedEventArgs e)
-        {
-            if (MainContent is null) return;
-            if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<ProductsView>();
-            RefreshActivityBadge();
-            RefreshMemoryBadge();
-            RefreshNotificationBell();
-        }
-
-        private void NavMonthlyPlan_Checked(object sender, RoutedEventArgs e)
-        {
-            if (MainContent is null) return;
-            if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<MonthlyPlanView>();
-            RefreshActivityBadge();
-            RefreshMemoryBadge();
-            RefreshNotificationBell();
-        }
-
-        private void NavDailyEntry_Checked(object sender, RoutedEventArgs e)
-        {
-            if (MainContent is null) return;
-            if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<DailyEntryView>();
-            RefreshActivityBadge();
-            RefreshMemoryBadge();
-            RefreshNotificationBell();
-        }
-
-        private void NavEvaluation_Checked(object sender, RoutedEventArgs e)
-        {
-            if (MainContent is null) return;
-            if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<ReportsView>();
-            RefreshActivityBadge();
-            RefreshMemoryBadge();
-            RefreshNotificationBell();
-        }
-
-        private void NavReports_Checked(object sender, RoutedEventArgs e)
-        {
-            if (MainContent is null) return;
-            if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<ReportBuilderView>();
+            MainContent.Content = _session.GetRequiredService(viewType);
             RefreshActivityBadge();
             RefreshMemoryBadge();
             RefreshNotificationBell();
@@ -863,58 +811,6 @@ namespace WorkforceManager.UI
 
             await view.WhenLoaded;
             view.FocusProductQuantity(productId);
-        }
-
-        private void NavMemory_Checked(object sender, RoutedEventArgs e)
-        {
-            if (MainContent is null) return;
-            if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<MemoryView>();
-            RefreshActivityBadge();
-            RefreshMemoryBadge();
-            RefreshNotificationBell();
-        }
-
-        private void NavActivityLog_Checked(object sender, RoutedEventArgs e)
-        {
-            if (MainContent is null) return;
-            if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<ActivityLogView>();
-            // فتح الشاشة بيصفّر آخر وقت مشاهدة جوه الـ ViewModel نفسها؛
-            // الرجوع هنا بعد شوية (تنقّل تاني) هو اللي بيعرض الصفر فعليًا
-            RefreshActivityBadge();
-            RefreshMemoryBadge();
-            RefreshNotificationBell();
-        }
-
-        private void NavSettings_Checked(object sender, RoutedEventArgs e)
-        {
-            if (MainContent is null) return;
-            if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<SettingsView>();
-            RefreshActivityBadge();
-            RefreshMemoryBadge();
-            RefreshNotificationBell();
-        }
-
-        private void NavDepartmentAccounts_Checked(object sender, RoutedEventArgs e)
-        {
-            if (MainContent is null) return;
-            if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<DepartmentAccountsView>();
-            RefreshActivityBadge();
-            RefreshMemoryBadge();
-            RefreshNotificationBell();
-        }
-
-        private void NavHelp_Checked(object sender, RoutedEventArgs e)
-        {
-            if (MainContent is null) return;
-            if (ExitSandboxOnRealNavigation()) return;
-            MainContent.Content = _session.GetRequiredService<HelpView>();
-            RefreshActivityBadge();
-            RefreshMemoryBadge();
-            RefreshNotificationBell();
         }
 
         /// <summary>

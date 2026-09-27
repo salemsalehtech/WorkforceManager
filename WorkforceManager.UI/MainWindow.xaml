@@ -270,9 +270,12 @@
                 <StackPanel Margin="12,4,12,0">
                     <!-- التنقل بـ Checked + Click مع بعض عن قصد:
                          Checked للتنقل الفعلي والكيبورد، وClick لإعادة تحميل الشاشة
-                         المفتوحة أصلًا (Checked مبيتنفذش لو الزرار متعلم بالفعل) -->
+                         المفتوحة أصلًا (Checked مبيتنفذش لو الزرار متعلم بالفعل).
+                         الاتنين على نفس الـhandler الواحد (NavigateToView_Checked)، اللي
+                         بيعرف الشاشة المطلوبة من Tag بتاع الزرار نفسه. -->
                     <RadioButton x:Name="NavHomeItem" Style="{StaticResource NavItem}" IsChecked="True"
-                                 Checked="NavHome_Checked" Click="NavHome_Checked"
+                                 Tag="{x:Type views:HomeView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="الرئيسية">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="HomeOutline" Width="18" Height="18" VerticalAlignment="Center"
@@ -282,7 +285,8 @@
                     </RadioButton>
 
                     <RadioButton x:Name="NavWorkersItem" Style="{StaticResource NavItem}"
-                                 Checked="NavWorkers_Checked" Click="NavWorkers_Checked"
+                                 Tag="{x:Type views:WorkersView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="العمال">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="AccountGroup" Width="18" Height="18" VerticalAlignment="Center"
@@ -292,7 +296,8 @@
                     </RadioButton>
 
                     <RadioButton x:Name="NavProductsItem" Style="{StaticResource NavItem}"
-                                 Checked="NavProducts_Checked" Click="NavProducts_Checked"
+                                 Tag="{x:Type views:ProductsView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="المنتجات والمراحل">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="PackageVariantClosed" Width="18" Height="18" VerticalAlignment="Center"
@@ -302,7 +307,8 @@
                     </RadioButton>
 
                     <RadioButton x:Name="NavMonthlyPlanItem" Style="{StaticResource NavItem}"
-                                 Checked="NavMonthlyPlan_Checked" Click="NavMonthlyPlan_Checked"
+                                 Tag="{x:Type views:MonthlyPlanView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="الخطة الشهرية">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="CalendarMonthOutline" Width="18" Height="18" VerticalAlignment="Center"
@@ -312,7 +318,8 @@
                     </RadioButton>
 
                     <RadioButton x:Name="NavDailyEntryItem" Style="{StaticResource NavItem}"
-                                 Checked="NavDailyEntry_Checked" Click="NavDailyEntry_Checked"
+                                 Tag="{x:Type views:DailyEntryView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="تسجيل الإنتاج اليومي">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ClipboardEditOutline" Width="18" Height="18" VerticalAlignment="Center"
@@ -324,7 +331,8 @@
                     <!-- جنب التسجيل اليومي عن قصد: الذاكرة هي اللي بتوصّل
                          للتسجيل ("ابدأ الآن")، فمكانها الطبيعي جنبه -->
                     <RadioButton x:Name="NavMemoryItem" Style="{StaticResource NavItem}"
-                                 Checked="NavMemory_Checked" Click="NavMemory_Checked"
+                                 Tag="{x:Type views:MemoryView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="الذاكرة">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="18" Height="18" VerticalAlignment="Center"
@@ -345,7 +353,8 @@
                          كان بيخلي المدير يدوّر على اللي بيهمه وسط تبويبات
                          بتعمل حاجة تانية خالص. -->
                     <RadioButton x:Name="NavEvaluationItem" Style="{StaticResource NavItem}"
-                                 Checked="NavEvaluation_Checked" Click="NavEvaluation_Checked"
+                                 Tag="{x:Type views:ReportsView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="التقييم والمتابعة">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ChartBar" Width="18" Height="18" VerticalAlignment="Center"
@@ -355,7 +364,8 @@
                     </RadioButton>
 
                     <RadioButton x:Name="NavReportsItem" Style="{StaticResource NavItem}"
-                                 Checked="NavReports_Checked" Click="NavReports_Checked"
+                                 Tag="{x:Type views:ReportBuilderView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="التقارير">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18" VerticalAlignment="Center"
@@ -364,8 +374,11 @@
                         </StackPanel>
                     </RadioButton>
 
+                    <!-- فتح الشاشة بيصفّر آخر وقت مشاهدة جوه الـ ViewModel نفسها؛
+                         الرجوع هنا بعد شوية (تنقّل تاني) هو اللي بيعرض الصفر فعليًا -->
                     <RadioButton x:Name="NavActivityLogItem" Style="{StaticResource NavItem}"
-                                 Checked="NavActivityLog_Checked" Click="NavActivityLog_Checked"
+                                 Tag="{x:Type views:ActivityLogView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="سجل العمليات">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="18" Height="18" VerticalAlignment="Center"
@@ -386,7 +399,8 @@
                     </RadioButton>
 
                     <RadioButton x:Name="NavSettingsItem" Style="{StaticResource NavItem}"
-                                 Checked="NavSettings_Checked" Click="NavSettings_Checked"
+                                 Tag="{x:Type views:SettingsView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="الإعدادات والنسخ">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" VerticalAlignment="Center"
@@ -398,7 +412,8 @@
                     <!-- قايمة منفصلة تمامًا عن "العمال والمهارات" —
                          الحسابات دي مش عمال إنتاج -->
                     <RadioButton x:Name="NavDepartmentAccountsItem" Style="{StaticResource NavItem}"
-                                 Checked="NavDepartmentAccounts_Checked" Click="NavDepartmentAccounts_Checked"
+                                 Tag="{x:Type views:DepartmentAccountsView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="الحسابات الإدارية">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="AccountTie" Width="18" Height="18" VerticalAlignment="Center"
@@ -410,7 +425,8 @@
                     <!-- مرجع دائم بشرح كل شاشة + جولة سبوت لايت قصيرة لكل ميزة —
                          آخر عنصر عن قصد، زي أي "مساعدة" في أي برنامج -->
                     <RadioButton x:Name="NavHelpItem" Style="{StaticResource NavItem}"
-                                 Checked="NavHelp_Checked" Click="NavHelp_Checked"
+                                 Tag="{x:Type views:HelpView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
                                  AutomationProperties.Name="الدليل">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Kind="HelpCircleOutline" Width="18" Height="18" VerticalAlignment="Center"
