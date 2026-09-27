@@ -3282,6 +3282,71 @@ Core  <----------------------- UI
   directly; `CardContextMenuTests.WorkersViewModel_EnteringBulkSelectMode_ClearsFlip` covers only that
   one, deliberately, with a comment explaining why `SelectedWorker` isn't exercised the same way.
 
+- **anti-koshary audit + fix pass** (full-repo, 734 source files, no Critical findings). Pass 1 report
+  covered layer collapse, duplication, long/unread functions, dead code, and security across all
+  projects; Pass 2 fixed everything approved. Structural fixes (no behavior change unless noted):
+  - `WorkerRepository`: the `HourlyRole != DepartmentManager/DepartmentHead` predicate (and its inverse)
+    was written out 4 times despite the class doc claiming it was centralized — now two shared
+    `Expression<Func<Worker,bool>>` fields (`IsDepartmentAccountExpr`/`IsNotDepartmentAccountExpr`), not
+    the `HourlyRoleExtensions.IsDepartmentAccount()` method itself, since EF Core doesn't reliably
+    translate an arbitrary extension-method call inside `Where()` — an `Expression` field is.
+  - `ProductionFlowService`: extracted `BoundaryGap(prevTotal, prevScrap, currentTotal)` (the
+    stage-boundary-gap formula, duplicated in `SyncStageGapBalancesAsync`/`ReconcileAutoBalancesAsync`)
+    and `ToAssignments(records)` (the `GroupBy((stage,worker))→FlowAssignmentDto` block, duplicated in
+    `GetLastFlowAsync`/`GetFlowOnAsync`). Also documented that `ReconcileAutoBalancesAsync` depends on
+    the caller's own `SaveChangesAsync` — it silently no-ops without one.
+  - `WorkerManagementService`: `_skillRepo` is now `IWorkerSkillRepository` (was
+    `IGenericRepository<WorkerSkill>`) so `AssignSkillAsync`/`AutoAssignSkillAsync`/`RemoveSkillAsync`
+    reuse `GetAsync(workerId, stageId)` instead of each re-deriving the same `FindAsync` predicate.
+  - New `IHasDate`/`DateRangeQueryExtensions.InDateRange<T>()` in `Core/Interfaces` (same shape as
+    `SoftDeleteQueryExtensions.ExcludeDeleted<T>`) — the inclusive date-range predicate
+    (`x.Date >= from.Date && x.Date <= to.Date`) was copy-pasted across `Attendance`/`DailyProduction`/
+    `HourlyWorkLog`/`Penalty`/`WageAdjustment` repositories, 9 methods. Each model now implements
+    `IHasDate`; EF translates the interface-property access fine (same mechanism `ExcludeDeleted`
+    already relied on).
+  - `DailyEntryViewModel.EditDayRecordAsync`'s worker picker now calls
+    `FlowSessionViewModel.BuildStageWorkerPicks` instead of its own copy — the copy had already drifted
+    (raw `SortOrder` instead of `SkillRatingService.Rank`, no trainees) despite a comment claiming exact
+    parity with the production-flow picker. **Behavior change**: the correction dialog's qualified-worker
+    order now actually matches production entry.
+  - `MainWindow`'s 12 near-identical `NavXxx_Checked` handlers (same 5-line skeleton, only the view type
+    differed) collapsed into one `NavigateToView_Checked`, keyed off each `RadioButton`'s
+    `Tag="{x:Type views:XView}"` and `_session.GetRequiredService(Type)` (the non-generic overload).
+    Renamed (not `NavItem_Checked`) to avoid colliding with the pre-existing `NavItem_Checked`
+    (nav-indicator positioning, wired separately in `InitializeNavIndicator`, unrelated purpose).
+  - `SkillRatingService.MeasureAllAsync` (monthly review) and the new
+    `TryGrowAutoAddedSkillsAsync(pairs, asOf)` (replaces the per-share loop in
+    `ProductionFlowService.RecordFlowAsync`) batch-load `WorkerSkill`/production rows once instead of
+    querying per `(worker, stage)` pair — was N+1 on both the monthly-review path and every daily flow
+    save.
+  - `ReportBuilderService.ProductionAsync`: extracted `ResolveLastStageIdsAsync`/`PiecesHeaderFor` so the
+    pieces-column header name and the `lastStageIds` semantics both read off one named decision instead
+    of an implicit comment-only link. Left the larger row-building loop alone — 47 existing tests cover
+    `ProductionAsync`'s output shape but not its internals closely enough to safely restructure the
+    grouping/scrap math in one pass.
+  - **Deliberately not touched**: `SearchIntentService.ParseIntent` (flagged as hard-to-read, but its
+    5-flag word-list-mutation pipeline is already covered by 64 phrase-specific tests and explained by
+    its own ordering comments — a "tag once, read tags" rewrite risks silently changing untested Arabic
+    phrases, exactly what the skill says to flag-and-stop on rather than force) and the Workers
+    bulk-select shell (`WorkersViewModel.IsBulkSelectMode` etc. — looks unwired, but it's tested,
+    approved WIP from an earlier bulk-actions plan, Task 1 of several, not an accidental leftover).
+  - Skipped the EF Core 8.0.29 → 10.0.12 dependency bump — a major-version jump, listed but not applied
+    per the skill's own rule against major upgrades on its own initiative.
+  - **Security fixes** (behavior changes, all covered by new tests): (1) `AuthService.AddUserForWorkerAsync`/
+    `SetUsernameForUserAsync`/`SetPasswordForUserAsync` and `WorkerManagementService.ReactivateWorkerAsync`/
+    `DeactivateWorkerAsync` (when the target is a department account) now throw
+    `InvalidOperationException` without `CurrentUserContext.IsDepartmentManager` — previously only
+    `DepartmentAccountsViewModel.CanManage` (UI-layer only) protected them.
+    `AddUserForWorkerAsync` allows the one legitimate self-service exception (a worker adding a login for
+    their own `WorkerId`). Regular (non-department-account) worker activate/deactivate is unaffected —
+    that path was never manager-gated. (2) `LoginWindow` now forces `ChangePasswordDialog` before
+    completing a login with `admin`/`admin` — refuses to sign in until the password actually changes; not
+    covered by automated tests (no UI-automation harness for `LoginWindow`), worth a manual check.
+    (3) `AppUser` gained `FailedAttempts`/`LockedUntil` (migration `AddAppUserLoginLockout`) —
+    `AuthService.ValidateLoginAsync` now locks an account for 10 minutes after 5 consecutive wrong
+    passwords, mirroring `OperationsPasswordService`'s existing lockout exactly (same numbers, same
+    "don't leak which part was wrong" policy — a lockout returns the same `null` as any other failure).
+
 ## Environment note
 
 .NET 8 SDK was installed via winget but may not be in PATH for fresh shells; if `dotnet` isn't found in
