@@ -117,17 +117,7 @@ namespace WorkforceManager.Business.Services
             // آخر يوم فيه شغل على المنتج ده
             var lastDate = records.Max(r => r.Date.Date);
 
-            var assignments = records
-                .Where(r => r.Date.Date == lastDate)
-                // نفس العامل ممكن يكون له أكتر من سجل على نفس المرحلة — مرة واحدة تكفي
-                .GroupBy(r => (r.ProductionStageId, r.WorkerId))
-                .Select(g => new FlowAssignmentDto
-                {
-                    ProductionStageId = g.Key.ProductionStageId,
-                    WorkerId = g.Key.WorkerId,
-                    WorkerName = g.First().Worker?.FullName ?? string.Empty
-                })
-                .ToList();
+            var assignments = ToAssignments(records.Where(r => r.Date.Date == lastDate));
 
             return new LastFlowDto { Date = lastDate, Assignments = assignments };
         }
@@ -183,7 +173,18 @@ namespace WorkforceManager.Business.Services
 
             if (records.Count == 0) return null;
 
-            var assignments = records
+            var assignments = ToAssignments(records);
+
+            return new LastFlowDto { Date = date.Date, Assignments = assignments };
+        }
+
+        /// <summary>
+        /// سجلات إنتاج (ممكن فيها أكتر من سجل لنفس العامل على نفس المرحلة)
+        /// لقايمة تكليفات فريدة — مستخدمة في <see cref="GetLastFlowAsync"/>
+        /// و<see cref="GetFlowOnAsync"/> بنفس المنطق بالظبط.
+        /// </summary>
+        private static List<FlowAssignmentDto> ToAssignments(IEnumerable<DailyProduction> records) =>
+            records
                 // نفس العامل ممكن يكون له أكتر من سجل على نفس المرحلة — مرة واحدة تكفي
                 .GroupBy(r => (r.ProductionStageId, r.WorkerId))
                 .Select(g => new FlowAssignmentDto
@@ -193,9 +194,6 @@ namespace WorkforceManager.Business.Services
                     WorkerName = g.First().Worker?.FullName ?? string.Empty
                 })
                 .ToList();
-
-            return new LastFlowDto { Date = date.Date, Assignments = assignments };
-        }
 
         /// <summary>
         /// يسجل رحلة إنتاج كاملة ليوم واحد على منتج واحد. بيرمي استثناء
@@ -584,11 +582,9 @@ namespace WorkforceManager.Business.Services
 
             for (var i = 1; i < orderedStages.Count; i++)
             {
-                var before = Total(orderedStages[i - 1].Id) - Scrap(orderedStages[i - 1].Id);
-                var current = Total(orderedStages[i].Id);
-                var rawGap = before - current;
+                var rawGap = BoundaryGap(Total(orderedStages[i - 1].Id), Scrap(orderedStages[i - 1].Id), Total(orderedStages[i].Id));
 
-                // سالب/صفر: مفيش فجوة (سالب غلط إدخال — مش شغل الدالة دي)
+                // صفر: مفيش فجوة (سالب أصلًا مش ممكن يرجع من BoundaryGap)
                 if (rawGap <= 0) continue;
 
                 var fromStageId = orderedStages[i].Id;
@@ -624,6 +620,17 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
+        /// الفجوة الحقيقية بين حدّين متتاليين في خط الإنتاج: إجمالي المرحلة
+        /// السابقة بعد طرح الهالك بتاعها، ناقص إجمالي المرحلة الحالية. أبدًا
+        /// مش بترجع سالب — سالب معناه مفيش فجوة (أو غلط إدخال، مش شغل
+        /// الدالة دي تحدده). نفس الحساب مستخدم في
+        /// <see cref="SyncStageGapBalancesAsync"/> و<see cref="ReconcileAutoBalancesAsync"/>
+        /// — قاعدة عمل واحدة، مصدر واحد.
+        /// </summary>
+        private static int BoundaryGap(int previousStageTotal, int previousStageScrap, int currentStageTotal) =>
+            Math.Max(0, previousStageTotal - previousStageScrap - currentStageTotal);
+
+        /// <summary>
         /// بعد أي عملية بترجّع إنتاج منتج/يوم لحالة قبل الحفظ (حذف سجل
         /// إنتاج أو يوم كامل) — بتعيد فحص فجوات الحدود بين المراحل بنفس
         /// منطق <see cref="SyncStageGapBalancesAsync"/> بالظبط، وبتصغّر/تشيل
@@ -637,6 +644,11 @@ namespace WorkforceManager.Business.Services
         /// وأي رصيد اتعدّل يدويًا (نطاقات متعددة، أو نطاق مش بنفس الشكل اللي
         /// SyncStageGapBalancesAsync بتنتجه) بيتسبّ زي ما هو تمامًا — مش
         /// من ضمن حساب المُطابقة هنا خالص.
+        ///
+        /// ⚠️ **مبتعملش SaveChangesAsync بنفسها** — بتعدّل/تشيل كيانات
+        /// InitialBalance بس، والحفظ الفعلي مسؤولية اللي بينادي (بيحصل مع
+        /// حفظة تانية على نفس الـDbContext في الـtransaction الحالي). نداء
+        /// الدالة دي من غير حفظة تالية = no-op صامت.
         /// </summary>
         public async Task ReconcileAutoBalancesAsync(int productId, DateTime date)
         {
@@ -657,9 +669,7 @@ namespace WorkforceManager.Business.Services
 
             for (var i = 1; i < orderedStages.Count; i++)
             {
-                var before = Total(orderedStages[i - 1].Id) - Scrap(orderedStages[i - 1].Id);
-                var current = Total(orderedStages[i].Id);
-                var realGap = Math.Max(0, before - current);
+                var realGap = BoundaryGap(Total(orderedStages[i - 1].Id), Scrap(orderedStages[i - 1].Id), Total(orderedStages[i].Id));
                 var fromStageId = orderedStages[i].Id;
 
                 var candidates = autoBalances
