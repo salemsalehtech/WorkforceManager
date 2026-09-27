@@ -43,6 +43,14 @@ namespace WorkforceManager.Tests
             await db.SaveChangesAsync();
         }
 
+        /// <summary>تفعيل/إيقاف حساب إداري محتاج صلاحية مدير قسم (WorkerManagementService.EnsureCanToggleActive)</summary>
+        private void SignInAsDepartmentManager()
+        {
+            using var scope = _db.CreateScope();
+            _db.GetService<CurrentUserContext>(scope)
+                .SignIn("manager", "مدير القسم", departmentRole: HourlyRole.DepartmentManager);
+        }
+
         // ======================= الاستثناء المركزي =======================
 
         [Fact]
@@ -61,6 +69,7 @@ namespace WorkforceManager.Tests
         public async Task GetAllWithSkillsAsync_ExcludesDepartmentAccountsEvenIfInactive()
         {
             var accountId = await CreateDepartmentAccountAsync();
+            SignInAsDepartmentManager();
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkerManagementService>(scope).DeactivateWorkerAsync(accountId);
@@ -84,6 +93,52 @@ namespace WorkforceManager.Tests
             Assert.Contains(accounts, w => w.Id == managerId);
             Assert.Contains(accounts, w => w.Id == headId);
             Assert.DoesNotContain(accounts, w => w.Id == TestDatabase.WorkerAhmedId);
+        }
+
+        // ======================= صلاحية تفعيل/إيقاف حساب إداري =======================
+        // anti-koshary: WorkerManagementService.ReactivateWorkerAsync/DeactivateWorkerAsync
+        // مالهومش أي فحص صلاحية بنفسهم — الحماية كانت في DepartmentAccountsViewModel.CanManage
+        // بس. الفحص هنا بيتأكد إن العامل العادي (مش حساب إداري) لسه من غير
+        // قيد، وإن الحساب الإداري بقى محتاج مدير قسم فعلي.
+
+        [Fact]
+        public async Task DeactivateWorkerAsync_OnADepartmentAccount_Throws_WithoutADepartmentManagerSignedIn()
+        {
+            var accountId = await CreateDepartmentAccountAsync();
+
+            using var scope = _db.CreateScope();
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.GetService<WorkerManagementService>(scope).DeactivateWorkerAsync(accountId));
+        }
+
+        [Fact]
+        public async Task ReactivateWorkerAsync_OnADepartmentAccount_Throws_WithoutADepartmentManagerSignedIn()
+        {
+            var accountId = await CreateDepartmentAccountAsync();
+            SignInAsDepartmentManager();
+            using (var scope = _db.CreateScope())
+                await _db.GetService<WorkerManagementService>(scope).DeactivateWorkerAsync(accountId);
+
+            // نمسح الدخول عشان نتأكد إن الفحص بيتنفذ في كل نداء، مش مرة واحدة بس
+            using (var scope = _db.CreateScope())
+                _db.GetService<CurrentUserContext>(scope).SignOut();
+
+            using var checkScope = _db.CreateScope();
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _db.GetService<WorkerManagementService>(checkScope).ReactivateWorkerAsync(accountId));
+        }
+
+        [Fact]
+        public async Task DeactivateWorkerAsync_OnARegularWorker_NeedsNoManagerRole()
+        {
+            // عامل عادي (مش حساب إداري) — مفيش أدوار في العمال والمهارات
+            // أصلًا، فأي حساب داخل يقدر يوقفه، زي ما كان دايمًا
+            using var scope = _db.CreateScope();
+            await _db.GetService<WorkerManagementService>(scope).DeactivateWorkerAsync(TestDatabase.WorkerAhmedId);
+
+            using var checkScope = _db.CreateScope();
+            var worker = await _db.GetService<IWorkerRepository>(checkScope).GetByIdAsync(TestDatabase.WorkerAhmedId);
+            Assert.False(worker!.IsActive);
         }
 
         // ======================= التعبية التلقائية =======================
@@ -139,6 +194,7 @@ namespace WorkforceManager.Tests
         {
             var accountId = await CreateDepartmentAccountAsync();
             await SetCreatedAtAsync(accountId, DateTime.Today);
+            SignInAsDepartmentManager();
 
             using (var scope = _db.CreateScope())
                 await _db.GetService<WorkerManagementService>(scope).DeactivateWorkerAsync(accountId);

@@ -175,6 +175,77 @@ namespace WorkforceManager.Tests
             Assert.Equal(2, users.Count);
         }
 
+        // ======================= التصحيح الإداري (SetUsernameForUserAsync/SetPasswordForUserAsync) =======================
+        // anti-koshary: كانت المسارين دول محميين في الـViewModel بس
+        // (DepartmentAccountsViewModel.CanManage) من غير أي تحقق في الخدمة —
+        // أي نداء تاني كان بيعدّي على طول. الاختبارات دي بتتأكد إن الفحص
+        // اتنقل صح للخدمة نفسها.
+
+        [Fact]
+        public async Task SetPasswordForUserAsync_Throws_WithoutADepartmentManagerSignedIn()
+        {
+            using var scope = NewScope();
+            var auth = await AuthAsync(scope);
+            var other = await auth.AddUserAsync("salem", "1234");
+
+            // محدش داخل بدور مدير قسم أصلًا في السكوب ده
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                auth.SetPasswordForUserAsync(other.Id, "9999"));
+        }
+
+        [Fact]
+        public async Task SetUsernameForUserAsync_Throws_WithoutADepartmentManagerSignedIn()
+        {
+            using var scope = NewScope();
+            var auth = await AuthAsync(scope);
+            var other = await auth.AddUserAsync("salem", "1234");
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                auth.SetUsernameForUserAsync(other.Id, "salem2"));
+        }
+
+        [Fact]
+        public async Task SetPasswordForUserAsync_Succeeds_WhenSignedInAsDepartmentManager()
+        {
+            using var scope = NewScope();
+            var auth = await AuthAsync(scope);
+            var other = await auth.AddUserAsync("salem", "1234");
+
+            _db.GetService<CurrentUserContext>(scope.Scope)
+                .SignIn("manager", "مدير القسم", departmentRole: WorkforceManager.Core.Enums.HourlyRole.DepartmentManager);
+
+            await auth.SetPasswordForUserAsync(other.Id, "9999");
+
+            Assert.NotNull(await auth.ValidateLoginAsync("salem", "9999"));
+        }
+
+        [Fact]
+        public async Task AddUserForWorkerAsync_AllowsAddingALoginForYourOwnWorkerId_EvenWithoutManagerRole()
+        {
+            using var scope = NewScope();
+            var auth = await AuthAsync(scope);
+
+            // حساب إداري بيضيف حساب دخول لنفسه (شوف DepartmentAccountsViewModel.EditAccountAsync)
+            // — مسموح حتى لو مش مدير قسم، لأنه بيصلّح حسابه هو
+            _db.GetService<CurrentUserContext>(scope.Scope).SignIn("head", "رئيس القسم", workerId: TestDatabase.WorkerAhmedId);
+
+            var user = await auth.AddUserForWorkerAsync(TestDatabase.WorkerAhmedId, "headuser", "1234");
+            Assert.NotNull(await auth.ValidateLoginAsync("headuser", "1234"));
+            Assert.Equal(TestDatabase.WorkerAhmedId, user.WorkerId);
+        }
+
+        [Fact]
+        public async Task AddUserForWorkerAsync_Throws_ForSomeoneElsesWorkerId_WithoutManagerRole()
+        {
+            using var scope = NewScope();
+            var auth = await AuthAsync(scope);
+
+            _db.GetService<CurrentUserContext>(scope.Scope).SignIn("head", "رئيس القسم", workerId: TestDatabase.WorkerAhmedId);
+
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                auth.AddUserForWorkerAsync(TestDatabase.WorkerSaidId, "otheruser", "1234"));
+        }
+
         [Fact]
         public async Task Two_accounts_can_share_a_password_without_sharing_a_hash()
         {

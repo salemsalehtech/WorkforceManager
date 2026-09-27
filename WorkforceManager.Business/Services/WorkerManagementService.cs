@@ -17,6 +17,7 @@ namespace WorkforceManager.Business.Services
         private readonly SoftDeleteService _softDelete;
         private readonly DeletionScopeService _scope;
         private readonly OperationsPasswordService _gate;
+        private readonly CurrentUserContext _currentUser;
 
         private readonly ActivityLogService _log;
 
@@ -26,6 +27,7 @@ namespace WorkforceManager.Business.Services
             SoftDeleteService softDelete,
             DeletionScopeService scope,
             OperationsPasswordService gate,
+            CurrentUserContext currentUser,
             ActivityLogService log)
         {
             _workerRepo = workerRepo;
@@ -33,7 +35,20 @@ namespace WorkforceManager.Business.Services
             _softDelete = softDelete;
             _scope = scope;
             _gate = gate;
+            _currentUser = currentUser;
             _log = log;
+        }
+
+        /// <summary>
+        /// تفعيل/إيقاف عامل عادي مفتوح لأي حساب داخل (مفيش أدوار في العمال
+        /// والمهارات أصلًا) — بس لو العامل ده حساب إداري (مدير/رئيس قسم)،
+        /// مدير القسم بس هو اللي يقدر (شوف DepartmentAccountsViewModel.CanManage،
+        /// اللي كان دفاع في الـViewModel بس من غير تحقق هنا في الخدمة).
+        /// </summary>
+        private void EnsureCanToggleActive(Worker worker)
+        {
+            if (worker.HourlyRole is { } role && role.IsDepartmentAccount() && !_currentUser.IsDepartmentManager)
+                throw new InvalidOperationException("تفعيل/إيقاف حساب إداري محتاج صلاحية مدير قسم");
         }
 
         /// <summary>
@@ -177,6 +192,7 @@ namespace WorkforceManager.Business.Services
         {
             var worker = await _workerRepo.GetByIdAsync(workerId)
                 ?? throw new InvalidOperationException("العامل المحدد غير موجود");
+            EnsureCanToggleActive(worker);
 
             worker.IsActive = false;
             _workerRepo.Update(worker);
@@ -237,6 +253,7 @@ namespace WorkforceManager.Business.Services
         {
             var worker = await _workerRepo.GetByIdAsync(workerId)
                 ?? throw new InvalidOperationException("العامل المحدد غير موجود");
+            EnsureCanToggleActive(worker);
 
             worker.IsActive = true;
             _workerRepo.Update(worker);

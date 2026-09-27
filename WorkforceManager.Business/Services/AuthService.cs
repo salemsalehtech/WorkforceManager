@@ -24,11 +24,26 @@ namespace WorkforceManager.Business.Services
 
         private readonly IGenericRepository<AppUser> _users;
         private readonly IWorkerRepository _workers;
+        private readonly CurrentUserContext _currentUser;
 
-        public AuthService(IGenericRepository<AppUser> users, IWorkerRepository workers)
+        public AuthService(IGenericRepository<AppUser> users, IWorkerRepository workers, CurrentUserContext currentUser)
         {
             _users = users;
             _workers = workers;
+            _currentUser = currentUser;
+        }
+
+        /// <summary>
+        /// المسارات التالية (AddUserForWorkerAsync/SetUsernameForUserAsync/
+        /// SetPasswordForUserAsync) بتتنادى من شاشة الحسابات الإدارية بس،
+        /// وكانت محمية في الـViewModel بس (DepartmentAccountsViewModel.CanManage)
+        /// — دفاع في الواجهة مش في الخدمة نفسها، فأي نداء تاني (مستقبلي أو
+        /// عن طريق باج) كان بيعدّي من غير أي تحقق. الفحص هنا هو المصدر الحقيقي.
+        /// </summary>
+        private void EnsureCanManageDepartmentAccounts()
+        {
+            if (!_currentUser.IsDepartmentManager)
+                throw new InvalidOperationException("العملية دي محتاجة صلاحية مدير قسم");
         }
 
         /// <summary>
@@ -198,6 +213,11 @@ namespace WorkforceManager.Business.Services
         public async Task<AppUser> AddUserForWorkerAsync(
             int workerId, string username, string password, string? displayName = null)
         {
+            // استثناء: حساب بيضيف لنفسه (شوف DepartmentAccountsViewModel.EditAccountAsync،
+            // حالة نادرة — حساب إداري قديم مالوش حساب دخول لسه وهو بيعدّل بياناته هو)
+            if (!_currentUser.IsDepartmentManager && _currentUser.WorkerId != workerId)
+                throw new InvalidOperationException("العملية دي محتاجة صلاحية مدير قسم، أو إنه حسابك انت");
+
             var user = await AddUserAsync(username, password, displayName);
             user.WorkerId = workerId;
             _users.Update(user);
@@ -213,6 +233,8 @@ namespace WorkforceManager.Business.Services
         /// </summary>
         public async Task SetPasswordForUserAsync(int appUserId, string newPassword)
         {
+            EnsureCanManageDepartmentAccounts();
+
             if (string.IsNullOrEmpty(newPassword) || newPassword.Length < MinPasswordLength)
                 throw new InvalidOperationException(
                     $"كلمة المرور لازم تكون {MinPasswordLength} حروف/أرقام على الأقل");
@@ -234,6 +256,8 @@ namespace WorkforceManager.Business.Services
         /// </summary>
         public async Task<AppUser> SetUsernameForUserAsync(int appUserId, string newUsername)
         {
+            EnsureCanManageDepartmentAccounts();
+
             var trimmed = (newUsername ?? "").Trim();
             if (trimmed.Length < MinUsernameLength)
                 throw new InvalidOperationException(
