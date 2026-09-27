@@ -13,7 +13,7 @@ namespace WorkforceManager.Business.Services
     public class WorkerManagementService
     {
         private readonly IWorkerRepository _workerRepo;
-        private readonly IGenericRepository<WorkerSkill> _skillRepo;
+        private readonly IWorkerSkillRepository _skillRepo;
         private readonly SoftDeleteService _softDelete;
         private readonly DeletionScopeService _scope;
         private readonly OperationsPasswordService _gate;
@@ -22,7 +22,7 @@ namespace WorkforceManager.Business.Services
 
         public WorkerManagementService(
             IWorkerRepository workerRepo,
-            IGenericRepository<WorkerSkill> skillRepo,
+            IWorkerSkillRepository skillRepo,
             SoftDeleteService softDelete,
             DeletionScopeService scope,
             OperationsPasswordService gate,
@@ -306,9 +306,7 @@ namespace WorkforceManager.Business.Services
         public async Task<WorkerSkill> AssignSkillAsync(
             int workerId, int productionStageId, SkillLevel level = SkillLevel.Proficient)
         {
-            var existing = (await _skillRepo.FindAsync(
-                s => s.WorkerId == workerId && s.ProductionStageId == productionStageId))
-                .FirstOrDefault();
+            var existing = await _skillRepo.GetAsync(workerId, productionStageId);
 
             if (existing is not null)
             {
@@ -342,9 +340,7 @@ namespace WorkforceManager.Business.Services
         /// </summary>
         public async Task<WorkerSkill> AutoAssignSkillAsync(int workerId, int productionStageId)
         {
-            var existing = (await _skillRepo.FindAsync(
-                s => s.WorkerId == workerId && s.ProductionStageId == productionStageId))
-                .FirstOrDefault();
+            var existing = await _skillRepo.GetAsync(workerId, productionStageId);
             if (existing is not null) return existing;
 
             var skill = new WorkerSkill
@@ -372,9 +368,7 @@ namespace WorkforceManager.Business.Services
         /// <summary>يشيل مهارة من عامل (حذف فعلي لسطر الربط — مش بيأثر على سجلات الإنتاج التاريخية)</summary>
         public async Task RemoveSkillAsync(int workerId, int productionStageId)
         {
-            var existing = (await _skillRepo.FindAsync(
-                s => s.WorkerId == workerId && s.ProductionStageId == productionStageId))
-                .FirstOrDefault()
+            var existing = await _skillRepo.GetAsync(workerId, productionStageId)
                 ?? throw new InvalidOperationException("المهارة المحددة غير مرتبطة بهذا العامل");
 
             _skillRepo.Remove(existing);
