@@ -973,31 +973,14 @@ namespace WorkforceManager.UI.ViewModels
             {
                 var workerSkillRepo = lookupScope.ServiceProvider.GetRequiredService<IWorkerSkillRepository>();
                 var qualified = await workerSkillRepo.GetByStageAsync(row.ProductionStageId);
-                var qualifiedIds = qualified.Select(ws => ws.WorkerId).ToHashSet();
 
-                // زي رحلة الإنتاج بالظبط: المؤهلين الأول (بنفس ترتيبهم الحالي)،
-                // وبعدهم كل عامل نشط تاني مالوش مهارة على المرحلة دي، مرتبين
-                // بتقييمهم العام (متوسط تقييماتهم على كل مهاراتهم) — عشان
-                // تصحيح سجل لعامل جديد على مرحلة يبقى ممكن من هنا كمان
+                // نفس بانية القايمة اللي رحلة الإنتاج بتستخدمها بالحرف
+                // (FlowSessionViewModel.BuildStageWorkerPicks) — عشان تصحيح
+                // سجل لعامل جديد على مرحلة يبقى ممكن من هنا كمان، بنفس
+                // الترتيب والتصنيف بالضبط، مش نسخة تانية بتنحرف لوحدها
                 var workerRepo = lookupScope.ServiceProvider.GetRequiredService<IWorkerRepository>();
                 var allWorkers = await workerRepo.GetActiveWithSkillsAsync();
-                var unskilled = allWorkers
-                    .Where(w => !qualifiedIds.Contains(w.Id)
-                        && w.HourlyRole != HourlyRole.Training && w.HourlyRole != HourlyRole.Racking)
-                    .OrderByDescending(w => w.Skills.Count == 0 ? 0m : Math.Round((decimal)w.Skills.Average(s => s.Stars), 2))
-                    .ThenBy(w => w.SortOrder)
-                    .Select(w => new WorkerPick(
-                        w.Id, w.FullName,
-                        Stars: w.Skills.Count == 0 ? 0 : (int)Math.Round(w.Skills.Average(s => s.Stars)),
-                        TagLabel: "غير مؤهل بعد",
-                        IsUnskilledForStage: true))
-                    .ToList();
-
-                workerOptions = qualified
-                    .OrderBy(ws => ws.Worker.SortOrder)
-                    .Select(ws => new WorkerPick(ws.WorkerId, ws.Worker.FullName))
-                    .Concat(unskilled)
-                    .ToList();
+                workerOptions = FlowSessionViewModel.BuildStageWorkerPicks(qualified, allWorkers, trainees: new());
             }
 
             var dialog = new Views.EditProductionDialog { Owner = Application.Current.MainWindow };
