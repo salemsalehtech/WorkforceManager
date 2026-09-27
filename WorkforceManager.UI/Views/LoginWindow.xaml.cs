@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -87,6 +88,27 @@ namespace WorkforceManager.UI.Views
                 PasswordBox.Clear();
                 PasswordBox.Focus();
                 return;
+            }
+
+            // لسه على بيانات الدخول الافتراضية (admin/admin) — مفيش أي كشف
+            // لده كان قبل كده، فالحساب ممكن يفضل عليها للأبد على جهاز مشترك
+            // من غير ما حد ياخد باله. إجباري مش تنبيه بس: من غير تغيير
+            // فعلي، الدخول بيترفض ويرجع لشاشة الدخول (شوف anti-koshary).
+            if (string.Equals(username, AuthService.DefaultUsername, StringComparison.OrdinalIgnoreCase)
+                && password == AuthService.DefaultPassword)
+            {
+                Notify.Info(
+                    "لسه داخل ببيانات الدخول الافتراضية — لازم تغيّر كلمة المرور الأول عشان تكمل.",
+                    "غيّر كلمة المرور الافتراضية");
+
+                var changeDialog = new ChangePasswordDialog { Owner = this };
+                changeDialog.PrefillUsername(username);
+                if (changeDialog.ShowDialog() != true)
+                {
+                    ErrorText.ShowError("لازم تغيّر كلمة المرور الافتراضية الأول عشان تقدر تدخل");
+                    PasswordBox.Clear();
+                    return;
+                }
             }
 
             LoggedInDisplayName = user.DisplayName ?? user.Username;
