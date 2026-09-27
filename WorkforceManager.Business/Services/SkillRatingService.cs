@@ -303,6 +303,68 @@ namespace WorkforceManager.Business.Services
                 details: $"{oldStars} → {newStars}★ بعد {timesSelected} اختيار، متوسط إنتاج {skill.MeasuredRatio:0.00}");
         }
 
+        /// <summary>
+        /// نسخة مجمّعة من <see cref="TryGrowAutoAddedSkillAsync"/> لعدة أزواج
+        /// (عامل، مرحلة) مرة واحدة — نفس المنطق بالحرف، لكن استعلامات
+        /// المهارات وإنتاج كل عامل بتتحمّل دفعة واحدة بدل ما تتكرر لكل زوج.
+        /// مستخدمة في حفظة رحلة الإنتاج (ProductionFlowService) اللي بتعالج
+        /// كذا نصيب في نفس المعاملة — كانت كل نصيب بينده استعلامين+ لوحده.
+        /// </summary>
+        public async Task TryGrowAutoAddedSkillsAsync(IReadOnlyList<(int WorkerId, int ProductionStageId)> pairs, DateTime asOf)
+        {
+            if (pairs.Count == 0) return;
+
+            var workerIds = pairs.Select(p => p.WorkerId).Distinct().ToList();
+            var skillsByKey = (await _skills.FindAsync(s => workerIds.Contains(s.WorkerId)))
+                .ToDictionary(s => (s.WorkerId, s.ProductionStageId));
+
+            var from = asOf.Date.AddDays(-LookbackDays);
+            var recordsByWorker = new Dictionary<int, List<DailyProduction>>();
+            foreach (var workerId in workerIds)
+                recordsByWorker[workerId] = (await _production.GetByWorkerAndRangeAsync(workerId, from, asOf.Date)).ToList();
+
+            var dirty = false;
+            var grown = new List<(WorkerSkill Skill, int OldStars, int NewStars, int TimesSelected)>();
+
+            foreach (var (workerId, stageId) in pairs.Distinct())
+            {
+                if (!skillsByKey.TryGetValue((workerId, stageId), out var skill) || !skill.IsAutoAdded) continue;
+
+                var stageRecords = recordsByWorker[workerId].Where(r => r.ProductionStageId == stageId).ToList();
+                var sample = MeasureFromRecords(stageRecords);
+                if (sample is not null)
+                {
+                    skill.MeasuredRatio = sample.Value.Ratio;
+                    skill.MeasuredDays = sample.Value.Days;
+                    skill.MeasuredAt = DateTime.Now;
+                    _skills.Update(skill);
+                    dirty = true;
+                }
+
+                var timesSelected = await _production.CountByWorkerAndStageAsync(workerId, stageId);
+                var measuredRatio = skill.MeasuredDays >= MinSampleDays ? (decimal?)skill.MeasuredRatio : null;
+                var newStars = SkillGrowthCalculator.ComputeNextStars(skill.Stars, timesSelected, measuredRatio);
+                if (newStars <= skill.Stars) continue;
+
+                var oldStars = skill.Stars;
+                skill.Stars = newStars;
+                _skills.Update(skill);
+                dirty = true;
+                grown.Add((skill, oldStars, newStars, timesSelected));
+            }
+
+            if (dirty) await _skills.SaveChangesAsync();
+
+            foreach (var g in grown)
+            {
+                var worker = await _workers.GetByIdAsync(g.Skill.WorkerId);
+                await _log.LogAsync(
+                    ActivityEventType.SkillAutoAdjusted, nameof(WorkerSkill), g.Skill.Id,
+                    entityName: worker?.FullName,
+                    details: $"{g.OldStars} → {g.NewStars}★ بعد {g.TimesSelected} اختيار، متوسط إنتاج {g.Skill.MeasuredRatio:0.00}");
+            }
+        }
+
         // ======================= المراجعة الشهرية =======================
 
         /// <summary>

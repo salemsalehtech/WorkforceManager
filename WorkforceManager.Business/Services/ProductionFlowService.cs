@@ -438,10 +438,12 @@ namespace WorkforceManager.Business.Services
                     .ToList();
 
                 // ---------- نمو تقييم المهارات المتضافة تلقائيًا (لكل شير، مش بس اللي اتضاف دلوقتي) ----------
-                // مهارة يدوية بترجع فورًا من جوّه TryGrowAutoAddedSkillAsync
-                // نفسها (IsAutoAdded false) — الاستدعاء هنا غير مشروط عن قصد
-                foreach (var share in shares.Select(s => (s.WorkerId, s.ProductionStageId)).Distinct())
-                    await _skillRating.TryGrowAutoAddedSkillAsync(share.WorkerId, share.ProductionStageId, date);
+                // مهارة يدوية بترجع فورًا من جوّه TryGrowAutoAddedSkillsAsync
+                // نفسها (IsAutoAdded false) — الاستدعاء هنا غير مشروط عن قصد.
+                // نسخة مجمّعة (مش لكل شير لوحده) عشان مفيش استعلامات متكررة
+                // لكل (عامل، مرحلة) في نفس الحفظة.
+                var growthPairs = shares.Select(s => (s.WorkerId, s.ProductionStageId)).Distinct().ToList();
+                await _skillRating.TryGrowAutoAddedSkillsAsync(growthPairs, date);
 
                 // ---------- الإنتاج الفعلي لكل مرحلة مغطاة — منفصل تمامًا عن نصيب العمال ----------
                 // نفس رقم النطاق بيروح لكل مرحلة فيه (زي ما كان بيتحقق منه
