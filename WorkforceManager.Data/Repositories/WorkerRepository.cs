@@ -29,6 +29,17 @@ namespace WorkforceManager.Data.Repositories
     {
         public WorkerRepository(AppDbContext context) : base(context) { }
 
+        // Expression (مش delegate) عشان EF يقدر يترجمها لـSQL — استدعاء
+        // HourlyRoleExtensions.IsDepartmentAccount() جوّه Where() مش
+        // مضمون يتترجم لأن EF مابيفكّش جسم extension method عشوائي. المعنى
+        // نفسه بالظبط بتاع IsDepartmentAccount، مكرر هنا لسبب فني بس —
+        // مصدر الحقيقة المفاهيمي يفضل HourlyRoleExtensions.IsDepartmentAccount.
+        private static readonly System.Linq.Expressions.Expression<Func<Worker, bool>> IsDepartmentAccountExpr =
+            w => w.HourlyRole == HourlyRole.DepartmentManager || w.HourlyRole == HourlyRole.DepartmentHead;
+
+        private static readonly System.Linq.Expressions.Expression<Func<Worker, bool>> IsNotDepartmentAccountExpr =
+            w => w.HourlyRole != HourlyRole.DepartmentManager && w.HourlyRole != HourlyRole.DepartmentHead;
+
         public async Task<Worker?> GetWithSkillsAsync(int workerId)
         {
             return await DbSet
@@ -45,8 +56,8 @@ namespace WorkforceManager.Data.Repositories
                 .Include(w => w.Skills)
                     .ThenInclude(s => s.ProductionStage)
                         .ThenInclude(ps => ps.Product)
-                .Where(w => w.IsActive &&
-                    w.HourlyRole != HourlyRole.DepartmentManager && w.HourlyRole != HourlyRole.DepartmentHead)
+                .Where(w => w.IsActive)
+                .Where(IsNotDepartmentAccountExpr)
                 .OrderBy(w => w.SortOrder).ThenBy(w => w.Id)
                 .ToListAsync();
         }
@@ -60,7 +71,7 @@ namespace WorkforceManager.Data.Repositories
                 .Include(w => w.Skills)
                     .ThenInclude(s => s.ProductionStage)
                         .ThenInclude(ps => ps.Product)
-                .Where(w => w.HourlyRole != HourlyRole.DepartmentManager && w.HourlyRole != HourlyRole.DepartmentHead)
+                .Where(IsNotDepartmentAccountExpr)
                 .OrderBy(w => w.SortOrder).ThenBy(w => w.Id)
                 .ToListAsync();
         }
@@ -69,7 +80,7 @@ namespace WorkforceManager.Data.Repositories
         {
             return await DbSet
                 .ExcludeDeleted()
-                .Where(w => w.HourlyRole == HourlyRole.DepartmentManager || w.HourlyRole == HourlyRole.DepartmentHead)
+                .Where(IsDepartmentAccountExpr)
                 .OrderBy(w => w.FullName)
                 .ToListAsync();
         }
@@ -80,9 +91,9 @@ namespace WorkforceManager.Data.Repositories
             // EF Core مايترجمهاش، فبنستخدم HourlyRole == null مباشرة (نفس المعنى بالظبط)
             return await DbSet
                 .ExcludeDeleted()
-                .Where(w => w.IsActive &&
-                    w.HourlyRole != HourlyRole.DepartmentManager && w.HourlyRole != HourlyRole.DepartmentHead &&
-                    (w.DailyWageEgp <= 0 || (w.HourlyRole == null && !w.Skills.Any())))
+                .Where(w => w.IsActive)
+                .Where(IsNotDepartmentAccountExpr)
+                .Where(w => w.DailyWageEgp <= 0 || (w.HourlyRole == null && !w.Skills.Any()))
                 .CountAsync();
         }
 
