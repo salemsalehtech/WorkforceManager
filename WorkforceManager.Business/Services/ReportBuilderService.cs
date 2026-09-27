@@ -647,6 +647,23 @@ namespace WorkforceManager.Business.Services
                 or ReportGrouping.Month;
         }
 
+        /// <summary>
+        /// بيقرر معنى "القطع" لكل التقرير مرة واحدة — <see cref="CountsCompletedOutput"/>
+        /// هي القاعدة الوحيدة، والنتيجة هنا (المراحل الأخيرة لو التام هو
+        /// المعنى، أو null لو الشغل المبذول) هي اللي بيتبنى عليها كل حاجة
+        /// تانية في التقرير (الاستعلامات واسم العمود سوا) — عشان الاسم يفضل
+        /// مطابق للرقم دايمًا، مش قاعدة متكررة في مكانين.
+        /// </summary>
+        private async Task<HashSet<int>?> ResolveLastStageIdsAsync(IReadOnlyList<ReportGrouping> levels, ReportSpec spec)
+        {
+            if (!CountsCompletedOutput(levels, spec)) return null;
+            return ProductionLine.LastStageIdByProduct(await _products.GetAllWithStagesAsync()).Values.ToHashSet();
+        }
+
+        /// <summary>اسم عمود "القطع" — نفس القاعدة اللي <see cref="ResolveLastStageIdsAsync"/> بترجعها بالظبط، مصدر واحد للاتنين</summary>
+        private static string PiecesHeaderFor(bool countsCompletedOutput) =>
+            countsCompletedOutput ? "القطع" : "عدد الضربات";
+
         private async Task<ReportTable> ProductionAsync(ReportSpec spec)
         {
             var rows = Filter(await _production.GetByRangeAsync(spec.From, spec.To), spec);
@@ -658,11 +675,7 @@ namespace WorkforceManager.Business.Services
             //
             // "القطع" مختلفة، وبتتقاس حسب معنى المجموعة نفسها —
             // <see cref="CountsCompletedOutput"/>.
-            var lastStageIds = CountsCompletedOutput(levels, spec)
-                ? ProductionLine
-                    .LastStageIdByProduct(await _products.GetAllWithStagesAsync())
-                    .Values.ToHashSet()
-                : null;
+            var lastStageIds = await ResolveLastStageIdsAsync(levels, spec);
 
             // مستويات التجميع الإضافية بتبقى أعمدة نصية قبل الأرقام،
             // فمحرّر الأعمدة يقدر يخفيها أو يرتّبها زي أي عمود
@@ -673,9 +686,8 @@ namespace WorkforceManager.Business.Services
             // ColumnsFor بيقرر اسم "القطع"/"الضربات" من مستوى التجميع
             // الأساسي بس (هو كل اللي محرّر الأعمدة عارفه قبل التقرير).
             // هنا عارفين كل المستويات (زي بالمنتج وبعدين بالعامل)، فبنثبّت
-            // الاسم على نفس القاعدة اللي CountsCompletedOutput بتحكم بيها
-            // فعليًا — عشان الاسم يفضل مطابق للرقم في كل الحالات.
-            var piecesHeader = lastStageIds is not null ? "القطع" : "عدد الضربات";
+            // الاسم بعد كده على نفس نتيجة ResolveLastStageIdsAsync فوق.
+            var piecesHeader = PiecesHeaderFor(lastStageIds is not null);
             var productionColumns = ColumnsFor(spec.Subject, spec.GroupBy)
                 .Select(c => c.Key == "pieces" ? new ReportColumn
                 {
