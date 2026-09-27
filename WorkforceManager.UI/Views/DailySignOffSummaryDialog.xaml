@@ -31,6 +31,33 @@
             </Border>
 
             <StackPanel Margin="20,16,20,18">
+                <!-- اكتمال بيانات النهارده — إفادة قبل ما نعرض سجل العمليات،
+                     محور مختلف تمامًا (شوف DailySignOffChecklistService):
+                     مش "إيه اللي حصل" لكن "إيه اللي متعملش" -->
+                <Border x:Name="ProductsGapBox" Background="{DynamicResource WarnBgBrush}" CornerRadius="8"
+                        Padding="10,8" Margin="0,0,0,6" Visibility="Collapsed">
+                    <TextBlock x:Name="ProductsGapText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource WarnBrush}" />
+                </Border>
+                <Border x:Name="WorkersGapBox" Background="{DynamicResource WarnBgBrush}" CornerRadius="8"
+                        Padding="10,8" Margin="0,0,0,6" Visibility="Collapsed">
+                    <TextBlock x:Name="WorkersGapText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource WarnBrush}" />
+                </Border>
+                <Border x:Name="MemoryGapBox" Background="{DynamicResource WarnBgBrush}" CornerRadius="8"
+                        Padding="10,8" Margin="0,0,0,6" Visibility="Collapsed">
+                    <TextBlock x:Name="MemoryGapText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource WarnBrush}" />
+                </Border>
+                <Border x:Name="ChecklistClean" Background="{DynamicResource SuccessBgBrush}" CornerRadius="8"
+                        Padding="10,8" Margin="0,0,0,10" Visibility="Collapsed">
+                    <TextBlock Text="كل منتج نشط له إنتاج، وكل عامل نشط له حضور النهارده."
+                               FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource SuccessBrush}" />
+                </Border>
+                <CheckBox x:Name="ChecklistAcknowledge" Content="شفت النواقص دي واتأكدت إنها متعمدة"
+                          FontSize="12" Margin="0,0,0,12" Visibility="Collapsed"
+                          Checked="ChecklistAcknowledge_Checked" Unchecked="ChecklistAcknowledge_Unchecked" />
+
                 <TextBlock x:Name="CountText" FontWeight="Bold" FontSize="13" Margin="0,0,0,10"  Foreground="{DynamicResource TextPrimaryBrush}"/>
 
                 <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto">

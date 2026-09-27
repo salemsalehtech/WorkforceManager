@@ -65,6 +65,7 @@ namespace WorkforceManager.UI
             services.AddScoped<MonthlyPlanExcelService>();
             services.AddScoped<ProductionFlowService>();
             services.AddScoped<DailyOperationsSignOffService>();
+            services.AddScoped<DailySignOffChecklistService>();
             services.AddScoped<ProductionMemoryService>();
             services.AddScoped<DailyProductionReportService>();
             services.AddScoped<ProductionChartService>();

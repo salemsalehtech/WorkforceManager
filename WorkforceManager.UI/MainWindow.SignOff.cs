@@ -161,6 +161,7 @@ namespace WorkforceManager.UI
             var today = DateTime.Today;
 
             List<ActivityEvent> pending;
+            DailySignOffChecklist checklist;
             using (var checkScope = App.AppHost.Services.CreateScope())
             {
                 var signOff = checkScope.ServiceProvider.GetRequiredService<DailyOperationsSignOffService>();
@@ -171,6 +172,12 @@ namespace WorkforceManager.UI
                     return true; // مفيش حاجة لسه محتاجة إمضاء — اقفل عادي
 
                 pending = (await signOff.GetActivitySinceLastSignOffAsync(today)).ToList();
+
+                // اكتمال بيانات النهارده (منتج بلا إنتاج، عامل بلا حضور، خطة
+                // ذاكرة مستحقة بلا إنتاج) — محور مختلف تمامًا عن تغطية سجل
+                // العمليات فوق، إفادة بس مش بوابة حجب، شوف DailySignOffChecklistService
+                checklist = await checkScope.ServiceProvider.GetRequiredService<DailySignOffChecklistService>()
+                    .BuildAsync(today);
             }
 
             // الزرار مالوش رسالة: المستخدم هو اللي طلب الفلو، فالديالوج
@@ -197,7 +204,7 @@ namespace WorkforceManager.UI
 
             // الملخص بيعرض اللي لسه محتاج توقيع بس — عرض عمليات موقّعة
             // خلاص كان هيخلي المستخدم يمضي على نفس الحاجة مرتين
-            var summary = new DailySignOffSummaryDialog(today, pending) { Owner = this };
+            var summary = new DailySignOffSummaryDialog(today, pending, checklist) { Owner = this };
             if (summary.ShowDialog() != true) return false;
 
             try

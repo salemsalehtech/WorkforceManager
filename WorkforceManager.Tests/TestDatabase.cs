@@ -102,6 +102,7 @@ namespace WorkforceManager.Tests
             services.AddScoped<WorkerAssignmentGuard>();
             services.AddScoped<ProductionFlowService>();
             services.AddScoped<DailyOperationsSignOffService>();
+            services.AddScoped<DailySignOffChecklistService>();
             services.AddScoped<ProductionMemoryService>();
             services.AddScoped<DailyProductionReportService>();
             services.AddScoped<WorkdayCalculationService>();
