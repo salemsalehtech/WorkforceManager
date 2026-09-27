@@ -359,11 +359,43 @@
             </Button>
 
             <Button x:Name="AddWorkerButton" ToolTip="عامل جديد (Ctrl+N)" Command="{Binding AddWorkerCommand}"
-                    Style="{DynamicResource GoldButton}" VerticalAlignment="Center" Margin="0,0,0,8">
+                    Style="{DynamicResource GoldButton}" VerticalAlignment="Center" Margin="0,0,16,8">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="AccountPlus" Width="17" Height="17"
                                              VerticalAlignment="Center" />
                     <TextBlock Text="عامل جديد" Margin="7,0,0,0" />
+                </StackPanel>
+            </Button>
+
+            <!-- تحديد جماعي: نفس زرار "تحديد للعيلة" بتاع شاشة المنتجات بالحرف
+                 (نفس الأنماط والألوان)، هنا بيفتح إجراءات جماعية على العمال -->
+            <Button Command="{Binding ToggleBulkSelectModeCommand}"
+                    VerticalAlignment="Center" Padding="16,10" Margin="0,0,0,8">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsBulkSelectMode}" Value="True">
+                                <Setter Property="Foreground" Value="{DynamicResource GoldDeepBrush}" />
+                                <Setter Property="Background" Value="{DynamicResource GoldTintBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="CheckboxMultipleMarkedOutline" Width="16" Height="16"
+                                             VerticalAlignment="Center" />
+                    <TextBlock Margin="6,0,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="تحديد جماعي" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsBulkSelectMode}" Value="True">
+                                        <Setter Property="Text" Value="إلغاء التحديد" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </Button>
         </WrapPanel>
@@ -407,6 +439,7 @@
              بقت تاخد العرض المتاح كله وعدد الكروت في الصف زاد. -->
         <Grid Grid.Row="2">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
@@ -645,12 +678,22 @@
                     </StackPanel>
                 </Border>
 
+                <!-- شريط الإجراءات الجماعية — بيظهر بس في وضع "تحديد جماعي"،
+                     نفس شكل شريط "ضيفهم لعيلة" في شاشة المنتجات بالحرف -->
+                <Border Grid.Row="1" Style="{StaticResource Card}" Padding="12,9" Margin="0,0,0,10"
+                        Background="{DynamicResource GoldTintBrush}"
+                        Visibility="{Binding IsBulkSelectMode, Converter={StaticResource BoolToVis}}">
+                    <TextBlock VerticalAlignment="Center" Foreground="{DynamicResource GoldDeepBrush}">
+                        <Run Text="{Binding BulkSelectedCount, Mode=OneWay}" FontWeight="Bold" /><Run Text=" عامل محدد"/>
+                    </TextBlock>
+                </Border>
+
                 <!-- ═══ شبكة كروت العمال ═══
                      ItemsControl+WrapPanel بدل ListBox — نفس بنية ProductsGrid
                      بالظبط (شوف CLAUDE.md قسم "شاشة العمال"). التحديد بقى يدوي
                      (WorkerRow.IsSelected + SelectWorkerCommand) بدل
                      ListBox.SelectedItem — شوف WorkersViewModel.OnSelectedWorkerChanged. -->
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
                     <Border Style="{DynamicResource Card}" Padding="14">
                         <Grid>
@@ -692,7 +735,8 @@
                                              سادس زي المطلوب. IsCompactGrid بقى بيأثّر على حجم العناصر
                                              جوّه الكارت بس (أفاتار/خط)، مش على عرض الكارت نفسه. -->
                                         <Button Style="{StaticResource WorkerCardButton}" Opacity="0" Click="WorkerTile_Click"
-                                                Margin="0,0,10,10">
+                                                Margin="0,0,10,10"
+                                                Tag="{Binding DataContext.CanShowCardMenu, RelativeSource={RelativeSource AncestorType=UserControl}}">
                                             <ui:AnimatedWidth.Value>
                                                 <MultiBinding Converter="{StaticResource GridColumnWidth}">
                                                     <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=ItemsControl}" />
@@ -709,7 +753,8 @@
                                                      كود-behind (نفس أسلوب WorkerTile_Click بالظبط) لأن
                                                      الأوامر عايشة في WorkersViewModel مش في WorkerRow. -->
                                                 <ContextMenu FlowDirection="RightToLeft"
-                                                             DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                                             DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                                                             IsEnabled="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource Self}}">
                                                     <MenuItem Header="افتح الملف الكامل" Click="OpenProfileMenuItem_Click">
                                                         <MenuItem.Icon>
                                                             <materialDesign:PackIcon Kind="AccountDetails" Width="15" Height="15" />
@@ -789,6 +834,11 @@
                                                                 <Setter Property="BorderBrush" Value="{DynamicResource GoldBrush}" />
                                                                 <Setter Property="BorderThickness" Value="2" />
                                                             </DataTrigger>
+                                                            <!-- التحديد الجماعي آخر واحد عن قصد — بيكسب على الكل زي التعليق فوق -->
+                                                            <DataTrigger Binding="{Binding IsBulkSelected}" Value="True">
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource GoldBrush}" />
+                                                                <Setter Property="BorderThickness" Value="2" />
+                                                            </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
                                                 </Border.Style>
@@ -845,10 +895,21 @@
                                                                         Padding="3" Margin="4,-4,-6,0"
                                                                         Foreground="{DynamicResource TextMutedBrush}"
                                                                         ToolTip="إجراءات (Shift+F10)"
-                                                                        AutomationProperties.Name="إجراءات">
+                                                                        AutomationProperties.Name="إجراءات"
+                                                                        Visibility="{Binding DataContext.CanShowCardMenu,
+                                                                            RelativeSource={RelativeSource AncestorType=UserControl},
+                                                                            Converter={StaticResource BoolToVis}}">
                                                                     <materialDesign:PackIcon Kind="DotsVertical" Width="15" Height="15" />
                                                                 </Button>
                                                             </StackPanel>
+
+                                                            <!-- Checkbox التحديد الجماعي — بيظهر بس في وضع "تحديد جماعي"،
+                                                                 IsBulkSelectMode من DataContext الشاشة نفسها (مش من WorkerRow) -->
+                                                            <CheckBox IsChecked="{Binding IsBulkSelected}" IsHitTestVisible="False"
+                                                                      HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,-4,0,0"
+                                                                      Visibility="{Binding DataContext.IsBulkSelectMode,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl},
+                                                                          Converter={StaticResource BoolToVis}}" />
                                                         </Grid>
 
                                                         <!-- "موقوف" لوحدها هنا — النوع (بالإنتاج/بالساعة) بقى على

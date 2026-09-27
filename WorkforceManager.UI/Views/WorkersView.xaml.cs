@@ -59,10 +59,18 @@ namespace WorkforceManager.UI.Views
         /// </summary>
         private void WorkerTile_Click(object sender, RoutedEventArgs e)
         {
-            if (_flipAnimating) return; // كارت تاني (أو نفسه) لسه بيتقلب
             if (sender is not Button { DataContext: WorkerRow worker } button) return;
             if (DataContext is not WorkersViewModel viewModel) return;
 
+            // وضع "تحديد جماعي": الدوسة بتحدد/تلغي بدل ما تقلب — نفس أسلوب
+            // ProductsView.ProductTile_Click بالحرف
+            if (viewModel.IsBulkSelectMode)
+            {
+                viewModel.ToggleBulkSelectionCommand.Execute(worker);
+                return;
+            }
+
+            if (_flipAnimating) return; // كارت تاني (أو نفسه) لسه بيتقلب
             AnimateFlip(button, () => viewModel.ToggleFlipCommand.Execute(worker));
         }
 

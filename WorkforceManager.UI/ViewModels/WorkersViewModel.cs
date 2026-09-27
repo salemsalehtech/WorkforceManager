@@ -565,6 +565,57 @@ namespace WorkforceManager.UI.ViewModels
             foreach (var row in _allWorkers) row.IsFlipped = ReferenceEquals(row, value);
         }
 
+        // ------- وضع "تحديد جماعي" -------
+        // نفس شكل ProductsViewModel.IsBulkSelectMode بالحرف (نسخة تانية مستقلة،
+        // مش قاعدة مشتركة — CommunityToolkit [ObservableProperty] مش بيتركّب
+        // كويس عبر base class مش ViewModel، ومفيش داعي تجريد جديد لمستهلكين اتنين)
+
+        /// <summary>وضع "تحديد جماعي": الكارت بيتحدد/يتلغى بدل ما يقلب عند الدوسة</summary>
+        [ObservableProperty]
+        private bool _isBulkSelectMode;
+
+        /// <summary>قائمة الكارت مقفولة في وضع التحديد الجماعي — الدوسة هناك معناها تحديد مش فتح قائمة</summary>
+        public bool CanShowCardMenu => !IsBulkSelectMode;
+
+        partial void OnIsBulkSelectModeChanged(bool value)
+        {
+            OnPropertyChanged(nameof(CanShowCardMenu));
+            if (!value)
+            {
+                ClearBulkSelection();
+                return;
+            }
+
+            // نفس سبب مسح SelectedProduct في ProductsViewModel: الحد الدهبي بتاع
+            // IsSelected/IsFlipped هيتلخبط مع IsBulkSelected لو فضل كارت مفتوح/مقلوب
+            SelectedWorker = null;
+            FlippedWorker = null;
+        }
+
+        public int BulkSelectedCount => _allWorkers.Count(w => w.IsBulkSelected);
+
+        public bool HasBulkSelection => BulkSelectedCount > 0;
+
+        [RelayCommand]
+        private void ToggleBulkSelectMode() => IsBulkSelectMode = !IsBulkSelectMode;
+
+        /// <summary>دوسة على كارت وإحنا في وضع التحديد — بديل القلب، شوف WorkersView.xaml.cs</summary>
+        [RelayCommand]
+        private void ToggleBulkSelection(WorkerRow? worker)
+        {
+            if (worker is null) return;
+            worker.IsBulkSelected = !worker.IsBulkSelected;
+            OnPropertyChanged(nameof(BulkSelectedCount));
+            OnPropertyChanged(nameof(HasBulkSelection));
+        }
+
+        private void ClearBulkSelection()
+        {
+            foreach (var w in _allWorkers) w.IsBulkSelected = false;
+            OnPropertyChanged(nameof(BulkSelectedCount));
+            OnPropertyChanged(nameof(HasBulkSelection));
+        }
+
         [RelayCommand]
         private void ToggleBestWorkers() => IsBestWorkersExpanded = !IsBestWorkersExpanded;
 

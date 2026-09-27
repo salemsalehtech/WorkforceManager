@@ -51,6 +51,12 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>الكارت ده بيوري وشه التاني دلوقتي — بيتظبط من WorkersViewModel.OnFlippedWorkerChanged، مش هنا</summary>
         [ObservableProperty] private bool _isFlipped;
 
+        /// <summary>
+        /// محدد في وضع "تحديد جماعي" (شوف WorkersViewModel.IsBulkSelectMode) —
+        /// منفصل تمامًا عن IsSelected/IsFlipped (نفس فكرة ProductRow.IsBulkSelected بالحرف)
+        /// </summary>
+        [ObservableProperty] private bool _isBulkSelected;
+
         public int WorkerId { get; init; }
         public string FullName { get; init; } = "";
         public bool IsActive { get; init; }

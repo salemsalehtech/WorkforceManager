@@ -61,6 +61,49 @@ namespace WorkforceManager.UiTests
         }
 
         [Fact]
+        public void WorkersViewModel_CardMenu_DisabledDuringBulkSelect()
+        {
+            var vm = new WorkersViewModel(scopeFactory: null!);
+
+            Assert.True(vm.CanShowCardMenu);
+            vm.IsBulkSelectMode = true;
+            Assert.False(vm.CanShowCardMenu);
+        }
+
+        [Fact]
+        public void WorkersViewModel_EnteringBulkSelectMode_ClearsFlip()
+        {
+            // نفس سبب مسح SelectedProduct في ProductsViewModel: الحد الدهبي بتاع
+            // IsFlipped هيتلخبط مع IsBulkSelected لو فضل كارت مقلوب. SelectedWorker
+            // مش متغطي هنا عن قصد: الـsetter بتاعه بيبدأ تحميل حقيقي غير متزامن
+            // (OnSelectedWorkerChanged -> SafeAsync.Run(LoadDetailAsync)) بيحتاج
+            // scopeFactory شغال — مينفعش يتلمس من اختبار null! من غير ما يعمل
+            // Fire-and-forget فاشل يحاول يعرض توست على خيط مش STA ويوقع العملية.
+            var vm = new WorkersViewModel(scopeFactory: null!);
+            var worker = Worker();
+            vm.FlippedWorker = worker;
+
+            vm.IsBulkSelectMode = true;
+
+            Assert.Null(vm.FlippedWorker);
+        }
+
+        [Fact]
+        public void WorkersViewModel_ToggleBulkSelection_FlipsOnlyThatWorker()
+        {
+            var vm = new WorkersViewModel(scopeFactory: null!);
+            var worker = Worker();
+            var other = Worker();
+
+            vm.ToggleBulkSelectionCommand.Execute(worker);
+            Assert.True(worker.IsBulkSelected);
+            Assert.False(other.IsBulkSelected);
+
+            vm.ToggleBulkSelectionCommand.Execute(worker);
+            Assert.False(worker.IsBulkSelected);
+        }
+
+        [Fact]
         public void ReportBuilder_ShowProductionFor_ChecksOnlyThatProduct_SelectsProductionSubject()
         {
             var vm = new ReportBuilderViewModel(scopeFactory: null!);
