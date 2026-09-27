@@ -230,6 +230,4 @@ namespace WorkforceManager.UI.ViewModels
         public string Initials => NameInitials.From(FullName);
         public string ScoreText => $"درجة التقييم: {Score:0.0}";
     }
-
-    /// <summary>تفاصيل العامل المعروضة في اللوحة الجانبية (البروفايل)</summary>
 }
