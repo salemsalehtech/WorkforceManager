@@ -21,9 +21,22 @@ namespace WorkforceManager.Business.Services
     /// </summary>
     public class MonthlyPlanExcelService
     {
+        // أرقام الأعمدة مسمّاة — لا أرقام سحرية، شوف Headers تحت لنفس الترتيب بالظبط
+        private const int ColProduct = 1;
+        private const int ColPlan = 2;
+        private const int ColAchieved = 3;
+        private const int ColCorrections = 4;
+        private const int ColAchPercent = 5;      // Ach % — نسبة خام: محقق ÷ مخطط، مش pro-rated
+        private const int ColProRatedPercent = 6; // نسبة المحقق — pro-rated لأيام الشهر المنقضية
+        private const int ColTodayCompleted = 7;
+        private const int ColDailyTarget = 8;
+        private const int ColRequiredDaily = 9;
+        private const int ColForecast = 10;
+        private const int ColWeightKg = 11;
+
         private static readonly string[] Headers =
         {
-            "المنتج", "مخطط الشهر", "محقق", "تصليحات", "نسبة المحقق",
+            "المنتج", "مخطط الشهر", "محقق", "تصليحات", "Ach %", "نسبة المحقق",
             "إنتاج اليوم", "الخطة اليومية", "المطلوب يوميًا", "توقّع نهاية الشهر", "الوزن (كجم)"
         };
 
@@ -48,8 +61,12 @@ namespace WorkforceManager.Business.Services
                 ReportTableExcelService.WriteHeader(sheet.Cell(headerRow, c + 1), Headers[c]);
             row++;
 
+            // منتجات خارج الخطة مستبعدة من التجميع الرئيسي — ليها قسمها المستقل تحت، نفس منطق الشاشة بالظبط
+            var inPlan = tracking.Where(p => !p.IsOutsidePlan).ToList();
+            var outsidePlan = tracking.Where(p => p.IsOutsidePlan).ToList();
+
             // مادة (نحاس/زاما/غير محدد) فوق عيلة — نفس ترتيب شيت المصنع الأصلي
-            var materialGroups = tracking
+            var materialGroups = inPlan
                 .GroupBy(p => p.Material)
                 .OrderBy(g => g.Key switch { Material.Copper => 0, Material.Zamak => 1, _ => 2 })
                 .Select(g => (Header: g.Key switch { Material.Copper => "نحاس", Material.Zamak => "زاما", _ => "غير محدد" },
@@ -87,7 +104,7 @@ namespace WorkforceManager.Business.Services
                         row++;
                     }
 
-                    WriteSubtotalRow(sheet, row, products);
+                    WriteSubtotalRow(sheet, row, products, label: $"إجمالي {familyName}");
                     row++;
                 }
 
@@ -95,8 +112,11 @@ namespace WorkforceManager.Business.Services
                 row++;
             }
 
-            // إجمالي عام آخر الملف
-            WriteSubtotalRow(sheet, row, tracking, label: "الإجمالي العام");
+            // إجمالي عام آخر الملف — من داخل الخطة بس، نفس ما الشاشة بتجمّعه (خارج الخطة قسم مستقل تحت)
+            WriteSubtotalRow(sheet, row, inPlan, label: "الإجمالي العام");
+
+            WriteOutsidePlanSection(sheet, ref row, outsidePlan, lastColumn);
+            WriteWorkdaysFooter(sheet, ref row, tracking[0]);
             var lastRow = row;
 
             ReportTableExcelService.Finish(sheet, headerRow, lastRow, lastColumn, firstColumnWidth: 26);
@@ -105,25 +125,40 @@ namespace WorkforceManager.Business.Services
 
         private static void WriteProductRow(IXLWorksheet sheet, int row, MonthlyPlanTrackingDto p)
         {
-            sheet.Cell(row, 1).Value = p.ProductName;
-            sheet.Cell(row, 2).Value = p.PlannedQuantity;
-            sheet.Cell(row, 3).Value = p.EffectiveAchieved;
-            sheet.Cell(row, 4).Value = p.CorrectionsToDate;
-            sheet.Cell(row, 5).Value = p.AchievedPercent is { } pct ? pct : (double?)null;
-            if (p.AchievedPercent is not null) sheet.Cell(row, 5).Style.NumberFormat.Format = "0%";
-            sheet.Cell(row, 6).Value = p.TodayCompleted;
-            // الخطة اليومية: هدف يدوي، منفصل عن المطلوب يوميًا المحسوب اللي جنبه
-            sheet.Cell(row, 7).Value = p.DailyTargetQuantity;
-            sheet.Cell(row, 8).Value = p.RequiredDailyOutput;
-            sheet.Cell(row, 9).Value = p.ForecastEndOfMonth;
-            // وزن المحقق بالكيلوجرام — TotalWeightGrams محسوبة (وزن القطعة × المحقق)، null لو المنتج ماله وزن مسجّل
-            sheet.Cell(row, 10).Value = p.TotalWeightGrams is { } g ? g / 1000m : (decimal?)null;
-            if (p.TotalWeightGrams is not null) sheet.Cell(row, 10).Style.NumberFormat.Format = "#,##0.00";
+            sheet.Cell(row, ColProduct).Value = p.ProductName;
+            sheet.Cell(row, ColPlan).Value = p.PlannedQuantity;
+            sheet.Cell(row, ColAchieved).Value = p.EffectiveAchieved;
+            sheet.Cell(row, ColCorrections).Value = p.CorrectionsToDate;
 
-            for (var c = 2; c <= 9; c++)
-                if (c != 5) sheet.Cell(row, c).Style.NumberFormat.Format = "#,##0";
+            // Ach % — نسبة خام (محقق ÷ مخطط)، مختلفة عمدًا عن نسبة المحقق pro-rated جنبها
+            if (p.PlannedQuantity > 0)
+            {
+                sheet.Cell(row, ColAchPercent).Value = (double)p.EffectiveAchieved / p.PlannedQuantity;
+                sheet.Cell(row, ColAchPercent).Style.NumberFormat.Format = "0%";
+            }
+
+            sheet.Cell(row, ColProRatedPercent).Value = p.AchievedPercent is { } pct ? pct : (double?)null;
+            if (p.AchievedPercent is not null) sheet.Cell(row, ColProRatedPercent).Style.NumberFormat.Format = "0%";
+
+            sheet.Cell(row, ColTodayCompleted).Value = p.TodayCompleted;
+            // الخطة اليومية: هدف يدوي، منفصل عن المطلوب يوميًا المحسوب اللي جنبه
+            sheet.Cell(row, ColDailyTarget).Value = p.DailyTargetQuantity;
+            sheet.Cell(row, ColRequiredDaily).Value = p.RequiredDailyOutput;
+            sheet.Cell(row, ColForecast).Value = p.ForecastEndOfMonth;
+            // وزن المحقق بالكيلوجرام — TotalWeightGrams محسوبة (وزن القطعة × المحقق)، null لو المنتج ماله وزن مسجّل
+            sheet.Cell(row, ColWeightKg).Value = p.TotalWeightGrams is { } g ? g / 1000m : (decimal?)null;
+            if (p.TotalWeightGrams is not null) sheet.Cell(row, ColWeightKg).Style.NumberFormat.Format = "#,##0.00";
+
+            for (var c = ColPlan; c <= ColForecast; c++)
+                if (c != ColAchPercent && c != ColProRatedPercent) sheet.Cell(row, c).Style.NumberFormat.Format = "#,##0";
         }
 
+        /// <summary>
+        /// صف إجمالي — عيلة، مادة، أو إجمالي عام. الإنتاج اليومي المطلوب
+        /// هنا نفس صيغة MonthlyPlanFamilyGroupRow.RequiredDailyOutputForFamily
+        /// بالحرف (MonthlyPlanFamilyMath.RequiredDailyOutput)، مش نسخة تانية —
+        /// الشاشة والتصدير ميقدروش يختلفوا على الرقم ده أبدًا.
+        /// </summary>
         private static void WriteSubtotalRow(
             IXLWorksheet sheet, int row, IReadOnlyList<MonthlyPlanTrackingDto> products, string? label = null)
         {
@@ -131,19 +166,64 @@ namespace WorkforceManager.Business.Services
             var achieved = products.Sum(p => p.EffectiveAchieved);
             var withWeight = products.Where(p => p.TotalWeightGrams is not null).ToList();
             var totalWeightKg = withWeight.Count == 0 ? (decimal?)null : withWeight.Sum(p => p.TotalWeightGrams!.Value) / 1000m;
+            var remainingWorkdays = products.Count > 0 ? products[0].RemainingWorkdays : 0;
+            var requiredDaily = MonthlyPlanFamilyMath.RequiredDailyOutput(plan, achieved, remainingWorkdays);
 
-            sheet.Cell(row, 1).Value = label ?? "إجمالي القسم";
-            sheet.Cell(row, 2).Value = plan;
-            sheet.Cell(row, 3).Value = achieved;
-            // نسبة الإجمالي = محقق ÷ مخطط الشهر كامل (بس لصف الملخص، مش نفس تعريف نسبة المحقق pro-rated لكل صف)
-            if (plan > 0) { sheet.Cell(row, 5).Value = (double)achieved / plan; sheet.Cell(row, 5).Style.NumberFormat.Format = "0%"; }
-            if (totalWeightKg is not null) { sheet.Cell(row, 10).Value = totalWeightKg; sheet.Cell(row, 10).Style.NumberFormat.Format = "#,##0.00"; }
+            sheet.Cell(row, ColProduct).Value = label ?? "إجمالي القسم";
+            sheet.Cell(row, ColPlan).Value = plan;
+            sheet.Cell(row, ColAchieved).Value = achieved;
+            // Ach % الإجمالي = محقق ÷ مخطط المجموعة كامل (بس لصف الملخص، مش نفس تعريف نسبة المحقق pro-rated لكل صف)
+            if (plan > 0)
+            {
+                sheet.Cell(row, ColAchPercent).Value = (double)achieved / plan;
+                sheet.Cell(row, ColAchPercent).Style.NumberFormat.Format = "0%";
+            }
+            if (requiredDaily is not null) sheet.Cell(row, ColRequiredDaily).Value = requiredDaily.Value;
+            if (totalWeightKg is not null) { sheet.Cell(row, ColWeightKg).Value = totalWeightKg; sheet.Cell(row, ColWeightKg).Style.NumberFormat.Format = "#,##0.00"; }
 
-            var range = sheet.Range(row, 1, row, 10);
+            var range = sheet.Range(row, ColProduct, row, ColWeightKg);
             range.Style.Font.SetBold();
             range.Style.Fill.SetBackgroundColor(ReportTableExcelService.TotalsColor);
-            sheet.Cell(row, 2).Style.NumberFormat.Format = "#,##0";
-            sheet.Cell(row, 3).Style.NumberFormat.Format = "#,##0";
+            sheet.Cell(row, ColPlan).Style.NumberFormat.Format = "#,##0";
+            sheet.Cell(row, ColAchieved).Style.NumberFormat.Format = "#,##0";
+            sheet.Cell(row, ColRequiredDaily).Style.NumberFormat.Format = "#,##0";
+        }
+
+        /// <summary>منتجات عندها إنتاج بس مفيش خطة مسجّلة — قسم مستقل، نفس شكل قسم "منتجات خارج الخطة" في الشاشة</summary>
+        private static void WriteOutsidePlanSection(IXLWorksheet sheet, ref int row, List<MonthlyPlanTrackingDto> outsidePlan, int lastColumn)
+        {
+            if (outsidePlan.Count == 0) return;
+
+            row++;
+            sheet.Range(row, ColProduct, row, lastColumn).Merge();
+            sheet.Cell(row, ColProduct).Value = "منتجات خارج الخطة";
+            sheet.Cell(row, ColProduct).Style.Font.SetBold().Font.SetFontSize(12).Font.SetFontColor(XLColor.White);
+            sheet.Cell(row, ColProduct).Style.Fill.SetBackgroundColor(ReportTableExcelService.HeaderColor);
+            row++;
+
+            foreach (var p in outsidePlan.OrderBy(p => p.ProductName))
+            {
+                sheet.Cell(row, ColProduct).Value = p.ProductName;
+                sheet.Cell(row, ColAchieved).Value = p.EffectiveAchieved;
+                sheet.Cell(row, ColAchieved).Style.NumberFormat.Format = "#,##0";
+                if (p.TotalWeightGrams is { } g)
+                {
+                    sheet.Cell(row, ColWeightKg).Value = g / 1000m;
+                    sheet.Cell(row, ColWeightKg).Style.NumberFormat.Format = "#,##0.00";
+                }
+                row++;
+            }
+        }
+
+        /// <summary>أيام الشغل الكلية/المنقضية/المتبقية للفترة — من نفس القيمة المحسوبة اللي الشاشة بتعرضها، مش رقم مكتوب هنا</summary>
+        private static void WriteWorkdaysFooter(IXLWorksheet sheet, ref int row, MonthlyPlanTrackingDto anyRow)
+        {
+            row++;
+            sheet.Cell(row, ColProduct).Value = "أيام الشغل";
+            sheet.Cell(row, ColProduct).Style.Font.SetBold();
+            sheet.Cell(row, ColPlan).Value = $"الكلي: {anyRow.TotalWorkdays}";
+            sheet.Cell(row, ColAchieved).Value = $"المتبقي: {anyRow.RemainingWorkdays}";
+            sheet.Cell(row, ColCorrections).Value = $"المنقضي: {anyRow.TotalWorkdays - anyRow.RemainingWorkdays}";
         }
     }
 }

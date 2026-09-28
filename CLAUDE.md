@@ -3389,7 +3389,41 @@ Core  <----------------------- UI
     for an ID-precise jump from a data row.
   - **Excel export and the Home-screen card needed no changes at all** — both were already fully built
     and wired in this session's earlier phases, contrary to the prompt's own assumption that Excel export
-    was future/out-of-scope work.
+    was future/out-of-scope work. (A later prompt then asked for real enhancements to that same export —
+    see the next entry.)
+
+- **Monthly Plan Excel export, phase 4 — filled real gaps in the already-existing `MonthlyPlanExcelService`,
+  did not rebuild it.** Its grouping shape (material → family → product rows → family subtotal → material
+  subtotal → grand total) already matched what was asked for; the gaps were specific missing figures.
+  - **`MonthlyPlanFamilyMath.RequiredDailyOutput(planSum, achievedSum, remainingWorkdays)`** (new, tiny
+    static class next to `MonthlyPlanTrackingService`) is now the **one** place the family-level
+    required-daily-output formula lives — `MonthlyPlanFamilyGroupRow.RequiredDailyOutputForFamily` (UI)
+    and `MonthlyPlanExcelService.WriteSubtotalRow` (export) both call it instead of each inlining their
+    own copy. This was a real risk the export previously had no way to avoid: it had no access to this
+    figure at all before, so it couldn't yet disagree with the screen, but adding it independently would
+    have created exactly that risk on day one. Column named `ColRequiredDaily`, family/material subtotal
+    rows now populate it using `products[0].RemainingWorkdays` (same value on every row for the period).
+  - **A new "Ach %" column sits next to the existing "نسبة المحقق" column** — `EffectiveAchieved ÷
+    PlannedQuantity`, a plain ratio, deliberately different from the existing pro-rated percentage. All
+    column indices are named constants (`ColProduct`…`ColWeightKg`) — no magic numbers.
+  - **"منتجات خارج الخطة" is now its own section in the export**, written after the grand-total row —
+    `tracking` is split into `inPlan`/`outsidePlan` once at the top of `Export`, and the main
+    material/family loop only ever sees `inPlan` (mirrors the UI's own extraction from phase 3 exactly).
+  - **A footer row reports total/elapsed/remaining workdays**, read from
+    `MonthlyPlanTrackingDto.TotalWorkdays`/`RemainingWorkdays` (already computed by `GetTrackingAsync`,
+    the export just never read them before) — never a literal.
+  - **Family subtotal rows now carry the family's own name in their label** (`"إجمالي {familyName}"`,
+    not the previous generic `"إجمالي القسم"` shared by every family) — found while writing the tests
+    below: without a distinguishing label, a family's own totals row was unreachable/ambiguous to
+    identify in the exported file at all except by counting rows from its header, which is exactly the
+    kind of fragile-by-position lookup a spreadsheet should not require.
+  - **Filename is now stamped with today's date** (`"الخطة الشهرية {MonthLabel} - {yyyy-MM-dd}"`) — a
+    per-day snapshot report, per the prompt.
+  - **Five of the six "original sheet bug" categories needed no code change at all, only tests proving
+    it** — the family plan total was already a live `Sum` (never stored), the workday total already came
+    from `WorkCalendarRules` (never a literal), and weight totals already skipped null-weight products
+    correctly. Only the two genuinely new figures (Ach % and family required-output) were things the
+    export could have gotten wrong, because they didn't exist in it before this phase.
 
 - **Bulk family assignment on `ProductsView`** — after shipping product families, a real factory (17
   products, all "بدون عيلة") made classifying them one product at a time through the edit form clearly

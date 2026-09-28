@@ -120,9 +120,7 @@ namespace WorkforceManager.UI.ViewModels
         /// الفرق عن باگ الشيت القديم في تقريب/توزيع الصيغة). null لو مفيش
         /// أيام متبقية.
         /// </summary>
-        public int? RequiredDailyOutputForFamily => RemainingWorkdays > 0
-            ? (int)Math.Max(0, Math.Ceiling((Subtotal - AchievedSubtotal) / (decimal)RemainingWorkdays))
-            : null;
+        public int? RequiredDailyOutputForFamily => MonthlyPlanFamilyMath.RequiredDailyOutput(Subtotal, AchievedSubtotal, RemainingWorkdays);
 
         public bool HasRequiredDailyOutputForFamily => RequiredDailyOutputForFamily is not null;
 

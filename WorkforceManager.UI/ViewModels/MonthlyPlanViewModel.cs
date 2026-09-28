@@ -363,7 +363,7 @@ namespace WorkforceManager.UI.ViewModels
         private async Task ExportExcelAsync()
         {
             await ExcelExport.RunAsync(
-                "تصدير الخطة الشهرية", $"الخطة الشهرية {MonthLabel}",
+                "تصدير الخطة الشهرية", $"الخطة الشهرية {MonthLabel} - {DateTime.Today:yyyy-MM-dd}",
                 async filePath =>
                 {
                     using var scope = _scopeFactory.CreateScope();

@@ -484,6 +484,68 @@ namespace WorkforceManager.Data.Migrations
                     b.ToTable("MonthlyPlanCorrections");
                 });
 
+            modelBuilder.Entity("WorkforceManager.Core.Models.MonthlyPlanDailyEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("MonthlyPlanDailyEntries", t =>
+                        {
+                            t.HasCheckConstraint("CK_MonthlyPlanDailyEntry_Quantity_NonNegative", "Quantity >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.MonthlyPlanSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("EffectiveAchieved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PlannedQuantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("TakenAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("TakenAt");
+
+                    b.ToTable("MonthlyPlanSnapshots");
+                });
+
             modelBuilder.Entity("WorkforceManager.Core.Models.MonthlyWorkCalendarHoliday", b =>
                 {
                     b.Property<int>("Id")
@@ -575,6 +637,62 @@ namespace WorkforceManager.Data.Migrations
                     b.HasIndex("WorkerId", "Date");
 
                     b.ToTable("Penalties");
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.PlanPeriod", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("WorkdayCount")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PlanPeriods", t =>
+                        {
+                            t.HasCheckConstraint("CK_PlanPeriod_EndDate_NotBeforeStart", "EndDate >= StartDate");
+
+                            t.HasCheckConstraint("CK_PlanPeriod_WorkdayCount_NonNegative", "WorkdayCount >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.PlanPeriodTarget", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PlanPeriodId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PlannedQuantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("PlanPeriodId", "ProductId")
+                        .IsUnique();
+
+                    b.ToTable("PlanPeriodTargets", t =>
+                        {
+                            t.HasCheckConstraint("CK_PlanPeriodTarget_PlannedQuantity_NonNegative", "PlannedQuantity >= 0");
+                        });
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.Product", b =>
@@ -1240,6 +1358,28 @@ namespace WorkforceManager.Data.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("WorkforceManager.Core.Models.MonthlyPlanDailyEntry", b =>
+                {
+                    b.HasOne("WorkforceManager.Core.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.MonthlyPlanSnapshot", b =>
+                {
+                    b.HasOne("WorkforceManager.Core.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
             modelBuilder.Entity("WorkforceManager.Core.Models.OperationsCredential", b =>
                 {
                     b.HasOne("WorkforceManager.Core.Models.AppUser", "AppUser")
@@ -1259,6 +1399,25 @@ namespace WorkforceManager.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Worker");
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.PlanPeriodTarget", b =>
+                {
+                    b.HasOne("WorkforceManager.Core.Models.PlanPeriod", "PlanPeriod")
+                        .WithMany("Targets")
+                        .HasForeignKey("PlanPeriodId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WorkforceManager.Core.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PlanPeriod");
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.Product", b =>
@@ -1394,6 +1553,11 @@ namespace WorkforceManager.Data.Migrations
                     b.Navigation("Ranges");
 
                     b.Navigation("Usages");
+                });
+
+            modelBuilder.Entity("WorkforceManager.Core.Models.PlanPeriod", b =>
+                {
+                    b.Navigation("Targets");
                 });
 
             modelBuilder.Entity("WorkforceManager.Core.Models.Product", b =>
