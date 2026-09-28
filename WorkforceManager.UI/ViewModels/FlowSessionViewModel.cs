@@ -98,6 +98,14 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty] private string _productError = "";
 
         /// <summary>
+        /// تصليحات الخطة الشهرية لهذا المنتج في هذا اليوم — دخولها هنا
+        /// (بدل شاشة الخطة الشهرية القديمة) عن قصد، شوف CLAUDE.md. مستقلة
+        /// تمامًا عن رحلة الإنتاج والأجور: بتتحفظ في MonthlyPlanCorrection
+        /// عبر MonthlyPlanTrackingService، مش عبر ProductionFlowService.
+        /// </summary>
+        [ObservableProperty] private string _correctionText = "0";
+
+        /// <summary>
         /// بيمنع إعادة التحميل التلقائي عند تغيير المنتج برمجيًا — لما
         /// <see cref="PrepareWithdrawalAsync"/> بتظبط المنتج بنفسها وبتنادي
         /// <see cref="ReloadAsync"/> بـ await، فمحتاجة تمنع النداء الثاني
@@ -259,6 +267,10 @@ namespace WorkforceManager.UI.ViewModels
                     .GetRequiredService<WorkerAssignmentGuard>()
                     .GetDayAssignmentsAsync(_getEntryDate())).ToList();
 
+                var existingCorrection = await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
+                    .GetCorrectionAsync(product.ProductId, _getEntryDate());
+                CorrectionText = existingCorrection.ToString();
+
                 var stageIds = product.Stages.Select(s => s.StageId).ToHashSet();
                 var alreadyByStage = (await productionRepo.GetByDateAsync(_getEntryDate()))
                     .Where(r => stageIds.Contains(r.ProductionStageId))
@@ -325,6 +337,16 @@ namespace WorkforceManager.UI.ViewModels
             }
 
             await LoadInitialBalancesAsync();
+        }
+
+        /// <summary>حفظ تصليح الخطة الشهرية لهذا المنتج/اليوم — Upsert مستقل تمامًا عن حفظ الرحلة والأجور</summary>
+        public async Task SaveCorrectionAsync(int quantity)
+        {
+            if (SelectedProduct is not { } product) return;
+
+            using var scope = _scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
+                .SetCorrectionAsync(product.ProductId, _getEntryDate(), quantity);
         }
 
         /// <summary>

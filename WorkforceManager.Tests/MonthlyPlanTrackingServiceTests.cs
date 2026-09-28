@@ -19,6 +19,22 @@ namespace WorkforceManager.Tests
         private const int Year = 2026;
         private const int Month = 7;
 
+        /// <summary>
+        /// المحقق بقى إدخال يدوي صرف (MonthlyPlanDailyEntry)، مش مشتق من
+        /// إنتاج حقيقي — شوف CLAUDE.md. اسم الميثود فاضل "Chain" بس عشان
+        /// كل اختبارات الملف بتستخدم TestDatabase.ProductChainId.
+        /// </summary>
+        private async Task SetChainDailyEntryAsync(int pieces, DateTime date)
+        {
+            using var scope = _db.CreateScope();
+            await _db.GetService<MonthlyPlanTrackingService>(scope)
+                .SetDailyEntryAsync(TestDatabase.ProductChainId, date, pieces);
+        }
+
+        /// <summary>
+        /// إنتاج حقيقي فعلي — مطلوب بس لاختبارات "الإنتاج اليومي" (زرار
+        /// "استخدم نفس الرقم الحقيقي"/تحذير الاختلاف)، مش للمحقق نفسه.
+        /// </summary>
         private async Task RecordChainProductionAsync(int pieces, DateTime date)
         {
             using var scope = _db.CreateScope();
@@ -45,12 +61,12 @@ namespace WorkforceManager.Tests
             _db.InScopeAsync<MonthlyPlanTrackingService, List<MonthlyPlanTrackingDto>>(
                 s => s.GetTrackingAsync(Year, Month, asOfDate));
 
-        // ═══════════ المحقق من بيانات الإنتاج الحقيقية (مش رقم مكتوب) ═══════════
+        // ═══════════ المحقق إدخال يدوي صرف (مش مشتق من إنتاج حقيقي) ═══════════
 
         [Fact]
-        public async Task AchievedToDate_reflects_real_recorded_production_on_the_last_stage()
+        public async Task AchievedToDate_reflects_manual_daily_entry()
         {
-            await RecordChainProductionAsync(120, Today);
+            await SetChainDailyEntryAsync(120, Today);
             await SetPlanAsync(400);
 
             var row = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId);
@@ -93,7 +109,7 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task TotalWeightGrams_equals_piece_weight_times_effective_achieved()
         {
-            await RecordChainProductionAsync(100, Today);
+            await SetChainDailyEntryAsync(100, Today);
             await SetClassificationAsync(TestDatabase.ProductChainId, weightGrams: 12.5m, Core.Enums.Material.Copper);
 
             var row = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId);
@@ -105,7 +121,7 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task TotalWeightGrams_is_null_when_product_has_no_weight()
         {
-            await RecordChainProductionAsync(100, Today);
+            await SetChainDailyEntryAsync(100, Today);
 
             var row = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId);
 
@@ -115,7 +131,7 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task TotalWeightGrams_includes_manual_corrections()
         {
-            await RecordChainProductionAsync(100, Today);
+            await SetChainDailyEntryAsync(100, Today);
             await SetClassificationAsync(TestDatabase.ProductChainId, weightGrams: 10m, Core.Enums.Material.Zamak);
             await _db.InScopeAsync<MonthlyPlanTrackingService, bool>(async s =>
             { await s.SetCorrectionAsync(TestDatabase.ProductChainId, Today, 20); return true; });
@@ -128,9 +144,9 @@ namespace WorkforceManager.Tests
         // ═══════════ تصليحات — يدوي بالكامل، مقصور على يوم واحد ═══════════
 
         [Fact]
-        public async Task Correction_is_added_on_top_of_real_achieved_never_replacing_it()
+        public async Task Correction_is_added_on_top_of_manual_achieved_never_replacing_it()
         {
-            await RecordChainProductionAsync(100, Today);
+            await SetChainDailyEntryAsync(100, Today);
             using (var scope = _db.CreateScope())
                 await _db.GetService<MonthlyPlanTrackingService>(scope).SetCorrectionAsync(TestDatabase.ProductChainId, Today, 30);
 
@@ -179,13 +195,49 @@ namespace WorkforceManager.Tests
             Assert.Equal(999, rows[0].Quantity);
         }
 
+        // ═══════════ GetCorrectionAsync — القراءة اللي شاشة تسجيل الإنتاج
+        // اليومي بتحتاجها عشان تظبط الخانة لو رجعت لنفس اليوم/المنتج ═══════════
+
+        [Fact]
+        public async Task GetCorrectionAsync_returns_zero_when_no_row_exists()
+        {
+            var value = await _db.InScopeAsync<MonthlyPlanTrackingService, int>(
+                s => s.GetCorrectionAsync(TestDatabase.ProductChainId, Today));
+
+            Assert.Equal(0, value);
+        }
+
+        [Fact]
+        public async Task GetCorrectionAsync_returns_saved_value_after_SetCorrectionAsync()
+        {
+            await _db.InScopeAsync<MonthlyPlanTrackingService, bool>(async s =>
+            { await s.SetCorrectionAsync(TestDatabase.ProductChainId, Today, 42); return true; });
+
+            var value = await _db.InScopeAsync<MonthlyPlanTrackingService, int>(
+                s => s.GetCorrectionAsync(TestDatabase.ProductChainId, Today));
+
+            Assert.Equal(42, value);
+        }
+
+        [Fact]
+        public async Task GetCorrectionAsync_does_not_read_a_different_days_row()
+        {
+            await _db.InScopeAsync<MonthlyPlanTrackingService, bool>(async s =>
+            { await s.SetCorrectionAsync(TestDatabase.ProductChainId, Today.AddDays(-1), 42); return true; });
+
+            var value = await _db.InScopeAsync<MonthlyPlanTrackingService, int>(
+                s => s.GetCorrectionAsync(TestDatabase.ProductChainId, Today));
+
+            Assert.Equal(0, value);
+        }
+
         // ═══════════ المطلوب يوميًا — بيتغيّر مع التصليحات وتقدّم الشهر ═══════════
 
         [Fact]
         public async Task RequiredDailyOutput_decreases_after_a_positive_correction()
         {
             await SetPlanAsync(1000);
-            await RecordChainProductionAsync(100, Today);
+            await SetChainDailyEntryAsync(100, Today);
 
             var before = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId).RequiredDailyOutput;
 
@@ -215,7 +267,7 @@ namespace WorkforceManager.Tests
         [Fact]
         public async Task Product_with_production_but_no_plan_is_flagged_outside_plan_not_silently_zero_percent()
         {
-            await RecordChainProductionAsync(50, Today); // مفيش SetPlanAsync خالص
+            await SetChainDailyEntryAsync(50, Today); // مفيش SetPlanAsync خالص
 
             var row = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId);
 
@@ -252,6 +304,92 @@ namespace WorkforceManager.Tests
 
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 svc.AddHolidayAsync(new DateTime(Year, Month, 15)));
+        }
+
+        // ═══════════ الإنتاج اليومي (يدوي، بديل المحقق التلقائي) ═══════════
+
+        [Fact]
+        public async Task SetDailyEntryAsync_creates_then_updates_same_row_not_duplicate()
+        {
+            await SetChainDailyEntryAsync(100, Today);
+            await SetChainDailyEntryAsync(250, Today);
+
+            using var scope = _db.CreateScope();
+            var rows = _db.GetService<AppDbContext>(scope).MonthlyPlanDailyEntries
+                .Where(e => e.ProductId == TestDatabase.ProductChainId && e.Date == Today.Date)
+                .ToList();
+
+            Assert.Single(rows);
+            Assert.Equal(250, rows[0].Quantity);
+        }
+
+        [Fact]
+        public async Task SetDailyEntryAsync_rejects_negative_quantity()
+        {
+            await Assert.ThrowsAsync<ArgumentException>(() => SetChainDailyEntryAsync(-1, Today));
+        }
+
+        [Fact]
+        public async Task GetDailyEntryAsync_returns_zero_when_no_row_exists()
+        {
+            var value = await _db.InScopeAsync<MonthlyPlanTrackingService, int>(
+                s => s.GetDailyEntryAsync(TestDatabase.ProductChainId, Today));
+
+            Assert.Equal(0, value);
+        }
+
+        [Fact]
+        public async Task GetDailyEntryAsync_returns_saved_value()
+        {
+            await SetChainDailyEntryAsync(77, Today);
+
+            var value = await _db.InScopeAsync<MonthlyPlanTrackingService, int>(
+                s => s.GetDailyEntryAsync(TestDatabase.ProductChainId, Today));
+
+            Assert.Equal(77, value);
+        }
+
+        [Fact]
+        public async Task GetTodayEntryTabAsync_marks_only_products_with_a_row_today_as_filled()
+        {
+            await SetChainDailyEntryAsync(30, Today);
+
+            var rows = await _db.InScopeAsync<MonthlyPlanTrackingService, List<MonthlyPlanTodayEntryDto>>(
+                s => s.GetTodayEntryTabAsync(Today));
+
+            var chain = rows.Single(r => r.ProductId == TestDatabase.ProductChainId);
+            var ring = rows.Single(r => r.ProductId == TestDatabase.ProductRingId);
+
+            Assert.True(chain.IsFilled);
+            Assert.Equal(30, chain.ManualQuantity);
+            Assert.False(ring.IsFilled);
+            Assert.Equal(0, ring.ManualQuantity);
+        }
+
+        [Fact]
+        public async Task GetTodayEntryTabAsync_carries_real_production_for_the_prefill_button()
+        {
+            await RecordChainProductionAsync(65, Today);
+
+            var rows = await _db.InScopeAsync<MonthlyPlanTrackingService, List<MonthlyPlanTodayEntryDto>>(
+                s => s.GetTodayEntryTabAsync(Today));
+
+            var chain = rows.Single(r => r.ProductId == TestDatabase.ProductChainId);
+            Assert.Equal(65, chain.RealProductionToday);
+            // الإنتاج الحقيقي مرجع بس — لا بيملى ولا بيأثر على المحقق (ManualQuantity) لوحده
+            Assert.False(chain.IsFilled);
+            Assert.Equal(0, chain.ManualQuantity);
+        }
+
+        [Fact]
+        public async Task GetTodayEntryTabAsync_carries_yesterdays_manual_entry_for_the_copy_button()
+        {
+            await SetChainDailyEntryAsync(40, Today.AddDays(-1));
+
+            var rows = await _db.InScopeAsync<MonthlyPlanTrackingService, List<MonthlyPlanTodayEntryDto>>(
+                s => s.GetTodayEntryTabAsync(Today));
+
+            Assert.Equal(40, rows.Single(r => r.ProductId == TestDatabase.ProductChainId).YesterdayQuantity);
         }
     }
 }

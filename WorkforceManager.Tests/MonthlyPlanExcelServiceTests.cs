@@ -29,10 +29,10 @@ namespace WorkforceManager.Tests
         {
             using (var scope = _db.CreateScope())
             {
-                await _db.GetService<WorkdayCalculationService>(scope).RecordProductionAsync(
-                    TestDatabase.WorkerAhmedId, TestDatabase.ChainStage1Id, 150, Today, confirmOverride: true);
+                var trackingService = _db.GetService<MonthlyPlanTrackingService>(scope);
+                await trackingService.SetDailyEntryAsync(TestDatabase.ProductChainId, Today, 150);
                 await _db.GetService<MonthlyPlanService>(scope).SetPlanAsync(TestDatabase.ProductChainId, Year, Month, 500);
-                await _db.GetService<MonthlyPlanTrackingService>(scope).SetCorrectionAsync(TestDatabase.ProductChainId, Today, 20);
+                await trackingService.SetCorrectionAsync(TestDatabase.ProductChainId, Today, 20);
             }
 
             var tracking = await _db.InScopeAsync<MonthlyPlanTrackingService,
@@ -58,7 +58,7 @@ namespace WorkforceManager.Tests
             Assert.Equal("الإجمالي العام", totalLabel);
             Assert.Equal(expectedPlan, totalPlan);
             Assert.Equal(expectedAchieved, totalAchieved);
-            Assert.True(expectedAchieved >= 170); // 150 محقق حقيقي + 20 تصليح، على الأقل (منتجات تانية ممكن تكون فيها نشاط من سييد تاني)
+            Assert.True(expectedAchieved >= 170); // 150 محقق يدوي + 20 تصليح، على الأقل (منتجات تانية ممكن تكون فيها نشاط من سييد تاني)
         }
 
         [Fact]

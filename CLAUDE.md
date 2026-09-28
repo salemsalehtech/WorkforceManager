@@ -3267,6 +3267,62 @@ Core  <----------------------- UI
   (two `DatePicker`s, a live workday-count preview computed the same way `CreatePeriodAsync` computes the
   stored value, just read-only-preview here — the real number is whatever the service persists).
 
+- **"المحقق" on the calendar "الخطة الشهرية" screen stopped being automatic — it's a manual, per-product,
+  per-day entry now (`MonthlyPlanDailyEntry`), not a read of real `DailyProduction` via
+  `DailyProductionReportService`.** A later prompt asked for this explicitly, confirmed with the user as
+  a genuine replacement (not an addition alongside the old automatic number): the user types today's
+  output for the plan themselves, with real production kept only as an optional reference — a one-time
+  "استخدم نفس الرقم الحقيقي" copy button and a non-blocking mismatch warning, never a live join and never
+  wired back into wages or the real production-entry flow. **`MonthlyPlanDailyEntry` (`ProductId`, `Date`,
+  `Quantity`, unique per pair) is a different shape from `MonthlyPlanCorrection` on purpose** — it's the
+  absolute number itself, not a signed delta on top of something else, so it's a new table, not a
+  repurposed one. `MonthlyPlanTrackingService.GetTrackingAsync`'s `AchievedToDate`/`TodayCompleted` now
+  come from a `GROUP BY`-summed range query over this table (`LoadDailyEntryTotalsAsync`, one query per
+  range instead of `DailyProductionReportService`'s per-day loop — cheaper than before, not more
+  expensive) instead of `DailyProductionReportService.GetForRangeAsync`; the `relevantProductIds` union
+  swapped "has real production activity" for "has a manual entry"; and `SameDayPreviousMonth` switched to
+  a manual-vs-manual comparison (previous month's `MonthlyPlanDailyEntry` sum) rather than real-vs-real —
+  comparing a manual number against a different month's *real* number would have been apples-to-oranges,
+  an explicit design decision made during planning, not an oversight. `MonthlyPlanExcelService`/
+  `HomeSummaryService` needed zero changes: both only ever consumed the DTO's already-named fields
+  (`EffectiveAchieved`, `CorrectionsToDate`, `ProRatedPlan`), which keep the same meaning ("the achieved
+  number the screen trusts") regardless of source.
+  **A new "الإنتاج اليومي" tab lives inside the same `MonthlyPlanView`** (the screen is a `TabControl` now
+  — "التخطيط" is the untouched original layout, "الإنتاج اليومي" is new) — always about real *today*
+  (`MonthlyPlanViewModel.TodayEntryDate = DateTime.Today`), completely independent of the "التخطيط" tab's
+  `SelectedYear`/`SelectedMonth` navigation, since it's framed as a daily checklist, not a historical
+  editor. `MonthlyPlanTrackingService.GetTodayEntryTabAsync(today)` is one bulk call for the whole
+  tab — today's entries, yesterday's entries, and real production for every product via a single
+  `DailyProductionReportService.GetAsync(today)` — deliberately no per-product query loop (an explicit
+  engineering-quality rule from the prompt). `MonthlyPlanTodayEntryRow.IsFilled` is set once from
+  `MonthlyPlanTodayEntryDto.IsFilled` (does a `MonthlyPlanDailyEntry` row exist for today, regardless of
+  its value — a saved zero still counts as filled) and drives both the ✓ mark and the "unfilled products
+  first" ordering (`MonthlyPlanViewModel.OrderTodayEntryRows`, a pure static method, tested directly in
+  `WorkforceManager.UiTests` without a ViewModel or database) — **never** derived from any real-production
+  state, confirmed by a test where a product with heavy real activity but no manual entry still sorts as
+  unfilled. `HasMismatchWarning` (`MonthlyPlanTodayEntryRow`) warns when the typed number differs from
+  `RealProductionToday` by more than 15%, or when real production is zero but the typed number isn't —
+  purely informational, never blocks `LostFocus` save. Both convenience buttons ("استخدم نفس الرقم
+  الحقيقي", "انسخ إنتاج أمبارح") set the text **and** save immediately (`SaveTodayEntryAsync`) rather than
+  just prefilling and waiting for a manual `LostFocus` — an explicit button click already means "use this
+  value," so committing it right away avoids a half-finished state if the user clicks away without
+  touching the field again. Enter advances focus to the next product's box
+  (`MoveFocus(FocusNavigationDirection.Next)`) alongside the existing Tab order, per the prompt's own
+  explicit request.
+  **تصليحات (`MonthlyPlanCorrection`) relocated to the existing "تسجيل الإنتاج اليومي" (Daily Entry)
+  screen — same table, same `MonthlyPlanTrackingService.SetCorrectionAsync` upsert, only where it's
+  typed changed.** Confirmed with the user as a straight move, not a new parallel concept (unlike the
+  `MonthlyPlanDailyEntry` table above, which genuinely is new). `FlowSessionViewModel` has no existing
+  `(ProductId, Date)` key of its own — it holds `SelectedProduct` + an injected `_getEntryDate()` delegate
+  — so the new `CorrectionText` field is looked up/saved by `(SelectedProduct.ProductId, EntryDate)`
+  directly, loaded in `ReloadAsync()` via the also-new `GetCorrectionAsync` single-row read, saved via a
+  new `SaveCorrectionAsync(quantity)` method on the session that calls `SetCorrectionAsync` — entirely
+  independent of `ProductionFlowService`/wages, sitting in the flow-session card header next to "كرّر يوم
+  فات". `MonthlyPlanView` keeps showing `CorrectionsToDate`/`CorrectionsSubtotal` — now **read-only**
+  (a plain `TextBlock`, the editable `TextBox` + its `LostFocus` handler + the ViewModel's own
+  `SaveCorrectionAsync` were all removed) — the screen still shows what corrections add up to, it just no
+  longer accepts them.
+
 - **Bulk family assignment on `ProductsView`** — after shipping product families, a real factory (17
   products, all "بدون عيلة") made classifying them one product at a time through the edit form clearly
   too slow. Considered an auto-suggest based on shared name prefixes (e.g. "كبشه X" appears on 7 products)

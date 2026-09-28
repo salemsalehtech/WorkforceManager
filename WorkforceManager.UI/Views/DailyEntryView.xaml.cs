@@ -65,6 +65,34 @@ namespace WorkforceManager.UI.Views
             return vm.FlowSessions.Count == 1 ? vm.FlowSessions[0] : null;
         }
 
+        /// <summary>
+        /// تصليحات الخطة الشهرية لهذا المنتج/اليوم — Upsert مستقل تمامًا
+        /// عن حفظ الرحلة، شوف FlowSessionViewModel.SaveCorrectionAsync.
+        /// </summary>
+        private async void CorrectionBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is not TextBox { Tag: FlowSessionViewModel session }) return;
+
+            if (!int.TryParse(session.CorrectionText, out var quantity))
+            {
+                session.CorrectionText = "0";
+                quantity = 0;
+            }
+            else
+            {
+                session.CorrectionText = quantity.ToString();
+            }
+
+            try
+            {
+                await session.SaveCorrectionAsync(quantity);
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "خطأ في حفظ التصليح");
+            }
+        }
+
         // ============ خانة البحث عن عامل في بطاقة المرحلة ============
         // الهدف: إدخال بالكيبورد من غير ما اليد تسيبه — تكتب حروف، تختار
         // بالسهمين، Enter يضيف والخانة تفضى للعامل اللي بعده.

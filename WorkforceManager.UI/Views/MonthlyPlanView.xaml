@@ -27,6 +27,8 @@
         </Style>
     </UserControl.Resources>
 
+    <TabControl>
+    <TabItem Header="التخطيط">
     <Grid Margin="14,10,14,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -292,14 +294,11 @@
                                                             <Run Text="توقّع نهاية الشهر:" /><Run Text="{Binding ForecastEndOfMonth, Mode=OneWay}" FontWeight="Bold"
                                                                 Foreground="{DynamicResource TextPrimaryBrush}" />
                                                         </TextBlock>
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,18,4">
-                                                            <TextBlock Text="تصليحات:" FontSize="11.5" VerticalAlignment="Center"
-                                                                       Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,6,0" />
-                                                            <TextBox Text="{Binding CorrectionText, UpdateSourceTrigger=PropertyChanged}"
-                                                                     Width="60" TextAlignment="Center" FontSize="11.5" Tag="{Binding}"
-                                                                     LostFocus="CorrectionBox_LostFocus"
-                                                                     ToolTip="تعديل يدوي على المحقق ليوم اللقطة المعروض — مش مشتق من أي رحلة إنتاج" />
-                                                        </StackPanel>
+                                                        <!-- عرض بس دلوقتي — الإدخال اتنقل لشاشة تسجيل الإنتاج اليومي، شوف CLAUDE.md -->
+                                                        <TextBlock FontSize="11.5" Margin="0,0,18,4" Foreground="{DynamicResource TextMutedBrush}">
+                                                            <Run Text="تصليحات:" /><Run Text="{Binding CorrectionText, Mode=OneWay}" FontWeight="Bold"
+                                                                Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                        </TextBlock>
 
                                                         <!-- الخطة اليومية: هدف يومي يدوي بيحدده المستخدم بنفسه، مختلف عن
                                                              "المطلوب النهارده" المحسوب فوق (اللي بيتغيّر كل ما الأيام تنقص) -->
@@ -339,4 +338,102 @@
             </ItemsControl>
         </ScrollViewer>
     </Grid>
+    </TabItem>
+
+    <!-- ═══════════ تبويب "الإنتاج اليومي" — إدخال يدوي صرف، بديل المحقق
+         التلقائي، شوف CLAUDE.md. دايمًا عن النهارده الحقيقي، مستقل عن
+         تنقّل الشهر/السنة فوق. غير المُدخل يطلع فوق، والمُدخل بعلامة ✓. ═══════════ -->
+    <TabItem Header="الإنتاج اليومي">
+        <Grid Margin="14,10,14,10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Margin="2,0,0,12" Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5">
+                <Run Text="إدخال يدوي لإنتاج كل منتج النهارده — رقم مستقل تمامًا عن الأجور ورحلة الإنتاج" />
+                <Run Text="{Binding TodayEntryDate, Mode=OneWay, StringFormat='({0:yyyy/MM/dd})'}" />
+            </TextBlock>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding TodayEntryRows}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:MonthlyPlanTodayEntryRow}">
+                            <Border Margin="0,0,0,8" Padding="14,11">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsFilled}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource GoodBgBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" MinWidth="140" />
+                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <DockPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <materialDesign:PackIcon DockPanel.Dock="Right" Kind="CheckCircle" Width="16" Height="16"
+                                                                     Margin="0,0,6,0" VerticalAlignment="Center"
+                                                                     Foreground="{DynamicResource GoodBrush}"
+                                                                     ToolTip="اتسجل النهارده"
+                                                                     Visibility="{Binding IsFilled, Converter={StaticResource BoolToVis}}" />
+                                            <TextBlock Text="{Binding ProductName}" VerticalAlignment="Center" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        </DockPanel>
+
+                                        <TextBox Name="TodayQuantityBox" Grid.Column="1"
+                                                 Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
+                                                 Width="80" TextAlignment="Center" Tag="{Binding}"
+                                                 LostFocus="TodayQuantityBox_LostFocus" KeyDown="TodayQuantityBox_KeyDown"
+                                                 ToolTip="إنتاج المنتج ده النهارده" />
+
+                                        <Button Grid.Column="2" Style="{StaticResource GhostButton}" Padding="8,5" Margin="8,0,0,0"
+                                                Command="{Binding DataContext.UseRealProductionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="{Binding RealProductionTooltip}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="ContentCopy" Width="13" Height="13" VerticalAlignment="Center" />
+                                                <TextBlock Text="استخدم نفس الرقم الحقيقي" FontSize="11" Margin="4,0,0,0" />
+                                            </StackPanel>
+                                        </Button>
+
+                                        <Button Grid.Column="3" Style="{StaticResource GhostButton}" Padding="8,5" Margin="8,0,0,0"
+                                                Command="{Binding DataContext.CopyYesterdayCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="{Binding YesterdayTooltip}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="ArrowLeftBottom" Width="13" Height="13" VerticalAlignment="Center" />
+                                                <TextBlock Text="انسخ إنتاج أمبارح" FontSize="11" Margin="4,0,0,0" />
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- تحذير اختلاف غير مانع — الحفظ بيكمل عادي حتى لو التحذير ظاهر -->
+                                    <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="{DynamicResource RadiusSmall}"
+                                            Padding="8,5" Margin="0,8,0,0"
+                                            Visibility="{Binding HasMismatchWarning, Converter={StaticResource BoolToVis}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="AlertOutline" Width="14" Height="14" VerticalAlignment="Center"
+                                                                     Foreground="{DynamicResource WarnBrush}" />
+                                            <TextBlock Text="الرقم مختلف عن المسجل في تسجيل الإنتاج اليومي، متأكد؟" FontSize="11.5"
+                                                       Margin="6,0,0,0" Foreground="{DynamicResource WarnBrush}" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </TabItem>
+    </TabControl>
 </UserControl>

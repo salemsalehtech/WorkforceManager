@@ -2,13 +2,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using WorkforceManager.UI.ViewModels;
 
 namespace WorkforceManager.UI.Views
 {
     /// <summary>
-    /// شاشة "الخطة الشهرية" — الحفظ عند فقدان تركيز خانة الكمية/التصليح
-    /// (نفس نمط WorkerOrderDialog)، مفيش زرار "حفظ" عام.
+    /// شاشة "الخطة الشهرية" — الحفظ عند فقدان تركيز خانة الكمية/الخطة
+    /// اليومية (نفس نمط WorkerOrderDialog)، مفيش زرار "حفظ" عام. تصليحات
+    /// بقت للعرض بس هنا — إدخالها اتنقل لشاشة تسجيل الإنتاج اليومي، شوف CLAUDE.md.
     /// </summary>
     public partial class MonthlyPlanView : UserControl
     {
@@ -28,6 +30,7 @@ namespace WorkforceManager.UI.Views
             Loaded += async (_, _) =>
             {
                 await viewModel.LoadAsync();
+                await viewModel.LoadTodayEntryTabAsync();
                 _loadedTcs.TrySetResult();
             };
         }
@@ -89,32 +92,6 @@ namespace WorkforceManager.UI.Views
             }
         }
 
-        private async void CorrectionBox_LostFocus(object sender, RoutedEventArgs e)
-        {
-            if (sender is not TextBox { Tag: MonthlyPlanProductRow row }) return;
-
-            if (!int.TryParse(row.CorrectionText, out var quantity))
-            {
-                row.CorrectionText = "0";
-                quantity = 0;
-            }
-            else
-            {
-                row.CorrectionText = quantity.ToString();
-            }
-
-            try
-            {
-                await _viewModel.SaveCorrectionAsync(row.ProductId, quantity);
-                // التصليح بيأثر على المحقق الفعلي والنسبة والمطلوب يوميًا — إعادة تحميل كاملة برضه
-                await _viewModel.LoadAsync();
-            }
-            catch (Exception ex)
-            {
-                Notify.Warn(ex.Message, "خطأ في حفظ التصليح");
-            }
-        }
-
         /// <summary>
         /// "الخطة اليومية" — هدف يومي يدوي، اختياري. عكس الكمية/التصليح،
         /// نص فاضي هنا معناه "مفيش هدف" (null)، مش صفر — فمفيش تطبيع لصفر
@@ -157,6 +134,40 @@ namespace WorkforceManager.UI.Views
             if (sender is not DatePicker { SelectedDate: { } date }) return;
             _viewModel.AsOfDate = date;
             await _viewModel.LoadAsync();
+        }
+
+        // ═══════════ تبويب "الإنتاج اليومي" ═══════════
+
+        private async void TodayQuantityBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (sender is not TextBox { Tag: MonthlyPlanTodayEntryRow row }) return;
+
+            if (!int.TryParse(row.QuantityText, out var quantity) || quantity < 0)
+            {
+                row.QuantityText = "0";
+                quantity = 0;
+            }
+            else
+            {
+                row.QuantityText = quantity.ToString();
+            }
+
+            try
+            {
+                await _viewModel.SaveTodayEntryAsync(row.ProductId, quantity);
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "خطأ في حفظ الإنتاج اليومي");
+            }
+        }
+
+        /// <summary>Enter = انتقل لخانة المنتج اللي بعده (زيادة على Tab)، نفس طلب المستخدم</summary>
+        private void TodayQuantityBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter || sender is not UIElement element) return;
+            element.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+            e.Handled = true;
         }
     }
 }

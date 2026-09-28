@@ -37,6 +37,7 @@ namespace WorkforceManager.Data
         public DbSet<ProductFamily> ProductFamilies => Set<ProductFamily>();
         public DbSet<MonthlyPlan> MonthlyPlans => Set<MonthlyPlan>();
         public DbSet<MonthlyPlanCorrection> MonthlyPlanCorrections => Set<MonthlyPlanCorrection>();
+        public DbSet<MonthlyPlanDailyEntry> MonthlyPlanDailyEntries => Set<MonthlyPlanDailyEntry>();
         public DbSet<MonthlyWorkCalendarHoliday> MonthlyWorkCalendarHolidays => Set<MonthlyWorkCalendarHoliday>();
         public DbSet<PlanPeriod> PlanPeriods => Set<PlanPeriod>();
         public DbSet<PlanPeriodTarget> PlanPeriodTargets => Set<PlanPeriodTarget>();
@@ -273,6 +274,22 @@ namespace WorkforceManager.Data
             modelBuilder.Entity<MonthlyPlanCorrection>()
                 .HasIndex(c => new { c.ProductId, c.Date })
                 .IsUnique();
+
+            // ---------- الإنتاج اليومي (إدخال يدوي، بديل المحقق التلقائي) ----------
+            modelBuilder.Entity<MonthlyPlanDailyEntry>()
+                .HasOne(e => e.Product)
+                .WithMany()
+                .HasForeignKey(e => e.ProductId)
+                .OnDelete(DeleteBehavior.Cascade); // إدخال منتج محذوف مالهوش معنى يفضل قايم
+
+            // مرة واحدة بس لكل منتج لكل يوم — نفس قاعدة MonthlyPlanCorrection
+            modelBuilder.Entity<MonthlyPlanDailyEntry>()
+                .HasIndex(e => new { e.ProductId, e.Date })
+                .IsUnique();
+
+            modelBuilder.Entity<MonthlyPlanDailyEntry>()
+                .ToTable(t => t.HasCheckConstraint(
+                    "CK_MonthlyPlanDailyEntry_Quantity_NonNegative", "Quantity >= 0"));
 
             // ---------- عطلة يدوية إضافية (تقويم أيام الشغل) ----------
             modelBuilder.Entity<MonthlyWorkCalendarHoliday>()

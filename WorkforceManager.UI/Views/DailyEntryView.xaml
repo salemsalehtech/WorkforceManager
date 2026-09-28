@@ -209,6 +209,19 @@
 
                                                 <!-- إنشاء رصيد أولي اتنقل لتبويب "الرصيد الأولي" -->
 
+                                                <!-- تصليحات الخطة الشهرية لهذا المنتج/اليوم — مستقلة تمامًا عن
+                                                     رحلة الإنتاج والأجور (MonthlyPlanCorrection عبر
+                                                     MonthlyPlanTrackingService)، شوف CLAUDE.md -->
+                                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="10,0,0,0"
+                                                            VerticalAlignment="Center">
+                                                    <TextBlock Text="تصليحات:" FontSize="12" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,6,0" />
+                                                    <TextBox Text="{Binding CorrectionText, UpdateSourceTrigger=PropertyChanged}"
+                                                             Width="60" TextAlignment="Center" FontSize="12" Tag="{Binding}"
+                                                             LostFocus="CorrectionBox_LostFocus"
+                                                             ToolTip="تعديل يدوي على محقق الخطة الشهرية لهذا المنتج في هذا اليوم — مستقل عن الرحلة والأجور" />
+                                                </StackPanel>
+
                                                 <!-- عدّاد الجاهزية: كام مرحلة تمام من اللي داخلة النهارده -->
                                                 <Border DockPanel.Dock="Left" CornerRadius="8" Padding="10,5" Margin="10,0,0,0"
                                                         VerticalAlignment="Center">

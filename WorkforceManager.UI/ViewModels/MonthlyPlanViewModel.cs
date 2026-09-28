@@ -232,13 +232,10 @@ namespace WorkforceManager.UI.ViewModels
                 .SetDailyTargetAsync(productId, SelectedYear, SelectedMonth, dailyTarget);
         }
 
-        /// <summary>تصليح — دايمًا على يوم AsOfDate المعروض، مش النهارده الحقيقي بالضرورة (لقطة يوم فات)</summary>
-        public async Task SaveCorrectionAsync(int productId, int quantity)
-        {
-            using var scope = _scopeFactory.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
-                .SetCorrectionAsync(productId, AsOfDate, quantity);
-        }
+        // SaveCorrectionAsync اتشالت من هنا — إدخال التصليحات اتنقل لشاشة
+        // تسجيل الإنتاج اليومي (FlowSessionViewModel.SaveCorrectionAsync)،
+        // شوف CLAUDE.md. الشاشة دي لسه بتعرض CorrectionsToDate/CorrectionsSubtotal
+        // للقراءة بس.
 
         /// <summary>
         /// "انسخ خطة الشهر اللي فات" — بيسأل تأكيد بس لو الشهر ده فيه صفوف
@@ -285,6 +282,54 @@ namespace WorkforceManager.UI.ViewModels
                     scope.ServiceProvider.GetRequiredService<MonthlyPlanExcelService>()
                         .Export(tracking, $"{MonthLabel} — لحد {AsOfDate:yyyy/MM/dd}", filePath);
                 });
+        }
+
+        // ═══════════ تبويب "الإنتاج اليومي" (إدخال يدوي، بديل المحقق
+        // التلقائي) — دايمًا عن النهارده الحقيقي، مستقل عن SelectedYear/
+        // SelectedMonth فوق. شوف CLAUDE.md. ═══════════
+
+        public DateTime TodayEntryDate { get; } = DateTime.Today;
+
+        public ObservableCollection<MonthlyPlanTodayEntryRow> TodayEntryRows { get; } = new();
+
+        /// <summary>غير المُدخل يطلع فوق (قاعدة هندسية صريحة من الطلب) — بمعزل تام عن أي حالة إنتاج حقيقي</summary>
+        public static List<MonthlyPlanTodayEntryRow> OrderTodayEntryRows(IEnumerable<MonthlyPlanTodayEntryRow> rows) =>
+            rows.OrderBy(r => r.IsFilled).ThenBy(r => r.ProductName).ToList();
+
+        public async Task LoadTodayEntryTabAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var dtos = await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
+                .GetTodayEntryTabAsync(TodayEntryDate);
+
+            TodayEntryRows.Clear();
+            foreach (var row in OrderTodayEntryRows(dtos.Select(MonthlyPlanTodayEntryRow.FromDto)))
+                TodayEntryRows.Add(row);
+        }
+
+        public async Task SaveTodayEntryAsync(int productId, int quantity)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
+                .SetDailyEntryAsync(productId, TodayEntryDate, quantity);
+
+            await LoadTodayEntryTabAsync();
+        }
+
+        /// <summary>"استخدم نفس الرقم الحقيقي" — نسخة مرة واحدة وقت الضغط، مش ربط حي، وبتتحفظ فورًا</summary>
+        [RelayCommand]
+        private async Task UseRealProductionAsync(MonthlyPlanTodayEntryRow row)
+        {
+            row.QuantityText = row.RealProductionToday.ToString();
+            await SaveTodayEntryAsync(row.ProductId, row.RealProductionToday);
+        }
+
+        /// <summary>"انسخ إنتاج أمبارح" — نفس فكرة الزرار فوق، من قيمة أمبارح المُدخلة يدويًا</summary>
+        [RelayCommand]
+        private async Task CopyYesterdayAsync(MonthlyPlanTodayEntryRow row)
+        {
+            row.QuantityText = row.YesterdayQuantity.ToString();
+            await SaveTodayEntryAsync(row.ProductId, row.YesterdayQuantity);
         }
     }
 }
