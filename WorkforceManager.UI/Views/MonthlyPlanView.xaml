@@ -35,11 +35,24 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- وضع القراءة فقط — الشهر ده فات (البند 7)، تمييز بصري واضح -->
+        <Border Grid.Row="0" Background="{DynamicResource WarnBgBrush}" CornerRadius="{DynamicResource RadiusSmall}"
+                Padding="12,8" Margin="0,0,0,10" VerticalAlignment="Top"
+                Visibility="{Binding IsPastPeriod, Converter={StaticResource BoolToVis}}">
+            <DockPanel>
+                <materialDesign:PackIcon DockPanel.Dock="Right" Kind="LockOutline" Width="18" Height="18"
+                                         VerticalAlignment="Center" Foreground="{DynamicResource WarnBrush}" />
+                <TextBlock Margin="0,0,10,0" Foreground="{DynamicResource WarnBrush}" FontWeight="Bold"
+                           Text="وضع القراءة فقط — الفترة دي خلصت، مش قابلة للتعديل" />
+            </DockPanel>
+        </Border>
+
         <!-- ═══════════ 1. الشريط العلوي ═══════════ -->
-        <WrapPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,8">
                 <Button Command="{Binding PreviousMonthCommand}" Style="{StaticResource IconButton}" Padding="8">
                     <materialDesign:PackIcon Kind="ChevronRight" Width="18" Height="18" />
@@ -52,6 +65,19 @@
                 </Button>
             </StackPanel>
 
+            <!-- الأيام المتبقية — بارزة هنا عن قصد (البند 6)، لأنها بتقود المطلوب اليومي والتوقّع -->
+            <Border Background="{DynamicResource GoldTintBrush}" CornerRadius="{DynamicResource RadiusSmall}"
+                    Padding="12,7" Margin="0,0,16,8" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="CalendarClockOutline" Width="16" Height="16" VerticalAlignment="Center"
+                                             Foreground="{DynamicResource GoldDeepBrush}" />
+                    <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold" Foreground="{DynamicResource GoldDeepBrush}">
+                        <Run Text="{Binding RemainingWorkdays, Mode=OneWay}" /><Run Text=" يوم شغل متبقي من" />
+                        <Run Text="{Binding TotalWorkdays, Mode=OneWay}" />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
             <!-- لقطة يوم معيّن (البند 9) — التتبّع كله بيتحسب لحد التاريخ ده -->
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,8">
                 <TextBlock Text="لحد يوم:" VerticalAlignment="Center" Margin="0,0,8,0"
@@ -60,7 +86,13 @@
                             SelectedDateChanged="AsOfDatePicker_SelectedDateChanged" Width="130" />
             </StackPanel>
 
+            <!-- آخر تحديث للمحقق — عشان الأرقام تقرا "حية" مش قديمة -->
+            <TextBlock Text="{Binding LastUpdatedText}" VerticalAlignment="Center" Margin="0,0,16,8"
+                       FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}"
+                       Visibility="{Binding HasLastUpdated, Converter={StaticResource BoolToVis}}" />
+
             <Button Command="{Binding CopyFromPreviousMonthCommand}" Style="{StaticResource GhostButton}"
+                    IsEnabled="{Binding IsEditable}"
                     VerticalAlignment="Center" Padding="14,9" Margin="0,0,16,8">
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="ContentCopy" Width="15" Height="15" VerticalAlignment="Center" />
@@ -81,10 +113,55 @@
                     <TextBlock Text="تصدير إكسل" Margin="6,0,0,0" />
                 </StackPanel>
             </Button>
+
+            <!-- كجم/طن — عرض بس، الأرقام المخزّنة ثابتة (البند 3) -->
+            <Button Command="{Binding ToggleWeightUnitCommand}" Style="{StaticResource GhostButton}"
+                    VerticalAlignment="Center" Padding="14,9" Margin="0,0,16,8"
+                    ToolTip="بدّل وحدة عرض الوزن بين كجم وطن">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="ScaleBalance" Width="15" Height="15" VerticalAlignment="Center" />
+                    <TextBlock Margin="6,0,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="اعرض بالطن" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowWeightInTons}" Value="True">
+                                        <Setter Property="Text" Value="اعرض بالكجم" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Button>
+
+            <!-- لقطة نهاية اليوم (البند 4) — حفظ + قايمة بس -->
+            <Button Command="{Binding SaveSnapshotCommand}" Style="{StaticResource GhostButton}"
+                    VerticalAlignment="Center" Padding="14,9" Margin="0,0,16,8"
+                    ToolTip="يحفظ حالة المحقق دلوقتي عشان ترجعله بعدين">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="CameraOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                    <TextBlock Text="لقطة نهاية اليوم" Margin="6,0,0,0" />
+                </StackPanel>
+            </Button>
+
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,8"
+                        Visibility="{Binding HasSnapshots, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="اللقطات المحفوظة:" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5" />
+                <ComboBox x:Name="SnapshotCombo" ItemsSource="{Binding SnapshotTimestamps}"
+                          SelectionChanged="SnapshotCombo_SelectionChanged" Width="140">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding StringFormat='yyyy/MM/dd HH:mm'}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
         </WrapPanel>
 
         <!-- ═══════════ 2. شريط الملخص ═══════════ -->
-        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+        <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10">
             <Border Style="{StaticResource StatusPill}" Background="{DynamicResource GoodTintBrush}" Margin="0,0,8,0">
                 <TextBlock FontWeight="Bold" Foreground="{DynamicResource GoodBrush}">
                     <Run Text="{Binding OnTrackCount, Mode=OneWay}" /><Run Text=" ماشي صح" />
@@ -118,7 +195,7 @@
         </WrapPanel>
 
         <!-- ═══════════ 3. تنبيه لطيف — عيلة واطية عن الإيقاع (البند 6) ═══════════ -->
-        <Border Grid.Row="2" Background="{DynamicResource DangerTintBrush}" CornerRadius="{DynamicResource RadiusSmall}"
+        <Border Grid.Row="3" Background="{DynamicResource DangerTintBrush}" CornerRadius="{DynamicResource RadiusSmall}"
                 Padding="12,8" Margin="0,0,0,10"
                 Visibility="{Binding HasBelowThresholdFamilies, Converter={StaticResource BoolToVis}}">
             <DockPanel>
@@ -130,7 +207,7 @@
         </Border>
 
         <!-- ═══════════ 4. أولوياتي النهاردة (البند 10) ═══════════ -->
-        <StackPanel Grid.Row="3" Margin="0,0,0,10"
+        <StackPanel Grid.Row="4" Margin="0,0,0,10"
                     Visibility="{Binding HasPriorities, Converter={StaticResource BoolToVis}}">
             <TextBlock Text="أولوياتي النهاردة" Style="{StaticResource SectionTitle}" Margin="2,0,0,8" />
             <ItemsControl ItemsSource="{Binding TodaysPriorities}">
@@ -155,7 +232,38 @@
         </StackPanel>
 
         <!-- ═══════════ 5. الجدول الرئيسي — مادة فوق عيلة، زي شيت المصنع الأصلي ═══════════ -->
-        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer Grid.Row="5" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel>
+            <!-- منتجات خارج الخطة — قسم مستقل، مفيش نسبة/بار تقدم (مفيش خطة تتقاس بيها) -->
+            <Border Style="{StaticResource Card}" Padding="14" Margin="0,0,0,14"
+                    Background="{DynamicResource GoldTintBrush}" BorderBrush="{DynamicResource GoldDeepBrush}"
+                    Visibility="{Binding HasOutsidePlanProducts, Converter={StaticResource BoolToVis}}">
+                <StackPanel>
+                    <TextBlock Text="منتجات خارج الخطة" Style="{StaticResource SectionTitle}" Margin="0,0,0,4" />
+                    <TextBlock Text="عندها إنتاج مسجّل الشهر ده، بس مفيش خطة متسجّلة لها" FontSize="11.5"
+                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,10" />
+                    <ItemsControl ItemsSource="{Binding OutsidePlanProducts}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:MonthlyPlanProductRow}">
+                                <Border Style="{StaticResource Card}" Margin="0,0,0,8" Padding="14,11">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Left" Text="{Binding EffectiveAchieved, Mode=OneWay, StringFormat='محقق: {0:N0}'}"
+                                                   FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Padding="3" Margin="0,0,8,0"
+                                                Click="OpenProductPage_Click" Tag="{Binding ProductId}" ToolTip="افتح صفحة المنتج">
+                                            <materialDesign:PackIcon Kind="OpenInNew" Width="13" Height="13"
+                                                                     Foreground="{DynamicResource TextMutedBrush}" />
+                                        </Button>
+                                        <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
             <ItemsControl ItemsSource="{Binding MaterialGroups}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:MonthlyPlanMaterialGroupRow}">
@@ -169,11 +277,17 @@
                                             <Run Text="محقق" /><Run Text="{Binding AchievedSubtotal, Mode=OneWay, StringFormat=N0}" />
                                             <Run Text="من خطة" /><Run Text="{Binding Subtotal, Mode=OneWay, StringFormat=N0}" />
                                         </TextBlock>
-                                        <TextBlock FontSize="12.5" Margin="14,0,0,0" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource TextMutedBrush}"
-                                                   Visibility="{Binding HasWeight, Converter={StaticResource BoolToVis}}">
-                                            <Run Text="إجمالي الوزن" /><Run Text="{Binding TotalWeightKg, Mode=OneWay, StringFormat='{}{0:N1} كجم'}" />
-                                        </TextBlock>
+                                        <StackPanel Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center"
+                                                    Visibility="{Binding HasWeight, Converter={StaticResource BoolToVis}}">
+                                            <TextBlock FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}"
+                                                       Visibility="{Binding DataContext.ShowWeightInTons, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InverseBoolToVis}}">
+                                                <Run Text="إجمالي الوزن" /><Run Text="{Binding TotalWeightKg, Mode=OneWay, StringFormat='{}{0:N1} كجم'}" />
+                                            </TextBlock>
+                                            <TextBlock FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}"
+                                                       Visibility="{Binding DataContext.ShowWeightInTons, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                                                <Run Text="إجمالي الوزن" /><Run Text="{Binding TotalWeightTons, Mode=OneWay, StringFormat='{}{0:N2} طن'}" />
+                                            </TextBlock>
+                                        </StackPanel>
                                     </StackPanel>
                                     <TextBlock Text="{Binding HeaderText}" FontSize="{DynamicResource FontLarge}" FontWeight="Bold"
                                                Foreground="{DynamicResource TextPrimaryBrush}" />
@@ -190,10 +304,22 @@
                                                             <Run Text="— محقق" /><Run Text="{Binding AchievedSubtotal, Mode=OneWay, StringFormat=N0}" />
                                                             <Run Text="من خطة" /><Run Text="{Binding Subtotal, Mode=OneWay, StringFormat=N0}" />
                                                         </TextBlock>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,14,0" VerticalAlignment="Center"
+                                                                    Visibility="{Binding HasWeight, Converter={StaticResource BoolToVis}}">
+                                                            <TextBlock FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}"
+                                                                       Visibility="{Binding DataContext.ShowWeightInTons, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InverseBoolToVis}}">
+                                                                <Run Text="وزن" /><Run Text="{Binding TotalWeightKg, Mode=OneWay, StringFormat='{}{0:N1} كجم'}" />
+                                                            </TextBlock>
+                                                            <TextBlock FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}"
+                                                                       Visibility="{Binding DataContext.ShowWeightInTons, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                                                                <Run Text="وزن" /><Run Text="{Binding TotalWeightTons, Mode=OneWay, StringFormat='{}{0:N2} طن'}" />
+                                                            </TextBlock>
+                                                        </StackPanel>
                                                         <TextBlock FontSize="11.5" Margin="0,0,14,0" VerticalAlignment="Center"
                                                                    Foreground="{DynamicResource TextMutedBrush}"
-                                                                   Visibility="{Binding HasWeight, Converter={StaticResource BoolToVis}}">
-                                                            <Run Text="وزن" /><Run Text="{Binding TotalWeightKg, Mode=OneWay, StringFormat='{}{0:N1} كجم'}" />
+                                                                   Visibility="{Binding HasRequiredDailyOutputForFamily, Converter={StaticResource BoolToVis}}">
+                                                            <Run Text="مطلوب يوميًا للعيلة:" /><Run Text="{Binding RequiredDailyOutputForFamily, Mode=OneWay}" FontWeight="Bold"
+                                                                Foreground="{DynamicResource TextPrimaryBrush}" />
                                                         </TextBlock>
                                                         <TextBlock FontSize="11.5" Margin="0,0,14,0" VerticalAlignment="Center"
                                                                    Visibility="{Binding HasCorrections, Converter={StaticResource BoolToVis}}">
@@ -252,12 +378,20 @@
                                                                                      Foreground="{DynamicResource WarnBrush}"
                                                                                      ToolTip="ناقصه وزن القطعة أو المادة"
                                                                                      Visibility="{Binding IsComplete, Converter={StaticResource InverseBoolToVis}}" />
+                                                            <!-- رابط سريع لصفحة المنتج نفسه (البند 11) -->
+                                                            <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Padding="3"
+                                                                    Margin="0,0,4,0" Click="OpenProductPage_Click" Tag="{Binding ProductId}"
+                                                                    ToolTip="افتح صفحة المنتج">
+                                                                <materialDesign:PackIcon Kind="OpenInNew" Width="13" Height="13"
+                                                                                         Foreground="{DynamicResource TextMutedBrush}" />
+                                                            </Button>
                                                             <TextBlock Text="{Binding ProductName}" VerticalAlignment="Center" FontWeight="SemiBold"
                                                                        TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}" />
                                                         </DockPanel>
 
                                                         <TextBox Name="QuantityBox" Grid.Column="1" Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
                                                                  Width="80" TextAlignment="Center" Tag="{Binding}"
+                                                                 IsEnabled="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                  LostFocus="QuantityBox_LostFocus" ToolTip="الكمية المخططة" />
 
                                                         <!-- بار التقدم الملوّن (البند 1) — Behind/OnTrack/Ahead، بدل رقم عاري.
@@ -307,6 +441,7 @@
                                                                        Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,6,0" />
                                                             <TextBox Text="{Binding DailyTargetText, UpdateSourceTrigger=PropertyChanged}"
                                                                      Width="60" TextAlignment="Center" FontSize="11.5" Tag="{Binding}"
+                                                                     IsEnabled="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                      LostFocus="DailyTargetBox_LostFocus"
                                                                      ToolTip="هدف يومي يدوي — سايبه فاضي يعني مفيش هدف محدد لهذا المنتج" />
                                                         </StackPanel>
@@ -316,11 +451,25 @@
                                                             <TextBlock Text="إنتاج خارج الخطة" FontSize="10.5" FontWeight="Bold"
                                                                        Foreground="{DynamicResource GoldDeepBrush}" />
                                                         </Border>
-                                                        <TextBlock FontSize="11.5" Margin="0,0,18,4" Foreground="{DynamicResource TextMutedBrush}"
-                                                                   Visibility="{Binding HasWeight, Converter={StaticResource BoolToVis}}">
-                                                            <Run Text="الوزن:" /><Run Text="{Binding TotalWeightKg, Mode=OneWay, StringFormat='{}{0:N2} كجم'}" FontWeight="Bold"
-                                                                Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                        </TextBlock>
+                                                        <!-- وصل لخطة الفترة كاملة قبل نهايتها — تنبيه إيجابي، مش "ماشي صح" العادية (البند 5) -->
+                                                        <Border Background="{DynamicResource GoodTintBrush}" CornerRadius="8" Padding="7,1" Margin="0,0,0,4"
+                                                                Visibility="{Binding HasReachedTarget, Converter={StaticResource BoolToVis}}">
+                                                            <TextBlock Text="🎯 وصل للهدف بدري" FontSize="10.5" FontWeight="Bold"
+                                                                       Foreground="{DynamicResource GoodBrush}" />
+                                                        </Border>
+                                                        <StackPanel Orientation="Horizontal" Margin="0,0,18,4"
+                                                                    Visibility="{Binding HasWeight, Converter={StaticResource BoolToVis}}">
+                                                            <TextBlock FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}"
+                                                                       Visibility="{Binding DataContext.ShowWeightInTons, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource InverseBoolToVis}}">
+                                                                <Run Text="الوزن:" /><Run Text="{Binding TotalWeightKg, Mode=OneWay, StringFormat='{}{0:N2} كجم'}" FontWeight="Bold"
+                                                                    Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                            </TextBlock>
+                                                            <TextBlock FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}"
+                                                                       Visibility="{Binding DataContext.ShowWeightInTons, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                                                                <Run Text="الوزن:" /><Run Text="{Binding TotalWeightTons, Mode=OneWay, StringFormat='{}{0:N3} طن'}" FontWeight="Bold"
+                                                                    Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                            </TextBlock>
+                                                        </StackPanel>
                                                     </WrapPanel>
                                                 </StackPanel>
                                             </Border>
@@ -336,6 +485,7 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+        </StackPanel>
         </ScrollViewer>
     </Grid>
     </TabItem>

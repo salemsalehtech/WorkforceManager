@@ -814,6 +814,22 @@ namespace WorkforceManager.UI
         }
 
         /// <summary>
+        /// الاتجاه العكسي: من صف منتج في الخطة الشهرية ← صفحة المنتج نفسه في
+        /// شاشة المنتجات — بالـID زي OpenProductReportAsync/OpenMonthlyPlanForProductAsync
+        /// بالظبط، مش بالاسم زي LandOnProduct (شوف MainWindow.GlobalSearch.cs).
+        /// </summary>
+        public async Task OpenProductDetailAsync(int productId)
+        {
+            if (MainContent is null) return;
+
+            NavProductsItem.IsChecked = true;
+            if (MainContent.Content is not ProductsView view) return;
+
+            await view.WhenLoaded;
+            view.ShowProductDetail(productId);
+        }
+
+        /// <summary>
         /// Escape يقفل الجولة لو شغّالة (بيتحقق من الظهور هنا عشان مايتصادمش
         /// مع أي استخدام تاني لـEscape في البرنامج)، وCtrl+K بيفتح "بحث سريع"
         /// من أي مكان — بديل لدوسة الماوس على الزرار، نفس فكرة أي اختصار

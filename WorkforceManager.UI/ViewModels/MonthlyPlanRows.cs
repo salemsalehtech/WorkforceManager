@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using WorkforceManager.Business.DTOs;
+using WorkforceManager.Business.Services;
 
 namespace WorkforceManager.UI.ViewModels
 {
@@ -50,7 +51,11 @@ namespace WorkforceManager.UI.ViewModels
         public decimal? TotalWeightGrams { get; set; }
 
         public decimal? TotalWeightKg => TotalWeightGrams / 1000m;
+        public decimal? TotalWeightTons => TotalWeightGrams / 1_000_000m;
         public bool HasWeight => TotalWeightGrams is not null;
+
+        /// <summary>وصل لخطة الفترة كاملة قبل ما الفترة تخلص — نسخة عرض من MonthlyPlanTrackingDto.HasReachedTarget</summary>
+        public bool HasReachedTarget { get; set; }
 
         [ObservableProperty] private string _correctionText = "0";
         public int Correction => int.TryParse(CorrectionText, out var c) ? c : 0;
@@ -74,9 +79,16 @@ namespace WorkforceManager.UI.ViewModels
 
         public string PercentText => AchievedPercent is { } p ? $"{p:P0}" : "—";
 
-        public string ComparisonText => SameDayPreviousMonth is { } prev && prev > 0
-            ? EffectiveAchieved >= prev ? $"▲ {(EffectiveAchieved - prev) * 100 / prev}%" : $"▼ {(prev - EffectiveAchieved) * 100 / prev}%"
-            : "";
+        /// <summary>نفس مقارن النسبة المستخدم في باقي البرنامج (ReportBuilderService.PercentChange) — مفيش حساب تاني هنا</summary>
+        public string ComparisonText
+        {
+            get
+            {
+                var change = ReportBuilderService.PercentChange(EffectiveAchieved, SameDayPreviousMonth);
+                if (change is null) return "";
+                return change >= 0 ? $"▲ {change:0.#}%" : $"▼ {Math.Abs(change.Value):0.#}%";
+            }
+        }
 
         public bool HasComparison => !string.IsNullOrEmpty(ComparisonText);
 
@@ -93,10 +105,26 @@ namespace WorkforceManager.UI.ViewModels
         public string HeaderText { get; init; } = "";
         public List<MonthlyPlanProductRow> Products { get; init; } = new();
 
+        /// <summary>أيام الشغل المتبقية للفترة — نفس رقم الفترة كله، لازم لحساب RequiredDailyOutputForFamily</summary>
+        public int RemainingWorkdays { get; init; }
+
         /// <summary>مجموع خطط منتجاتها — للقراءة بس</summary>
         public int Subtotal => Products.Sum(p => p.Quantity);
 
         public int AchievedSubtotal => Products.Sum(p => p.EffectiveAchieved);
+
+        /// <summary>
+        /// الإنتاج اليومي المطلوب على مستوى العيلة كلها — صيغة واحدة محسوبة
+        /// مباشرة على إجمالي العيلة (Subtotal - AchievedSubtotal) ÷ الأيام
+        /// المتبقية، مش مجموع أرقام منتجات مقرّبة كل واحدة لوحدها (ده بالظبط
+        /// الفرق عن باگ الشيت القديم في تقريب/توزيع الصيغة). null لو مفيش
+        /// أيام متبقية.
+        /// </summary>
+        public int? RequiredDailyOutputForFamily => RemainingWorkdays > 0
+            ? (int)Math.Max(0, Math.Ceiling((Subtotal - AchievedSubtotal) / (decimal)RemainingWorkdays))
+            : null;
+
+        public bool HasRequiredDailyOutputForFamily => RequiredDailyOutputForFamily is not null;
 
         /// <summary>متوسط نسبة المحقق عبر منتجات العيلة اللي ليها خطة فعلية — أساس تنبيه "العيلة واطية"</summary>
         public decimal? AveragePercent
@@ -125,6 +153,7 @@ namespace WorkforceManager.UI.ViewModels
         }
 
         public decimal? TotalWeightKg => TotalWeightGrams / 1000m;
+        public decimal? TotalWeightTons => TotalWeightGrams / 1_000_000m;
         public bool HasWeight => TotalWeightGrams is not null;
 
         public bool HasCorrections => CorrectionsSubtotal != 0;
@@ -175,6 +204,7 @@ namespace WorkforceManager.UI.ViewModels
         }
 
         public decimal? TotalWeightKg => TotalWeightGrams / 1000m;
+        public decimal? TotalWeightTons => TotalWeightGrams / 1_000_000m;
         public bool HasWeight => TotalWeightGrams is not null;
     }
 }

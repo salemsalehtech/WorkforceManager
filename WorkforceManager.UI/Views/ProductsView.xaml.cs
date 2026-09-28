@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -35,6 +36,11 @@ namespace WorkforceManager.UI.Views
         /// </summary>
         private bool _tileAnimationPending;
 
+        private readonly TaskCompletionSource _loadedTcs = new();
+
+        /// <summary>بيتحل لما LoadAsync الذاتي يخلص — نفس سبب MonthlyPlanView.WhenLoaded بالظبط</summary>
+        public Task WhenLoaded => _loadedTcs.Task;
+
         public ProductsView(ProductsViewModel viewModel)
         {
             InitializeComponent();
@@ -46,7 +52,11 @@ namespace WorkforceManager.UI.Views
             viewModel.FamilyGroups.CollectionChanged += (_, _) => ScheduleTileAnimation();
 
             // تحميل المنتجات أول ما الشاشة تظهر
-            Loaded += async (_, _) => await viewModel.LoadAsync();
+            Loaded += async (_, _) =>
+            {
+                await viewModel.LoadAsync();
+                _loadedTcs.TrySetResult();
+            };
         }
 
         /// <summary>
@@ -75,6 +85,22 @@ namespace WorkforceManager.UI.Views
         {
             var dialog = new ProductDetailDialog(viewModel) { Owner = Window.GetWindow(this) };
             dialog.ShowDialog();
+        }
+
+        /// <summary>
+        /// رابط سريع من شاشة تانية (الخطة الشهرية) لمنتج بعينه — بالـID
+        /// (مش بالاسم زي MainWindow.LandOnProduct، عشان الدقة)، نفس شكل
+        /// MonthlyPlanView.FocusProductQuantity بالظبط.
+        /// </summary>
+        public void ShowProductDetail(int productId)
+        {
+            if (DataContext is not ProductsViewModel viewModel) return;
+
+            var product = viewModel.Products.FirstOrDefault(p => p.ProductId == productId);
+            if (product is null) return;
+
+            viewModel.SelectProductCommand.Execute(product);
+            ShowDetailsDialog(viewModel);
         }
 
         // ------- القائمة السياقية على الكارت (زرار يمين / ⋮) -------

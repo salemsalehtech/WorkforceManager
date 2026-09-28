@@ -7,7 +7,7 @@ namespace WorkforceManager.Business.DTOs
 
     /// <summary>
     /// تتبّع منتج واحد لشهر معيّن حتى تاريخ asOfDate — كل رقم هنا مبني فوق
-    /// خدمات موجودة (DailyProductionReportService للمحقق، MonthlyPlanCorrection
+    /// خدمات موجودة (MonthlyPlanDailyEntry اليدوي للمحقق، MonthlyPlanCorrection
     /// للتصليحات اليدوية، MonthlyPlan للخطة)، مفيش حساب مزدوج.
     /// </summary>
     public record MonthlyPlanTrackingDto(
@@ -24,7 +24,7 @@ namespace WorkforceManager.Business.DTOs
         /// <summary>"الخطة اليومية" — هدف يومي يدوي (MonthlyPlan.DailyTargetQuantity)، مختلف عن RequiredDailyOutput المحسوب</summary>
         int? DailyTargetQuantity,
 
-        int AchievedToDate,       // من DailyProductionReportService — من أول الشهر لحد asOfDate
+        int AchievedToDate,       // من MonthlyPlanDailyEntry اليدوي — من أول الشهر لحد asOfDate
         int CorrectionsToDate,    // مجموع تصليحات المستخدم اليدوية لنفس المدى
         int TodayCompleted,       // إنتاج النهارده بس (رقم واحد، مش عمودين زي الشيت القديم)
 
@@ -49,9 +49,16 @@ namespace WorkforceManager.Business.DTOs
         int? SameDayPreviousMonth,
 
         /// <summary>عنده إنتاج في الشهر ده بس مفيش خطة مسجّلة — "إنتاج خارج الخطة"، مش 0% مضلّلة</summary>
-        bool IsOutsidePlan)
+        bool IsOutsidePlan,
+
+        /// <summary>نفس القيمة على كل صفوف الشهر ده — أرخص من نداء تاني من الشاشة عشان "الأيام المتبقية" البارزة</summary>
+        int TotalWorkdays,
+        int RemainingWorkdays)
     {
         /// <summary>وزن المحقق الفعلي = وزن القطعة × EffectiveAchieved — null لو المنتج ماله وزن مسجّل</summary>
         public decimal? TotalWeightGrams => PieceWeightGrams is { } w ? w * EffectiveAchieved : null;
+
+        /// <summary>وصل لخطة الشهر كاملة قبل ما الشهر يخلص — تنبيه إيجابي، مش حالة "ماشي صح" العادية</summary>
+        public bool HasReachedTarget => PlannedQuantity > 0 && EffectiveAchieved >= PlannedQuantity && RemainingWorkdays > 0;
     }
 }

@@ -38,6 +38,7 @@ namespace WorkforceManager.Data
         public DbSet<MonthlyPlan> MonthlyPlans => Set<MonthlyPlan>();
         public DbSet<MonthlyPlanCorrection> MonthlyPlanCorrections => Set<MonthlyPlanCorrection>();
         public DbSet<MonthlyPlanDailyEntry> MonthlyPlanDailyEntries => Set<MonthlyPlanDailyEntry>();
+        public DbSet<MonthlyPlanSnapshot> MonthlyPlanSnapshots => Set<MonthlyPlanSnapshot>();
         public DbSet<MonthlyWorkCalendarHoliday> MonthlyWorkCalendarHolidays => Set<MonthlyWorkCalendarHoliday>();
         public DbSet<PlanPeriod> PlanPeriods => Set<PlanPeriod>();
         public DbSet<PlanPeriodTarget> PlanPeriodTargets => Set<PlanPeriodTarget>();
@@ -290,6 +291,16 @@ namespace WorkforceManager.Data
             modelBuilder.Entity<MonthlyPlanDailyEntry>()
                 .ToTable(t => t.HasCheckConstraint(
                     "CK_MonthlyPlanDailyEntry_Quantity_NonNegative", "Quantity >= 0"));
+
+            // ---------- لقطة نهاية اليوم (حفظ + عرض بس) ----------
+            modelBuilder.Entity<MonthlyPlanSnapshot>()
+                .HasOne(s => s.Product)
+                .WithMany()
+                .HasForeignKey(s => s.ProductId)
+                .OnDelete(DeleteBehavior.Cascade); // لقطة منتج محذوف مالهاش معنى تفضل قايمة
+
+            modelBuilder.Entity<MonthlyPlanSnapshot>()
+                .HasIndex(s => s.TakenAt);
 
             // ---------- عطلة يدوية إضافية (تقويم أيام الشغل) ----------
             modelBuilder.Entity<MonthlyWorkCalendarHoliday>()

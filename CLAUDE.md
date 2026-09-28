@@ -3323,6 +3323,74 @@ Core  <----------------------- UI
   `SaveCorrectionAsync` were all removed) — the screen still shows what corrections add up to, it just no
   longer accepts them.
 
+- **Monthly Plan tracking, phase 3 — most of a 12-feature follow-up prompt already existed** (material-
+  group cards, colored progress bars, kg weight totals, previous-period comparison, a clickable Home
+  card, and a working Excel export were all already built in this session's earlier phases). Confirmed
+  and implemented only the genuinely new pieces:
+  - **`MonthlyPlanTrackingDto` gained `TotalWorkdays`/`RemainingWorkdays`** (same value on every row for
+    the period, cheap to carry) and a computed `HasReachedTarget` (`PlannedQuantity > 0 &&
+    EffectiveAchieved >= PlannedQuantity && RemainingWorkdays > 0` — reached *before* the period ends,
+    a positive alert distinct from the normal Ahead/OnTrack/Behind status).
+  - **Family-level "الإنتاج اليومي المطلوب" is a new, separate figure from the existing per-product one**
+    — `MonthlyPlanFamilyGroupRow.RequiredDailyOutputForFamily`, computed directly on the family's own
+    totals (`(Subtotal − AchievedSubtotal) ÷ RemainingWorkdays`, one formula) rather than summing already-
+    rounded per-product numbers, which is exactly the class of rounding/parenthesization bug the original
+    factory spreadsheet had. `RemainingWorkdays` is threaded into `BuildFamilyGroups` as a plain `init`
+    value (same for every family in one load) since it's a period-wide number, not per-family data.
+  - **`ComparisonText` now calls `ReportBuilderService.PercentChange(decimal?, decimal?)`** instead of a
+    third hand-rolled percent-difference formula — `ProductionChartService` itself turned out to have no
+    reusable period-comparison method (it's tightly coupled to real production); the actual generic,
+    data-source-agnostic comparator already living in this codebase is `ReportBuilderService.PercentChange`
+    (also used by `HomeDashboardRules.Trend`).
+  - **"آخر تحديث للمحقق كان الساعة كذا" needed a real timestamp `MonthlyPlanDailyEntry` never had** —
+    added `UpdatedAt` (migration `AddMonthlyPlanDailyEntryUpdatedAt`), stamped in `SetDailyEntryAsync` on
+    both insert and update; `MonthlyPlanTrackingService.GetLastUpdatedAsync(year, month)` is `MAX(UpdatedAt)`
+    over the month's rows, null if none yet.
+  - **"منتجات خارج الخطة" became a real, separate top-level section** (`MonthlyPlanViewModel.OutsidePlanProducts`,
+    a dedicated card in `MonthlyPlanView.xaml`) instead of an inline per-product badge — these products
+    are filtered *out* of `BuildFamilyGroups`'s family/material grouping entirely (`.Where(p =>
+    !p.IsOutsidePlan)`) so they never appear in both places at once, and they render name + achieved +
+    weight only (no percent/progress bar — there's no plan to measure against).
+  - **kg/tons is a pure display toggle** (`MonthlyPlanViewModel.ShowWeightInTons`) — the stored numbers
+    stay in grams as always; `TotalWeightTons` (`/1_000_000m`) was added alongside the existing
+    `TotalWeightKg` on all three row types, and the XAML swaps between two sibling `TextBlock`s via
+    `RelativeSource AncestorType=UserControl, Path=DataContext.ShowWeightInTons` — the same toggle
+    pattern already used elsewhere in this app for a ViewModel-level display switch.
+  - **Read-only mode applies to a *past* month only — future months stay editable** (confirmed with the
+    user: planning ahead is a legitimate use case). `MonthlyPlanViewModel.IsPastPeriod` compares the
+    displayed year/month against `DateTime.Today`'s, strictly before; `IsEditable => !IsPastPeriod` gates
+    the quantity/daily-target `TextBox`es and the "انسخ خطة الشهر اللي فات" button via `IsEnabled`, and a
+    `WarnBgBrush` banner ("🔒 وضع القراءة فقط") shows when `IsPastPeriod`. **The "الإنتاج اليومي" tab is
+    completely unaffected by this** — it's always about real *today* regardless of which month is
+    navigated on the "التخطيط" tab (a direct consequence of that tab's own earlier design), so read-only
+    mode never touches it.
+  - **"لقطة نهاية اليوم" is save-and-list only, confirmed scope** — no automatic diff/comparison view.
+    New `MonthlyPlanSnapshot` (`TakenAt`, **`Year`/`Month` of the period it's a snapshot of — deliberately
+    separate from `TakenAt`**, `ProductId`, `PlannedQuantity`, `EffectiveAchieved`). **A real bug was
+    caught by its own test before shipping**: the first cut filtered saved snapshots by `TakenAt` falling
+    inside the *displayed* month's calendar date range — but `TakenAt` is the real wall-clock moment the
+    button was clicked, which has nothing to do with which month's data was snapshotted (clicking the
+    button today while looking at a past June, say, produces a `TakenAt` in the current month, not June).
+    Fixed by storing `Year`/`Month` explicitly on the snapshot row and filtering on those instead —
+    exactly the kind of "measured two different things with one column" bug a round-trip test catches
+    that eyeballing the code would not. `SaveSnapshotAsync` is one bulk insert (one row per
+    currently-displayed product, single `SaveChangesAsync`), not a query per product.
+    `MonthlyPlanSnapshotDialog` (new small `Window`, same chrome as `TextPromptDialog`) shows one saved
+    snapshot's rows read-only; picking a timestamp from the "الإنتاج اليومي" tab's dropdown opens it and
+    resets the combo's selection immediately after (a momentary pick, not a persistent "current tab").
+  - **A quick link from a Monthly Plan product row to that product's own page is the exact reverse of an
+    existing mechanism** (`MainWindow.OpenProductReportAsync`/`OpenMonthlyPlanForProductAsync`, both
+    already ID-based: `NavXItem.IsChecked = true` → await the view's `WhenLoaded` → act on it). New
+    `MainWindow.OpenProductDetailAsync(int productId)` mirrors that shape going the other way — into
+    `ProductsView` — and needed `ProductsView` to gain the same `WhenLoaded`
+    (`TaskCompletionSource`)/`ShowProductDetail(int productId)` pair `MonthlyPlanView.FocusProductQuantity`
+    already has. Deliberately **not** built on `MainWindow.LandOnProduct` (Home/quick-search's existing
+    product-jump helper) — that one matches by product **name**, which is the wrong template to copy
+    for an ID-precise jump from a data row.
+  - **Excel export and the Home-screen card needed no changes at all** — both were already fully built
+    and wired in this session's earlier phases, contrary to the prompt's own assumption that Excel export
+    was future/out-of-scope work.
+
 - **Bulk family assignment on `ProductsView`** — after shipping product families, a real factory (17
   products, all "بدون عيلة") made classifying them one product at a time through the edit form clearly
   too slow. Considered an auto-suggest based on shared name prefixes (e.g. "كبشه X" appears on 7 products)

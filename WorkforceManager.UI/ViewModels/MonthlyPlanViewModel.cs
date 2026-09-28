@@ -38,17 +38,30 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(MonthLabel))]
         [NotifyPropertyChangedFor(nameof(IsCurrentCalendarMonth))]
+        [NotifyPropertyChangedFor(nameof(IsPastPeriod))]
+        [NotifyPropertyChangedFor(nameof(IsEditable))]
         private int _selectedYear;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(MonthLabel))]
         [NotifyPropertyChangedFor(nameof(IsCurrentCalendarMonth))]
+        [NotifyPropertyChangedFor(nameof(IsPastPeriod))]
+        [NotifyPropertyChangedFor(nameof(IsEditable))]
         private int _selectedMonth;
 
         public string MonthLabel => $"{ArabicMonthNames[SelectedMonth - 1]} {SelectedYear}";
 
         /// <summary>الشهر المعروض هو الشهر الحقيقي الحالي؟ — بيحدد افتراضي AsOfDate عند التنقل</summary>
         public bool IsCurrentCalendarMonth => SelectedYear == DateTime.Today.Year && SelectedMonth == DateTime.Today.Month;
+
+        /// <summary>
+        /// شهر **فات** فعلاً (قبل الشهر الحالي، مش بعده) — الشهور الجاية
+        /// تفضل قابلة للتعديل عن قصد (التخطيط المسبق)، شوف CLAUDE.md.
+        /// </summary>
+        public bool IsPastPeriod => new DateTime(SelectedYear, SelectedMonth, 1) < new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+        /// <summary>تبويب "الإنتاج اليومي" مش متأثر بالقيمة دي خالص — هو دايمًا عن النهارده الحقيقي بمعزل عن الشهر المعروض هنا</summary>
+        public bool IsEditable => !IsPastPeriod;
 
         /// <summary>
         /// "لقطة يوم معيّن" (البند 9) — التتبّع بيتحسب لحد التاريخ ده، مش
@@ -59,11 +72,71 @@ namespace WorkforceManager.UI.ViewModels
 
         [ObservableProperty] private bool _isBusy;
 
+        /// <summary>أيام الشغل الكلية/المتبقية للفترة المعروضة — محسوبة فعليًا (WorkCalendarRules)، مش رقم ثابت</summary>
+        [ObservableProperty] private int _totalWorkdays;
+        [ObservableProperty] private int _remainingWorkdays;
+
+        /// <summary>"آخر تحديث للمحقق" — فاضي لو لسه مفيش إدخال يدوي خالص الشهر ده</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasLastUpdated))]
+        private string _lastUpdatedText = "";
+
+        public bool HasLastUpdated => LastUpdatedText.Length > 0;
+
+        /// <summary>كجم/طن لعرض إجمالي الوزن — الأرقام المخزّنة نفسها (Grams) ثابتة، ده عرض بس</summary>
+        [ObservableProperty] private bool _showWeightInTons;
+
+        [RelayCommand]
+        private void ToggleWeightUnit() => ShowWeightInTons = !ShowWeightInTons;
+
         /// <summary>
         /// مستوى تجميع أعلى من العيلة — مادة (نحاس/زاما/غير محدد)، زي قسمين
         /// منفصلين في شيت المصنع الأصلي. كل قسم بيحمل عائلاته وإجمالياته.
         /// </summary>
         public ObservableCollection<MonthlyPlanMaterialGroupRow> MaterialGroups { get; } = new();
+
+        /// <summary>
+        /// منتجات عندها إنتاج بس مفيش خطة مسجّلة — قسم مستقل تمامًا عن
+        /// تجميع المادة/العيلة (مش شارة داخلية زي قبل كده)، عشان مفيش خطة
+        /// تتقاس بيها أصلاً (مفيش نسبة/بار تقدم لها).
+        /// </summary>
+        public ObservableCollection<MonthlyPlanProductRow> OutsidePlanProducts { get; } = new();
+
+        public bool HasOutsidePlanProducts => OutsidePlanProducts.Count > 0;
+
+        /// <summary>أوقات اللقطات المحفوظة للشهر المعروض — حفظ + قايمة بس، شوف CLAUDE.md</summary>
+        public ObservableCollection<DateTime> SnapshotTimestamps { get; } = new();
+
+        public bool HasSnapshots => SnapshotTimestamps.Count > 0;
+
+        private async Task LoadSnapshotTimestampsAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var timestamps = await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
+                .GetSnapshotTimestampsAsync(SelectedYear, SelectedMonth);
+
+            SnapshotTimestamps.Clear();
+            foreach (var t in timestamps) SnapshotTimestamps.Add(t);
+            OnPropertyChanged(nameof(HasSnapshots));
+        }
+
+        [RelayCommand]
+        private async Task SaveSnapshotAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
+                .SaveSnapshotAsync(SelectedYear, SelectedMonth, AsOfDate);
+
+            await LoadSnapshotTimestampsAsync();
+            Notify.Info("اتحفظت لقطة لحالة المحقق دلوقتي", "لقطة نهاية اليوم");
+        }
+
+        public async Task<List<MonthlyPlanSnapshotRowDto>> LoadSnapshotAsync(DateTime takenAt)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            return await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
+                .GetSnapshotAsync(takenAt);
+        }
 
         /// <summary>أكتر 3-5 منتجات محتاجة دفعة النهارده — الأبعد عن خطتها بين اللي متأخرين</summary>
         public ObservableCollection<MonthlyPlanProductRow> TodaysPriorities { get; } = new();
@@ -143,13 +216,27 @@ namespace WorkforceManager.UI.ViewModels
             try
             {
                 using var scope = _scopeFactory.CreateScope();
-                var tracking = await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
-                    .GetTrackingAsync(SelectedYear, SelectedMonth, AsOfDate);
+                var trackingService = scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>();
+                var tracking = await trackingService.GetTrackingAsync(SelectedYear, SelectedMonth, AsOfDate);
+
+                var remainingWorkdays = tracking.Count > 0 ? tracking[0].RemainingWorkdays : 0;
+                TotalWorkdays = tracking.Count > 0 ? tracking[0].TotalWorkdays : 0;
+                RemainingWorkdays = remainingWorkdays;
+
+                var lastUpdated = await trackingService.GetLastUpdatedAsync(SelectedYear, SelectedMonth);
+                LastUpdatedText = lastUpdated is { } updated ? $"آخر تحديث: الساعة {updated:HH:mm}" : "";
 
                 MaterialGroups.Clear();
 
+                OutsidePlanProducts.Clear();
+                foreach (var row in tracking.Where(p => p.IsOutsidePlan).OrderBy(p => p.ProductName).Select(ToRow))
+                    OutsidePlanProducts.Add(row);
+                OnPropertyChanged(nameof(HasOutsidePlanProducts));
+
+                var inPlan = tracking.Where(p => !p.IsOutsidePlan).ToList();
+
                 // مادة فوق عيلة — نفس ترتيب شيت المصنع الأصلي (قسم نحاس كامل، قسم زاما كامل)
-                foreach (var materialGroup in tracking
+                foreach (var materialGroup in inPlan
                              .GroupBy(p => p.Material)
                              .OrderBy(g => g.Key switch { Core.Enums.Material.Copper => 0, Core.Enums.Material.Zamak => 1, _ => 2 }))
                 {
@@ -161,16 +248,17 @@ namespace WorkforceManager.UI.ViewModels
                     };
                     MaterialGroups.Add(new MonthlyPlanMaterialGroupRow
                     {
-                        HeaderText = header, FamilyGroups = BuildFamilyGroups(materialGroup)
+                        HeaderText = header, FamilyGroups = BuildFamilyGroups(materialGroup, remainingWorkdays)
                     });
                 }
 
                 RefreshAggregates();
+                await LoadSnapshotTimestampsAsync();
             }
             finally { IsBusy = false; }
         }
 
-        private static List<MonthlyPlanFamilyGroupRow> BuildFamilyGroups(IEnumerable<MonthlyPlanTrackingDto> products)
+        private static List<MonthlyPlanFamilyGroupRow> BuildFamilyGroups(IEnumerable<MonthlyPlanTrackingDto> products, int remainingWorkdays)
         {
             var groups = new List<MonthlyPlanFamilyGroupRow>();
 
@@ -182,7 +270,8 @@ namespace WorkforceManager.UI.ViewModels
                 groups.Add(new MonthlyPlanFamilyGroupRow
                 {
                     HeaderText = $"{g.Key.Item2} ({g.Count()})",
-                    Products = OrderByPace(g).Select(ToRow).ToList()
+                    Products = OrderByPace(g).Select(ToRow).ToList(),
+                    RemainingWorkdays = remainingWorkdays
                 });
             }
 
@@ -190,7 +279,8 @@ namespace WorkforceManager.UI.ViewModels
             if (noFamily.Count > 0)
                 groups.Add(new MonthlyPlanFamilyGroupRow
                 {
-                    HeaderText = $"بدون عيلة ({noFamily.Count})", Products = OrderByPace(noFamily).Select(ToRow).ToList()
+                    HeaderText = $"بدون عيلة ({noFamily.Count})", Products = OrderByPace(noFamily).Select(ToRow).ToList(),
+                    RemainingWorkdays = remainingWorkdays
                 });
 
             return groups;
@@ -214,7 +304,8 @@ namespace WorkforceManager.UI.ViewModels
             SameDayPreviousMonth = p.SameDayPreviousMonth, IsOutsidePlan = p.IsOutsidePlan,
             CorrectionText = p.CorrectionsToDate.ToString(),
             DailyTargetText = p.DailyTargetQuantity?.ToString() ?? "",
-            TotalWeightGrams = p.TotalWeightGrams
+            TotalWeightGrams = p.TotalWeightGrams,
+            HasReachedTarget = p.HasReachedTarget
         };
 
         public async Task SaveQuantityAsync(int productId, int quantity)

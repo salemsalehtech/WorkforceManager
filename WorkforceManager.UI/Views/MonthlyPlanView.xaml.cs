@@ -169,5 +169,25 @@ namespace WorkforceManager.UI.Views
             element.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
             e.Handled = true;
         }
+
+        /// <summary>رابط سريع لصفحة المنتج (البند 11) — بالـID، نفس نمط ProductsView's context-menu links</summary>
+        private void OpenProductPage_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { Tag: int productId }) return;
+            if (Window.GetWindow(this) is not MainWindow main) return;
+
+            SafeAsync.Run(() => main.OpenProductDetailAsync(productId));
+        }
+
+        /// <summary>اختيار لقطة محفوظة من القايمة — عرض بس، مفيش مقارنة تلقائية دلوقتي</summary>
+        private async void SnapshotCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is not ComboBox { SelectedItem: DateTime takenAt }) return;
+
+            var rows = await _viewModel.LoadSnapshotAsync(takenAt);
+            new MonthlyPlanSnapshotDialog(takenAt, rows) { Owner = Window.GetWindow(this) }.ShowDialog();
+
+            ((ComboBox)sender).SelectedItem = null; // اختيار لحظي بس — القايمة نفسها مش "التبويب الحالي"
+        }
     }
 }

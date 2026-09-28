@@ -391,5 +391,163 @@ namespace WorkforceManager.Tests
 
             Assert.Equal(40, rows.Single(r => r.ProductId == TestDatabase.ProductChainId).YesterdayQuantity);
         }
+
+        // ═══════════ الأيام المتبقية على الـDTO — أساس "الأيام المتبقية"
+        // البارزة، ومحسوبة فعليًا مش رقم ثابت (باگ "27" في الشيت القديم) ═══════════
+
+        [Fact]
+        public async Task GetTrackingAsync_exposes_the_real_computed_workday_counts()
+        {
+            await SetPlanAsync(100);
+
+            var row = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId);
+
+            var holidays = new HashSet<DateTime>();
+            var expectedTotal = WorkCalendarRules.TotalWorkdays(Year, Month, holidays);
+            var expectedRemaining = expectedTotal - WorkCalendarRules.ElapsedWorkdays(Year, Month, Today, holidays);
+
+            Assert.Equal(expectedTotal, row.TotalWorkdays);
+            Assert.Equal(expectedRemaining, row.RemainingWorkdays);
+        }
+
+        [Fact]
+        public async Task GetTrackingAsync_remaining_workdays_drops_after_adding_a_holiday()
+        {
+            await SetPlanAsync(100);
+            var before = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId).RemainingWorkdays;
+
+            using (var scope = _db.CreateScope())
+                await _db.GetService<MonthlyPlanTrackingService>(scope).AddHolidayAsync(new DateTime(Year, Month, 30));
+
+            var after = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId).RemainingWorkdays;
+
+            Assert.Equal(before - 1, after);
+        }
+
+        // ═══════════ وصل للهدف بدري — تنبيه إيجابي، مش "ماشي صح" العادية ═══════════
+
+        [Fact]
+        public async Task HasReachedTarget_true_when_effective_achieved_meets_plan_with_days_left()
+        {
+            await SetPlanAsync(100);
+            await SetChainDailyEntryAsync(100, Today);
+
+            var row = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId);
+
+            Assert.True(row.RemainingWorkdays > 0); // 30 (يوم شغل) لسه باقي بعد 29 يوليو
+            Assert.True(row.HasReachedTarget);
+        }
+
+        [Fact]
+        public async Task HasReachedTarget_false_when_below_plan()
+        {
+            await SetPlanAsync(100);
+            await SetChainDailyEntryAsync(50, Today);
+
+            var row = (await GetTrackingAsync(Today)).Single(r => r.ProductId == TestDatabase.ProductChainId);
+
+            Assert.False(row.HasReachedTarget);
+        }
+
+        [Fact]
+        public async Task HasReachedTarget_false_when_no_workdays_remain_even_if_plan_met()
+        {
+            await SetPlanAsync(100);
+            await SetChainDailyEntryAsync(100, new DateTime(Year, Month, 30));
+            var lastWorkday = new DateTime(Year, Month, 30); // آخر يوم شغل فعلي في يوليو 2026
+
+            var row = (await GetTrackingAsync(lastWorkday)).Single(r => r.ProductId == TestDatabase.ProductChainId);
+
+            Assert.Equal(0, row.RemainingWorkdays);
+            Assert.False(row.HasReachedTarget);
+        }
+
+        // ═══════════ آخر تحديث للمحقق ═══════════
+
+        [Fact]
+        public async Task GetLastUpdatedAsync_returns_null_when_no_entries_exist()
+        {
+            var value = await _db.InScopeAsync<MonthlyPlanTrackingService, DateTime?>(
+                s => s.GetLastUpdatedAsync(Year, Month));
+
+            Assert.Null(value);
+        }
+
+        [Fact]
+        public async Task GetLastUpdatedAsync_reflects_the_latest_entry_and_ignores_other_months()
+        {
+            await SetChainDailyEntryAsync(10, Today);
+            var afterFirst = await _db.InScopeAsync<MonthlyPlanTrackingService, DateTime?>(
+                s => s.GetLastUpdatedAsync(Year, Month));
+            Assert.NotNull(afterFirst);
+
+            // شهر تاني خالص — مايأثرش على آخر تحديث الشهر المطلوب
+            await SetChainDailyEntryAsync(20, new DateTime(Year, Month - 2, 10));
+            var stillSame = await _db.InScopeAsync<MonthlyPlanTrackingService, DateTime?>(
+                s => s.GetLastUpdatedAsync(Year, Month));
+            Assert.Equal(afterFirst, stillSame);
+        }
+
+        // ═══════════ لقطة نهاية اليوم — حفظ + قايمة بس ═══════════
+
+        [Fact]
+        public async Task SaveSnapshotAsync_inserts_one_row_per_currently_displayed_product()
+        {
+            await SetPlanAsync(500);
+            await SetChainDailyEntryAsync(100, Today);
+
+            await _db.InScopeAsync<MonthlyPlanTrackingService, bool>(async s =>
+            { await s.SaveSnapshotAsync(Year, Month, Today); return true; });
+
+            using var scope = _db.CreateScope();
+            var rows = _db.GetService<AppDbContext>(scope).MonthlyPlanSnapshots
+                .Where(s => s.ProductId == TestDatabase.ProductChainId).ToList();
+
+            Assert.Single(rows);
+            Assert.Equal(500, rows[0].PlannedQuantity);
+            Assert.Equal(100, rows[0].EffectiveAchieved);
+        }
+
+        [Fact]
+        public async Task GetSnapshotTimestampsAsync_returns_newest_first()
+        {
+            await SetPlanAsync(100); // لازم يبقى فيه منتج ظاهر في التتبّع عشان اللقطة تسجّل أي صف
+
+            using (var scope = _db.CreateScope())
+            {
+                var svc = _db.GetService<MonthlyPlanTrackingService>(scope);
+                await svc.SaveSnapshotAsync(Year, Month, Today);
+                await Task.Delay(10); // عشان الطابعين الزمنيين يختلفوا فعليًا، مش نفس التكة
+                await svc.SaveSnapshotAsync(Year, Month, Today);
+            }
+
+            var timestamps = await _db.InScopeAsync<MonthlyPlanTrackingService, List<DateTime>>(
+                s => s.GetSnapshotTimestampsAsync(Year, Month));
+
+            Assert.Equal(2, timestamps.Count);
+            Assert.True(timestamps[0] >= timestamps[1]); // الأحدث الأول
+        }
+
+        [Fact]
+        public async Task GetSnapshotAsync_returns_the_rows_of_that_one_snapshot()
+        {
+            await SetPlanAsync(200);
+            await SetChainDailyEntryAsync(50, Today);
+
+            DateTime taken;
+            using (var scope = _db.CreateScope())
+            {
+                await _db.GetService<MonthlyPlanTrackingService>(scope).SaveSnapshotAsync(Year, Month, Today);
+                taken = _db.GetService<AppDbContext>(scope).MonthlyPlanSnapshots
+                    .Where(s => s.ProductId == TestDatabase.ProductChainId).Select(s => s.TakenAt).Single();
+            }
+
+            var rows = await _db.InScopeAsync<MonthlyPlanTrackingService, List<MonthlyPlanSnapshotRowDto>>(
+                s => s.GetSnapshotAsync(taken));
+
+            var row = rows.Single(r => r.ProductId == TestDatabase.ProductChainId);
+            Assert.Equal(200, row.PlannedQuantity);
+            Assert.Equal(50, row.EffectiveAchieved);
+        }
     }
 }

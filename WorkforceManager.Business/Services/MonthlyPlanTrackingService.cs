@@ -150,7 +150,9 @@ namespace WorkforceManager.Business.Services
                     RequiredDailyOutput: requiredDailyOutput,
                     ForecastEndOfMonth: forecastEndOfMonth,
                     SameDayPreviousMonth: previousByProduct.GetValueOrDefault(productId),
-                    IsOutsidePlan: isOutsidePlan));
+                    IsOutsidePlan: isOutsidePlan,
+                    TotalWorkdays: totalWorkdays,
+                    RemainingWorkdays: remainingWorkdays));
             }
 
             return result.OrderBy(r => r.ProductName).ToList();
@@ -226,11 +228,29 @@ namespace WorkforceManager.Business.Services
 
             if (existing is null)
                 _db.MonthlyPlanDailyEntries.Add(new Core.Models.MonthlyPlanDailyEntry
-                { ProductId = productId, Date = day, Quantity = quantity });
+                { ProductId = productId, Date = day, Quantity = quantity, UpdatedAt = DateTime.Now });
             else
+            {
                 existing.Quantity = quantity;
+                existing.UpdatedAt = DateTime.Now;
+            }
 
             await _db.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// آخر وقت اتكتب فيه أي رقم محقق للشهر ده — أساس "آخر تحديث للمحقق
+        /// كان الساعة كذا" في الشاشة. null لو لسه مفيش إدخال خالص.
+        /// </summary>
+        public async Task<DateTime?> GetLastUpdatedAsync(int year, int month)
+        {
+            var monthStart = new DateTime(year, month, 1);
+            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+            var entries = await _db.MonthlyPlanDailyEntries
+                .Where(e => e.Date >= monthStart && e.Date <= monthEnd)
+                .Select(e => e.UpdatedAt)
+                .ToListAsync();
+            return entries.Count == 0 ? null : entries.Max();
         }
 
         /// <summary>
@@ -272,6 +292,52 @@ namespace WorkforceManager.Business.Services
                 RealProductionToday: realByProduct.GetValueOrDefault(p.Id),
                 YesterdayQuantity: yesterdayEntries.GetValueOrDefault(p.Id)))
                 .ToList();
+        }
+
+        // ======================= لقطة نهاية اليوم (حفظ + عرض بس) =======================
+
+        /// <summary>
+        /// بيحفظ حالة المحقق الحالية لكل منتج ظاهر دلوقتي — دفعة واحدة
+        /// (نفس TakenAt)، إدراج جماعي واحد مش استعلام لكل منتج.
+        /// </summary>
+        public async Task SaveSnapshotAsync(int year, int month, DateTime asOfDate)
+        {
+            var tracking = await GetTrackingAsync(year, month, asOfDate);
+            var takenAt = DateTime.Now;
+
+            _db.MonthlyPlanSnapshots.AddRange(tracking.Select(t => new Core.Models.MonthlyPlanSnapshot
+            {
+                TakenAt = takenAt,
+                Year = year,
+                Month = month,
+                ProductId = t.ProductId,
+                PlannedQuantity = t.PlannedQuantity,
+                EffectiveAchieved = t.EffectiveAchieved
+            }));
+
+            await _db.SaveChangesAsync();
+        }
+
+        /// <summary>أوقات اللقطات المحفوظة لهذه الفترة (Year/Month اللقطة نفسها، مش تاريخ TakenAt) — الأحدث الأول</summary>
+        public async Task<List<DateTime>> GetSnapshotTimestampsAsync(int year, int month)
+        {
+            return await _db.MonthlyPlanSnapshots
+                .Where(s => s.Year == year && s.Month == month)
+                .Select(s => s.TakenAt)
+                .Distinct()
+                .OrderByDescending(t => t)
+                .ToListAsync();
+        }
+
+        /// <summary>صفوف لقطة واحدة بعينها — عرض بس</summary>
+        public async Task<List<MonthlyPlanSnapshotRowDto>> GetSnapshotAsync(DateTime takenAt)
+        {
+            return await _db.MonthlyPlanSnapshots
+                .Where(s => s.TakenAt == takenAt)
+                .Include(s => s.Product)
+                .OrderBy(s => s.Product.Name)
+                .Select(s => new MonthlyPlanSnapshotRowDto(s.ProductId, s.Product.Name, s.PlannedQuantity, s.EffectiveAchieved))
+                .ToListAsync();
         }
 
         // ======================= عطلة يدوية =======================

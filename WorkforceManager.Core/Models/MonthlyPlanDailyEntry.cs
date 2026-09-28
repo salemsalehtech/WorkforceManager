@@ -29,6 +29,9 @@ namespace WorkforceManager.Core.Models
 
         public int Quantity { get; set; }
 
+        /// <summary>آخر وقت اتكتب/اتعدّل فيه الرقم ده — أساس "آخر تحديث" في الشاشة، شوف MonthlyPlanTrackingService.GetLastUpdatedAsync</summary>
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
         public virtual Product Product { get; set; } = null!;
     }
 }
