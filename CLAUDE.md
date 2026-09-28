@@ -3230,6 +3230,43 @@ Core  <----------------------- UI
   field on `MonthlyPlanView` (next to تصليحات) and its own Excel column, kept separate from "المطلوب
   يوميًا" so neither number overwrites the other's meaning.
 
+- **"خطة بفترة مخصصة" (`PlanPeriod`/`PlanPeriodTarget`) is a deliberate parallel model next to "الخطة
+  الشهرية" above — not a replacement, not a rework of it.** A later prompt asked for the exact same
+  planning feature but with an arbitrary start/end date range instead of a calendar month (and piece
+  weight in kilograms). By that point "الخطة الشهرية" already had every phase built and shipped —
+  target entry, achieved/pro-ration tracking, forecast, corrections, Excel export, and a Home-screen
+  card — all keyed on `MonthlyPlan.Year`/`Month`. Reworking that key into a date range would have meant
+  touching `WorkCalendarRules` (the one real algorithmic chokepoint — its `TotalWorkdays`/
+  `ElapsedWorkdays`/`RemainingWorkdays` looped `1..DaysInMonth`), `MonthlyPlanTrackingService`, the
+  `MonthlyPlan` unique index, the ViewModel's whole Year/Month state and prev/next navigation, the view,
+  the Excel export, the Home card, and ~30 existing tests — redoing already-shipped, already-tested
+  work, and losing "compare to the same day last month" with no obvious replacement for an
+  arbitrary-length range ("previous period" for a 12-day range means what, exactly?). Confirmed with the
+  user: build the new period concept standing beside the calendar one instead, and keep
+  `PieceWeightGrams` in grams (not worth a unit rename that ripples through the shipped tracking/Excel
+  code for zero functional gain).
+  **Scope matches "الخطة الشهرية"'s own original foundation phase** — target entry only, no tracking/
+  المحقق/forecast/Excel export for custom periods. If that's ever asked for, it layers onto `PlanPeriod`
+  the same way the later phases layered onto `MonthlyPlan`, not retrofitted onto the calendar model.
+  `PlanPeriod` (`Id`, `StartDate`, `EndDate`, `WorkdayCount`, `CreatedAt`) stores the exact range plus its
+  workday count, computed **once at creation** via new `WorkCalendarRules(DateTime start, DateTime end,
+  holidays)` overloads (additive — the existing `(year, month)` overloads are untouched, still used by
+  `MonthlyPlanTrackingService`) — a holiday added after a period exists does not retroactively update
+  that period's stored count. Holidays are **not** a second table: `MonthlyWorkCalendarHoliday` is
+  already a plain global date set, not month-scoped, so both features read the same rows.
+  `PlanPeriodTarget` (`PlanPeriodId`, `ProductId`, `PlannedQuantity`, unique on the pair) is `MonthlyPlan`
+  minus `Year`/`Month`/`DailyTargetQuantity` — daily target is a later-phase concept there too, out of
+  scope here for the same reason. `PlanPeriodService` mirrors `MonthlyPlanService` method-for-method
+  (`CreatePeriodAsync`, `GetPeriodsAsync`, `GetForPeriodAsync`, `SetTargetAsync`,
+  `PeriodHasEntriesAsync`/`CopyFromPreviousPeriodAsync` — "previous" = the latest existing period whose
+  `StartDate` is earlier than the current one's) and reuses `MonthlyPlanService.IsComplete(Product)`
+  directly rather than a second copy of the same weight+material check. UI: a new sidebar entry "خطة
+  بفترة مخصصة" right after "الخطة الشهرية", `PlanPeriodView`/`PlanPeriodViewModel` (family-grouped list,
+  editable "المخطط" per product, `LostFocus` save, family subtotal always a live `Sum` — same shape as
+  `MonthlyPlanView` minus every tracking column) and a small `PlanPeriodDialog` for creating a period
+  (two `DatePicker`s, a live workday-count preview computed the same way `CreatePeriodAsync` computes the
+  stored value, just read-only-preview here — the real number is whatever the service persists).
+
 - **Bulk family assignment on `ProductsView`** — after shipping product families, a real factory (17
   products, all "بدون عيلة") made classifying them one product at a time through the edit form clearly
   too slow. Considered an auto-suggest based on shared name prefixes (e.g. "كبشه X" appears on 7 products)

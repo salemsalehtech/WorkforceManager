@@ -38,6 +38,8 @@ namespace WorkforceManager.Data
         public DbSet<MonthlyPlan> MonthlyPlans => Set<MonthlyPlan>();
         public DbSet<MonthlyPlanCorrection> MonthlyPlanCorrections => Set<MonthlyPlanCorrection>();
         public DbSet<MonthlyWorkCalendarHoliday> MonthlyWorkCalendarHolidays => Set<MonthlyWorkCalendarHoliday>();
+        public DbSet<PlanPeriod> PlanPeriods => Set<PlanPeriod>();
+        public DbSet<PlanPeriodTarget> PlanPeriodTargets => Set<PlanPeriodTarget>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -276,6 +278,36 @@ namespace WorkforceManager.Data
             modelBuilder.Entity<MonthlyWorkCalendarHoliday>()
                 .HasIndex(h => h.Date)
                 .IsUnique();
+
+            // ---------- خطة بفترة مخصصة (PlanPeriod) — موازية لـMonthlyPlan، مش استبدال لها ----------
+            modelBuilder.Entity<PlanPeriod>()
+                .ToTable(t => t.HasCheckConstraint(
+                    "CK_PlanPeriod_EndDate_NotBeforeStart", "EndDate >= StartDate"));
+
+            modelBuilder.Entity<PlanPeriod>()
+                .ToTable(t => t.HasCheckConstraint(
+                    "CK_PlanPeriod_WorkdayCount_NonNegative", "WorkdayCount >= 0"));
+
+            modelBuilder.Entity<PlanPeriodTarget>()
+                .HasOne(t => t.PlanPeriod)
+                .WithMany(p => p.Targets)
+                .HasForeignKey(t => t.PlanPeriodId)
+                .OnDelete(DeleteBehavior.Cascade); // فترة محذوفة يبقى أهدافها مالهاش معنى تفضل قايمة
+
+            modelBuilder.Entity<PlanPeriodTarget>()
+                .HasOne(t => t.Product)
+                .WithMany()
+                .HasForeignKey(t => t.ProductId)
+                .OnDelete(DeleteBehavior.Cascade); // نفس قاعدة MonthlyPlan: خطة منتج محذوف مالهاش معنى تفضل قايمة
+
+            // مرة واحدة بس لكل منتج لكل فترة — نفس قاعدة MonthlyPlan
+            modelBuilder.Entity<PlanPeriodTarget>()
+                .HasIndex(t => new { t.PlanPeriodId, t.ProductId })
+                .IsUnique();
+
+            modelBuilder.Entity<PlanPeriodTarget>()
+                .ToTable(t => t.HasCheckConstraint(
+                    "CK_PlanPeriodTarget_PlannedQuantity_NonNegative", "PlannedQuantity >= 0"));
 
             // سعر اليومية بالجنيه بدقة عشرية كافية
             modelBuilder.Entity<Worker>()
