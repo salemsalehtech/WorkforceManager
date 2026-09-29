@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
+using WorkforceManager.UI.Views;
 
 namespace WorkforceManager.UI.ViewModels
 {
@@ -71,6 +72,9 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty] private DateTime _asOfDate;
 
         [ObservableProperty] private bool _isBusy;
+
+        /// <summary>مفيش صف MonthlyPlan واحد متسجل للشهر ده لسه — الحالة الفاضية بتعرض زرار wizard الإنشاء بدلها</summary>
+        [ObservableProperty] private bool _hasPlanForMonth = true;
 
         /// <summary>أيام الشغل الكلية/المتبقية للفترة المعروضة — محسوبة فعليًا (WorkCalendarRules)، مش رقم ثابت</summary>
         [ObservableProperty] private int _totalWorkdays;
@@ -219,6 +223,9 @@ namespace WorkforceManager.UI.ViewModels
                 var trackingService = scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>();
                 var tracking = await trackingService.GetTrackingAsync(SelectedYear, SelectedMonth, AsOfDate);
 
+                HasPlanForMonth = await scope.ServiceProvider.GetRequiredService<MonthlyPlanService>()
+                    .MonthHasEntriesAsync(SelectedYear, SelectedMonth);
+
                 var remainingWorkdays = tracking.Count > 0 ? tracking[0].RemainingWorkdays : 0;
                 TotalWorkdays = tracking.Count > 0 ? tracking[0].TotalWorkdays : 0;
                 RemainingWorkdays = remainingWorkdays;
@@ -333,6 +340,16 @@ namespace WorkforceManager.UI.ViewModels
         /// بالفعل (Upsert هيستبدلها)، بعدين يعيد تحميل الشاشة عشان القيم
         /// الجديدة تبان.
         /// </summary>
+        /// <summary>wizard إنشاء خطة جديدة — DialogResult=true بس لو حفظ فعلاً، فبنعيد التحميل بس في الحالة دي</summary>
+        [RelayCommand]
+        private async Task AddNewPlanAsync()
+        {
+            var dialog = new PlanCreationWizardWindow(new PlanCreationWizardViewModel(_scopeFactory, SelectedYear, SelectedMonth))
+            { Owner = Application.Current.MainWindow };
+            if (dialog.ShowDialog() == true)
+                await LoadAsync();
+        }
+
         [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task CopyFromPreviousMonthAsync()
         {

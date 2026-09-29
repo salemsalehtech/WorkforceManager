@@ -39,17 +39,34 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- وضع القراءة فقط — الشهر ده فات (البند 7)، تمييز بصري واضح -->
-        <Border Grid.Row="0" Background="{DynamicResource WarnBgBrush}" CornerRadius="{DynamicResource RadiusSmall}"
-                Padding="12,8" Margin="0,0,0,10" VerticalAlignment="Top"
-                Visibility="{Binding IsPastPeriod, Converter={StaticResource BoolToVis}}">
-            <DockPanel>
-                <materialDesign:PackIcon DockPanel.Dock="Right" Kind="LockOutline" Width="18" Height="18"
-                                         VerticalAlignment="Center" Foreground="{DynamicResource WarnBrush}" />
-                <TextBlock Margin="0,0,10,0" Foreground="{DynamicResource WarnBrush}" FontWeight="Bold"
-                           Text="وضع القراءة فقط — الفترة دي خلصت، مش قابلة للتعديل" />
-            </DockPanel>
-        </Border>
+        <StackPanel Grid.Row="0">
+            <!-- وضع القراءة فقط — الشهر ده فات (البند 7)، تمييز بصري واضح -->
+            <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="{DynamicResource RadiusSmall}"
+                    Padding="12,8" Margin="0,0,0,10"
+                    Visibility="{Binding IsPastPeriod, Converter={StaticResource BoolToVis}}">
+                <DockPanel>
+                    <materialDesign:PackIcon DockPanel.Dock="Right" Kind="LockOutline" Width="18" Height="18"
+                                             VerticalAlignment="Center" Foreground="{DynamicResource WarnBrush}" />
+                    <TextBlock Margin="0,0,10,0" Foreground="{DynamicResource WarnBrush}" FontWeight="Bold"
+                               Text="وضع القراءة فقط — الفترة دي خلصت، مش قابلة للتعديل" />
+                </DockPanel>
+            </Border>
+
+            <!-- مفيش خطة متسجلة للشهر ده لسه — زرار wizard بدل ما الشاشة تفضل فاضية من غير تفسير -->
+            <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,10"
+                    Visibility="{Binding HasPlanForMonth, Converter={StaticResource InverseBoolToVis}}">
+                <StackPanel HorizontalAlignment="Center">
+                    <materialDesign:PackIcon Kind="CalendarBlankOutline" Width="34" Height="34" HorizontalAlignment="Center"
+                                             Foreground="{DynamicResource GoldDeepBrush}" Margin="0,0,0,10" />
+                    <TextBlock Text="مفيش خطة متسجلة للشهر ده لسه" FontSize="14.5" FontWeight="Bold"
+                               HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                    <TextBlock Text="ابدأ بإضافة خطة جديدة، للشهر كامل أو لفترات مخصصة جواه" FontSize="12.5"
+                               HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,14" />
+                    <Button Content="إضافة خطة جديدة للشهر" Command="{Binding AddNewPlanCommand}"
+                            Style="{StaticResource PrimaryButton}" Padding="26,10" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
 
         <!-- ═══════════ 1. الشريط العلوي ═══════════ -->
         <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">

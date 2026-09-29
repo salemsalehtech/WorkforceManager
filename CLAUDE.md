@@ -3295,8 +3295,34 @@ Core  <----------------------- UI
   sub-period (no "previous sub-period" concept exists yet). `MonthlyPlanService.GetForMonthAsync`/
   `SetPlanAsync` gained a matching optional `subPeriodId = 0` parameter (every existing call site is
   unaffected, default preserves old behavior exactly), plus `CreateSubPeriodAsync`/
-  `GetSubPeriodsForMonthAsync` for managing sub-periods themselves. **No UI uses this yet** — this is
-  schema/service foundation only, for a wizard-based plan-creation flow layered on top later.
+  `GetSubPeriodsForMonthAsync` for managing sub-periods themselves.
+
+- **"إضافة خطة جديدة للشهر" wizard** (`PlanCreationWizardWindow`/`PlanCreationWizardViewModel`) is how a
+  month's targets actually get entered now, replacing "just type into a quantity box that silently
+  creates a row." `MonthlyPlanView`'s planning tab shows an empty-state card with this button when
+  `MonthlyPlanService.MonthHasEntriesAsync` is false for the selected month (`MonthlyPlanViewModel.
+  HasPlanForMonth`) — reused directly, not a second "does a plan exist" check. No wizard/stepper pattern
+  existed anywhere in the codebase before this; built as a single `Window` with a `WizardStep` enum
+  (`Duration` → `Entry` → `Saving`) driving three `Visibility`-bound panels, not a third-party control —
+  same MVVM shape as every other dialog in this app, not a new UI framework dependency.
+  **Duration step**: "إنشاء خطة للشهر كامل" is one click (the common case, matches the whole-month default
+  above); "تخصيص فترة" is a secondary, optional expander that calls `MonthlyPlanService.
+  CreateSubPeriodAsync` per added period and shows each as a chip — never a forced multi-screen gate.
+  **Entry step**: family cards (product catalog loaded once via `GetForMonthAsync`, shared across however
+  many periods were created — only the per-product `QuantityText` differs per period) with a green
+  checkmark per product the instant a valid number is typed (`WizardProductRow.IsEntered` — true even for
+  `0`, false for empty/invalid) and per family once every one of its products is entered
+  (`WizardFamilyGroupRow.IsComplete`, computed via `PropertyChanged` subscription cascading
+  product→family→period, not a manually-called refresh), plus a live "سجّلت N من M" counter
+  (`WizardPeriodRow.EnteredCount`/`TotalCount`). Multiple periods are entered one after another
+  (`NextPeriodCommand`/`CurrentPeriodIndex`), not simultaneously on screen. **Save**: if any product
+  across any period was left un-entered, `Notify.Ask` confirms before proceeding — un-entered products
+  simply get no `MonthlyPlan` row (same as today's implicit-zero for an untouched product), never forced
+  to `0`. Saving writes through the *existing* `MonthlyPlanService.SetPlanAsync` per entered product per
+  period — the wizard is a new entry *flow*, not a new persistence path. `PlanCreationWizardWindow` is
+  constructed directly with `new` (passing `IServiceScopeFactory` + year/month) from
+  `MonthlyPlanViewModel.AddNewPlanCommand`, the same pattern `ProductEditDialog` already uses for a
+  dialog that needs per-instance runtime data DI alone can't supply — not a DI container registration.
 
 - **"المحقق" on the calendar "الخطة الشهرية" screen stopped being automatic — it's a manual, per-product,
   per-day entry now (`MonthlyPlanDailyEntry`), not a read of real `DailyProduction` via
