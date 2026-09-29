@@ -585,5 +585,12 @@
             </ScrollViewer>
         </Grid>
     </TabItem>
+
+    <!-- ═══════════ تبويب "خطة بفترة مخصصة" — PlanPeriodView مضمّن هنا بنفس
+         الـViewModel بتاعه (مش نافيجيشن منفصلة في القايمة الجانبية)، شوف
+         CLAUDE.md ليه الفترة المخصصة بقت تاب جوه الخطة الشهرية. ═══════════ -->
+    <TabItem Header="خطة بفترة مخصصة">
+        <ContentControl x:Name="PlanPeriodHost" />
+    </TabItem>
     </TabControl>
 </UserControl>

@@ -20,11 +20,12 @@ namespace WorkforceManager.UI.Views
         /// <summary>بيتحل لما LoadAsync الذاتي يخلص — نفس سبب ReportBuilderView.WhenLoaded بالظبط</summary>
         public Task WhenLoaded => _loadedTcs.Task;
 
-        public MonthlyPlanView(MonthlyPlanViewModel viewModel)
+        public MonthlyPlanView(MonthlyPlanViewModel viewModel, PlanPeriodView planPeriodView)
         {
             InitializeComponent();
             _viewModel = viewModel;
             DataContext = viewModel;
+            PlanPeriodHost.Content = planPeriodView;
 
             Loaded += (_, _) => EntranceAnimation.PlayFadeSlideIn(this);
             Loaded += async (_, _) =>
