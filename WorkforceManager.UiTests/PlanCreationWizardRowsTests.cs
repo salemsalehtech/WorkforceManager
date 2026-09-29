@@ -76,6 +76,52 @@ namespace WorkforceManager.UiTests
             Assert.False(family.IsComplete);
         }
 
+        // ═══════════ تارجت العيلة — تحقق/مقارنة بس، مفيش توزيع تلقائي (البند 5 من ملاحظات المستخدم) ═══════════
+
+        [Fact]
+        public void Family_HasNoTarget_WhenTargetTextEmptyOrInvalid()
+        {
+            var family = new WizardFamilyGroupRow("عيلة", new List<WizardProductRow>());
+            Assert.False(family.HasTarget);
+            Assert.Equal("", family.TargetStatusText);
+
+            family.TargetText = "abc";
+            Assert.False(family.HasTarget);
+        }
+
+        [Fact]
+        public void Family_EnteredQuantitySum_DoesNotAutoDistributeTarget()
+        {
+            var p1 = Product("أ");
+            var p2 = Product("ب");
+            var family = new WizardFamilyGroupRow("عيلة", new List<WizardProductRow> { p1, p2 });
+
+            family.TargetText = "500";
+            // تحديد تارجت العيلة لوحده ميغيّرش رقم أي منتج — مفيش توزيع تلقائي
+            Assert.Equal(0, p1.Quantity);
+            Assert.Equal(0, p2.Quantity);
+            Assert.Equal(0, family.EnteredQuantitySum);
+
+            p1.QuantityText = "200";
+            p2.QuantityText = "300";
+            Assert.Equal(500, family.EnteredQuantitySum);
+            Assert.Equal("GoodBrush", family.TargetStatusKey); // المدخل طابق التارجت بالظبط
+        }
+
+        [Fact]
+        public void Family_TargetStatusKey_ReflectsUnderOrOverTarget()
+        {
+            var p1 = Product("أ");
+            var family = new WizardFamilyGroupRow("عيلة", new List<WizardProductRow> { p1 });
+            family.TargetText = "100";
+
+            p1.QuantityText = "40";
+            Assert.Equal("GoldDeepBrush", family.TargetStatusKey); // لسه تحت التارجت
+
+            p1.QuantityText = "150";
+            Assert.Equal("DangerBrush", family.TargetStatusKey); // عدّى التارجت
+        }
+
         [Fact]
         public void Period_IsComplete_OnlyWhenEveryFamilyComplete()
         {

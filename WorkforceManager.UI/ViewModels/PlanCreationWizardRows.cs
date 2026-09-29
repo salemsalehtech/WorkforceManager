@@ -34,6 +34,20 @@ namespace WorkforceManager.UI.ViewModels
         public string HeaderText { get; }
         public List<WizardProductRow> Products { get; }
 
+        /// <summary>
+        /// تارجت العيلة — تحقق/مقارنة بس، **مفيش توزيع تلقائي** على المنتجات.
+        /// المستخدم يدخّله قبل ما يبدأ يملأ أرقام المنتجات تحته، ويشوف
+        /// المجموع اللي دخّله لحد دلوقتي بيقرب/يبعد عن التارجت ده وهو داخل.
+        /// </summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasTarget))]
+        [NotifyPropertyChangedFor(nameof(TargetStatusText))]
+        [NotifyPropertyChangedFor(nameof(TargetStatusKey))]
+        private string _targetText = "";
+
+        public int? TargetQuantity => int.TryParse(TargetText, out var t) && t >= 0 ? t : null;
+        public bool HasTarget => TargetQuantity is not null;
+
         public WizardFamilyGroupRow(string headerText, List<WizardProductRow> products)
         {
             HeaderText = headerText;
@@ -46,12 +60,29 @@ namespace WorkforceManager.UI.ViewModels
                         OnPropertyChanged(nameof(EnteredCount));
                         OnPropertyChanged(nameof(IsComplete));
                     }
+                    if (e.PropertyName is nameof(WizardProductRow.IsEntered) or nameof(WizardProductRow.Quantity))
+                    {
+                        OnPropertyChanged(nameof(EnteredQuantitySum));
+                        OnPropertyChanged(nameof(TargetStatusText));
+                        OnPropertyChanged(nameof(TargetStatusKey));
+                    }
                 };
         }
 
         public int EnteredCount => Products.Count(p => p.IsEntered);
         public int TotalCount => Products.Count;
         public bool IsComplete => TotalCount > 0 && EnteredCount == TotalCount;
+
+        public int EnteredQuantitySum => Products.Sum(p => p.Quantity);
+
+        public string TargetStatusText => HasTarget
+            ? $"المُدخل {EnteredQuantitySum:N0} من هدف العيلة {TargetQuantity:N0}"
+            : "";
+
+        public string TargetStatusKey => !HasTarget ? "TextMutedBrush"
+            : EnteredQuantitySum == TargetQuantity ? "GoodBrush"
+            : EnteredQuantitySum > TargetQuantity ? "DangerBrush"
+            : "GoldDeepBrush";
     }
 
     /// <summary>
