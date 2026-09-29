@@ -125,20 +125,44 @@
                                                 <TextBlock Text="{Binding HeaderText}" Style="{StaticResource SectionTitle}" />
                                             </DockPanel>
 
+                                            <!-- بلاطة مربعة لكل منتج بدل صف مفرود عاري — نفس لغة كروت العمال/المنتجات
+                                                 (حدود مدورة + حلقة/خلفية لما يتسجل رقم)، مش الشبكة المعقدة بتاعة
+                                                 ProductCardButton لأنها مبنية لعرض شاشة كامل، هنا نافذة بعرض ثابت -->
                                             <ItemsControl ItemsSource="{Binding Products}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate DataType="{x:Type vm:WizardProductRow}">
-                                                        <DockPanel Margin="0,0,0,8">
-                                                            <TextBox DockPanel.Dock="Left"
-                                                                     Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
-                                                                     Width="90" TextAlignment="Center" />
-                                                            <materialDesign:PackIcon DockPanel.Dock="Left" Kind="Check" Width="15" Height="15"
-                                                                                     Margin="8,0,0,0" VerticalAlignment="Center"
-                                                                                     Foreground="{DynamicResource SuccessBrush}"
-                                                                                     Visibility="{Binding IsEntered, Converter={StaticResource BoolToVis}}" />
-                                                            <TextBlock Text="{Binding ProductName}" VerticalAlignment="Center" Margin="10,0,0,0"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                        </DockPanel>
+                                                        <Border Width="132" Height="118" Margin="0,0,10,10" Padding="10"
+                                                                CornerRadius="{DynamicResource RadiusSmall}" BorderThickness="1.5">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                                                                    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsEntered}" Value="True">
+                                                                            <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
+                                                                            <Setter Property="BorderBrush" Value="{DynamicResource SuccessBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <Grid>
+                                                                    <TextBlock Text="{Binding ProductName}" TextWrapping="Wrap" TextAlignment="Center"
+                                                                               FontSize="12" FontWeight="SemiBold" Margin="16,0,16,0"
+                                                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                                    <materialDesign:PackIcon HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                                                             Kind="CheckCircle" Width="15" Height="15"
+                                                                                             Foreground="{DynamicResource SuccessBrush}"
+                                                                                             Visibility="{Binding IsEntered, Converter={StaticResource BoolToVis}}" />
+                                                                </Grid>
+                                                                <TextBox Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Width="72" TextAlignment="Center" Margin="0,12,0,0"
+                                                                         HorizontalAlignment="Center" ToolTip="الكمية المخططة" />
+                                                            </StackPanel>
+                                                        </Border>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>
