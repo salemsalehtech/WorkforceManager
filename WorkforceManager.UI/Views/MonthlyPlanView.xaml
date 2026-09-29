@@ -16,8 +16,8 @@
         1. شريط علوي: تنقل شهور + لقطة يوم معيّن + انسخ الشهر اللي فات + الإجمالي
         2. شريط ملخص: عدد ماشي صح/متأخر/سابق
         3. تنبيه لطيف لعيلة واطية (مايمنعش الاستخدام، بس Banner)
-        4. أولوياتي النهاردة: أكتر 3-5 منتجات محتاجة دفعة
         5. الجدول الرئيسي مجمّع بالعيلة — المتأخر فوق كل قسم تلقائيًا
+      "أولوياتي النهاردة" (كان بند 4) اتشال بالكامل بطلب المستخدم — شوف CLAUDE.md.
       خطة/محقق العيلة دايمًا SUM محسوب، مفيش حقل كتابة عليهم.
     -->
     <UserControl.Resources>
@@ -246,32 +246,6 @@
                            Text="{Binding BelowThresholdFamiliesText}" />
             </DockPanel>
         </Border>
-
-        <!-- ═══════════ 4. أولوياتي النهاردة (البند 10) ═══════════ -->
-        <StackPanel Grid.Row="4" Margin="0,0,0,10"
-                    Visibility="{Binding HasPriorities, Converter={StaticResource BoolToVis}}">
-            <TextBlock Text="أولوياتي النهاردة" Style="{StaticResource SectionTitle}" Margin="2,0,0,8" />
-            <ItemsControl ItemsSource="{Binding TodaysPriorities}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:MonthlyPlanProductRow}">
-                        <!-- Effect={x:Null}: كارت متكرر جوه ItemsControl — الظل بيلغي ClearType، شوف CLAUDE.md -->
-                        <Border Style="{StaticResource Card}" Effect="{x:Null}" Margin="0,0,10,10" Padding="12,9" MinWidth="200">
-                            <StackPanel>
-                                <TextBlock Text="{Binding ProductName}" FontWeight="Bold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock FontSize="12" Margin="0,4,0,0" Foreground="{DynamicResource DangerBrush}">
-                                    <Run Text="محتاج" /><Run Text="{Binding RequiredDailyOutput, Mode=OneWay}" FontWeight="Bold" />
-                                    <Run Text="النهارده، اتعمل" /><Run Text="{Binding TodayCompleted, Mode=OneWay}" FontWeight="Bold" />
-                                </TextBlock>
-                            </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </StackPanel>
 
         <!-- ═══════════ 5. الجدول الرئيسي — مادة فوق عيلة، زي شيت المصنع الأصلي ═══════════ -->
         <ScrollViewer Grid.Row="5" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"

@@ -22,9 +22,6 @@ namespace WorkforceManager.UI.ViewModels
             "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
         };
 
-        /// <summary>أكتر عدد منتجات في "أولوياتي النهاردة"</summary>
-        private const int PriorityCount = 5;
-
         private readonly IServiceScopeFactory _scopeFactory;
 
         public MonthlyPlanViewModel(IServiceScopeFactory scopeFactory)
@@ -142,9 +139,6 @@ namespace WorkforceManager.UI.ViewModels
                 .GetSnapshotAsync(takenAt);
         }
 
-        /// <summary>أكتر 3-5 منتجات محتاجة دفعة النهارده — الأبعد عن خطتها بين اللي متأخرين</summary>
-        public ObservableCollection<MonthlyPlanProductRow> TodaysPriorities { get; } = new();
-
         /// <summary>كل مجموعات العيلة عبر مجموعات المادة كلها — مسطّحة، للحسابات الإجمالية ولإيجاد المجموعة المالكة لصف معيّن من الكود الخلفي</summary>
         public IEnumerable<MonthlyPlanFamilyGroupRow> AllFamilyGroups => MaterialGroups.SelectMany(m => m.FamilyGroups);
 
@@ -179,19 +173,9 @@ namespace WorkforceManager.UI.ViewModels
                 BelowThresholdFamilyNames.Add(name);
             OnPropertyChanged(nameof(HasBelowThresholdFamilies));
             OnPropertyChanged(nameof(BelowThresholdFamiliesText));
-
-            TodaysPriorities.Clear();
-            // الأبعد عن الخطة الأول — الفجوة المطلقة بين المطلوب يوميًا والمُنجز النهارده فعليًا
-            foreach (var p in allProducts
-                         .Where(p => p.Status == PlanPaceStatus.Behind && p.RequiredDailyOutput is not null)
-                         .OrderByDescending(p => (p.RequiredDailyOutput ?? 0) - p.TodayCompleted)
-                         .Take(PriorityCount))
-                TodaysPriorities.Add(p);
-            OnPropertyChanged(nameof(HasPriorities));
         }
 
         public bool HasBelowThresholdFamilies => BelowThresholdFamilyNames.Count > 0;
-        public bool HasPriorities => TodaysPriorities.Count > 0;
 
         [RelayCommand]
         private async Task PreviousMonthAsync()
