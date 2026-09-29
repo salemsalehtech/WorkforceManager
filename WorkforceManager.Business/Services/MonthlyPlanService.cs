@@ -30,9 +30,10 @@ namespace WorkforceManager.Business.Services
         /// <summary>
         /// كل المنتجات النشطة بخطة الشهر ده (0 لو لسه مفيش قيمة) — استعلامين
         /// ثابتين (منتجات+عائلاتهم، وخطط الشهر المحدد بس) مدموجين في
-        /// الذاكرة، مش استعلام لكل منتج.
+        /// الذاكرة، مش استعلام لكل منتج. <paramref name="subPeriodId"/>: 0
+        /// (الافتراضي) = الشهر كامل، غير كده = فترة فرعية بعينها.
         /// </summary>
-        public async Task<List<MonthlyPlanProductDto>> GetForMonthAsync(int year, int month)
+        public async Task<List<MonthlyPlanProductDto>> GetForMonthAsync(int year, int month, int subPeriodId = 0)
         {
             var products = await _db.Products
                 .Where(p => p.IsActive)
@@ -40,7 +41,7 @@ namespace WorkforceManager.Business.Services
                 .ToListAsync();
 
             var plans = await _db.MonthlyPlans
-                .Where(mp => mp.Year == year && mp.Month == month)
+                .Where(mp => mp.Year == year && mp.Month == month && mp.SubPeriodId == subPeriodId)
                 .ToDictionaryAsync(mp => mp.ProductId, mp => mp.PlannedQuantity);
 
             return products
@@ -51,19 +52,21 @@ namespace WorkforceManager.Business.Services
                 .ToList();
         }
 
-        public async Task SetPlanAsync(int productId, int year, int month, int plannedQuantity)
+        /// <summary><paramref name="subPeriodId"/>: 0 (الافتراضي) = الشهر كامل، غير كده = فترة فرعية بعينها</summary>
+        public async Task SetPlanAsync(int productId, int year, int month, int plannedQuantity, int subPeriodId = 0)
         {
             if (plannedQuantity < 0)
                 throw new ArgumentException("الكمية المخططة لازم تكون صفر أو أكتر", nameof(plannedQuantity));
 
             var existing = await _db.MonthlyPlans.FirstOrDefaultAsync(
-                mp => mp.ProductId == productId && mp.Year == year && mp.Month == month);
+                mp => mp.ProductId == productId && mp.Year == year && mp.Month == month && mp.SubPeriodId == subPeriodId);
 
             if (existing is null)
             {
                 _db.MonthlyPlans.Add(new MonthlyPlan
                 {
-                    ProductId = productId, Year = year, Month = month, PlannedQuantity = plannedQuantity
+                    ProductId = productId, Year = year, Month = month,
+                    SubPeriodId = subPeriodId, PlannedQuantity = plannedQuantity
                 });
             }
             else
@@ -73,6 +76,39 @@ namespace WorkforceManager.Business.Services
 
             await _db.SaveChangesAsync();
         }
+
+        /// <summary>
+        /// فترة فرعية جديدة جوه شهر — start/end لازم يقعوا جوه نفس الشهر
+        /// (Year/Month بتوع الفترة بياخدوهم من start.Year/start.Month).
+        /// </summary>
+        public async Task<MonthlyPlanSubPeriod> CreateSubPeriodAsync(string label, DateTime start, DateTime end)
+        {
+            if (end.Date < start.Date)
+                throw new ArgumentException("تاريخ النهاية لازم يكون بعد أو يساوي تاريخ البداية", nameof(end));
+            if (start.Year != end.Year || start.Month != end.Month)
+                throw new ArgumentException("الفترة الفرعية لازم تقع جوه شهر واحد", nameof(end));
+
+            var maxSortOrder = await _db.MonthlyPlanSubPeriods
+                .Where(sp => sp.Year == start.Year && sp.Month == start.Month)
+                .Select(sp => (int?)sp.SortOrder)
+                .MaxAsync() ?? -1;
+
+            var subPeriod = new MonthlyPlanSubPeriod
+            {
+                Year = start.Year, Month = start.Month, Label = label,
+                StartDate = start.Date, EndDate = end.Date, SortOrder = maxSortOrder + 1
+            };
+            _db.MonthlyPlanSubPeriods.Add(subPeriod);
+            await _db.SaveChangesAsync();
+            return subPeriod;
+        }
+
+        /// <summary>كل الفترات الفرعية لشهر بعينه — بترتيب العرض</summary>
+        public async Task<List<MonthlyPlanSubPeriod>> GetSubPeriodsForMonthAsync(int year, int month) =>
+            await _db.MonthlyPlanSubPeriods
+                .Where(sp => sp.Year == year && sp.Month == month)
+                .OrderBy(sp => sp.SortOrder)
+                .ToListAsync();
 
         /// <summary>
         /// "الخطة اليومية" — هدف يومي يدوي (MonthlyPlan.DailyTargetQuantity)،

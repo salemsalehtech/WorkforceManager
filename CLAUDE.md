@@ -3260,12 +3260,43 @@ Core  <----------------------- UI
   (`CreatePeriodAsync`, `GetPeriodsAsync`, `GetForPeriodAsync`, `SetTargetAsync`,
   `PeriodHasEntriesAsync`/`CopyFromPreviousPeriodAsync` — "previous" = the latest existing period whose
   `StartDate` is earlier than the current one's) and reuses `MonthlyPlanService.IsComplete(Product)`
-  directly rather than a second copy of the same weight+material check. UI: a new sidebar entry "خطة
-  بفترة مخصصة" right after "الخطة الشهرية", `PlanPeriodView`/`PlanPeriodViewModel` (family-grouped list,
-  editable "المخطط" per product, `LostFocus` save, family subtotal always a live `Sum` — same shape as
-  `MonthlyPlanView` minus every tracking column) and a small `PlanPeriodDialog` for creating a period
-  (two `DatePicker`s, a live workday-count preview computed the same way `CreatePeriodAsync` computes the
-  stored value, just read-only-preview here — the real number is whatever the service persists).
+  directly rather than a second copy of the same weight+material check. UI: `PlanPeriodView`/
+  `PlanPeriodViewModel` (family-grouped list, editable "المخطط" per product, `LostFocus` save, family
+  subtotal always a live `Sum` — same shape as `MonthlyPlanView` minus every tracking column) and a small
+  `PlanPeriodDialog` for creating a period (two `DatePicker`s, a live workday-count preview via
+  `PlanPeriodService.PreviewWorkdaysAsync` — the same calculation `CreatePeriodAsync` uses to persist, so
+  the two can never disagree). **Superseded as a standalone screen**: it no longer has its own sidebar
+  entry — it's embedded as a third tab on `MonthlyPlanView` (hosted via a named `ContentControl`, same
+  `PlanPeriodView`/`PlanPeriodViewModel`, no rewrite) since a separate nav item for "the same kind of
+  plan, just a different date range" read as two disconnected screens rather than one workflow. The
+  `PlanPeriod`/`PlanPeriodTarget` model/table stay as-is, unused by tracking — see the next entry for
+  where "multiple dated sub-periods within one month" actually landed instead.
+
+- **`MonthlyPlan` can optionally be split into several dated sub-periods within one calendar month
+  (`MonthlyPlanSubPeriod`) — additive on top of the whole-month path, which stays the unchanged
+  default.** Not built on `PlanPeriod` above: that model has no overlap-prevention and zero tracking
+  integration, and retrofitting tracking onto it was judged riskier than a small new table purpose-built
+  to live *inside* a month alongside the existing `MonthlyPlan` row. `MonthlyPlanSubPeriod` (`Id`,
+  `Year`, `Month`, `Label`, `StartDate`, `EndDate`, `SortOrder`) has **no stored workday count** (unlike
+  `PlanPeriod`) — workdays are computed live from `StartDate`/`EndDate` at read time, same as `MonthlyPlan`
+  itself, avoiding the staleness class of bug `PlanPeriod.WorkdayCount` has by design.
+  `MonthlyPlan.SubPeriodId` is `int` **not nullable**, sentinel `0` = whole month (SQLite treats every
+  `NULL` as distinct in a unique index, so a nullable FK could not have stopped duplicate default rows),
+  and carries **no FK constraint** to `MonthlyPlanSubPeriod` since `0` is not a real row there —
+  validity is checked in the service layer, not the database. The unique index on `MonthlyPlan` is now
+  `(ProductId, Year, Month, SubPeriodId)` instead of `(ProductId, Year, Month)`, so several sub-periods in
+  the same month can each hold an independent target for the same product.
+  `MonthlyPlanTrackingService.GetTrackingAsync(year, month, asOfDate, subPeriodId = 0)` resolves
+  `periodStart`/`periodEnd` from the calendar month when `subPeriodId == 0`, or from the named
+  `MonthlyPlanSubPeriod`'s own dates otherwise, and feeds those into the *existing* `WorkCalendarRules`
+  date-range overloads (`TotalWorkdays`/`ElapsedWorkdays`(`DateTime`,`DateTime`,...) — the same ones
+  `PlanPeriod` already added, no new calendar logic) — so achieved/corrections/workdays for a sub-period
+  are scoped to its own date range, never the full month. `SameDayPreviousMonth` is `null` for a
+  sub-period (no "previous sub-period" concept exists yet). `MonthlyPlanService.GetForMonthAsync`/
+  `SetPlanAsync` gained a matching optional `subPeriodId = 0` parameter (every existing call site is
+  unaffected, default preserves old behavior exactly), plus `CreateSubPeriodAsync`/
+  `GetSubPeriodsForMonthAsync` for managing sub-periods themselves. **No UI uses this yet** — this is
+  schema/service foundation only, for a wizard-based plan-creation flow layered on top later.
 
 - **"المحقق" on the calendar "الخطة الشهرية" screen stopped being automatic — it's a manual, per-product,
   per-day entry now (`MonthlyPlanDailyEntry`), not a read of real `DailyProduction` via

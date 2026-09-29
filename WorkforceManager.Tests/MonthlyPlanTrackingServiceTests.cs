@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
+using WorkforceManager.Core.Models;
 using WorkforceManager.Data;
 using Xunit;
 
@@ -61,6 +62,14 @@ namespace WorkforceManager.Tests
             _db.InScopeAsync<MonthlyPlanTrackingService, List<MonthlyPlanTrackingDto>>(
                 s => s.GetTrackingAsync(Year, Month, asOfDate));
 
+        private Task<List<MonthlyPlanTrackingDto>> GetTrackingAsync(DateTime asOfDate, int subPeriodId) =>
+            _db.InScopeAsync<MonthlyPlanTrackingService, List<MonthlyPlanTrackingDto>>(
+                s => s.GetTrackingAsync(Year, Month, asOfDate, subPeriodId));
+
+        private Task<MonthlyPlanSubPeriod> CreateSubPeriodAsync(string label, DateTime start, DateTime end) =>
+            _db.InScopeAsync<MonthlyPlanService, MonthlyPlanSubPeriod>(
+                s => s.CreateSubPeriodAsync(label, start, end));
+
         // ═══════════ المحقق إدخال يدوي صرف (مش مشتق من إنتاج حقيقي) ═══════════
 
         [Fact]
@@ -102,6 +111,46 @@ namespace WorkforceManager.Tests
             if (row is null) return; // مفيش نشاط ولا خطة، مش متوقع يظهر أصلاً
 
             Assert.Null(row.AchievedPercent);
+        }
+
+        // ═══════════ فترة فرعية اختيارية (SubPeriod) — إضافية فوق الشهر كامل ═══════════
+
+        [Fact]
+        public async Task SubPeriod_computes_workdays_from_its_own_range_not_the_full_month()
+        {
+            // يوليو 2026 كامل: 31 يوم. فترة فرعية 1-15 يوليو نطاقها جزء بس من الشهر
+            var subPeriod = await CreateSubPeriodAsync("خطة 1", new DateTime(Year, Month, 1), new DateTime(Year, Month, 15));
+
+            var wholeMonth = (await GetTrackingAsync(Today, subPeriodId: 0)).Single(r => r.ProductId == TestDatabase.ProductChainId);
+            var subRange = (await GetTrackingAsync(new DateTime(Year, Month, 15), subPeriod.Id))
+                .Single(r => r.ProductId == TestDatabase.ProductChainId);
+
+            var holidays = new HashSet<DateTime>();
+            var expectedSubTotal = WorkCalendarRules.TotalWorkdays(subPeriod.StartDate, subPeriod.EndDate, holidays);
+
+            Assert.Equal(expectedSubTotal, subRange.TotalWorkdays);
+            // نطاق 1-15 لازم يكون فعليًا أقل من الشهر كامل، وإلا الاختبار مش بيثبت حاجة
+            Assert.True(subRange.TotalWorkdays < wholeMonth.TotalWorkdays);
+        }
+
+        [Fact]
+        public async Task SubPeriod_achieved_only_counts_entries_inside_its_own_date_range()
+        {
+            var subPeriod = await CreateSubPeriodAsync("خطة 1", new DateTime(Year, Month, 1), new DateTime(Year, Month, 15));
+
+            await SetChainDailyEntryAsync(50, new DateTime(Year, Month, 10)); // جوه نطاق الفترة الفرعية
+            await SetChainDailyEntryAsync(999, new DateTime(Year, Month, 20)); // برّه نطاقها
+
+            var row = (await GetTrackingAsync(new DateTime(Year, Month, 15), subPeriod.Id))
+                .Single(r => r.ProductId == TestDatabase.ProductChainId);
+
+            Assert.Equal(50, row.AchievedToDate);
+        }
+
+        [Fact]
+        public async Task Invalid_subPeriodId_throws()
+        {
+            await Assert.ThrowsAsync<ArgumentException>(() => GetTrackingAsync(Today, subPeriodId: 999));
         }
 
         // ═══════════ إجمالي الوزن = وزن القطعة × المحقق الفعلي ═══════════

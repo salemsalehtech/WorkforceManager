@@ -40,40 +40,69 @@ namespace WorkforceManager.Business.Services
                 .Select(g => new { ProductId = g.Key, Total = g.Sum(e => e.Quantity) })
                 .ToDictionaryAsync(x => x.ProductId, x => x.Total);
 
-        public async Task<List<MonthlyPlanTrackingDto>> GetTrackingAsync(int year, int month, DateTime asOfDate)
+        /// <summary>
+        /// <paramref name="subPeriodId"/>: 0 (الافتراضي) = الشهر كامل، زي
+        /// دايمًا. غير كده = MonthlyPlanSubPeriod بالـId ده — أيام
+        /// الشغل/المحقق/التصليحات بتتحسب على نطاق تاريخه هو بس، مش الشهر
+        /// كله (شوف تعليق MonthlyPlanSubPeriod ليه مفيش WorkdayCount مخزّن).
+        /// </summary>
+        public async Task<List<MonthlyPlanTrackingDto>> GetTrackingAsync(int year, int month, DateTime asOfDate, int subPeriodId = 0)
         {
-            var monthStart = new DateTime(year, month, 1);
-            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
-            var effectiveAsOf = asOfDate.Date > monthEnd ? monthEnd : asOfDate.Date;
+            DateTime periodStart, periodEnd;
+            if (subPeriodId == 0)
+            {
+                periodStart = new DateTime(year, month, 1);
+                periodEnd = periodStart.AddMonths(1).AddDays(-1);
+            }
+            else
+            {
+                var subPeriod = await _db.MonthlyPlanSubPeriods.FindAsync(subPeriodId)
+                    ?? throw new ArgumentException($"مفيش فترة فرعية بالرقم {subPeriodId}", nameof(subPeriodId));
+                if (subPeriod.Year != year || subPeriod.Month != month)
+                    throw new ArgumentException("الفترة الفرعية مش تابعة لنفس الشهر", nameof(subPeriodId));
+                periodStart = subPeriod.StartDate;
+                periodEnd = subPeriod.EndDate;
+            }
 
-            var holidays = await LoadHolidaySetAsync(year, month);
-            var totalWorkdays = WorkCalendarRules.TotalWorkdays(year, month, holidays);
-            var elapsedWorkdays = WorkCalendarRules.ElapsedWorkdays(year, month, effectiveAsOf, holidays);
+            var effectiveAsOf = asOfDate.Date > periodEnd ? periodEnd : asOfDate.Date;
+
+            var holidays = await LoadHolidaySetAsync(periodStart, periodEnd);
+            var totalWorkdays = WorkCalendarRules.TotalWorkdays(periodStart, periodEnd, holidays);
+            var elapsedWorkdays = WorkCalendarRules.ElapsedWorkdays(periodStart, periodEnd, effectiveAsOf, holidays);
             var remainingWorkdays = totalWorkdays - elapsedWorkdays;
 
-            // المحقق اليدوي من أول الشهر لحد اليوم المطلوب
-            var achievedByProduct = await LoadDailyEntryTotalsAsync(monthStart, effectiveAsOf);
+            // المحقق اليدوي من أول الفترة لحد اليوم المطلوب
+            var achievedByProduct = await LoadDailyEntryTotalsAsync(periodStart, effectiveAsOf);
 
             // إنتاج النهارده بس (نفس جدول المحقق اليدوي، مدى يوم واحد)
             var todayByProduct = await LoadDailyEntryTotalsAsync(effectiveAsOf, effectiveAsOf);
 
-            // نفس المدى من الشهر اللي فات — يدوي مقابل يدوي (مش حقيقي مقابل يدوي، عشان المقارنة تفضل ذات معنى)
-            var (prevYear, prevMonth) = month == 1 ? (year - 1, 12) : (year, month - 1);
-            var prevMonthStart = new DateTime(prevYear, prevMonth, 1);
-            var prevMonthEnd = prevMonthStart.AddMonths(1).AddDays(-1);
-            var prevEffectiveAsOf = new DateTime(prevYear, prevMonth, Math.Min(effectiveAsOf.Day, DateTime.DaysInMonth(prevYear, prevMonth)));
-            var previousByProduct = prevEffectiveAsOf > prevMonthEnd
-                ? new Dictionary<int, int>()
-                : await LoadDailyEntryTotalsAsync(prevMonthStart, prevEffectiveAsOf);
+            // نفس المدى من الشهر اللي فات — يدوي مقابل يدوي (مش حقيقي مقابل يدوي، عشان المقارنة تفضل ذات معنى).
+            // بس لمسار الشهر كامل — فترة فرعية مفيش لها "فترة فرعية سابقة" مفهومة بعد
+            Dictionary<int, int> previousByProduct;
+            if (subPeriodId == 0)
+            {
+                var (prevYear, prevMonth) = month == 1 ? (year - 1, 12) : (year, month - 1);
+                var prevMonthStart = new DateTime(prevYear, prevMonth, 1);
+                var prevMonthEnd = prevMonthStart.AddMonths(1).AddDays(-1);
+                var prevEffectiveAsOf = new DateTime(prevYear, prevMonth, Math.Min(effectiveAsOf.Day, DateTime.DaysInMonth(prevYear, prevMonth)));
+                previousByProduct = prevEffectiveAsOf > prevMonthEnd
+                    ? new Dictionary<int, int>()
+                    : await LoadDailyEntryTotalsAsync(prevMonthStart, prevEffectiveAsOf);
+            }
+            else
+            {
+                previousByProduct = new Dictionary<int, int>();
+            }
 
             var corrections = await _db.MonthlyPlanCorrections
-                .Where(c => c.Date >= monthStart && c.Date <= effectiveAsOf)
+                .Where(c => c.Date >= periodStart && c.Date <= effectiveAsOf)
                 .GroupBy(c => c.ProductId)
                 .Select(g => new { ProductId = g.Key, Total = g.Sum(c => c.Quantity) })
                 .ToDictionaryAsync(x => x.ProductId, x => x.Total);
 
             var plans = await _db.MonthlyPlans
-                .Where(mp => mp.Year == year && mp.Month == month)
+                .Where(mp => mp.Year == year && mp.Month == month && mp.SubPeriodId == subPeriodId)
                 .ToDictionaryAsync(mp => mp.ProductId, mp => (mp.PlannedQuantity, mp.DailyTargetQuantity));
 
             var products = await _db.Products
@@ -156,12 +185,10 @@ namespace WorkforceManager.Business.Services
             return result.OrderBy(r => r.ProductName).ToList();
         }
 
-        private async Task<HashSet<DateTime>> LoadHolidaySetAsync(int year, int month)
+        private async Task<HashSet<DateTime>> LoadHolidaySetAsync(DateTime start, DateTime end)
         {
-            var monthStart = new DateTime(year, month, 1);
-            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
             var holidays = await _db.MonthlyWorkCalendarHolidays
-                .Where(h => h.Date >= monthStart && h.Date <= monthEnd)
+                .Where(h => h.Date >= start.Date && h.Date <= end.Date)
                 .Select(h => h.Date.Date)
                 .ToListAsync();
             return holidays.ToHashSet();

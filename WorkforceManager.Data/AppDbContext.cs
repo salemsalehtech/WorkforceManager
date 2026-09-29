@@ -36,6 +36,7 @@ namespace WorkforceManager.Data
         public DbSet<InitialBalanceUsage> InitialBalanceUsages => Set<InitialBalanceUsage>();
         public DbSet<ProductFamily> ProductFamilies => Set<ProductFamily>();
         public DbSet<MonthlyPlan> MonthlyPlans => Set<MonthlyPlan>();
+        public DbSet<MonthlyPlanSubPeriod> MonthlyPlanSubPeriods => Set<MonthlyPlanSubPeriod>();
         public DbSet<MonthlyPlanCorrection> MonthlyPlanCorrections => Set<MonthlyPlanCorrection>();
         public DbSet<MonthlyPlanDailyEntry> MonthlyPlanDailyEntries => Set<MonthlyPlanDailyEntry>();
         public DbSet<MonthlyPlanSnapshot> MonthlyPlanSnapshots => Set<MonthlyPlanSnapshot>();
@@ -246,9 +247,11 @@ namespace WorkforceManager.Data
                 .HasForeignKey(mp => mp.ProductId)
                 .OnDelete(DeleteBehavior.Cascade); // خطة منتج محذوف مالهاش معنى تفضل قايمة
 
-            // مرة واحدة بس لكل منتج لكل شهر — القاعدة الجوهرية لكل الفيتشر
+            // مرة واحدة بس لكل منتج لكل شهر لكل فترة فرعية (SubPeriodId=0 = الشهر
+            // كامل) — القاعدة الجوهرية لكل الفيتشر، اتوسّعت عشان تسمح بفترات
+            // فرعية متعددة لنفس المنتج جوه نفس الشهر، شوف MonthlyPlan.SubPeriodId
             modelBuilder.Entity<MonthlyPlan>()
-                .HasIndex(mp => new { mp.ProductId, mp.Year, mp.Month })
+                .HasIndex(mp => new { mp.ProductId, mp.Year, mp.Month, mp.SubPeriodId })
                 .IsUnique();
 
             modelBuilder.Entity<MonthlyPlan>()
@@ -263,6 +266,11 @@ namespace WorkforceManager.Data
                 .ToTable(t => t.HasCheckConstraint(
                     "CK_MonthlyPlan_DailyTargetQuantity_NonNegative",
                     "DailyTargetQuantity IS NULL OR DailyTargetQuantity >= 0"));
+
+            // ---------- تقسيم شهر MonthlyPlan لفترات فرعية (اختياري، إضافي) ----------
+            modelBuilder.Entity<MonthlyPlanSubPeriod>()
+                .ToTable(t => t.HasCheckConstraint(
+                    "CK_MonthlyPlanSubPeriod_EndDate_NotBeforeStart", "EndDate >= StartDate"));
 
             // ---------- تصليحات (تعديل يدوي على المحقق) ----------
             modelBuilder.Entity<MonthlyPlanCorrection>()

@@ -26,6 +26,15 @@ namespace WorkforceManager.Core.Models
         /// <summary>1-12 — شوف HasCheckConstraint في AppDbContext</summary>
         public int Month { get; set; }
 
+        /// <summary>
+        /// 0 = الشهر كامل (الافتراضي، السلوك القديم زي ما هو). غير كده =
+        /// Id حقيقي في MonthlyPlanSubPeriod — **من غير FK constraint** لأن
+        /// 0 مش صف حقيقي في الجدول، التحقق بيحصل في الـservice مش الـDB.
+        /// جزء من الفهرس الفريد بدل (ProductId,Year,Month) لوحدهم، عشان
+        /// أكتر من فترة فرعية في نفس الشهر تقدر تحمل هدف مستقل لنفس المنتج.
+        /// </summary>
+        public int SubPeriodId { get; set; } = 0;
+
         public int PlannedQuantity { get; set; }
 
         /// <summary>

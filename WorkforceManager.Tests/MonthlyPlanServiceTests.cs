@@ -101,6 +101,43 @@ namespace WorkforceManager.Tests
                 { await s.SetPlanAsync(TestDatabase.ProductRingId, Year, Month, -1); return true; }));
         }
 
+        // ═══════════ فترة فرعية اختيارية (SubPeriod) — إضافية فوق الشهر كامل ═══════════
+
+        [Fact]
+        public async Task Two_sub_periods_in_same_month_hold_independent_plans_for_same_product()
+        {
+            var period1 = await _db.InScopeAsync<MonthlyPlanService, MonthlyPlanSubPeriod>(
+                s => s.CreateSubPeriodAsync("خطة 1", new DateTime(Year, Month, 1), new DateTime(Year, Month, 15)));
+            var period2 = await _db.InScopeAsync<MonthlyPlanService, MonthlyPlanSubPeriod>(
+                s => s.CreateSubPeriodAsync("خطة 2", new DateTime(Year, Month, 16), new DateTime(Year, Month, 31)));
+
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetPlanAsync(TestDatabase.ProductRingId, Year, Month, 100, period1.Id); return true; });
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetPlanAsync(TestDatabase.ProductRingId, Year, Month, 300, period2.Id); return true; });
+            // نفس المنتج، الشهر كامل (SubPeriodId=0) — لازم يفضل مستقل كمان، مش يتلخبط مع الفترتين
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetPlanAsync(TestDatabase.ProductRingId, Year, Month, 999); return true; });
+
+            using var scope = _db.CreateScope();
+            var rows = await _db.GetService<AppDbContext>(scope).MonthlyPlans
+                .Where(mp => mp.ProductId == TestDatabase.ProductRingId && mp.Year == Year && mp.Month == Month)
+                .ToListAsync();
+
+            Assert.Equal(3, rows.Count);
+            Assert.Equal(100, rows.Single(r => r.SubPeriodId == period1.Id).PlannedQuantity);
+            Assert.Equal(300, rows.Single(r => r.SubPeriodId == period2.Id).PlannedQuantity);
+            Assert.Equal(999, rows.Single(r => r.SubPeriodId == 0).PlannedQuantity);
+        }
+
+        [Fact]
+        public async Task CreateSubPeriodAsync_rejects_range_spanning_two_months()
+        {
+            await Assert.ThrowsAsync<ArgumentException>(() =>
+                _db.InScopeAsync<MonthlyPlanService, MonthlyPlanSubPeriod>(
+                    s => s.CreateSubPeriodAsync("خطة 1", new DateTime(Year, Month, 25), new DateTime(Year, Month + 1, 5))));
+        }
+
         // ═══════════ الخطة اليومية (هدف يدوي، مستقل عن الكمية الشهرية) ═══════════
 
         [Fact]
