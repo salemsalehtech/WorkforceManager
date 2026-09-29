@@ -317,6 +317,17 @@
                         </StackPanel>
                     </RadioButton>
 
+                    <RadioButton x:Name="NavStatisticsItem" Style="{StaticResource NavItem}"
+                                 Tag="{x:Type views:StatisticsView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
+                                 AutomationProperties.Name="الإحصائيات">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ChartBoxOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource GoldBrush}" />
+                            <TextBlock Text="الإحصائيات" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+
                     <RadioButton x:Name="NavDailyEntryItem" Style="{StaticResource NavItem}"
                                  Tag="{x:Type views:DailyEntryView}"
                                  Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
@@ -566,6 +577,23 @@
                         <Button Style="{StaticResource IconButton}" Tag="NavMonthlyPlanItem" Click="CollapsedNavIcon_Click"
                                 ToolTip="الخطة الشهرية" AutomationProperties.Name="الخطة الشهرية">
                             <materialDesign:PackIcon Kind="CalendarMonthOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
+                        </Button>
+                    </Border>
+
+                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavStatisticsItem}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Style="{StaticResource IconButton}" Tag="NavStatisticsItem" Click="CollapsedNavIcon_Click"
+                                ToolTip="الإحصائيات" AutomationProperties.Name="الإحصائيات">
+                            <materialDesign:PackIcon Kind="ChartBoxOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
                         </Button>
                     </Border>
 

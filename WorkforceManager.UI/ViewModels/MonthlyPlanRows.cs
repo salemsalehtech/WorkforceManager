@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 
@@ -105,6 +106,12 @@ namespace WorkforceManager.UI.ViewModels
         public string HeaderText { get; init; } = "";
         public List<MonthlyPlanProductRow> Products { get; init; } = new();
 
+        /// <summary>الكارت مفتوح افتراضيًا — تدوس على رأسه يقفل/يفتح، شوف MonthlyPlanView</summary>
+        [ObservableProperty] private bool _isExpanded = true;
+
+        [RelayCommand]
+        private void ToggleExpanded() => IsExpanded = !IsExpanded;
+
         /// <summary>أيام الشغل المتبقية للفترة — نفس رقم الفترة كله، لازم لحساب RequiredDailyOutputForFamily</summary>
         public int RemainingWorkdays { get; init; }
 
@@ -136,6 +143,9 @@ namespace WorkforceManager.UI.ViewModels
 
         /// <summary>تنبيه لطيف — العيلة كلها واطية عن الإيقاع (أقل من 75% كمتوسط)</summary>
         public bool IsBelowThreshold => AveragePercent is { } avg && avg < 0.75m;
+
+        /// <summary>نسبة إنجاز العيلة على رأس كارتها — ذهبي/بني دايمًا (مش أحمر/أخضر حالة)، بمعزل عن AveragePercent المستخدم للتنبيه بس</summary>
+        public string CardPercentText => AveragePercent is { } p ? $"{p:P0}" : "—";
 
         /// <summary>مجموع تصليحات منتجاتها — SUM بسيط، نفس منطق Subtotal بالظبط</summary>
         public int CorrectionsSubtotal => Products.Sum(p => p.Correction);

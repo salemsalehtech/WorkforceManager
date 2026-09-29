@@ -3324,6 +3324,40 @@ Core  <----------------------- UI
   `MonthlyPlanViewModel.AddNewPlanCommand`, the same pattern `ProductEditDialog` already uses for a
   dialog that needs per-instance runtime data DI alone can't supply — not a DI container registration.
 
+- **Family cards on the planning tab were rebuilt, not reskinned — the old flat header row (one long
+  `WrapPanel` of stat text: weight, required-daily, corrections, daily-gap, no percentage, no visual
+  separation from its material section) was explicitly rejected.** Each family is now its own nested
+  `Card`-styled `Border` (`SurfaceAltBrush` background to read as a distinct layer against the material
+  section around it) with a clickable header — name, a gold/brown completion badge
+  (`MonthlyPlanFamilyGroupRow.CardPercentText`, `GoldTintBrush`/`GoldDeepBrush`, the same tokens already
+  used for "Ahead" status elsewhere, not a new color) and a chevron that toggles `IsExpanded`
+  (`[RelayCommand] ToggleExpanded`) to collapse/expand its products. **Per-card staggered entrance
+  animation was scoped out of this phase** — the existing `AnimateTilesIn` pattern
+  (`WorkersView.xaml.cs`/`ProductsView.xaml.cs`) assumes one flat `ItemsControl`; family cards sit nested
+  two levels inside `MaterialGroups → FamilyGroups`, and driving per-card `BeginTime` staggering through
+  that nesting from code-behind was judged not worth the added complexity for a visual flourish this
+  session cannot even preview (no GUI screenshot access) — flagged here explicitly rather than silently
+  dropped, revisit if it matters enough to be worth doing properly.
+  **Comparison-to-last-month (`ComparisonText`) and weight-breakdown figures (`TotalWeightKg`/`Tons` at
+  product, family, and material level) were removed from this screen entirely** and moved to the new
+  الإحصائيات screen below — the planning tab now shows only the core plan-vs-achieved numbers (target,
+  progress bar, %, required-daily, forecast), per the explicit "احصائيات مش عوزها هنا" instruction.
+
+- **New "الإحصائيات" top-level screen** (`StatisticsView`/`StatisticsViewModel`) holds everything just
+  removed from the planning tab, plus a chart — reads from the *same* `MonthlyPlanTrackingService.
+  GetTrackingAsync` the planning tab reads, never a second computation of achieved/weight/comparison
+  figures. Its own month nav (`PreviousMonthCommand`/`NextMonthCommand`, independent `SelectedYear`/
+  `SelectedMonth` — this screen is not tied to whatever month المخطط الشهرية happens to have open).
+  Chart reuses `ProductOutputChart`/`ProductionChartService`/`ProductOutputChartBuilder` exactly as
+  `HomeView`'s week-chart card does (`ChartGrain.Day` over the selected month) — no new chart control.
+  `StatisticsProductRow`/`StatisticsFamilyWeightRow` (`ViewModels/StatisticsRows.cs`) are plain
+  presentation rows, not persisted — `StatisticsProductRow.ComparisonText` reuses
+  `ReportBuilderService.PercentChange` directly, the same helper `MonthlyPlanProductRow.ComparisonText`
+  used before it moved. Added as a 6th top-level nav screen via the standard 5-location checklist
+  (`NavStatisticsItem` expanded `RadioButton` + collapsed icon `Border`/`Button`,
+  `InitializeNavIndicator` array, DI registration, `NavigableScreens.cs` entry) documented by the
+  PlanPeriod-tab-merge commit's reverse of the same checklist.
+
 - **"المحقق" on the calendar "الخطة الشهرية" screen stopped being automatic — it's a manual, per-product,
   per-day entry now (`MonthlyPlanDailyEntry`), not a read of real `DailyProduction` via
   `DailyProductionReportService`.** A later prompt asked for this explicitly, confirmed with the user as
