@@ -65,6 +65,19 @@ namespace WorkforceManager.UI.ViewModels
         public bool HasMultiplePeriods => Periods.Count > 1;
         public bool IsLastPeriod => CurrentPeriodIndex >= Periods.Count - 1;
 
+        /// <summary>
+        /// [ObservableProperty] بيتجاهل الـnotify لو القيمة الجديدة زي القديمة —
+        /// CurrentPeriodIndex غالبًا بيتحط 0 وهو أصلاً 0 (القيمة الافتراضية)
+        /// بعد ما Periods اتملت لسه، فـCurrentPeriod/IsLastPeriod مكانوش
+        /// بيتحدّثوا خالص وخطوة الإدخال كانت بتطلع فاضية بالكامل. نداء صريح
+        /// هنا بيضمن التحديث حتى لو الـindex نفسه ما اتغيرش.
+        /// </summary>
+        private void RefreshCurrentPeriod()
+        {
+            OnPropertyChanged(nameof(CurrentPeriod));
+            OnPropertyChanged(nameof(IsLastPeriod));
+        }
+
         /// <summary>true لو حصل حفظ ناجح فعلاً — الشاشة اللي فتحت الـwizard بتعيد التحميل بناءً عليه</summary>
         public bool Saved { get; private set; }
 
@@ -135,6 +148,7 @@ namespace WorkforceManager.UI.ViewModels
             }
 
             CurrentPeriodIndex = 0;
+            RefreshCurrentPeriod();
             CurrentStep = WizardStep.Entry;
         }
 
@@ -145,6 +159,7 @@ namespace WorkforceManager.UI.ViewModels
             Periods.Clear();
             Periods.Add(BuildPeriodRow(catalog, subPeriodId: 0, label: "الشهر كامل", prefillFromExisting: false));
             CurrentPeriodIndex = 0;
+            RefreshCurrentPeriod();
             CurrentStep = WizardStep.Entry;
         }
 
@@ -184,6 +199,7 @@ namespace WorkforceManager.UI.ViewModels
         private void StartEntry()
         {
             CurrentPeriodIndex = 0;
+            RefreshCurrentPeriod();
             CurrentStep = WizardStep.Entry;
         }
 
