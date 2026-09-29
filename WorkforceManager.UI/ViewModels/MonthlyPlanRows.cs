@@ -131,6 +131,10 @@ namespace WorkforceManager.UI.ViewModels
 
         public bool HasRequiredDailyOutputForFamily => RequiredDailyOutputForFamily is not null;
 
+        /// <summary>نص جاهز لعمود "مطلوب يوميًا" في كارت العيلة — "—" لو مفيش (شوف MonthlyPlanView)</summary>
+        public string RequiredDailyOutputForFamilyText =>
+            HasRequiredDailyOutputForFamily ? RequiredDailyOutputForFamily!.Value.ToString() : "—";
+
         /// <summary>متوسط نسبة المحقق عبر منتجات العيلة اللي ليها خطة فعلية — أساس تنبيه "العيلة واطية"</summary>
         public decimal? AveragePercent
         {
