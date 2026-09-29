@@ -32,6 +32,20 @@ namespace WorkforceManager.Business.Services
         }
 
         /// <summary>
+        /// معاينة عدد أيام الشغل لفترة لسه ماتحفظتش — نفس حسبة
+        /// CreatePeriodAsync بالظبط (شوف LoadHolidaySetAsync)، عشان الرقم
+        /// المعروض في PlanPeriodDialog ما يختلفش أبدًا عن اللي بيتخزّن فعليًا.
+        /// </summary>
+        public async Task<int> PreviewWorkdaysAsync(DateTime start, DateTime end)
+        {
+            if (end.Date < start.Date)
+                throw new ArgumentException("تاريخ النهاية لازم يكون بعد أو يساوي تاريخ البداية", nameof(end));
+
+            var holidays = await LoadHolidaySetAsync(start, end);
+            return WorkCalendarRules.TotalWorkdays(start, end, holidays);
+        }
+
+        /// <summary>
         /// بينشئ فترة جديدة ويحسب عدد أيام الشغل فيها مرة واحدة وقت
         /// الإنشاء (عطلة تتضاف بعد كده مابتحدّثش الرقم المخزّن تلقائيًا —
         /// شوف تعليق PlanPeriod.WorkdayCount).

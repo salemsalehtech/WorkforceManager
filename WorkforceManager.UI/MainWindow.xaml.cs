@@ -125,7 +125,7 @@ namespace WorkforceManager.UI
         {
             foreach (var item in new[]
             {
-                NavHomeItem, NavWorkersItem, NavProductsItem, NavMonthlyPlanItem, NavDailyEntryItem, NavMemoryItem, NavEvaluationItem,
+                NavHomeItem, NavWorkersItem, NavProductsItem, NavMonthlyPlanItem, NavPlanPeriodItem, NavDailyEntryItem, NavMemoryItem, NavEvaluationItem,
                 NavReportsItem, NavActivityLogItem, NavSettingsItem, NavDepartmentAccountsItem, NavHelpItem
             })
             {

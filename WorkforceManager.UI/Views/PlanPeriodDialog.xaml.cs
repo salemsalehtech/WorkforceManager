@@ -1,17 +1,15 @@
 using System.Windows;
 using System.Windows.Input;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using WorkforceManager.Business.Services;
-using WorkforceManager.Data;
 
 namespace WorkforceManager.UI.Views
 {
     /// <summary>
     /// إنشاء فترة خطة مخصصة — شوف تعليق XAML. المعاينة الحية لعدد أيام
-    /// الشغل هنا نسخة مستقلة من نفس حسبة WorkCalendarRules اللي
-    /// PlanPeriodService.CreatePeriodAsync بيستخدمها فعليًا عند الحفظ —
-    /// عرض بس، القيمة الحقيقية المخزّنة بتتحسب في الخدمة.
+    /// الشغل بتنادي PlanPeriodService.PreviewWorkdaysAsync (نفس حسبة
+    /// CreatePeriodAsync بالظبط، مش نسخة تانية)، عشان الرقم المعروض هنا
+    /// ما يقدرش يختلف عن اللي بيتخزّن فعليًا عند الحفظ.
     /// </summary>
     public partial class PlanPeriodDialog : Window, ISaveShortcutDialog
     {
@@ -37,13 +35,8 @@ namespace WorkforceManager.UI.Views
             if (end.Date < start.Date) return; // Save_Click هيوريه رسالة الخطأ لو حاول يحفظ كده
 
             using var scope = _scopeFactory.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var holidays = (await db.MonthlyWorkCalendarHolidays
-                .Where(h => h.Date >= start.Date && h.Date <= end.Date)
-                .Select(h => h.Date.Date)
-                .ToListAsync()).ToHashSet();
-
-            var workdays = WorkCalendarRules.TotalWorkdays(start, end, holidays);
+            var service = scope.ServiceProvider.GetRequiredService<PlanPeriodService>();
+            var workdays = await service.PreviewWorkdaysAsync(start, end);
             PreviewText.Text = $"{workdays} يوم شغل";
             PreviewBox.Visibility = Visibility.Visible;
         }

@@ -120,9 +120,7 @@ namespace WorkforceManager.Business.Services
                     _ => PlanPaceStatus.OnTrack
                 };
 
-                int? requiredDailyOutput = remainingWorkdays > 0
-                    ? (int)Math.Max(0, Math.Ceiling((plannedQuantity - effectiveAchieved) / (decimal)remainingWorkdays))
-                    : null;
+                var requiredDailyOutput = MonthlyPlanFamilyMath.RequiredDailyOutput(plannedQuantity, effectiveAchieved, remainingWorkdays);
 
                 int? forecastEndOfMonth = elapsedWorkdays > 0
                     ? (int)Math.Round(effectiveAchieved * (decimal)totalWorkdays / elapsedWorkdays)
