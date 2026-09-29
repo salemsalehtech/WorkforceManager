@@ -301,8 +301,10 @@
                                 <!-- ═══════════ كروت العيلة — كل عيلة كارت مستقل، اسمها + نسبة إنجازها
                                      الذهبية فوق، تدوس تقفل/تفتح المنتجات جواها. الديزاين القديم (صف رأس
                                      مفرود بالإحصائيات كلها) اتلغى بالكامل، شوف CLAUDE.md. ═══════════ -->
-                                <!-- كروت العيلة جنب بعض (WrapPanel) مش تحت بعض — زي شبكة كروت العمال/المنتجات،
-                                     Width ثابت يستوعب صف المنتج العريض جوّاها لما تتفتح، شوف CLAUDE.md -->
+                                <!-- كروت العيلة جنب بعض (WrapPanel) مش تحت بعض — زي شبكة كروت العمال/المنتجات.
+                                     Width بيتغيّر بالحالة: ضيق (300) وهي مقفولة عشان كذا كارت يقعدوا جنب بعض
+                                     فعلًا، ويتوسّع (620) بس لما تتفتح عشان يستوعب صف المنتج العريض جواها،
+                                     شوف CLAUDE.md -->
                                 <ItemsControl ItemsSource="{Binding FamilyGroups}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
@@ -312,8 +314,17 @@
                                             <!-- شكل الكارت زي كروت العمال/المنتجات — اسم + شارة ذهبية فوق، وصف أرقام
                                                  بولد فوق تسمية باهتة (StatNumber/StatCaption) تحت بدل سطر نص باهت
                                                  مفرود، شوف CLAUDE.md -->
-                                            <Border Style="{StaticResource Card}" Effect="{x:Null}" Background="{DynamicResource SurfaceAltBrush}"
-                                                    Padding="14" Margin="0,0,14,14" Width="620">
+                                            <Border Effect="{x:Null}" Background="{DynamicResource SurfaceAltBrush}" Padding="14" Margin="0,0,14,14">
+                                                <Border.Style>
+                                                    <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                                                        <Setter Property="Width" Value="300" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                                <Setter Property="Width" Value="620" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
                                                 <StackPanel>
                                                     <Button Command="{Binding ToggleExpandedCommand}" Style="{StaticResource GhostButton}"
                                                             HorizontalContentAlignment="Stretch" Padding="0" Background="Transparent" BorderThickness="0"
@@ -524,9 +535,19 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:MonthlyPlanTodayFamilyGroupRow}">
-                            <!-- شكل الكارت زي كروت العمال/المنتجات — نفس تعديل كروت التخطيط، شوف CLAUDE.md -->
-                            <Border Style="{StaticResource Card}" Effect="{x:Null}" Background="{DynamicResource SurfaceAltBrush}"
-                                    Padding="14" Margin="0,0,14,14" Width="640">
+                            <!-- شكل الكارت زي كروت العمال/المنتجات — نفس تعديل كروت التخطيط، شوف CLAUDE.md.
+                                 Width بيتغيّر بالحالة زي كارت التخطيط بالظبط -->
+                            <Border Effect="{x:Null}" Background="{DynamicResource SurfaceAltBrush}" Padding="14" Margin="0,0,14,14">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                                        <Setter Property="Width" Value="300" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                <Setter Property="Width" Value="640" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                                 <StackPanel>
                                     <Button Command="{Binding ToggleExpandedCommand}" Style="{StaticResource GhostButton}"
                                             HorizontalContentAlignment="Stretch" Padding="0" Background="Transparent" BorderThickness="0"
