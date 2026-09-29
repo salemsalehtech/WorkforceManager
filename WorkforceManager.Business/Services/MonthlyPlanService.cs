@@ -144,6 +144,21 @@ namespace WorkforceManager.Business.Services
             _db.MonthlyPlans.AnyAsync(mp => mp.Year == year && mp.Month == month);
 
         /// <summary>
+        /// بيمسح خطة الشهر بالكامل — كل صفوف MonthlyPlan وكل الفترات الفرعية
+        /// (MonthlyPlanSubPeriod) بتاعة نفس السنة/الشهر، مش شهور تانية.
+        /// </summary>
+        public async Task DeletePlanForMonthAsync(int year, int month)
+        {
+            var plans = await _db.MonthlyPlans.Where(mp => mp.Year == year && mp.Month == month).ToListAsync();
+            _db.MonthlyPlans.RemoveRange(plans);
+
+            var subPeriods = await _db.MonthlyPlanSubPeriods.Where(sp => sp.Year == year && sp.Month == month).ToListAsync();
+            _db.MonthlyPlanSubPeriods.RemoveRange(subPeriods);
+
+            await _db.SaveChangesAsync();
+        }
+
+        /// <summary>
         /// ينسخ خطط الشهر اللي فات كنقطة بداية للشهر ده — Upsert: منتج
         /// عنده صف في الشهر ده بالفعل بيتحدّث بقيمة الشهر اللي فات
         /// (استبدال، بعد ما الشاشة تاخد تأكيد المستخدم لو فيه صفوف موجودة

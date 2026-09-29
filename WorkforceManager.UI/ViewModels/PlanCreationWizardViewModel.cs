@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using WorkforceManager.Business.DTOs;
 using WorkforceManager.Business.Services;
 
 namespace WorkforceManager.UI.ViewModels
@@ -19,14 +20,18 @@ namespace WorkforceManager.UI.ViewModels
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly int _year;
         private readonly int _month;
-        private List<(int ProductId, string ProductName, int? FamilyId, string? FamilyName)> _catalog = new();
+        private List<MonthlyPlanProductDto> _catalog = new();
         private int _nextCustomPeriodNumber = 1;
 
-        public PlanCreationWizardViewModel(IServiceScopeFactory scopeFactory, int year, int month)
+        /// <summary>true = فتحنا الـwizard على خطة موجودة بالفعل (زرار "تعديل الخطة") — شوف LoadExistingPlanAsync</summary>
+        public bool IsEditMode { get; }
+
+        public PlanCreationWizardViewModel(IServiceScopeFactory scopeFactory, int year, int month, bool editMode = false)
         {
             _scopeFactory = scopeFactory;
             _year = year;
             _month = month;
+            IsEditMode = editMode;
         }
 
         [ObservableProperty]
@@ -63,40 +68,74 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>true لو حصل حفظ ناجح فعلاً — الشاشة اللي فتحت الـwizard بتعيد التحميل بناءً عليه</summary>
         public bool Saved { get; private set; }
 
-        private async Task<List<(int ProductId, string ProductName, int? FamilyId, string? FamilyName)>> LoadCatalogAsync()
+        private async Task<List<MonthlyPlanProductDto>> LoadCatalogAsync()
         {
             if (_catalog.Count > 0) return _catalog;
 
             using var scope = _scopeFactory.CreateScope();
-            var products = await scope.ServiceProvider.GetRequiredService<MonthlyPlanService>()
-                .GetForMonthAsync(_year, _month); // subPeriodId=0 بس لجلب كتالوج المنتجات — الكمية بتتجاهل هنا
-
-            _catalog = products.Select(p => (p.ProductId, p.ProductName, p.FamilyId, p.FamilyName)).ToList();
+            // subPeriodId=0 بس لجلب كتالوج المنتجات (أسماء/عائلات) — الكمية بتتجاهل هنا،
+            // مسار الخطة الجديدة دايمًا بيبدأ فاضي (prefillFromExisting: false تحت)
+            _catalog = await scope.ServiceProvider.GetRequiredService<MonthlyPlanService>()
+                .GetForMonthAsync(_year, _month);
             return _catalog;
         }
 
+        /// <summary>
+        /// <paramref name="prefillFromExisting"/>: true (وضع التعديل) يملأ QuantityText من
+        /// PlannedQuantity الموجودة بالفعل (0 = لسه مفيش قيمة، يفضل فاضي)، false (خطة جديدة) يبدأ فاضي دايمًا.
+        /// </summary>
         private static WizardPeriodRow BuildPeriodRow(
-            List<(int ProductId, string ProductName, int? FamilyId, string? FamilyName)> catalog,
-            int subPeriodId, string label)
+            List<MonthlyPlanProductDto> products, int subPeriodId, string label, bool prefillFromExisting)
         {
+            WizardProductRow ToRow(MonthlyPlanProductDto p)
+            {
+                var row = new WizardProductRow { ProductId = p.ProductId, ProductName = p.ProductName };
+                if (prefillFromExisting && p.PlannedQuantity > 0) row.QuantityText = p.PlannedQuantity.ToString();
+                return row;
+            }
+
             var familyGroups = new List<WizardFamilyGroupRow>();
 
-            foreach (var g in catalog.Where(p => p.FamilyId is not null)
+            foreach (var g in products.Where(p => p.FamilyId is not null)
                          .GroupBy(p => (p.FamilyId!.Value, p.FamilyName ?? ""))
                          .OrderBy(g => g.Key.Item2))
-            {
-                var rows = g.Select(p => new WizardProductRow { ProductId = p.ProductId, ProductName = p.ProductName }).ToList();
-                familyGroups.Add(new WizardFamilyGroupRow($"{g.Key.Item2} ({g.Count()})", rows));
-            }
+                familyGroups.Add(new WizardFamilyGroupRow($"{g.Key.Item2} ({g.Count()})", g.Select(ToRow).ToList()));
 
-            var noFamily = catalog.Where(p => p.FamilyId is null).ToList();
+            var noFamily = products.Where(p => p.FamilyId is null).ToList();
             if (noFamily.Count > 0)
-            {
-                var rows = noFamily.Select(p => new WizardProductRow { ProductId = p.ProductId, ProductName = p.ProductName }).ToList();
-                familyGroups.Add(new WizardFamilyGroupRow($"بدون عيلة ({noFamily.Count})", rows));
-            }
+                familyGroups.Add(new WizardFamilyGroupRow($"بدون عيلة ({noFamily.Count})", noFamily.Select(ToRow).ToList()));
 
             return new WizardPeriodRow(familyGroups) { SubPeriodId = subPeriodId, Label = label };
+        }
+
+        /// <summary>
+        /// وضع التعديل: بيحمّل الفترات الموجودة فعلاً (أو الشهر كامل لو مفيش فترات فرعية) بقيمها
+        /// الحالية، ويقفز لخطوة الإدخال على طول. مش [RelayCommand]: بينادى من كود-behind النافذة
+        /// (Loaded) مش من زرار في الـXAML.
+        /// </summary>
+        public async Task LoadExistingPlanAsync()
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<MonthlyPlanService>();
+            var subPeriods = await service.GetSubPeriodsForMonthAsync(_year, _month);
+
+            Periods.Clear();
+            if (subPeriods.Count == 0)
+            {
+                var products = await service.GetForMonthAsync(_year, _month);
+                Periods.Add(BuildPeriodRow(products, subPeriodId: 0, label: "الشهر كامل", prefillFromExisting: true));
+            }
+            else
+            {
+                foreach (var sp in subPeriods)
+                {
+                    var products = await service.GetForMonthAsync(_year, _month, sp.Id);
+                    Periods.Add(BuildPeriodRow(products, sp.Id, sp.Label, prefillFromExisting: true));
+                }
+            }
+
+            CurrentPeriodIndex = 0;
+            CurrentStep = WizardStep.Entry;
         }
 
         [RelayCommand]
@@ -104,7 +143,7 @@ namespace WorkforceManager.UI.ViewModels
         {
             var catalog = await LoadCatalogAsync();
             Periods.Clear();
-            Periods.Add(BuildPeriodRow(catalog, subPeriodId: 0, label: "الشهر كامل"));
+            Periods.Add(BuildPeriodRow(catalog, subPeriodId: 0, label: "الشهر كامل", prefillFromExisting: false));
             CurrentPeriodIndex = 0;
             CurrentStep = WizardStep.Entry;
         }
@@ -130,7 +169,7 @@ namespace WorkforceManager.UI.ViewModels
                 _nextCustomPeriodNumber++;
 
                 var catalog = await LoadCatalogAsync();
-                Periods.Add(BuildPeriodRow(catalog, subPeriod.Id, subPeriod.Label));
+                Periods.Add(BuildPeriodRow(catalog, subPeriod.Id, subPeriod.Label, prefillFromExisting: false));
 
                 CustomStart = null;
                 CustomEnd = null;

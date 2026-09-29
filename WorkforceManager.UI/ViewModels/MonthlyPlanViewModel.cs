@@ -350,6 +350,30 @@ namespace WorkforceManager.UI.ViewModels
                 await LoadAsync();
         }
 
+        /// <summary>"تعديل الخطة" — نفس wizard إنشاء الخطة، بس editMode:true بيحمّل القيم الحالية ويقفز لخطوة الإدخال</summary>
+        [RelayCommand]
+        private async Task EditPlanAsync()
+        {
+            var dialog = new PlanCreationWizardWindow(new PlanCreationWizardViewModel(_scopeFactory, SelectedYear, SelectedMonth, editMode: true))
+            { Owner = Application.Current.MainWindow };
+            if (dialog.ShowDialog() == true)
+                await LoadAsync();
+        }
+
+        /// <summary>"حذف الخطة" — بيمسح كل صفوف MonthlyPlan وMonthlyPlanSubPeriod للشهر ده بعد تأكيد صريح</summary>
+        [RelayCommand]
+        private async Task DeletePlanAsync()
+        {
+            var confirmed = Notify.Ask("هتتمسح خطة الشهر ده بالكامل (كل العائلات والفترات الفرعية)، متأكد؟", "حذف الخطة");
+            if (!confirmed) return;
+
+            using (var scope = _scopeFactory.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<MonthlyPlanService>()
+                    .DeletePlanForMonthAsync(SelectedYear, SelectedMonth);
+
+            await LoadAsync();
+        }
+
         [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task CopyFromPreviousMonthAsync()
         {

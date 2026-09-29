@@ -34,7 +34,6 @@ namespace WorkforceManager.UI.Tour
             new() { Title = "العمال", NavItemName = "NavWorkersItem" },
             new() { Title = "المنتجات والمراحل", NavItemName = "NavProductsItem" },
             new() { Title = "الخطة الشهرية", NavItemName = "NavMonthlyPlanItem" },
-            new() { Title = "الإحصائيات", NavItemName = "NavStatisticsItem" },
             new() { Title = "تسجيل الإنتاج اليومي", NavItemName = "NavDailyEntryItem" },
             new() { Title = "الذاكرة", NavItemName = "NavMemoryItem" },
             new() { Title = "التقييم والمتابعة", NavItemName = "NavEvaluationItem" },

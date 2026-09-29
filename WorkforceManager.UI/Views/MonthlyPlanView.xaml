@@ -121,6 +121,25 @@
                 </StackPanel>
             </Button>
 
+            <!-- تعديل/حذف الخطة — البند 4 من ملاحظات المستخدم، متاحين بس لما فيه خطة فعلًا -->
+            <Button Command="{Binding EditPlanCommand}" Style="{StaticResource GhostButton}"
+                    IsEnabled="{Binding IsEditable}"
+                    VerticalAlignment="Center" Padding="14,9" Margin="0,0,16,8">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="PencilOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                    <TextBlock Text="تعديل الخطة" Margin="6,0,0,0" />
+                </StackPanel>
+            </Button>
+
+            <Button Command="{Binding DeletePlanCommand}" Style="{StaticResource GhostButton}"
+                    IsEnabled="{Binding IsEditable}" Foreground="{DynamicResource DangerBrush}"
+                    VerticalAlignment="Center" Padding="14,9" Margin="0,0,16,8">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="DeleteOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                    <TextBlock Text="حذف الخطة" Margin="6,0,0,0" />
+                </StackPanel>
+            </Button>
+
             <StackPanel Style="{StaticResource SummaryStat}" Margin="0,0,16,8">
                 <TextBlock Text="{Binding GrandTotalAchieved, StringFormat=N0}" Style="{StaticResource SummaryNumber}"
                            Foreground="{DynamicResource TextPrimaryBrush}" />
@@ -357,8 +376,9 @@
                                 <ItemsControl ItemsSource="{Binding Products}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:MonthlyPlanProductRow}">
-                                            <!-- Effect={x:Null}: كارت متكرر جوه ItemsControl — الظل بيلغي ClearType، شوف CLAUDE.md -->
-                                            <Border Margin="0,0,0,8" Padding="14,11" Effect="{x:Null}">
+                                            <!-- Effect={x:Null}: كارت متكرر جوه ItemsControl — الظل بيلغي ClearType، شوف CLAUDE.md.
+                                                 Padding/Margin موسّعين شوية — نفس نفس التنفّس بتاع كروت الإنتاج اليومي -->
+                                            <Border Margin="0,0,0,10" Padding="16,13" Effect="{x:Null}">
                                                 <Border.Style>
                                                     <Style TargetType="Border" BasedOn="{StaticResource Card}">
                                                         <Style.Triggers>
@@ -622,6 +642,13 @@
                 </ItemsControl>
             </ScrollViewer>
         </Grid>
+    </TabItem>
+
+    <!-- ═══════════ تبويب "الإحصائيات" — كانت شاشة مستقلة في القائمة الجانبية،
+         اتنقلت هنا كتبويب (نفس قرار دمج "خطة بفترة مخصصة" قبل كده)، شوف CLAUDE.md.
+         StatisticsView عندها self-load في Loaded بتاعها، مفيش تعديل مطلوب فيها. ═══════════ -->
+    <TabItem Header="الإحصائيات">
+        <ContentControl x:Name="StatisticsHost" />
     </TabItem>
 
     </TabControl>

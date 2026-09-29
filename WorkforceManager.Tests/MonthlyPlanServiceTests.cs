@@ -346,6 +346,33 @@ namespace WorkforceManager.Tests
             Assert.Equal(100, chainRow.PlannedQuantity);
         }
 
+        // ═══════════ حذف خطة الشهر بالكامل (زرار "حذف الخطة") ═══════════
+
+        [Fact]
+        public async Task DeletePlanForMonthAsync_removes_plan_rows_and_subperiods_for_that_month_only()
+        {
+            var period = await _db.InScopeAsync<MonthlyPlanService, MonthlyPlanSubPeriod>(
+                s => s.CreateSubPeriodAsync("خطة 1", new DateTime(Year, Month, 1), new DateTime(Year, Month, 15)));
+
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetPlanAsync(TestDatabase.ProductRingId, Year, Month, 100, period.Id); return true; });
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetPlanAsync(TestDatabase.ProductRingId, Year, Month, 999); return true; });
+            // شهر تاني — لازم يفضل زي ما هو بعد المسح
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetPlanAsync(TestDatabase.ProductRingId, Year, Month - 1, 50); return true; });
+
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.DeletePlanForMonthAsync(Year, Month); return true; });
+
+            using var scope = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(scope);
+
+            Assert.False(await db.MonthlyPlans.AnyAsync(mp => mp.Year == Year && mp.Month == Month));
+            Assert.False(await db.MonthlyPlanSubPeriods.AnyAsync(sp => sp.Year == Year && sp.Month == Month));
+            Assert.True(await db.MonthlyPlans.AnyAsync(mp => mp.Year == Year && mp.Month == Month - 1));
+        }
+
         [Fact]
         public async Task Unique_index_on_product_year_month_prevents_duplicate_rows_at_db_level()
         {

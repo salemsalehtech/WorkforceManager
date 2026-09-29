@@ -18,6 +18,9 @@ namespace WorkforceManager.UI.Views
             InitializeComponent();
             _viewModel = viewModel;
             DataContext = viewModel;
+
+            if (viewModel.IsEditMode)
+                Loaded += async (_, _) => await _viewModel.LoadExistingPlanAsync();
         }
 
         private async void Save_Click(object sender, RoutedEventArgs e)
