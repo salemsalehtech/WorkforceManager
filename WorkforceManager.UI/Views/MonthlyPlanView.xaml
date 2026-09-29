@@ -69,7 +69,11 @@
         </StackPanel>
 
         <!-- ═══════════ 1. الشريط العلوي ═══════════ -->
-        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+        <!-- كل الصفوف من هنا لحد آخر الشاشة مربوطة بـHasPlanForMonth — شهر
+             فاضي (لسه معملوش خطة) لازم يبيّن زرار "إضافة خطة" بس، مفيش أي
+             حاجة تانية (شريط تنقل/إحصائيات/كروت فاضية) -->
+        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10"
+                   Visibility="{Binding HasPlanForMonth, Converter={StaticResource BoolToVis}}">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,8">
                 <Button Command="{Binding PreviousMonthCommand}" Style="{StaticResource IconButton}" Padding="8">
                     <materialDesign:PackIcon Kind="ChevronRight" Width="18" Height="18" />
@@ -178,7 +182,8 @@
         </WrapPanel>
 
         <!-- ═══════════ 2. شريط الملخص ═══════════ -->
-        <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10">
+        <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10"
+                   Visibility="{Binding HasPlanForMonth, Converter={StaticResource BoolToVis}}">
             <Border Style="{StaticResource StatusPill}" Background="{DynamicResource GoodTintBrush}" Margin="0,0,8,0">
                 <TextBlock FontWeight="Bold" Foreground="{DynamicResource GoodBrush}">
                     <Run Text="{Binding OnTrackCount, Mode=OneWay}" /><Run Text=" ماشي صح" />
@@ -233,7 +238,8 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:MonthlyPlanProductRow}">
-                        <Border Style="{StaticResource Card}" Margin="0,0,10,10" Padding="12,9" MinWidth="200">
+                        <!-- Effect={x:Null}: كارت متكرر جوه ItemsControl — الظل بيلغي ClearType، شوف CLAUDE.md -->
+                        <Border Style="{StaticResource Card}" Effect="{x:Null}" Margin="0,0,10,10" Padding="12,9" MinWidth="200">
                             <StackPanel>
                                 <TextBlock Text="{Binding ProductName}" FontWeight="Bold"
                                            Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
@@ -249,7 +255,8 @@
         </StackPanel>
 
         <!-- ═══════════ 5. الجدول الرئيسي — مادة فوق عيلة، زي شيت المصنع الأصلي ═══════════ -->
-        <ScrollViewer Grid.Row="5" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer Grid.Row="5" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                      Visibility="{Binding HasPlanForMonth, Converter={StaticResource BoolToVis}}">
         <StackPanel>
             <!-- منتجات خارج الخطة — قسم مستقل، مفيش نسبة/بار تقدم (مفيش خطة تتقاس بيها) -->
             <Border Style="{StaticResource Card}" Padding="14" Margin="0,0,0,14"
@@ -262,7 +269,7 @@
                     <ItemsControl ItemsSource="{Binding OutsidePlanProducts}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:MonthlyPlanProductRow}">
-                                <Border Style="{StaticResource Card}" Margin="0,0,0,8" Padding="14,11">
+                                <Border Style="{StaticResource Card}" Effect="{x:Null}" Margin="0,0,0,8" Padding="14,11">
                                     <DockPanel>
                                         <TextBlock DockPanel.Dock="Left" Text="{Binding EffectiveAchieved, Mode=OneWay, StringFormat='محقق: {0:N0}'}"
                                                    FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
@@ -284,7 +291,7 @@
             <ItemsControl ItemsSource="{Binding MaterialGroups}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:MonthlyPlanMaterialGroupRow}">
-                        <Border Style="{StaticResource Card}" Padding="14" Margin="0,0,0,14">
+                        <Border Style="{StaticResource Card}" Effect="{x:Null}" Padding="14" Margin="0,0,0,14">
                             <StackPanel>
                                 <!-- رأس المادة: قسم كامل مستقل (نحاس/زاما/غير محدد) بإجمالياته -->
                                 <!-- تفاصيل الوزن الفرعية اتنقلت لشاشة الإحصائيات — هنا بس الملخص الأساسي (محقق/خطة)، شوف CLAUDE.md -->
@@ -304,7 +311,7 @@
                                 <ItemsControl ItemsSource="{Binding FamilyGroups}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:MonthlyPlanFamilyGroupRow}">
-                                            <Border Style="{StaticResource Card}" Background="{DynamicResource SurfaceAltBrush}"
+                                            <Border Style="{StaticResource Card}" Effect="{x:Null}" Background="{DynamicResource SurfaceAltBrush}"
                                                     Padding="14" Margin="0,0,0,14">
                                                 <StackPanel>
                                                     <Button Command="{Binding ToggleExpandedCommand}" Style="{StaticResource GhostButton}"
@@ -350,7 +357,8 @@
                                 <ItemsControl ItemsSource="{Binding Products}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:MonthlyPlanProductRow}">
-                                            <Border Margin="0,0,0,8" Padding="14,11">
+                                            <!-- Effect={x:Null}: كارت متكرر جوه ItemsControl — الظل بيلغي ClearType، شوف CLAUDE.md -->
+                                            <Border Margin="0,0,0,8" Padding="14,11" Effect="{x:Null}">
                                                 <Border.Style>
                                                     <Style TargetType="Border" BasedOn="{StaticResource Card}">
                                                         <Style.Triggers>
@@ -497,7 +505,7 @@
                 <ItemsControl ItemsSource="{Binding TodayFamilyGroups}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:MonthlyPlanTodayFamilyGroupRow}">
-                            <Border Style="{StaticResource Card}" Background="{DynamicResource SurfaceAltBrush}"
+                            <Border Style="{StaticResource Card}" Effect="{x:Null}" Background="{DynamicResource SurfaceAltBrush}"
                                     Padding="14" Margin="0,0,0,14">
                                 <StackPanel>
                                     <Button Command="{Binding ToggleExpandedCommand}" Style="{StaticResource GhostButton}"
@@ -534,7 +542,7 @@
                                     <ItemsControl ItemsSource="{Binding Products}" Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type vm:MonthlyPlanTodayEntryRow}">
-                                                <Border Margin="0,0,0,8" Padding="14,11">
+                                                <Border Margin="0,0,0,8" Padding="14,11" Effect="{x:Null}">
                                                     <Border.Style>
                                                         <Style TargetType="Border" BasedOn="{StaticResource Card}">
                                                             <Style.Triggers>
