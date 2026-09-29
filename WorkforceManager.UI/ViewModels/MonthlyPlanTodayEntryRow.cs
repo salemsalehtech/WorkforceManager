@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using WorkforceManager.Business.DTOs;
 
 namespace WorkforceManager.UI.ViewModels
@@ -15,6 +16,8 @@ namespace WorkforceManager.UI.ViewModels
 
         public int ProductId { get; init; }
         public string ProductName { get; init; } = "";
+        public int? FamilyId { get; init; }
+        public string? FamilyName { get; init; }
         public int RealProductionToday { get; init; }
         public int YesterdayQuantity { get; init; }
         public bool IsFilled { get; init; }
@@ -42,8 +45,29 @@ namespace WorkforceManager.UI.ViewModels
         public static MonthlyPlanTodayEntryRow FromDto(MonthlyPlanTodayEntryDto dto) => new()
         {
             ProductId = dto.ProductId, ProductName = dto.ProductName,
+            FamilyId = dto.FamilyId, FamilyName = dto.FamilyName,
             RealProductionToday = dto.RealProductionToday, YesterdayQuantity = dto.YesterdayQuantity,
             IsFilled = dto.IsFilled, QuantityText = dto.IsFilled ? dto.ManualQuantity.ToString() : "",
         };
+    }
+
+    /// <summary>
+    /// عيلة (أو "بدون عيلة") جوّه تبويب "الإنتاج اليومي" — AllFilled صح
+    /// أخضر لما كل منتجاتها تتسجل النهارده. الصفوف بتتبني من جديد كل
+    /// تحميل (مش mutation حي)، فـAllFilled محسوبة عادي من غير أي ربط أحداث.
+    /// </summary>
+    public partial class MonthlyPlanTodayFamilyGroupRow : ObservableObject
+    {
+        public string HeaderText { get; init; } = "";
+        public List<MonthlyPlanTodayEntryRow> Products { get; init; } = new();
+
+        [ObservableProperty] private bool _isExpanded = true;
+
+        [RelayCommand]
+        private void ToggleExpanded() => IsExpanded = !IsExpanded;
+
+        public bool AllFilled => Products.Count > 0 && Products.All(p => p.IsFilled);
+        public int FilledCount => Products.Count(p => p.IsFilled);
+        public int TotalCount => Products.Count;
     }
 }

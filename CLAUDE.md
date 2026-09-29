@@ -3358,6 +3358,31 @@ Core  <----------------------- UI
   `InitializeNavIndicator` array, DI registration, `NavigableScreens.cs` entry) documented by the
   PlanPeriod-tab-merge commit's reverse of the same checklist.
 
+- **الإنتاج اليومي tab regrouped into family cards, mirroring the planning tab's redesign** — was a flat
+  `ItemsControl` directly over `TodayEntryRows` (every active product in one list); now
+  `MonthlyPlanViewModel.TodayFamilyGroups` (built alongside `TodayEntryRows`, not replacing it — the flat
+  list still drives save/reload) groups the same rows by family into collapsible cards
+  (`MonthlyPlanTodayFamilyGroupRow.IsExpanded`/`ToggleExpanded`, same click-header pattern as the planning
+  tab's family cards). Per-product green checkmark is the existing `IsFilled`+`CheckCircle` pattern,
+  unchanged; **new** is a family-level checkmark (`AllFilled => Products.Count > 0 && Products.All(p =>
+  p.IsFilled)`) plus a "N من M" counter — both plain computed properties, no event-cascade wiring needed
+  since these rows are always rebuilt wholesale on every load/save (never mutated in place), unlike the
+  planning tab's `PropertyChanged`-cascaded wizard rows.
+  **Fixed a real dead-reference bug found while researching this redesign**: the "filled" row's
+  background used `{DynamicResource GoodBgBrush}`, a key that was never defined in any theme file
+  (`Palette.Light.xaml`/`Palette.Dark.xaml` only define `SuccessBgBrush` for that Good/tint role) — the
+  filled-row highlight silently had no background at all since the day this tab shipped. Now
+  `SuccessBgBrush`.
+  **"خطة بفترة مخصصة" is fully retired**, not just detached from the sidebar: the tab added by the
+  earlier tab-merge commit is removed from `MonthlyPlanView.xaml`, and its now-genuinely-orphaned files
+  deleted outright — `PlanPeriodView.xaml(.cs)`, `PlanPeriodViewModel.cs`, and `PlanPeriodDialog.xaml(.cs)`
+  (the period-creation dialog `PlanPeriodView` opened, orphaned by the same removal, not called out
+  separately in the original plan but unreachable by anything else). Their DI registrations
+  (`AppServiceRegistration.cs`) removed with them. `PlanPeriod`/`PlanPeriodTarget` (the model, table, and
+  `PlanPeriodService`) are deliberately left untouched — no migration, no data loss risk; that table sits
+  unused now, a separate future cleanup if it's ever worth the migration. The custom-period *concept* it
+  represented lives on as `MonthlyPlanSubPeriod` (phase 1 of this redesign) instead.
+
 - **"المحقق" on the calendar "الخطة الشهرية" screen stopped being automatic — it's a manual, per-product,
   per-day entry now (`MonthlyPlanDailyEntry`), not a read of real `DailyProduction` via
   `DailyProductionReportService`.** A later prompt asked for this explicitly, confirmed with the user as

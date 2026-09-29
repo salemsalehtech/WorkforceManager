@@ -138,8 +138,6 @@ namespace WorkforceManager.UI
             services.AddTransient<ViewModels.MonthlyPlanViewModel>();
             services.AddTransient<Views.StatisticsView>();
             services.AddTransient<ViewModels.StatisticsViewModel>();
-            services.AddTransient<Views.PlanPeriodView>();
-            services.AddTransient<ViewModels.PlanPeriodViewModel>();
             services.AddTransient<Views.MemoryView>();
             services.AddTransient<ViewModels.MemoryViewModel>();
             services.AddTransient<Views.ActivityLogView>();

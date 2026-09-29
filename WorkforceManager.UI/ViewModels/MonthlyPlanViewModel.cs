@@ -400,6 +400,9 @@ namespace WorkforceManager.UI.ViewModels
 
         public ObservableCollection<MonthlyPlanTodayEntryRow> TodayEntryRows { get; } = new();
 
+        /// <summary>عيلات تبويب "الإنتاج اليومي" — كارت لكل عيلة بدل قايمة مفرودة، صح أخضر لكل عيلة خلصت كل منتجاتها</summary>
+        public ObservableCollection<MonthlyPlanTodayFamilyGroupRow> TodayFamilyGroups { get; } = new();
+
         /// <summary>غير المُدخل يطلع فوق (قاعدة هندسية صريحة من الطلب) — بمعزل تام عن أي حالة إنتاج حقيقي</summary>
         public static List<MonthlyPlanTodayEntryRow> OrderTodayEntryRows(IEnumerable<MonthlyPlanTodayEntryRow> rows) =>
             rows.OrderBy(r => r.IsFilled).ThenBy(r => r.ProductName).ToList();
@@ -410,9 +413,20 @@ namespace WorkforceManager.UI.ViewModels
             var dtos = await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
                 .GetTodayEntryTabAsync(TodayEntryDate);
 
+            var allRows = OrderTodayEntryRows(dtos.Select(MonthlyPlanTodayEntryRow.FromDto));
+
             TodayEntryRows.Clear();
-            foreach (var row in OrderTodayEntryRows(dtos.Select(MonthlyPlanTodayEntryRow.FromDto)))
-                TodayEntryRows.Add(row);
+            foreach (var row in allRows) TodayEntryRows.Add(row);
+
+            TodayFamilyGroups.Clear();
+            foreach (var g in allRows.Where(r => r.FamilyId is not null)
+                         .GroupBy(r => (r.FamilyId!.Value, r.FamilyName ?? ""))
+                         .OrderBy(g => g.Key.Item2))
+                TodayFamilyGroups.Add(new MonthlyPlanTodayFamilyGroupRow { HeaderText = g.Key.Item2, Products = g.ToList() });
+
+            var noFamily = allRows.Where(r => r.FamilyId is null).ToList();
+            if (noFamily.Count > 0)
+                TodayFamilyGroups.Add(new MonthlyPlanTodayFamilyGroupRow { HeaderText = "بدون عيلة", Products = noFamily });
         }
 
         public async Task SaveTodayEntryAsync(int productId, int quantity)
