@@ -3404,6 +3404,37 @@ Core  <----------------------- UI
   `Deferred`; the existing `LateSignOffCatchUpDialog` picks the day up on the next launch. The old pre-dialog
   password window and the warning toasts before it are gone.
 
+- **Planning tab round 2: KPI strip, search/filter/sort, group-by-material toggle, table mode.** Toolbar: the
+  primary items (month nav, workdays chip, "لحد يوم") stay visible and the rest ("تصدير إكسل"، "طباعة / PDF"، لقطة
+  نهاية اليوم، كجم/طن، نسخ الشهر اللي فات، حذف الخطة) moved into a "⋯ المزيد" `ContextMenu`; edit buttons are hidden,
+  not greyed, once a month is past. Top of page: a 4-tile KPI strip (completion/pace/forecast/workdays), plus a
+  month-result banner once `RemainingWorkdays == 0`. Filtering: a search box, family-status filter chips (these
+  replace the old red "below threshold" banner and the status pills — same information, but clicking one actually
+  narrows the grid instead of just reading a name list), a sort dropdown, and a group-by-material checkbox
+  (`VisibleMaterialGroups`/`VisibleFamilies`, rebuilt by `ApplyView`) so a lone family no longer sits in an almost-
+  empty material section. The shared `PlanFamilyTile` template gained a progress bar with an expected-by-today
+  marker, and switches its third stat to "النتيجة" ("قفل ناقص") once the month has closed. New table mode
+  (`IsTableMode`) is an Excel-like grid where Enter moves to the next plan cell; saves there skip the full reload
+  (`AfterTableEdit`) and only reload fully when switching back to cards. Also: a "كمّل بيانات المنتجات" button on the
+  "غير محدد" material group, and a daily-target-vs-plan conflict chip (`HasDailyTargetConflict`). Fixed the material
+  header running into its totals with no space ("250نحاس").
+
+- **الإنتاج اليومي tab: closed family tiles + drill-in family page** (replaces in-card expand/collapse) — tiles in a
+  `WrapPanel` (always closed: name, "N من M اتسجلوا", progress, status chip). Clicking a tile sets
+  `MonthlyPlanViewModel.SelectedTodayFamily`, which swaps the tab to that family's product list with "كل العيلات"
+  (back) and "العيلة اللي بعدها" (next). `LoadTodayEntryTabAsync` rebuilds rows on every save, so it re-resolves
+  `SelectedTodayFamily` by `HeaderText` to keep the page open. `MonthlyPlanTodayFamilyGroupRow.IsExpanded` /
+  `ToggleExpanded` removed. Planning tab: month nav now also shows when the month has no plan (the toolbar is
+  hidden then, which trapped the user on an empty month), plus "انسخ خطة الشهر اللي فات" on the empty-state card.
+
+- **Planning tab round 1: the same card-grid drill-in, plus an early forecast warning.** Family cards now work like
+  the daily tab: always-closed tiles (`MonthlyPlanFamilyGroupRow` lost `IsExpanded`; gained
+  `FamilyName`/`MaterialName`/`Key`) and a family page via `MonthlyPlanViewModel.SelectedPlanFamily` (re-resolved by
+  `Key` after every `LoadAsync`, since saving a quantity reloads everything). The product row template moved to
+  `UserControl.Resources` (`PlanProductTemplate`). `FocusProductQuantity` opens the owning family page first, then
+  focuses on `DispatcherPriority.Loaded`. Early warning: `MonthlyPlanProductRow.IsForecastBelowPlan` (forecast <
+  90% of plan) shows a chip on the product, a count on the family tile and a pill in the summary bar.
+
 - **الإحصائيات tab redesigned into a full analysis dashboard** — `MonthlyPlanStatisticsService` (Business) sums the
   *same* `MonthlyPlanTrackingService.GetTrackingAsync` rows (no second achieved/plan computation) plus a day-by-day
   series from `MonthlyPlanDailyEntries` + `MonthlyPlanCorrections` (previous-month series = entries only, matching

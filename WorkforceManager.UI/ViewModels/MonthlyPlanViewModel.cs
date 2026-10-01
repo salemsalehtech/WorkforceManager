@@ -151,6 +151,51 @@ namespace WorkforceManager.UI.ViewModels
         [ObservableProperty] private int _behindCount;
         [ObservableProperty] private int _aheadCount;
 
+        /// <summary>إنذار بدري — منتجات توقّع آخر الشهر بتاعها تحت 90% من خطتها، شوف MonthlyPlanProductRow.IsForecastBelowPlan</summary>
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(HasForecastBelowPlan))]
+        private int _forecastBelowPlanCount;
+
+        public bool HasForecastBelowPlan => ForecastBelowPlanCount > 0;
+
+        // ── شبكة كروت العيلة ← صفحة عيلة واحدة (تبويب التخطيط) ──
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsPlanFamilyOpen))]
+        [NotifyCanExecuteChangedFor(nameof(NextPlanFamilyCommand))]
+        private MonthlyPlanFamilyGroupRow? _selectedPlanFamily;
+
+        public bool IsPlanFamilyOpen => SelectedPlanFamily is not null;
+
+        [RelayCommand]
+        private void OpenPlanFamily(MonthlyPlanFamilyGroupRow family) => SelectedPlanFamily = family;
+
+        [RelayCommand]
+        private void ClosePlanFamily() => SelectedPlanFamily = null;
+
+        [RelayCommand(CanExecute = nameof(HasNextPlanFamily))]
+        private void NextPlanFamily()
+        {
+            var all = AllFamilyGroups.ToList();
+            SelectedPlanFamily = all[all.IndexOf(SelectedPlanFamily!) + 1];
+        }
+
+        private bool HasNextPlanFamily()
+        {
+            if (SelectedPlanFamily is null) return false;
+            var all = AllFamilyGroups.ToList();
+            return all.IndexOf(SelectedPlanFamily) < all.Count - 1;
+        }
+
+        /// <summary>بيفتح صفحة العيلة اللي فيها المنتج ده — لـ"افتح في الخطة الشهرية" من كارت المنتج</summary>
+        public bool OpenPlanFamilyContaining(int productId)
+        {
+            var family = AllFamilyGroups.FirstOrDefault(g => g.Products.Any(p => p.ProductId == productId));
+            if (family is null) return false;
+            SelectedPlanFamily = family;
+            return true;
+        }
+
         /// <summary>أول 3 عائلات واطية عن الإيقاع — للتنبيه اللطيف (البند 6)</summary>
         public ObservableCollection<string> BelowThresholdFamilyNames { get; } = new();
 
@@ -167,12 +212,17 @@ namespace WorkforceManager.UI.ViewModels
             OnTrackCount = allProducts.Count(p => p.Status == PlanPaceStatus.OnTrack);
             BehindCount = allProducts.Count(p => p.Status == PlanPaceStatus.Behind);
             AheadCount = allProducts.Count(p => p.Status == PlanPaceStatus.Ahead);
+            ForecastBelowPlanCount = allProducts.Count(p => p.IsForecastBelowPlan);
 
             BelowThresholdFamilyNames.Clear();
             foreach (var name in AllFamilyGroups.Where(g => g.IsBelowThreshold).Select(g => g.HeaderText))
                 BelowThresholdFamilyNames.Add(name);
             OnPropertyChanged(nameof(HasBelowThresholdFamilies));
             OnPropertyChanged(nameof(BelowThresholdFamiliesText));
+
+            // الكروت المعروضة (بحث/فلتر/ترتيب) والمؤشرات — من نفس الصفوف. في وضع الجدول بعد تعديل
+            // خانة: الجدول نفسه مايتبنيش تاني عشان المؤشر يفضل في مكانه
+            ApplyView(rebuildTable: !_inTableEdit);
         }
 
         public bool HasBelowThresholdFamilies => BelowThresholdFamilyNames.Count > 0;
@@ -239,9 +289,13 @@ namespace WorkforceManager.UI.ViewModels
                     };
                     MaterialGroups.Add(new MonthlyPlanMaterialGroupRow
                     {
-                        HeaderText = header, FamilyGroups = BuildFamilyGroups(materialGroup, remainingWorkdays)
+                        HeaderText = header, FamilyGroups = BuildFamilyGroups(materialGroup, header, remainingWorkdays, TotalWorkdays)
                     });
                 }
+
+                // الصفوف اتبنت من جديد — صفحة العيلة المفتوحة بتشاور على النسخة الجديدة (أو بتتقفل لو العيلة مش في الشهر ده)
+                if (SelectedPlanFamily is { } openFamily)
+                    SelectedPlanFamily = AllFamilyGroups.FirstOrDefault(g => g.Key == openFamily.Key);
 
                 RefreshAggregates();
                 await LoadSnapshotTimestampsAsync();
@@ -249,7 +303,7 @@ namespace WorkforceManager.UI.ViewModels
             finally { IsBusy = false; }
         }
 
-        private static List<MonthlyPlanFamilyGroupRow> BuildFamilyGroups(IEnumerable<MonthlyPlanTrackingDto> products, int remainingWorkdays)
+        private static List<MonthlyPlanFamilyGroupRow> BuildFamilyGroups(IEnumerable<MonthlyPlanTrackingDto> products, string materialName, int remainingWorkdays, int totalWorkdays)
         {
             var groups = new List<MonthlyPlanFamilyGroupRow>();
 
@@ -260,9 +314,9 @@ namespace WorkforceManager.UI.ViewModels
             {
                 groups.Add(new MonthlyPlanFamilyGroupRow
                 {
-                    HeaderText = $"{g.Key.Item2} ({g.Count()})",
+                    HeaderText = $"{g.Key.Item2} ({g.Count()})", FamilyName = g.Key.Item2, MaterialName = materialName,
                     Products = OrderByPace(g).Select(ToRow).ToList(),
-                    RemainingWorkdays = remainingWorkdays
+                    RemainingWorkdays = remainingWorkdays, TotalWorkdays = totalWorkdays
                 });
             }
 
@@ -270,8 +324,8 @@ namespace WorkforceManager.UI.ViewModels
             if (noFamily.Count > 0)
                 groups.Add(new MonthlyPlanFamilyGroupRow
                 {
-                    HeaderText = $"بدون عيلة ({noFamily.Count})", Products = OrderByPace(noFamily).Select(ToRow).ToList(),
-                    RemainingWorkdays = remainingWorkdays
+                    HeaderText = $"بدون عيلة ({noFamily.Count})", FamilyName = "بدون عيلة", MaterialName = materialName, Products = OrderByPace(noFamily).Select(ToRow).ToList(),
+                    RemainingWorkdays = remainingWorkdays, TotalWorkdays = totalWorkdays
                 });
 
             return groups;
@@ -296,7 +350,8 @@ namespace WorkforceManager.UI.ViewModels
             CorrectionText = p.CorrectionsToDate.ToString(),
             DailyTargetText = p.DailyTargetQuantity?.ToString() ?? "",
             TotalWeightGrams = p.TotalWeightGrams,
-            HasReachedTarget = p.HasReachedTarget
+            HasReachedTarget = p.HasReachedTarget,
+            RemainingWorkdays = p.RemainingWorkdays
         };
 
         public async Task SaveQuantityAsync(int productId, int quantity)
@@ -384,6 +439,31 @@ namespace WorkforceManager.UI.ViewModels
         /// AsOfDate)، مش استعلام تاني منفصل. طقوس الحفظ/الفتح/الأخطاء
         /// مشتركة (ExcelExport)، زي أي تصدير تاني في البرنامج.
         /// </summary>
+        /// <summary>طباعة / PDF — نافذة طباعة ويندوز ("Microsoft Print to PDF" للـPDF)، شوف MonthlyPlanPrint</summary>
+        [RelayCommand]
+        private async Task PrintAsync()
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var tracking = await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
+                    .GetTrackingAsync(SelectedYear, SelectedMonth, AsOfDate);
+                if (tracking.Count == 0)
+                {
+                    Notify.Warn("مفيش بيانات في الخطة الشهرية دي للطباعة");
+                    return;
+                }
+
+                var department = Data.AppSettingsStore.Load().DepartmentName;
+                var title = string.IsNullOrWhiteSpace(department) ? "الخطة الشهرية" : $"قسم {department.Trim()} — الخطة الشهرية";
+                MonthlyPlanPrint.Print(tracking, title, $"{MonthLabel} — لحد {AsOfDate:yyyy/MM/dd}");
+            }
+            catch (Exception ex)
+            {
+                Notify.Error("تعذّرت الطباعة: " + ex.Message);
+            }
+        }
+
         [RelayCommand(AllowConcurrentExecutions = false)]
         private async Task ExportExcelAsync()
         {
@@ -391,12 +471,8 @@ namespace WorkforceManager.UI.ViewModels
                 "تصدير الخطة الشهرية", $"الخطة الشهرية {MonthLabel} - {DateTime.Today:yyyy-MM-dd}",
                 async filePath =>
                 {
-                    using var scope = _scopeFactory.CreateScope();
-                    var tracking = await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
-                        .GetTrackingAsync(SelectedYear, SelectedMonth, AsOfDate);
-
-                    scope.ServiceProvider.GetRequiredService<MonthlyPlanExcelService>()
-                        .Export(tracking, $"{MonthLabel} — لحد {AsOfDate:yyyy/MM/dd}", filePath);
+                    if (!await MonthlyPlanExport.WriteAsync(_scopeFactory, SelectedYear, SelectedMonth, AsOfDate, filePath))
+                        throw new InvalidOperationException("مفيش بيانات في الخطة الشهرية دي للتصدير");
                 });
         }
 
@@ -435,7 +511,49 @@ namespace WorkforceManager.UI.ViewModels
             var noFamily = allRows.Where(r => r.FamilyId is null).ToList();
             if (noFamily.Count > 0)
                 TodayFamilyGroups.Add(new MonthlyPlanTodayFamilyGroupRow { HeaderText = "بدون عيلة", Products = noFamily });
+
+            // الصفوف اتبنت من جديد — صفحة العيلة المفتوحة لازم تشاور على النسخة الجديدة، مش تتقفل بعد كل حفظ
+            if (SelectedTodayFamily is { } open)
+                SelectedTodayFamily = TodayFamilyGroups.FirstOrDefault(g => g.HeaderText == open.HeaderText);
+
+            OnPropertyChanged(nameof(TodayFilledCount));
+            OnPropertyChanged(nameof(TodayTotalCount));
+            OnPropertyChanged(nameof(TodayDoneFamiliesCount));
+            OnPropertyChanged(nameof(TodayFamiliesCount));
+            NextTodayFamilyCommand.NotifyCanExecuteChanged();
         }
+
+        // ── شبكة العيلات ← صفحة عيلة واحدة ──
+        // الكروت دايمًا مقفولة في الشبكة؛ الضغط على كارت بيفتح صفحته للتسجيل جوه نفس التبويب
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsTodayFamilyOpen))]
+        [NotifyCanExecuteChangedFor(nameof(NextTodayFamilyCommand))]
+        private MonthlyPlanTodayFamilyGroupRow? _selectedTodayFamily;
+
+        public bool IsTodayFamilyOpen => SelectedTodayFamily is not null;
+
+        public int TodayFilledCount => TodayEntryRows.Count(r => r.IsFilled);
+        public int TodayTotalCount => TodayEntryRows.Count;
+        public int TodayDoneFamiliesCount => TodayFamilyGroups.Count(g => g.AllFilled);
+        public int TodayFamiliesCount => TodayFamilyGroups.Count;
+
+        [RelayCommand]
+        private void OpenTodayFamily(MonthlyPlanTodayFamilyGroupRow family) => SelectedTodayFamily = family;
+
+        [RelayCommand]
+        private void CloseTodayFamily() => SelectedTodayFamily = null;
+
+        /// <summary>العيلة اللي بعدها في الشبكة — من غير رجوع للشبكة بين كل عيلة والتانية</summary>
+        [RelayCommand(CanExecute = nameof(HasNextTodayFamily))]
+        private void NextTodayFamily()
+        {
+            var index = SelectedTodayFamily is null ? -1 : TodayFamilyGroups.IndexOf(SelectedTodayFamily);
+            SelectedTodayFamily = TodayFamilyGroups[index + 1];
+        }
+
+        private bool HasNextTodayFamily() =>
+            SelectedTodayFamily is not null && TodayFamilyGroups.IndexOf(SelectedTodayFamily) < TodayFamilyGroups.Count - 1;
 
         public async Task SaveTodayEntryAsync(int productId, int quantity)
         {
