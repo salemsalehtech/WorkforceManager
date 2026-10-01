@@ -185,6 +185,39 @@ namespace WorkforceManager.Business.Services
             return result.OrderBy(r => r.ProductName).ToList();
         }
 
+        /// <summary>
+        /// المحقق يوم بيوم لكل منتج (يدوي + تصليحات، نفس تعريف EffectiveAchieved)
+        /// وأيام الإجازة في الشهر — لشيت "يوم بيوم" في تصدير الإكسل.
+        /// </summary>
+        public async Task<MonthlyPlanDailyBreakdownDto> GetDailyBreakdownAsync(int year, int month, DateTime asOfDate)
+        {
+            var start = new DateTime(year, month, 1);
+            var end = start.AddMonths(1).AddDays(-1);
+            var to = asOfDate.Date > end ? end : asOfDate.Date;
+
+            var entries = await _db.MonthlyPlanDailyEntries
+                .Where(e => e.Date >= start && e.Date <= to)
+                .Select(e => new { e.ProductId, e.Date, e.Quantity })
+                .ToListAsync();
+            var corrections = await _db.MonthlyPlanCorrections
+                .Where(c => c.Date >= start && c.Date <= to)
+                .Select(c => new { c.ProductId, c.Date, c.Quantity })
+                .ToListAsync();
+
+            var quantities = entries.Concat(corrections)
+                .GroupBy(x => (x.ProductId, x.Date.Date))
+                .ToDictionary(g => g.Key, g => g.Sum(x => x.Quantity));
+
+            return new MonthlyPlanDailyBreakdownDto
+            {
+                Year = year,
+                Month = month,
+                AsOfDate = to,
+                Quantities = quantities,
+                Holidays = await LoadHolidaySetAsync(start, end)
+            };
+        }
+
         private async Task<HashSet<DateTime>> LoadHolidaySetAsync(DateTime start, DateTime end)
         {
             var holidays = await _db.MonthlyWorkCalendarHolidays

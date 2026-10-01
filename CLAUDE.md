@@ -3358,6 +3358,97 @@ Core  <----------------------- UI
   `InitializeNavIndicator` array, DI registration, `NavigableScreens.cs` entry) documented by the
   PlanPeriod-tab-merge commit's reverse of the same checklist.
 
+- **Statistics round 2: filters, 3-month trend, real production/scrap, per-worker output, morning brief.**
+  `MonthlyPlanStatisticsService.GetAsync` takes a `MonthlyPlanStatisticsFilter` (family and/or material, applied to
+  tracking rows AND every series through the same product-id set). It adds a same-day average over the last 3
+  months (months with no entries at all are skipped, not counted as 0), real production + scrap per product from
+  `ProductionChartService` (manual-vs-real mismatch list at the same 15% threshold as the daily tab's own warning),
+  and present workers per day from `Attendances` (output per present worker; disabled under a filter because
+  attendance is not per family). `Build` now takes a `MonthlyPlanStatisticsInputs` object.
+  `MonthlyPlanStatisticsExcelService` exports 4 sheets. Morning brief: `GetTodayBriefingAsync` runs once on
+  `MainWindow.Loaded` (not per navigation; see the bell comment for why), adds a bell item that opens the monthly
+  plan, and shows one `Notify.Info` toast. `StatisticsViewModel` refreshes all bindings with
+  `OnPropertyChanged(string.Empty)` on `Stats` change instead of a 50-name `NotifyPropertyChangedFor` list.
+
+- **Monthly plan Excel export: factory-sheet layout, dashboard/daily sheets, protection, auto-export.** At the
+  user's explicit request (they sent the old "قسم الصنفرة" sheet), sheet 2 (`MonthlyPlanFactorySheet`, "الخطة
+  الشهرية") reproduces the factory column order: العيلة | المنتج | الخطة | المخطط | المحقق | إنتاج اليوم | Ach % |
+  نسبة المحقق | وزن القطعة | إجمالي الوزن | إجمالي الإنتاج اليومي | تصليحات, plus المطلوب يوميًا
+  (`ROUNDUP((D-E)/WorkdaysRemaining)`), نفس اليوم الشهر اللي فات and التغيير (▲/▼ number format). Family, family
+  plan and family daily total are merged cells. Only raw numbers are values; everything else (Ach %, نسبة المحقق,
+  total weight, family/material/grand totals, remaining days) is a live formula over named ranges
+  (`WorkdaysTotal`/`WorkdaysElapsed`/`WorkdaysRemaining`), so editing a plan in Excel recalculates everything. The
+  sheet is protected with no password; only raw input cells are unlocked. Deliberate deviations from the old sheet:
+  the family plan is a SUM (app rule), "إنتاج اليوم" is one column (the app records one number, not لمعة/صنفرة), and
+  المحقق includes corrections (same number as the screen). The title is "قسم {DepartmentName}" via
+  `ReportExportOptions.DepartmentName`. The previous detailed table (required daily, forecast, daily target) is kept
+  as sheet 3 `MonthlyPlanExcelService.DetailSheetName` — family +/- grouping lives there too, because Excel blocks
+  outline toggling on a protected sheet.
+  Sheet 1 **اللوحة** (`MonthlyPlanDashboardSheet`, first and active) is KPI cards plus in-cell `REPT()` bars for the
+  month, families and days — all formulas over the other sheets; ClosedXML cannot draw real charts. Sheet 4 **يوم
+  بيوم** (`MonthlyPlanDailySheet`, data from `MonthlyPlanTrackingService.GetDailyBreakdownAsync`) is products × days
+  with a colour scale and grey holiday columns. `MonthlyPlanExport.WriteAsync` (UI) is the one writer used by the
+  export button and by an automatic copy saved after sign-off
+  (`Documents\WMS تقارير\الخطة الشهرية\الخطة الشهرية yyyy-MM-dd.xlsx`). There is no PDF library in the project:
+  `MonthlyPlanPrint` builds a FlowDocument and opens the Windows print dialog, where "Microsoft Print to PDF"
+  produces the PDF.
+
+- **Daily sign-off rewritten into a single step.** `DailySignOffSummaryDialog` used to be a password prompt followed
+  by a separate read-only review; now the summary comes first and the password is inline at the bottom, with the
+  signing itself happening inside the dialog (`trySignAsync`) so a wrong password shows an inline error instead of
+  closing the dialog. It shows 4 stat cards (events/products/attendance/memory) and collapsible chip sections with
+  fix-it actions: "سجّل الباقيين حاضرين" calls `AttendanceService.RecordAttendanceBatchAsync` with the new
+  `WorkerIdsWithNoAttendance`, plus buttons to open daily entry or memory. The acknowledgement checkbox now appears
+  only for attendance or memory gaps (`DailySignOffChecklist.NeedsAcknowledgement`) — products with no entries are
+  informational only, since not every product runs every day. A new "اقفل/اخرج وأوقّع بكره" choice returns
+  `Deferred`; the existing `LateSignOffCatchUpDialog` picks the day up on the next launch. The old pre-dialog
+  password window and the warning toasts before it are gone.
+
+- **Planning tab round 2: KPI strip, search/filter/sort, group-by-material toggle, table mode.** Toolbar: the
+  primary items (month nav, workdays chip, "لحد يوم") stay visible and the rest ("تصدير إكسل"، "طباعة / PDF"، لقطة
+  نهاية اليوم، كجم/طن، نسخ الشهر اللي فات، حذف الخطة) moved into a "⋯ المزيد" `ContextMenu`; edit buttons are hidden,
+  not greyed, once a month is past. Top of page: a 4-tile KPI strip (completion/pace/forecast/workdays), plus a
+  month-result banner once `RemainingWorkdays == 0`. Filtering: a search box, family-status filter chips (these
+  replace the old red "below threshold" banner and the status pills — same information, but clicking one actually
+  narrows the grid instead of just reading a name list), a sort dropdown, and a group-by-material checkbox
+  (`VisibleMaterialGroups`/`VisibleFamilies`, rebuilt by `ApplyView`) so a lone family no longer sits in an almost-
+  empty material section. The shared `PlanFamilyTile` template gained a progress bar with an expected-by-today
+  marker, and switches its third stat to "النتيجة" ("قفل ناقص") once the month has closed. New table mode
+  (`IsTableMode`) is an Excel-like grid where Enter moves to the next plan cell; saves there skip the full reload
+  (`AfterTableEdit`) and only reload fully when switching back to cards. Also: a "كمّل بيانات المنتجات" button on the
+  "غير محدد" material group, and a daily-target-vs-plan conflict chip (`HasDailyTargetConflict`). Fixed the material
+  header running into its totals with no space ("250نحاس").
+
+- **الإنتاج اليومي tab: closed family tiles + drill-in family page** (replaces in-card expand/collapse) — tiles in a
+  `WrapPanel` (always closed: name, "N من M اتسجلوا", progress, status chip). Clicking a tile sets
+  `MonthlyPlanViewModel.SelectedTodayFamily`, which swaps the tab to that family's product list with "كل العيلات"
+  (back) and "العيلة اللي بعدها" (next). `LoadTodayEntryTabAsync` rebuilds rows on every save, so it re-resolves
+  `SelectedTodayFamily` by `HeaderText` to keep the page open. `MonthlyPlanTodayFamilyGroupRow.IsExpanded` /
+  `ToggleExpanded` removed. Planning tab: month nav now also shows when the month has no plan (the toolbar is
+  hidden then, which trapped the user on an empty month), plus "انسخ خطة الشهر اللي فات" on the empty-state card.
+
+- **Planning tab round 1: the same card-grid drill-in, plus an early forecast warning.** Family cards now work like
+  the daily tab: always-closed tiles (`MonthlyPlanFamilyGroupRow` lost `IsExpanded`; gained
+  `FamilyName`/`MaterialName`/`Key`) and a family page via `MonthlyPlanViewModel.SelectedPlanFamily` (re-resolved by
+  `Key` after every `LoadAsync`, since saving a quantity reloads everything). The product row template moved to
+  `UserControl.Resources` (`PlanProductTemplate`). `FocusProductQuantity` opens the owning family page first, then
+  focuses on `DispatcherPriority.Loaded`. Early warning: `MonthlyPlanProductRow.IsForecastBelowPlan` (forecast <
+  90% of plan) shows a chip on the product, a count on the family tile and a pill in the summary bar.
+
+- **الإحصائيات tab redesigned into a full analysis dashboard** — `MonthlyPlanStatisticsService` (Business) sums the
+  *same* `MonthlyPlanTrackingService.GetTrackingAsync` rows (no second achieved/plan computation) plus a day-by-day
+  series from `MonthlyPlanDailyEntries` + `MonthlyPlanCorrections` (previous-month series = entries only, matching
+  `SameDayPreviousMonth`); all math is pure in `MonthlyPlanStatisticsMath.Build` (tests:
+  `MonthlyPlanStatisticsServiceTests`). Screen: hero completion card with an "expected by today" marker, 8 KPI tiles
+  (pace, forecast, required daily vs current average, vs last month, best day, weight, recording consistency, behind
+  count), `PlanProgressChart` (new OnRender control — cumulative burn-up with plan/forecast/last-month lines or daily
+  bars vs planned daily rate, holidays shaded, hover tooltip; forced LTR because RTL mirrors drawn text), status
+  breakdown, weekday averages, needs-attention / top performers, family table, per-product comparison table (only
+  products with plan or activity). The old chart (real production via `ProductionChartService`) was dropped here: it
+  measured a different number than the manual "achieved" the plan uses. Percentages use
+  `StatisticsStatusKeys.Percent`, not `:P0` — the Arabic culture pattern inserts an ALM mark that renders as a box
+  inside LTR text. Progress bars are star-column Borders, not `ProgressBar` (MaterialDesign animates from 0 on load).
+
 - **الإنتاج اليومي tab regrouped into family cards, mirroring the planning tab's redesign** — was a flat
   `ItemsControl` directly over `TodayEntryRows` (every active product in one list); now
   `MonthlyPlanViewModel.TodayFamilyGroups` (built alongside `TodayEntryRows`, not replacing it — the flat

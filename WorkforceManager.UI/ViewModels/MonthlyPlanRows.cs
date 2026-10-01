@@ -33,7 +33,12 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>خطأ خانة الخطة اليومية للمنتج ده بالذات — تحتها بـFieldError، بيتمسح أول ما تتعدّل</summary>
         [ObservableProperty] private string _dailyTargetError = "";
 
-        partial void OnDailyTargetTextChanged(string value) => DailyTargetError = "";
+        partial void OnDailyTargetTextChanged(string value)
+        {
+            DailyTargetError = "";
+            OnPropertyChanged(nameof(HasDailyTargetConflict));
+            OnPropertyChanged(nameof(DailyTargetConflictText));
+        }
 
         // ------- تتبّع (من MonthlyPlanTrackingDto) -------
 
@@ -78,7 +83,7 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>0-100 لعرض العارضة — نسبة أعلى من 150% بتتقص بصريًا (العارضة مش أرقام)</summary>
         public double ProgressBarPercent => AchievedPercent is { } p ? (double)Math.Min(p * 100m, 150m) : 0;
 
-        public string PercentText => AchievedPercent is { } p ? $"{p:P0}" : "—";
+        public string PercentText => AchievedPercent is { } p ? StatisticsStatusKeys.Percent(p) : "—";
 
         /// <summary>نفس مقارن النسبة المستخدم في باقي البرنامج (ReportBuilderService.PercentChange) — مفيش حساب تاني هنا</summary>
         public string ComparisonText
@@ -95,25 +100,98 @@ namespace WorkforceManager.UI.ViewModels
 
         public bool HasRequiredDailyOutput => RequiredDailyOutput is not null;
         public bool HasForecast => ForecastEndOfMonth is not null;
+
+        /// <summary>حد الإنذار البدري — توقّع آخر الشهر أقل من 90% من الخطة (نفس حد "متأخر" في الإيقاع)</summary>
+        public const decimal ForecastWarningRatio = 0.90m;
+
+        /// <summary>إنذار بدري: بالإيقاع الحالي المنتج هيقفل الشهر تحت 90% من خطته</summary>
+        public bool IsForecastBelowPlan =>
+            Quantity > 0 && ForecastEndOfMonth is { } f && f < Quantity * ForecastWarningRatio;
+
+        public string ForecastShortfallText => !IsForecastBelowPlan ? ""
+            : IsClosedPeriod
+                ? $"قفل ناقص {Quantity - ForecastEndOfMonth!.Value:N0} عن الخطة"
+                : $"التوقّع ناقص {Quantity - ForecastEndOfMonth!.Value:N0} عن الخطة";
+
+        /// <summary>أيام الشغل الباقية في الفترة — صفر = الشهر خلص (أو "لحد يوم" على آخره)</summary>
+        public int RemainingWorkdays { get; set; }
+
+        /// <summary>الفترة قفلت: "التوقّع" بقى هو النتيجة النهائية، و"المطلوب يوميًا" مالوش معنى</summary>
+        public bool IsClosedPeriod => RemainingWorkdays == 0;
+
+        /// <summary>
+        /// الخطة اليومية اللي المستخدم كتبها × الأيام الباقية مش هتكمّل الخطة —
+        /// تحذير لطيف بس، الرقم بيتحفظ عادي.
+        /// </summary>
+        public bool HasDailyTargetConflict =>
+            DailyTarget is { } target && Quantity > 0 && RemainingWorkdays > 0
+            && EffectiveAchieved + (long)target * RemainingWorkdays < Quantity;
+
+        public string DailyTargetConflictText => !HasDailyTargetConflict ? ""
+            : $"الخطة اليومية ({DailyTarget:N0}) مش هتوصّلك للهدف — محتاج {RequiredDailyOutput:N0} / يوم";
+
+        partial void OnQuantityTextChanged(string value)
+        {
+            OnPropertyChanged(nameof(HasDailyTargetConflict));
+            OnPropertyChanged(nameof(DailyTargetConflictText));
+        }
     }
 
     /// <summary>
     /// عيلة (أو "بدون عيلة") في شاشة الخطة الشهرية — الخطة والمحقق هنا
     /// دايمًا SUM محسوب من منتجاتها، مفيش قيمة بتتكتب على مستوى العيلة خالص.
+    /// الكارت مقفول دايمًا في الشبكة، والضغط عليه بيفتح صفحة العيلة
+    /// (MonthlyPlanViewModel.SelectedPlanFamily) — مفيش فتح/قفل جوه الكارت.
     /// </summary>
-    public partial class MonthlyPlanFamilyGroupRow : ObservableObject
+    public class MonthlyPlanFamilyGroupRow
     {
+        /// <summary>"الاسم (العدد)" — للتنبيهات النصية</summary>
         public string HeaderText { get; init; } = "";
+
+        public string FamilyName { get; init; } = "";
+        public string MaterialName { get; init; } = "";
+
+        /// <summary>مفتاح ثابت (مادة + عيلة) — صفحة العيلة المفتوحة بتتلاقى بيه تاني بعد كل إعادة تحميل</summary>
+        public string Key => $"{MaterialName}|{FamilyName}";
+
         public List<MonthlyPlanProductRow> Products { get; init; } = new();
 
-        /// <summary>الكارت مفتوح افتراضيًا — تدوس على رأسه يقفل/يفتح، شوف MonthlyPlanView</summary>
-        [ObservableProperty] private bool _isExpanded = true;
+        public string ProductCountText => $"{Products.Count} منتج";
 
-        [RelayCommand]
-        private void ToggleExpanded() => IsExpanded = !IsExpanded;
+        /// <summary>حالة العيلة كلها (من متوسط نسب منتجاتها) — لون الكارت وفلتر "متأخر/سابق"</summary>
+        public PlanPaceStatus PaceStatus => MonthlyPlanStatisticsMath.StatusOf(AveragePercent);
+        public bool HasPace => AveragePercent is not null;
+        public string StatusInkKey => StatisticsStatusKeys.Ink(PaceStatus);
+        public string StatusTintKey => StatisticsStatusKeys.Tint(PaceStatus);
+
+        public int ForecastBelowPlanCount => Products.Count(p => p.IsForecastBelowPlan);
+        public bool HasForecastBelowPlan => ForecastBelowPlanCount > 0;
+        public string ForecastBelowPlanText => IsClosedPeriod
+            ? $"{ForecastBelowPlanCount} منتج قفل تحت الخطة"
+            : $"{ForecastBelowPlanCount} منتج توقّعه تحت الخطة";
 
         /// <summary>أيام الشغل المتبقية للفترة — نفس رقم الفترة كله، لازم لحساب RequiredDailyOutputForFamily</summary>
         public int RemainingWorkdays { get; init; }
+
+        /// <summary>أيام الشغل الكلية — مع RemainingWorkdays بتحدد علامة "المفروض لحد النهارده" على الشريط</summary>
+        public int TotalWorkdays { get; init; }
+
+        public bool IsClosedPeriod => RemainingWorkdays == 0;
+
+        // ── شريط إنجاز الكارت: المحقق ÷ خطة العيلة، وعلامة المفروض لحد النهارده ──
+        private decimal CompletionFraction => Subtotal > 0 ? Math.Min(1m, (decimal)AchievedSubtotal / Subtotal) : 0;
+        private decimal ExpectedFraction => TotalWorkdays > 0 ? (decimal)(TotalWorkdays - RemainingWorkdays) / TotalWorkdays : 0;
+        public System.Windows.GridLength CompletionColumn => StatisticsStatusKeys.BarColumn(CompletionFraction);
+        public System.Windows.GridLength CompletionRestColumn => StatisticsStatusKeys.BarRestColumn(CompletionFraction);
+        public System.Windows.GridLength ExpectedColumn => StatisticsStatusKeys.BarColumn(ExpectedFraction);
+        public System.Windows.GridLength ExpectedRestColumn => StatisticsStatusKeys.BarRestColumn(ExpectedFraction);
+        public string CompletionText => Subtotal > 0 ? $"{StatisticsStatusKeys.Percent((decimal)AchievedSubtotal / Subtotal)} من الخطة" : "";
+
+        /// <summary>العمود التالت في الكارت: "مطلوب يوميًا" والشهر شغال، "النتيجة" بعد ما يقفل</summary>
+        public string ThirdStatLabel => IsClosedPeriod ? "النتيجة" : "مطلوب يوميًا";
+        public string ThirdStatValue => IsClosedPeriod
+            ? (Subtotal > 0 ? StatisticsStatusKeys.Percent((decimal)AchievedSubtotal / Subtotal) : "—")
+            : RequiredDailyOutputForFamilyText;
 
         /// <summary>مجموع خطط منتجاتها — للقراءة بس</summary>
         public int Subtotal => Products.Sum(p => p.Quantity);
@@ -149,7 +227,7 @@ namespace WorkforceManager.UI.ViewModels
         public bool IsBelowThreshold => AveragePercent is { } avg && avg < 0.75m;
 
         /// <summary>نسبة إنجاز العيلة على رأس كارتها — ذهبي/بني دايمًا (مش أحمر/أخضر حالة)، بمعزل عن AveragePercent المستخدم للتنبيه بس</summary>
-        public string CardPercentText => AveragePercent is { } p ? $"{p:P0}" : "—";
+        public string CardPercentText => AveragePercent is { } p ? StatisticsStatusKeys.Percent(p) : "—";
 
         /// <summary>مجموع تصليحات منتجاتها — SUM بسيط، نفس منطق Subtotal بالظبط</summary>
         public int CorrectionsSubtotal => Products.Sum(p => p.Correction);

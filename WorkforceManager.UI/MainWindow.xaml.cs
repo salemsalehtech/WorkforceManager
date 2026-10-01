@@ -68,6 +68,7 @@ namespace WorkforceManager.UI
             RefreshActivityBadge();
             RefreshMemoryBadge();
             RefreshNotificationBell();
+            Loaded += async (_, _) => await LoadPlanBriefingAsync();
 
             // لو المدير غيّر صورته من شاشة الحسابات الإدارية وهو داخل،
             // الأفاتار هنا في القايمة الجانبية لازم يتحدّث فورًا معاها
@@ -640,11 +641,55 @@ namespace WorkforceManager.UI
             NotificationAttentionText.Text = $"{needsAttention} عامل محتاج انتباه";
             NotificationAttentionItem.Visibility = needsAttention > 0 ? Visibility.Visible : Visibility.Collapsed;
 
-            var total = unseenActivity + needsAttention;
+            var planBehind = _planBriefing?.BehindCount ?? 0;
+            NotificationPlanItem.Visibility = planBehind > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            var total = unseenActivity + needsAttention + (planBehind > 0 ? 1 : 0);
             NotificationEmptyText.Visibility = total == 0 ? Visibility.Visible : Visibility.Collapsed;
             NotificationBellBadgeText.Text = BadgeFormat.CountText(total);
             NotificationBellBadge.Visibility = total > 0 ? Visibility.Visible : Visibility.Collapsed;
             RefreshSidebarToggleBadge();
+        }
+
+        /// <summary>
+        /// موجز الصبح من الخطة الشهرية — آخر نتيجة لـLoadPlanBriefingAsync. بيتحسب
+        /// **مرة واحدة** عند فتح البرنامج: التتبّع الكامل أتقل من استعلامات الجرس
+        /// التانية (COUNT بس)، وتكراره مع كل تنقّل هو بالظبط المشكلة اللي اتشالت
+        /// عشانها خطة الشهر من الجرس قبل كده (شوف التعليق فوق RefreshNotificationBell).
+        /// </summary>
+        private MonthlyPlanTodayBriefingDto? _planBriefing;
+
+        private async Task LoadPlanBriefingAsync()
+        {
+            try
+            {
+                using var scope = App.AppHost.Services.CreateScope();
+                _planBriefing = await scope.ServiceProvider.GetRequiredService<MonthlyPlanStatisticsService>()
+                    .GetTodayBriefingAsync(DateTime.Today);
+            }
+            catch (Exception)
+            {
+                // الموجز تنبيه مساعد بس — فشله مايمنعش البرنامج يفتح
+                _planBriefing = null;
+                return;
+            }
+
+            if (_planBriefing.BehindCount == 0) return;
+
+            NotificationPlanText.Text =
+                $"{_planBriefing.BehindCount} منتج متأخر في الخطة — مطلوب منهم النهارده {_planBriefing.RequiredToday:N0} قطعة";
+            RefreshNotificationBell();
+
+            var names = string.Join("، ", _planBriefing.TopProducts);
+            Notify.Info(
+                $"{_planBriefing.BehindCount} منتج متأخر عن خطة الشهر ({names}) — المطلوب منهم النهارده {_planBriefing.RequiredToday:N0} قطعة",
+                "موجز الصبح");
+        }
+
+        private void NotificationPlanItem_Click(object sender, RoutedEventArgs e)
+        {
+            NotificationBellToggle.IsChecked = false;
+            NavMonthlyPlanItem.IsChecked = true;
         }
 
         private void NotificationActivityItem_Click(object sender, RoutedEventArgs e)

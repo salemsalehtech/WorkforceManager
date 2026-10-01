@@ -40,12 +40,13 @@ namespace WorkforceManager.UiTests
         }
 
         [Fact]
-        public void IsExpanded_DefaultsTrue_AndToggles()
+        public void StatusText_ReflectsHowManyAreLeft()
         {
-            var family = new MonthlyPlanTodayFamilyGroupRow { HeaderText = "عيلة" };
-            Assert.True(family.IsExpanded);
-            family.ToggleExpandedCommand.Execute(null);
-            Assert.False(family.IsExpanded);
+            MonthlyPlanTodayEntryRow Row(bool filled) => new() { ProductName = "منتج", IsFilled = filled };
+
+            Assert.Equal("لسه ماتسجلش", new MonthlyPlanTodayFamilyGroupRow { Products = new() { Row(false), Row(false) } }.StatusText);
+            Assert.Equal("فاضل 1", new MonthlyPlanTodayFamilyGroupRow { Products = new() { Row(true), Row(false) } }.StatusText);
+            Assert.Equal("خلصت", new MonthlyPlanTodayFamilyGroupRow { Products = new() { Row(true), Row(true) } }.StatusText);
         }
     }
 }

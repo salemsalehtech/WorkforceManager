@@ -43,6 +43,18 @@ namespace WorkforceManager.UI.Views
         /// </summary>
         public void FocusProductQuantity(int productId)
         {
+            // كروت العيلة مقفولة دايمًا — خانة المنتج موجودة بس جوه صفحة عيلته، فلازم تتفتح الأول
+            // وتترسم قبل ما ندوّر عليها
+            if (_viewModel.OpenPlanFamilyContaining(productId))
+            {
+                Dispatcher.BeginInvoke(() => FocusQuantityBox(productId), System.Windows.Threading.DispatcherPriority.Loaded);
+                return;
+            }
+            FocusQuantityBox(productId);
+        }
+
+        private void FocusQuantityBox(int productId)
+        {
             var box = FindDescendants<TextBox>(this)
                 .FirstOrDefault(t => t.Name == "QuantityBox" && t.Tag is MonthlyPlanProductRow row && row.ProductId == productId);
             if (box is null) return;
@@ -83,6 +95,15 @@ namespace WorkforceManager.UI.Views
             try
             {
                 await _viewModel.SaveQuantityAsync(row.ProductId, quantity);
+
+                // وضع الجدول: من غير إعادة تحميل — إعادة البناء كانت هتشيل المؤشر من الخانة
+                // اللي المستخدم نط لها بـ Enter. التحميل الكامل لما يرجع للكروت
+                if (_viewModel.IsTableMode)
+                {
+                    _viewModel.AfterTableEdit();
+                    return;
+                }
+
                 // الخطة اتغيّرت — التتبّع (نسبة المحقق، المطلوب يوميًا...) كله مبني عليها،
                 // فمحتاج إعادة تحميل كاملة مش تحديث محلي بس
                 await _viewModel.LoadAsync();
@@ -164,6 +185,38 @@ namespace WorkforceManager.UI.Views
         }
 
         /// <summary>Enter = انتقل لخانة المنتج اللي بعده (زيادة على Tab)، نفس طلب المستخدم</summary>
+        /// <summary>"⋯ المزيد" — القايمة بتتفتح بالضغط العادي، مش كليك يمين بس</summary>
+        private void MoreButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { ContextMenu: { } menu } button) return;
+            menu.PlacementTarget = button;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            menu.IsOpen = true;
+        }
+
+        /// <summary>Enter في البحث: منتج واحد مطابق → صفحة عيلته على طول</summary>
+        private void PlanSearchBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter) return;
+            _viewModel.OpenSearchResultCommand.Execute(null);
+            e.Handled = true;
+        }
+
+        /// <summary>وضع الجدول: Enter بينقل للخانة اللي بعدها زي الإكسل (الحفظ بيحصل في LostFocus)</summary>
+        private void TableQuantityBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key is not (Key.Enter or Key.Down) || sender is not UIElement element) return;
+            element.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+            if (Keyboard.FocusedElement is TextBox next) next.SelectAll();
+            e.Handled = true;
+        }
+
+        /// <summary>مجموعة "غير محدد" = منتجات من غير مادة — يروح لشاشة المنتجات يكمّل بياناتها</summary>
+        private void CompleteProducts_Click(object sender, RoutedEventArgs e)
+        {
+            if (Window.GetWindow(this) is MainWindow main) main.NavProductsItem.IsChecked = true;
+        }
+
         private void TodayQuantityBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key != Key.Enter || sender is not UIElement element) return;

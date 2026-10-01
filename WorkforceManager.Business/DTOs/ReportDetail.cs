@@ -54,6 +54,9 @@ namespace WorkforceManager.Business.DTOs
         /// <summary>اسم المصنع فوق التقرير</summary>
         public string? FactoryName { get; init; }
 
+        /// <summary>اسم القسم — عنوان شيت الخطة الشهرية ("قسم الصنفرة") زي شيت المصنع القديم</summary>
+        public string? DepartmentName { get; init; }
+
         /// <summary>مسار صورة الشعار (بيتساب لو مش موجود)</summary>
         public string? LogoPath { get; init; }
     }

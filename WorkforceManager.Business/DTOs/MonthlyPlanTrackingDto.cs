@@ -62,3 +62,17 @@ namespace WorkforceManager.Business.DTOs
         public bool HasReachedTarget => PlannedQuantity > 0 && EffectiveAchieved >= PlannedQuantity && RemainingWorkdays > 0;
     }
 }
+
+namespace WorkforceManager.Business.DTOs
+{
+    /// <summary>المحقق لكل منتج في كل يوم من الشهر + الإجازات — لشيت "يوم بيوم" في التصدير</summary>
+    public class MonthlyPlanDailyBreakdownDto
+    {
+        public int Year { get; init; }
+        public int Month { get; init; }
+        public DateTime AsOfDate { get; init; }
+        public IReadOnlyDictionary<(int ProductId, DateTime Date), int> Quantities { get; init; } =
+            new Dictionary<(int ProductId, DateTime Date), int>();
+        public IReadOnlySet<DateTime> Holidays { get; init; } = new HashSet<DateTime>();
+    }
+}

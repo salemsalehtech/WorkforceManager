@@ -21,10 +21,266 @@
       خطة/محقق العيلة دايمًا SUM محسوب، مفيش حقل كتابة عليهم.
     -->
     <UserControl.Resources>
+        <vm:EnumEqualsConverter x:Key="EnumEquals" />
+        <vm:InverseBoolConverter x:Key="InverseBool" />
+
+        <!-- chip فلتر/تبديل عرض — نفس شكل زرار "تراكمي/يوم بيوم" في الإحصائيات -->
+        <Style x:Key="PlanFilterChip" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" CornerRadius="8" Padding="11,5" BorderThickness="1"
+                                Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource LineBrush}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GoldTintBrush}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GoldBrush}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+
+        <!-- كارت عيلة في شبكة التخطيط — مقفول دايمًا، الضغط بيفتح صفحة العيلة (SelectedPlanFamily).
+             نفس القالب في العرض المجمّع بالمادة وفي الشبكة الواحدة. شريط الإنجاز عليه علامة
+             "المفروض لحد النهارده"، والعمود التالت بيبقى "النتيجة" بعد ما الشهر يقفل. -->
+        <DataTemplate x:Key="PlanFamilyTile" DataType="{x:Type vm:MonthlyPlanFamilyGroupRow}">
+            <Button Style="{StaticResource CardButton}" Width="300" Margin="0,0,14,14"
+                    Command="{Binding DataContext.OpenPlanFamilyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding}" ToolTip="اضغط عشان تفتح منتجات العيلة دي">
+                <Border Style="{StaticResource Card}" Padding="16,14">
+                    <StackPanel>
+                        <DockPanel>
+                            <materialDesign:PackIcon DockPanel.Dock="Left" Kind="ChevronLeft" Width="18" Height="18"
+                                                     VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                            <Border DockPanel.Dock="Left" CornerRadius="{DynamicResource RadiusSmall}" Padding="9,3" Margin="8,0,0,0"
+                                    VerticalAlignment="Center" ui:ThemeBrush.BackgroundKey="{Binding StatusTintKey}"
+                                    ToolTip="متوسط نسبة المحقق لمنتجات العيلة مقابل المفروض لحد النهارده">
+                                <TextBlock Text="{Binding CardPercentText}" FontWeight="Bold" FontSize="13" FlowDirection="LeftToRight"
+                                           ui:ThemeBrush.ForegroundKey="{Binding StatusInkKey}" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding FamilyName}" FontSize="14.5" FontWeight="Bold" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock FontSize="11.5" Margin="0,2,0,0" Foreground="{DynamicResource TextMutedBrush}">
+                                    <Run Text="{Binding ProductCountText, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding MaterialName, Mode=OneWay}" />
+                                </TextBlock>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{Binding Subtotal, Mode=OneWay, StringFormat=N0}" Style="{StaticResource StatNumber}" FontSize="17" />
+                                <TextBlock Text="خطة" Style="{StaticResource StatCaption}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="{Binding AchievedSubtotal, Mode=OneWay, StringFormat=N0}" Style="{StaticResource StatNumber}" FontSize="17"
+                                           Foreground="{DynamicResource GoldDeepBrush}" />
+                                <TextBlock Text="محقق" Style="{StaticResource StatCaption}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="{Binding ThirdStatValue}" Style="{StaticResource StatNumber}" FontSize="17" FlowDirection="LeftToRight" HorizontalAlignment="Left" />
+                                <TextBlock Text="{Binding ThirdStatLabel}" Style="{StaticResource StatCaption}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- شريط الإنجاز من خطة العيلة + علامة المفروض لحد النهارده -->
+                        <Grid Height="10" Margin="0,12,0,0" ToolTip="{Binding CompletionText}">
+                            <Border Height="6" CornerRadius="3" VerticalAlignment="Center" Background="{DynamicResource MeterTrackBrush}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="{Binding CompletionColumn}" />
+                                        <ColumnDefinition Width="{Binding CompletionRestColumn}" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" CornerRadius="3" ui:ThemeBrush.BackgroundKey="{Binding StatusInkKey}" />
+                                </Grid>
+                            </Border>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="{Binding ExpectedColumn}" />
+                                    <ColumnDefinition Width="2" />
+                                    <ColumnDefinition Width="{Binding ExpectedRestColumn}" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="1" Background="{DynamicResource InkSoftBrush}" CornerRadius="1" />
+                            </Grid>
+                        </Grid>
+
+                        <!-- إنذار بدري: منتجات توقّعها آخر الشهر تحت 90% من خطتها (أو قفلت تحتها) -->
+                        <Border Background="{DynamicResource DangerTintBrush}" CornerRadius="8" Padding="8,3" Margin="0,10,0,0"
+                                HorizontalAlignment="Left"
+                                Visibility="{Binding HasForecastBelowPlan, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="TrendingDown" Width="14" Height="14" VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource DangerBrush}" />
+                                <TextBlock Text="{Binding ForecastBelowPlanText}" FontSize="11.5" FontWeight="SemiBold" Margin="6,0,0,0"
+                                           Foreground="{DynamicResource DangerBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </Button>
+        </DataTemplate>
+
+        <!-- وضع الجدول: رأس عيلة -->
+        <DataTemplate DataType="{x:Type vm:MonthlyPlanTableHeader}">
+            <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="6" Padding="12,7" Margin="0,10,0,4">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Totals}" FontSize="12" Foreground="{DynamicResource GoldDeepBrush}"
+                               FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="13.5" Foreground="{DynamicResource TextPrimaryBrush}" />
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
         <Style x:Key="StatusPill" TargetType="Border">
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="7,2" />
         </Style>
+
+        <!-- كارت منتج في صفحة العيلة (تبويب التخطيط) — كان جوه كارت العيلة نفسه قبل ما الكروت
+             تبقى مقفولة دايمًا، اتنقل هنا عشان صفحة العيلة تستخدمه، شوف CLAUDE.md -->
+        <DataTemplate x:Key="PlanProductTemplate" DataType="{x:Type vm:MonthlyPlanProductRow}">
+            <!-- Effect={x:Null}: كارت متكرر جوه ItemsControl — الظل بيلغي ClearType، شوف CLAUDE.md.
+                 Padding/Margin موسّعين شوية — نفس نفس التنفّس بتاع كروت الإنتاج اليومي -->
+            <Border Margin="0,0,0,10" Padding="16,13" Effect="{x:Null}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsComplete}" Value="False">
+                                <Setter Property="Background" Value="{DynamicResource WarnBgBrush}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource WarnBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel>
+                    <!-- الصف الأول: اسم + خطة + بار تقدم ملوّن + نسبة + مقارنة الشهر اللي فات -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="140" />
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="70" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <DockPanel Grid.Column="0" VerticalAlignment="Center">
+                            <materialDesign:PackIcon DockPanel.Dock="Right" Kind="AlertOutline" Width="14" Height="14"
+                                                     Margin="0,0,6,0" VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource WarnBrush}"
+                                                     ToolTip="ناقصه وزن القطعة أو المادة"
+                                                     Visibility="{Binding IsComplete, Converter={StaticResource InverseBoolToVis}}" />
+                            <!-- رابط سريع لصفحة المنتج نفسه (البند 11) -->
+                            <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Padding="3"
+                                    Margin="0,0,4,0" Click="OpenProductPage_Click" Tag="{Binding ProductId}"
+                                    ToolTip="افتح صفحة المنتج">
+                                <materialDesign:PackIcon Kind="OpenInNew" Width="13" Height="13"
+                                                         Foreground="{DynamicResource TextMutedBrush}" />
+                            </Button>
+                            <TextBlock Text="{Binding ProductName}" VerticalAlignment="Center" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </DockPanel>
+
+                        <TextBox Name="QuantityBox" Grid.Column="1" Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="80" TextAlignment="Center" Tag="{Binding}"
+                                 IsEnabled="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                 LostFocus="QuantityBox_LostFocus" ToolTip="الكمية المخططة" />
+
+                        <!-- بار التقدم الملوّن (البند 1) — Behind/OnTrack/Ahead، بدل رقم عاري.
+                             Maximum ثابت 150 (نفس تقصير ProgressBarPercent) — أعلى من 150%
+                             بيتقص بصريًا، العارضة مش أرقام دقيقة -->
+                        <ProgressBar Grid.Column="2" Height="8" Margin="10,0" VerticalAlignment="Center"
+                                     Minimum="0" Maximum="150" Value="{Binding ProgressBarPercent, Mode=OneWay}"
+                                     Background="{DynamicResource MeterTrackBrush}" BorderThickness="0"
+                                     ui:ThemeBrush.ForegroundKey="{Binding StatusInkKey}" />
+
+                        <!-- مقارنة الشهر اللي فات اتنقلت لشاشة الإحصائيات، شوف CLAUDE.md -->
+                        <TextBlock Grid.Column="3" Text="{Binding PercentText}" FontWeight="Bold" FlowDirection="LeftToRight"
+                                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                                   ui:ThemeBrush.ForegroundKey="{Binding StatusInkKey}" />
+                    </Grid>
+
+                    <!-- الصف الثاني: انتاج اليوم | المطلوب النهارده بالظبط | توقّع نهاية الشهر | تصليحات -->
+                    <WrapPanel Margin="0,9,0,0">
+                        <TextBlock FontSize="11.5" Margin="0,0,18,4" Foreground="{DynamicResource TextMutedBrush}">
+                            <Run Text="إنتاج النهارده:" /><Run Text="{Binding TodayCompleted, Mode=OneWay}" FontWeight="Bold"
+                                Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </TextBlock>
+                        <TextBlock FontSize="11.5" Margin="0,0,18,4" Foreground="{DynamicResource TextMutedBrush}"
+                                   Visibility="{Binding HasRequiredDailyOutput, Converter={StaticResource BoolToVis}}">
+                            <Run Text="المطلوب النهارده:" /><Run Text="{Binding RequiredDailyOutput, Mode=OneWay}" FontWeight="Bold"
+                                Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </TextBlock>
+                        <TextBlock FontSize="11.5" Margin="0,0,18,4" Foreground="{DynamicResource TextMutedBrush}"
+                                   Visibility="{Binding HasForecast, Converter={StaticResource BoolToVis}}">
+                            <Run Text="توقّع نهاية الشهر:" /><Run Text="{Binding ForecastEndOfMonth, Mode=OneWay}" FontWeight="Bold"
+                                Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </TextBlock>
+                        <!-- عرض بس دلوقتي — الإدخال اتنقل لشاشة تسجيل الإنتاج اليومي، شوف CLAUDE.md -->
+                        <TextBlock FontSize="11.5" Margin="0,0,18,4" Foreground="{DynamicResource TextMutedBrush}">
+                            <Run Text="تصليحات:" /><Run Text="{Binding CorrectionText, Mode=OneWay}" FontWeight="Bold"
+                                Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </TextBlock>
+
+                        <!-- الخطة اليومية: هدف يومي يدوي بيحدده المستخدم بنفسه، مختلف عن
+                             "المطلوب النهارده" المحسوب فوق (اللي بيتغيّر كل ما الأيام تنقص) -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBlock Text="الخطة اليومية:" FontSize="11.5" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,6,0" />
+                            <TextBox Text="{Binding DailyTargetText, UpdateSourceTrigger=PropertyChanged}"
+                                     Width="60" TextAlignment="Center" FontSize="11.5" Tag="{Binding}"
+                                     IsEnabled="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                     LostFocus="DailyTargetBox_LostFocus"
+                                     ToolTip="هدف يومي يدوي — سايبه فاضي يعني مفيش هدف محدد لهذا المنتج" />
+                        </StackPanel>
+                        <views:FieldError Message="{Binding DailyTargetError}" Margin="0,0,0,4" />
+                        <Border Background="{DynamicResource GoldTintBrush}" CornerRadius="8" Padding="7,1" Margin="0,0,0,4"
+                                Visibility="{Binding IsOutsidePlan, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="إنتاج خارج الخطة" FontSize="10.5" FontWeight="Bold"
+                                       Foreground="{DynamicResource GoldDeepBrush}" />
+                        </Border>
+                        <!-- وصل لخطة الفترة كاملة قبل نهايتها — تنبيه إيجابي، مش "ماشي صح" العادية (البند 5) -->
+                        <Border Background="{DynamicResource GoodTintBrush}" CornerRadius="8" Padding="7,1" Margin="0,0,0,4"
+                                Visibility="{Binding HasReachedTarget, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="🎯 وصل للهدف بدري" FontSize="10.5" FontWeight="Bold"
+                                       Foreground="{DynamicResource GoodBrush}" />
+                        </Border>
+                        <!-- إنذار بدري: بالإيقاع ده آخر الشهر هيقفل تحت 90% من خطته -->
+                        <Border Background="{DynamicResource DangerTintBrush}" CornerRadius="8" Padding="7,1" Margin="0,0,0,4"
+                                Visibility="{Binding IsForecastBelowPlan, Converter={StaticResource BoolToVis}}"
+                                ToolTip="التوقّع بالإيقاع الحالي أقل من 90% من الخطة">
+                            <TextBlock Text="{Binding ForecastShortfallText}" FontSize="10.5" FontWeight="Bold"
+                                       Foreground="{DynamicResource DangerBrush}" />
+                        </Border>
+                        <!-- الخطة اليومية المكتوبة × الأيام الباقية مش هتكمّل خطة الشهر -->
+                        <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="8" Padding="7,1" Margin="0,0,0,4"
+                                Visibility="{Binding HasDailyTargetConflict, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="{Binding DailyTargetConflictText}" FontSize="10.5" FontWeight="Bold"
+                                       Foreground="{DynamicResource WarnBrush}" />
+                        </Border>
+                        <!-- تفاصيل الوزن اتنقلت لشاشة الإحصائيات، شوف CLAUDE.md -->
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
     <TabControl>
@@ -40,6 +296,22 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
+            <!-- تنقّل الشهور لشهر لسه مفيهوش خطة — الشريط العلوي كله (تحت) متخبّي
+                 في الحالة دي، فمن غيره المستخدم كان بيتحبس في الشهر الفاضي.
+                 نفس الأوامر بالظبط اللي في الشريط العلوي -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10"
+                        Visibility="{Binding HasPlanForMonth, Converter={StaticResource InverseBoolToVis}}">
+                <Button Command="{Binding PreviousMonthCommand}" Style="{StaticResource IconButton}" Padding="8" ToolTip="الشهر اللي فات">
+                    <materialDesign:PackIcon Kind="ChevronRight" Width="18" Height="18" />
+                </Button>
+                <TextBlock Text="{Binding MonthLabel}" FontSize="16" FontWeight="Bold" Margin="10,0"
+                           VerticalAlignment="Center" MinWidth="130" TextAlignment="Center"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                <Button Command="{Binding NextMonthCommand}" Style="{StaticResource IconButton}" Padding="8" ToolTip="الشهر الجاي">
+                    <materialDesign:PackIcon Kind="ChevronLeft" Width="18" Height="18" />
+                </Button>
+            </StackPanel>
+
             <!-- وضع القراءة فقط — الشهر ده فات (البند 7)، تمييز بصري واضح -->
             <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="{DynamicResource RadiusSmall}"
                     Padding="12,8" Margin="0,0,0,10"
@@ -62,195 +334,295 @@
                                HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" />
                     <TextBlock Text="ابدأ بإضافة خطة جديدة، للشهر كامل أو لفترات مخصصة جواه" FontSize="12.5"
                                HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,14" />
-                    <Button Content="إضافة خطة جديدة للشهر" Command="{Binding AddNewPlanCommand}"
-                            Style="{StaticResource PrimaryButton}" Padding="26,10" HorizontalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Content="إضافة خطة جديدة للشهر" Command="{Binding AddNewPlanCommand}"
+                                Style="{StaticResource PrimaryButton}" Padding="26,10" />
+                        <Button Command="{Binding CopyFromPreviousMonthCommand}" Style="{StaticResource GhostButton}"
+                                IsEnabled="{Binding IsEditable}" Padding="16,10" Margin="10,0,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ContentCopy" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="انسخ خطة الشهر اللي فات" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
                 </StackPanel>
             </Border>
         </StackPanel>
 
-        <!-- ═══════════ 1. الشريط العلوي ═══════════ -->
-        <!-- كل الصفوف من هنا لحد آخر الشاشة مربوطة بـHasPlanForMonth — شهر
-             فاضي (لسه معملوش خطة) لازم يبيّن زرار "إضافة خطة" بس، مفيش أي
-             حاجة تانية (شريط تنقل/إحصائيات/كروت فاضية) -->
-        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10"
+        <!-- ═══════════ 1. الشريط العلوي — الأساسي بس، والباقي في "⋯ المزيد" ═══════════
+             كان فيه ~12 عنصر على صفين؛ دلوقتي: الشهر + الأيام + "لحد يوم" + آخر تحديث
+             على اليمين، و"تعديل الخطة" + "⋯ المزيد" على الشمال. أزرار التعديل بتختفي
+             في الشهور اللي خلصت بدل ما تبان رمادي. كل الصفوف من هنا مربوطة
+             بـHasPlanForMonth — شهر فاضي بيبيّن زرار "إضافة خطة" بس. -->
+        <DockPanel Grid.Row="1" Margin="0,0,0,10" LastChildFill="False"
                    Visibility="{Binding HasPlanForMonth, Converter={StaticResource BoolToVis}}">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,8">
-                <Button Command="{Binding PreviousMonthCommand}" Style="{StaticResource IconButton}" Padding="8">
-                    <materialDesign:PackIcon Kind="ChevronRight" Width="18" Height="18" />
+            <WrapPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,6">
+                    <Button Command="{Binding PreviousMonthCommand}" Style="{StaticResource IconButton}" Padding="8" ToolTip="الشهر اللي فات">
+                        <materialDesign:PackIcon Kind="ChevronRight" Width="18" Height="18" />
+                    </Button>
+                    <TextBlock Text="{Binding MonthLabel}" FontSize="16" FontWeight="Bold" Margin="10,0"
+                               VerticalAlignment="Center" MinWidth="130" TextAlignment="Center"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <Button Command="{Binding NextMonthCommand}" Style="{StaticResource IconButton}" Padding="8" ToolTip="الشهر الجاي">
+                        <materialDesign:PackIcon Kind="ChevronLeft" Width="18" Height="18" />
+                    </Button>
+                </StackPanel>
+
+                <!-- الأيام المتبقية — في الشهر اللي خلص بتقول "الشهر خلص" بدل "0 يوم متبقي" -->
+                <Border Background="{DynamicResource GoldTintBrush}" CornerRadius="{DynamicResource RadiusSmall}"
+                        Padding="12,7" Margin="0,0,16,6" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="CalendarClockOutline" Width="16" Height="16" VerticalAlignment="Center"
+                                                 Foreground="{DynamicResource GoldDeepBrush}" />
+                        <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold" Foreground="{DynamicResource GoldDeepBrush}"
+                                   Text="{Binding WorkdaysChipText}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- لقطة يوم معيّن (البند 9) — التتبّع كله بيتحسب لحد التاريخ ده -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,6">
+                    <TextBlock Text="لحد يوم:" VerticalAlignment="Center" Margin="0,0,8,0"
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5" />
+                    <DatePicker x:Name="AsOfDatePicker" SelectedDate="{Binding AsOfDate, Mode=OneWay}"
+                                SelectedDateChanged="AsOfDatePicker_SelectedDateChanged" Width="130" />
+                </StackPanel>
+
+                <TextBlock Text="{Binding LastUpdatedText}" VerticalAlignment="Center" Margin="0,0,16,6"
+                           FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}"
+                           Visibility="{Binding HasLastUpdated, Converter={StaticResource BoolToVis}}" />
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,6"
+                            Visibility="{Binding HasSnapshots, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="لقطة محفوظة:" VerticalAlignment="Center" Margin="0,0,8,0"
+                               Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5" />
+                    <ComboBox x:Name="SnapshotCombo" ItemsSource="{Binding SnapshotTimestamps}"
+                              SelectionChanged="SnapshotCombo_SelectionChanged" Width="130">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding StringFormat='yyyy/MM/dd HH:mm'}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+            </WrapPanel>
+
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button Command="{Binding EditPlanCommand}" Style="{StaticResource GhostButton}"
+                        Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}"
+                        VerticalAlignment="Center" Padding="14,9" Margin="0,0,8,6">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="PencilOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                        <TextBlock Text="تعديل الخطة" Margin="6,0,0,0" />
+                    </StackPanel>
                 </Button>
-                <TextBlock Text="{Binding MonthLabel}" FontSize="16" FontWeight="Bold" Margin="10,0"
-                           VerticalAlignment="Center" MinWidth="130" TextAlignment="Center"
-                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                <Button Command="{Binding NextMonthCommand}" Style="{StaticResource IconButton}" Padding="8">
-                    <materialDesign:PackIcon Kind="ChevronLeft" Width="18" Height="18" />
+
+                <Button x:Name="MoreButton" Click="MoreButton_Click" Style="{StaticResource GhostButton}"
+                        VerticalAlignment="Center" Padding="12,9" Margin="0,0,0,6" ToolTip="تصدير، طباعة، لقطة، نسخ، حذف">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="DotsHorizontal" Width="16" Height="16" VerticalAlignment="Center" />
+                        <TextBlock Text="المزيد" Margin="6,0,0,0" />
+                    </StackPanel>
+                    <Button.ContextMenu>
+                        <ContextMenu FlowDirection="RightToLeft"
+                                     DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Header="تصدير إكسل" Command="{Binding ExportExcelCommand}">
+                                <MenuItem.Icon><materialDesign:PackIcon Kind="FileExcelOutline" Width="15" Height="15" /></MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="طباعة / PDF" Command="{Binding PrintCommand}">
+                                <MenuItem.Icon><materialDesign:PackIcon Kind="PrinterOutline" Width="15" Height="15" /></MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="لقطة نهاية اليوم" Command="{Binding SaveSnapshotCommand}">
+                                <MenuItem.Icon><materialDesign:PackIcon Kind="CameraOutline" Width="15" Height="15" /></MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Command="{Binding ToggleWeightUnitCommand}">
+                                <MenuItem.Icon><materialDesign:PackIcon Kind="ScaleBalance" Width="15" Height="15" /></MenuItem.Icon>
+                                <MenuItem.Style>
+                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                        <Setter Property="Header" Value="اعرض الوزن بالطن" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ShowWeightInTons}" Value="True">
+                                                <Setter Property="Header" Value="اعرض الوزن بالكجم" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </MenuItem.Style>
+                            </MenuItem>
+                            <Separator Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}" />
+                            <MenuItem Header="انسخ خطة الشهر اللي فات" Command="{Binding CopyFromPreviousMonthCommand}"
+                                      Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}">
+                                <MenuItem.Icon><materialDesign:PackIcon Kind="ContentCopy" Width="15" Height="15" /></MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="حذف الخطة" Command="{Binding DeletePlanCommand}" Foreground="{DynamicResource DangerBrush}"
+                                      Visibility="{Binding IsEditable, Converter={StaticResource BoolToVis}}">
+                                <MenuItem.Icon><materialDesign:PackIcon Kind="DeleteOutline" Width="15" Height="15" Foreground="{DynamicResource DangerBrush}" /></MenuItem.Icon>
+                            </MenuItem>
+                        </ContextMenu>
+                    </Button.ContextMenu>
                 </Button>
             </StackPanel>
+        </DockPanel>
 
-            <!-- الأيام المتبقية — بارزة هنا عن قصد (البند 6)، لأنها بتقود المطلوب اليومي والتوقّع -->
-            <Border Background="{DynamicResource GoldTintBrush}" CornerRadius="{DynamicResource RadiusSmall}"
-                    Padding="12,7" Margin="0,0,16,8" VerticalAlignment="Center">
+        <!-- ═══════════ 2. المؤشرات + نتيجة الشهر ═══════════ -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,10" Visibility="{Binding HasPlanForMonth, Converter={StaticResource BoolToVis}}">
+            <!-- الشهر اللي خلص: جملة واحدة بتلخّص النتيجة -->
+            <Border Background="{DynamicResource InkGradientBrush}" CornerRadius="12" Padding="16,12" Margin="0,0,0,10"
+                    Visibility="{Binding HasMonthResult, Converter={StaticResource BoolToVis}}">
                 <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="CalendarClockOutline" Width="16" Height="16" VerticalAlignment="Center"
-                                             Foreground="{DynamicResource GoldDeepBrush}" />
-                    <TextBlock Margin="6,0,0,0" VerticalAlignment="Center" FontWeight="Bold" Foreground="{DynamicResource GoldDeepBrush}">
-                        <Run Text="{Binding RemainingWorkdays, Mode=OneWay}" /><Run Text=" يوم شغل متبقي من" />
-                        <Run Text="{Binding TotalWorkdays, Mode=OneWay}" />
-                    </TextBlock>
+                    <materialDesign:PackIcon Kind="FlagCheckered" Width="20" Height="20" VerticalAlignment="Center"
+                                             Foreground="{DynamicResource GoldBrush}" />
+                    <TextBlock Text="{Binding MonthResultText}" Margin="10,0,0,0" FontSize="13.5" FontWeight="SemiBold"
+                               VerticalAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource SidebarInkBrush}" />
                 </StackPanel>
             </Border>
 
-            <!-- لقطة يوم معيّن (البند 9) — التتبّع كله بيتحسب لحد التاريخ ده -->
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,8">
-                <TextBlock Text="لحد يوم:" VerticalAlignment="Center" Margin="0,0,8,0"
-                           Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5" />
-                <DatePicker x:Name="AsOfDatePicker" SelectedDate="{Binding AsOfDate, Mode=OneWay}"
-                            SelectedDateChanged="AsOfDatePicker_SelectedDateChanged" Width="130" />
+            <UniformGrid Columns="4">
+                <Border Style="{StaticResource Card}" Padding="14,10" Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock Text="نسبة الإنجاز" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Text="{Binding KpiCompletionText}" FontSize="22" FontWeight="Bold" Margin="0,2,0,4" FlowDirection="LeftToRight" HorizontalAlignment="Left"
+                                   Foreground="{DynamicResource GoldDeepBrush}" />
+                        <Border Height="6" CornerRadius="3" Background="{DynamicResource MeterTrackBrush}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="{Binding KpiCompletionColumn}" />
+                                    <ColumnDefinition Width="{Binding KpiCompletionRestColumn}" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" CornerRadius="3" Background="{DynamicResource GoldDeepBrush}" />
+                            </Grid>
+                        </Border>
+                        <TextBlock Text="{Binding KpiCompletionCaption}" FontSize="11.5" Margin="0,5,0,0" Foreground="{DynamicResource TextMutedBrush}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Padding="14,10" Margin="0,0,10,0">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="الإيقاع" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                            <views:HelpIcon Text="{x:Static tour:FieldHelpText.AchievedPercent}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding KpiPaceText}" FontSize="22" FontWeight="Bold" Margin="0,2,0,4" FlowDirection="LeftToRight" HorizontalAlignment="Left"
+                                   ui:ThemeBrush.ForegroundKey="{Binding KpiPaceKey}" />
+                        <TextBlock Text="{Binding KpiPaceCaption}" FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Padding="14,10" Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock Text="{Binding KpiForecastLabel}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Text="{Binding KpiForecastText}" FontSize="22" FontWeight="Bold" Margin="0,2,0,4"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="{Binding KpiForecastCaption}" FontSize="11.5" ui:ThemeBrush.ForegroundKey="{Binding KpiForecastKey}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}" Padding="14,10">
+                    <StackPanel>
+                        <TextBlock Text="أيام الشغل" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Text="{Binding KpiRemainingText}" FontSize="22" FontWeight="Bold" Margin="0,2,0,4"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="{Binding KpiRemainingCaption}" FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+        </StackPanel>
+
+        <!-- ═══════════ 3. بحث + فلتر حالة + ترتيب + تجميع + كروت/جدول ═══════════
+             الفلتر بيحل محل البانر الأحمر الطويل وبادچات الحالة: نفس المعلومة، بس
+             الدوسة عليها بتعرض العيلات دي بس بدل ما تقرا قايمة أسماء. -->
+        <WrapPanel Grid.Row="3" Margin="0,0,0,12" Visibility="{Binding HasPlanForMonth, Converter={StaticResource BoolToVis}}">
+            <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+                    CornerRadius="{DynamicResource RadiusSmall}" Padding="8,2" Margin="0,0,12,6" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="Magnify" Width="16" Height="16" VerticalAlignment="Center"
+                                             Foreground="{DynamicResource TextMutedBrush}" />
+                    <Grid Margin="6,0,0,0" VerticalAlignment="Center">
+                        <!-- placeholder يدوي — الـHint بتاع MaterialDesign مش بيظهر مع الـTextBox ده من غير ستايل المكتبة -->
+                        <TextBlock Text="دوّر على منتج أو عيلة..." FontSize="12.5" VerticalAlignment="Center" Margin="3,0,0,0"
+                                   IsHitTestVisible="False" Foreground="{DynamicResource TextMutedBrush}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SearchText}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBox x:Name="PlanSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Width="190"
+                                 BorderThickness="0" Background="Transparent" VerticalAlignment="Center" KeyDown="PlanSearchBox_KeyDown"
+                                 ToolTip="Enter يفتح عيلة المنتج لو نتيجة واحدة" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,12,6" VerticalAlignment="Center">
+                <RadioButton Style="{StaticResource PlanFilterChip}" GroupName="PlanFilter" Content="الكل"
+                             IsChecked="{Binding FamilyFilter, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=All}"
+                             Command="{Binding SetFamilyFilterCommand}" CommandParameter="{x:Static vm:PlanFamilyFilter.All}" />
+                <RadioButton Style="{StaticResource PlanFilterChip}" GroupName="PlanFilter"
+                             IsChecked="{Binding FamilyFilter, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=Behind}"
+                             Command="{Binding SetFamilyFilterCommand}" CommandParameter="{x:Static vm:PlanFamilyFilter.Behind}">
+                    <TextBlock Foreground="{DynamicResource DangerBrush}"><Run Text="متأخر " /><Run Text="{Binding BehindFamiliesCount, Mode=OneWay}" /></TextBlock>
+                </RadioButton>
+                <RadioButton Style="{StaticResource PlanFilterChip}" GroupName="PlanFilter"
+                             IsChecked="{Binding FamilyFilter, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=OnTrack}"
+                             Command="{Binding SetFamilyFilterCommand}" CommandParameter="{x:Static vm:PlanFamilyFilter.OnTrack}">
+                    <TextBlock><Run Text="ماشي صح " /><Run Text="{Binding OnTrackFamiliesCount, Mode=OneWay}" /></TextBlock>
+                </RadioButton>
+                <RadioButton Style="{StaticResource PlanFilterChip}" GroupName="PlanFilter"
+                             IsChecked="{Binding FamilyFilter, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=Ahead}"
+                             Command="{Binding SetFamilyFilterCommand}" CommandParameter="{x:Static vm:PlanFamilyFilter.Ahead}">
+                    <TextBlock Foreground="{DynamicResource GoldDeepBrush}"><Run Text="سابق " /><Run Text="{Binding AheadFamiliesCount, Mode=OneWay}" /></TextBlock>
+                </RadioButton>
+                <RadioButton Style="{StaticResource PlanFilterChip}" GroupName="PlanFilter"
+                             IsChecked="{Binding FamilyFilter, Mode=OneWay, Converter={StaticResource EnumEquals}, ConverterParameter=ForecastBelow}"
+                             Command="{Binding SetFamilyFilterCommand}" CommandParameter="{x:Static vm:PlanFamilyFilter.ForecastBelow}"
+                             ToolTip="عيلات فيها منتجات لو كملت بالإيقاع ده هتقفل الشهر تحت 90% من خطتها">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="TrendingDown" Width="14" Height="14" VerticalAlignment="Center"
+                                                 Foreground="{DynamicResource DangerBrush}" />
+                        <TextBlock Margin="4,0,0,0"><Run Text="توقّعها تحت الخطة " /><Run Text="{Binding ForecastBelowFamiliesCount, Mode=OneWay}" /></TextBlock>
+                    </StackPanel>
+                </RadioButton>
+                <views:HelpIcon Text="{x:Static tour:FieldHelpText.PaceStatus}" Margin="4,0,0,0" />
             </StackPanel>
 
-            <!-- آخر تحديث للمحقق — عشان الأرقام تقرا "حية" مش قديمة -->
-            <TextBlock Text="{Binding LastUpdatedText}" VerticalAlignment="Center" Margin="0,0,16,8"
-                       FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}"
-                       Visibility="{Binding HasLastUpdated, Converter={StaticResource BoolToVis}}" />
-
-            <Button Command="{Binding CopyFromPreviousMonthCommand}" Style="{StaticResource GhostButton}"
-                    IsEnabled="{Binding IsEditable}"
-                    VerticalAlignment="Center" Padding="14,9" Margin="0,0,16,8">
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="ContentCopy" Width="15" Height="15" VerticalAlignment="Center" />
-                    <TextBlock Text="انسخ خطة الشهر اللي فات" Margin="6,0,0,0" />
-                </StackPanel>
-            </Button>
-
-            <!-- تعديل/حذف الخطة — البند 4 من ملاحظات المستخدم، متاحين بس لما فيه خطة فعلًا -->
-            <Button Command="{Binding EditPlanCommand}" Style="{StaticResource GhostButton}"
-                    IsEnabled="{Binding IsEditable}"
-                    VerticalAlignment="Center" Padding="14,9" Margin="0,0,16,8">
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="PencilOutline" Width="15" Height="15" VerticalAlignment="Center" />
-                    <TextBlock Text="تعديل الخطة" Margin="6,0,0,0" />
-                </StackPanel>
-            </Button>
-
-            <Button Command="{Binding DeletePlanCommand}" Style="{StaticResource GhostButton}"
-                    IsEnabled="{Binding IsEditable}" Foreground="{DynamicResource DangerBrush}"
-                    VerticalAlignment="Center" Padding="14,9" Margin="0,0,16,8">
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="DeleteOutline" Width="15" Height="15" VerticalAlignment="Center" />
-                    <TextBlock Text="حذف الخطة" Margin="6,0,0,0" />
-                </StackPanel>
-            </Button>
-
-            <StackPanel Style="{StaticResource SummaryStat}" Margin="0,0,16,8">
-                <TextBlock Text="{Binding GrandTotalAchieved, StringFormat=N0}" Style="{StaticResource SummaryNumber}"
-                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                <TextBlock Text="{Binding GrandTotalPlan, StringFormat='محقق من {0:N0} مخطط'}" Style="{StaticResource SummaryLabel}" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,12,6" VerticalAlignment="Center">
+                <TextBlock Text="ترتيب:" FontSize="12.5" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource TextMutedBrush}" />
+                <ComboBox ItemsSource="{Binding SortOptions}" DisplayMemberPath="Value" SelectedValuePath="Key"
+                          SelectedValue="{Binding FamilySort}" Width="140" />
             </StackPanel>
 
-            <Button Command="{Binding ExportExcelCommand}" Style="{StaticResource GhostButton}"
-                    VerticalAlignment="Center" Padding="14,9" Margin="0,0,16,8">
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="FileExcelOutline" Width="15" Height="15" VerticalAlignment="Center" />
-                    <TextBlock Text="تصدير إكسل" Margin="6,0,0,0" />
-                </StackPanel>
-            </Button>
+            <CheckBox Content="جمّع حسب المادة" IsChecked="{Binding GroupByMaterial}" VerticalAlignment="Center" Margin="0,0,12,6"
+                      FontSize="12.5" Visibility="{Binding IsTableMode, Converter={StaticResource InverseBoolToVis}}" />
 
-            <!-- كجم/طن — عرض بس، الأرقام المخزّنة ثابتة (البند 3) -->
-            <Button Command="{Binding ToggleWeightUnitCommand}" Style="{StaticResource GhostButton}"
-                    VerticalAlignment="Center" Padding="14,9" Margin="0,0,16,8"
-                    ToolTip="بدّل وحدة عرض الوزن بين كجم وطن">
+            <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="9" Padding="3" Margin="0,0,0,6" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="ScaleBalance" Width="15" Height="15" VerticalAlignment="Center" />
-                    <TextBlock Margin="6,0,0,0">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="اعرض بالطن" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding ShowWeightInTons}" Value="True">
-                                        <Setter Property="Text" Value="اعرض بالكجم" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                    <RadioButton Style="{StaticResource PlanFilterChip}" GroupName="PlanView" Command="{Binding ShowCardsCommand}"
+                                 IsChecked="{Binding IsTableMode, Mode=OneWay, Converter={StaticResource InverseBool}}" Margin="0">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ViewGridOutline" Width="14" Height="14" VerticalAlignment="Center" />
+                            <TextBlock Text="كروت" Margin="4,0,0,0" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton Style="{StaticResource PlanFilterChip}" GroupName="PlanView" Command="{Binding ShowTableCommand}"
+                                 IsChecked="{Binding IsTableMode, Mode=OneWay}" Margin="0"
+                                 ToolTip="كل المنتجات في جدول — اكتب الخطة وانتقل بـ Enter زي الإكسل">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="TableLarge" Width="14" Height="14" VerticalAlignment="Center" />
+                            <TextBlock Text="جدول" Margin="4,0,0,0" />
+                        </StackPanel>
+                    </RadioButton>
                 </StackPanel>
-            </Button>
-
-            <!-- لقطة نهاية اليوم (البند 4) — حفظ + قايمة بس -->
-            <Button Command="{Binding SaveSnapshotCommand}" Style="{StaticResource GhostButton}"
-                    VerticalAlignment="Center" Padding="14,9" Margin="0,0,16,8"
-                    ToolTip="يحفظ حالة المحقق دلوقتي عشان ترجعله بعدين">
-                <StackPanel Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="CameraOutline" Width="15" Height="15" VerticalAlignment="Center" />
-                    <TextBlock Text="لقطة نهاية اليوم" Margin="6,0,0,0" />
-                </StackPanel>
-            </Button>
-
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,8"
-                        Visibility="{Binding HasSnapshots, Converter={StaticResource BoolToVis}}">
-                <TextBlock Text="اللقطات المحفوظة:" VerticalAlignment="Center" Margin="0,0,8,0"
-                           Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5" />
-                <ComboBox x:Name="SnapshotCombo" ItemsSource="{Binding SnapshotTimestamps}"
-                          SelectionChanged="SnapshotCombo_SelectionChanged" Width="140">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding StringFormat='yyyy/MM/dd HH:mm'}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-            </StackPanel>
+            </Border>
         </WrapPanel>
-
-        <!-- ═══════════ 2. شريط الملخص ═══════════ -->
-        <WrapPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10"
-                   Visibility="{Binding HasPlanForMonth, Converter={StaticResource BoolToVis}}">
-            <Border Style="{StaticResource StatusPill}" Background="{DynamicResource GoodTintBrush}" Margin="0,0,8,0">
-                <TextBlock FontWeight="Bold" Foreground="{DynamicResource GoodBrush}">
-                    <Run Text="{Binding OnTrackCount, Mode=OneWay}" /><Run Text=" ماشي صح" />
-                </TextBlock>
-            </Border>
-            <Border Style="{StaticResource StatusPill}" Background="{DynamicResource DangerTintBrush}" Margin="0,0,8,0">
-                <TextBlock FontWeight="Bold" Foreground="{DynamicResource DangerBrush}">
-                    <Run Text="{Binding BehindCount, Mode=OneWay}" /><Run Text=" متأخر" />
-                </TextBlock>
-            </Border>
-            <Border Style="{StaticResource StatusPill}" Background="{DynamicResource GoldTintBrush}">
-                <TextBlock FontWeight="Bold" Foreground="{DynamicResource GoldDeepBrush}">
-                    <Run Text="{Binding AheadCount, Mode=OneWay}" /><Run Text=" سابق" />
-                </TextBlock>
-            </Border>
-            <!-- أيقونة واحدة بتشرح الحدود التلاتة مع بعض، بدل ما تتكرر على كل بادچ لوحده -->
-            <views:HelpIcon Text="{x:Static tour:FieldHelpText.PaceStatus}" Margin="0,0,14,0" />
-
-            <!-- نسبة المحقق والمطلوب النهارده بيتكرروا لكل منتج تحت — الشرح
-                 مرة واحدة هنا بدل أيقونة على كل كارت منتج -->
-            <StackPanel Orientation="Horizontal" Margin="0,0,10,0">
-                <TextBlock Text="نسبة المحقق" FontSize="11" VerticalAlignment="Center"
-                           Foreground="{DynamicResource TextMutedBrush}" />
-                <views:HelpIcon Text="{x:Static tour:FieldHelpText.AchievedPercent}" />
-            </StackPanel>
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="المطلوب النهارده" FontSize="11" VerticalAlignment="Center"
-                           Foreground="{DynamicResource TextMutedBrush}" />
-                <views:HelpIcon Text="{x:Static tour:FieldHelpText.RequiredDailyOutput}" />
-            </StackPanel>
-        </WrapPanel>
-
-        <!-- ═══════════ 3. تنبيه لطيف — عيلة واطية عن الإيقاع (البند 6) ═══════════ -->
-        <Border Grid.Row="3" Background="{DynamicResource DangerTintBrush}" CornerRadius="{DynamicResource RadiusSmall}"
-                Padding="12,8" Margin="0,0,0,10"
-                Visibility="{Binding HasBelowThresholdFamilies, Converter={StaticResource BoolToVis}}">
-            <DockPanel>
-                <materialDesign:PackIcon DockPanel.Dock="Right" Kind="AlertCircleOutline" Width="18" Height="18"
-                                         VerticalAlignment="Center" Foreground="{DynamicResource DangerBrush}" />
-                <TextBlock Margin="0,0,10,0" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}"
-                           Text="{Binding BelowThresholdFamiliesText}" />
-            </DockPanel>
-        </Border>
 
         <!-- ═══════════ 5. الجدول الرئيسي — مادة فوق عيلة، زي شيت المصنع الأصلي ═══════════ -->
         <ScrollViewer Grid.Row="5" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                       Visibility="{Binding HasPlanForMonth, Converter={StaticResource BoolToVis}}">
         <StackPanel>
+        <StackPanel Visibility="{Binding IsPlanFamilyOpen, Converter={StaticResource InverseBoolToVis}}">
+        <StackPanel Visibility="{Binding IsTableMode, Converter={StaticResource InverseBoolToVis}}">
             <!-- منتجات خارج الخطة — قسم مستقل، مفيش نسبة/بار تقدم (مفيش خطة تتقاس بيها) -->
             <Border Style="{StaticResource Card}" Padding="14" Margin="0,0,0,14"
                     Background="{DynamicResource GoldTintBrush}" BorderBrush="{DynamicResource GoldDeepBrush}"
@@ -281,230 +653,155 @@
                 </StackPanel>
             </Border>
 
-            <ItemsControl ItemsSource="{Binding MaterialGroups}">
+            <!-- ═══════════ كروت العيلة — مقفولة دايمًا (PlanFamilyTile). مجمّعة بالمادة زي شيت
+                 المصنع، أو كلها في شبكة واحدة (GroupByMaterial). بحث/فلتر/ترتيب من
+                 الشريط اللي فوق (VisibleMaterialGroups / VisibleFamilies)، شوف CLAUDE.md. ═══════════ -->
+            <ItemsControl ItemsSource="{Binding VisibleMaterialGroups}"
+                          Visibility="{Binding GroupByMaterial, Converter={StaticResource BoolToVis}}">
                 <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:MonthlyPlanMaterialGroupRow}">
-                        <Border Style="{StaticResource Card}" Effect="{x:Null}" Padding="14" Margin="0,0,0,14">
-                            <StackPanel>
-                                <!-- رأس المادة: قسم كامل مستقل (نحاس/زاما/غير محدد) بإجمالياته -->
-                                <!-- تفاصيل الوزن الفرعية اتنقلت لشاشة الإحصائيات — هنا بس الملخص الأساسي (محقق/خطة)، شوف CLAUDE.md -->
-                                <DockPanel Margin="2,0,0,10">
-                                    <TextBlock DockPanel.Dock="Left" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource GoldDeepBrush}">
-                                        <Run Text="محقق" /><Run Text="{Binding AchievedSubtotal, Mode=OneWay, StringFormat=N0}" />
-                                        <Run Text="من خطة" /><Run Text="{Binding Subtotal, Mode=OneWay, StringFormat=N0}" />
-                                    </TextBlock>
-                                    <TextBlock Text="{Binding HeaderText}" FontSize="{DynamicResource FontLarge}" FontWeight="Bold"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                </DockPanel>
+                    <DataTemplate DataType="{x:Type vm:MonthlyPlanMaterialView}">
+                        <StackPanel Margin="0,0,0,8">
+                            <!-- رأس المادة: الاسم يمين والإجماليات شمال — كانوا لازقين في بعض ("250نحاس") -->
+                            <DockPanel Margin="2,0,2,10" LastChildFill="False">
+                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Material.HeaderText}" FontSize="{DynamicResource FontLarge}" FontWeight="Bold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                    <Button Style="{StaticResource GhostButton}" Padding="10,4" Margin="12,0,0,0" FontSize="12"
+                                            Click="CompleteProducts_Click"
+                                            Visibility="{Binding IsUnclassified, Converter={StaticResource BoolToVis}}"
+                                            ToolTip="المنتجات دي مالهاش مادة (نحاس/زاما) — كمّل بياناتها من شاشة المنتجات">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="PencilOutline" Width="13" Height="13" VerticalAlignment="Center" />
+                                            <TextBlock Text="كمّل بيانات المنتجات" Margin="5,0,0,0" />
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock DockPanel.Dock="Right" FontSize="12.5" FontWeight="Bold" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource GoldDeepBrush}">
+                                    <Run Text="محقق " /><Run Text="{Binding Material.AchievedSubtotal, Mode=OneWay, StringFormat=N0}" />
+                                    <Run Text=" من خطة " /><Run Text="{Binding Material.Subtotal, Mode=OneWay, StringFormat=N0}" />
+                                </TextBlock>
+                            </DockPanel>
 
-                                <!-- ═══════════ كروت العيلة — كل عيلة كارت مستقل، اسمها + نسبة إنجازها
-                                     الذهبية فوق، تدوس تقفل/تفتح المنتجات جواها. الديزاين القديم (صف رأس
-                                     مفرود بالإحصائيات كلها) اتلغى بالكامل، شوف CLAUDE.md. ═══════════ -->
-                                <!-- كروت العيلة جنب بعض (WrapPanel) مش تحت بعض — زي شبكة كروت العمال/المنتجات.
-                                     Width بيتغيّر بالحالة: ضيق (300) وهي مقفولة عشان كذا كارت يقعدوا جنب بعض
-                                     فعلًا، ويتوسّع (620) بس لما تتفتح عشان يستوعب صف المنتج العريض جواها،
-                                     شوف CLAUDE.md -->
-                                <ItemsControl ItemsSource="{Binding FamilyGroups}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type vm:MonthlyPlanFamilyGroupRow}">
-                                            <!-- شكل الكارت زي كروت العمال/المنتجات — اسم + شارة ذهبية فوق، وصف أرقام
-                                                 بولد فوق تسمية باهتة (StatNumber/StatCaption) تحت بدل سطر نص باهت
-                                                 مفرود، شوف CLAUDE.md -->
-                                            <Border Effect="{x:Null}" Background="{DynamicResource SurfaceAltBrush}" Padding="14" Margin="0,0,14,14">
-                                                <Border.Style>
-                                                    <Style TargetType="Border" BasedOn="{StaticResource Card}">
-                                                        <Setter Property="Width" Value="300" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
-                                                                <Setter Property="Width" Value="620" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <StackPanel>
-                                                    <Button Command="{Binding ToggleExpandedCommand}" Style="{StaticResource GhostButton}"
-                                                            HorizontalContentAlignment="Stretch" Padding="0" Background="Transparent" BorderThickness="0"
-                                                            Margin="0,0,0,10">
-                                                        <DockPanel>
-                                                            <materialDesign:PackIcon DockPanel.Dock="Left" Width="16" Height="16" VerticalAlignment="Center"
-                                                                                     Foreground="{DynamicResource TextMutedBrush}">
-                                                                <materialDesign:PackIcon.Style>
-                                                                    <Style TargetType="materialDesign:PackIcon">
-                                                                        <Setter Property="Kind" Value="ChevronDown" />
-                                                                        <Style.Triggers>
-                                                                            <DataTrigger Binding="{Binding IsExpanded}" Value="False">
-                                                                                <Setter Property="Kind" Value="ChevronLeft" />
-                                                                            </DataTrigger>
-                                                                        </Style.Triggers>
-                                                                    </Style>
-                                                                </materialDesign:PackIcon.Style>
-                                                            </materialDesign:PackIcon>
-                                                            <Border DockPanel.Dock="Left" Background="{DynamicResource GoldTintBrush}"
-                                                                    CornerRadius="{DynamicResource RadiusSmall}" Padding="9,3" Margin="10,0,0,0">
-                                                                <TextBlock Text="{Binding CardPercentText}" FontWeight="Bold" FontSize="13"
-                                                                           Foreground="{DynamicResource GoldDeepBrush}" />
-                                                            </Border>
-                                                            <TextBlock Text="{Binding HeaderText}" Style="{StaticResource SectionTitle}" Margin="10,0,0,0" />
-                                                        </DockPanel>
-                                                    </Button>
-
-                                                    <!-- 3 أعمدة متساوية زي أرقام كارت العامل (حضور/غياب/الصافي) -->
-                                                    <Grid Margin="26,0,0,10">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="*" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <StackPanel Grid.Column="0">
-                                                            <TextBlock Text="{Binding Subtotal, Mode=OneWay, StringFormat=N0}"
-                                                                       Style="{StaticResource StatNumber}" FontSize="18" />
-                                                            <TextBlock Text="خطة" Style="{StaticResource StatCaption}" />
-                                                        </StackPanel>
-                                                        <StackPanel Grid.Column="1">
-                                                            <TextBlock Text="{Binding AchievedSubtotal, Mode=OneWay, StringFormat=N0}"
-                                                                       Style="{StaticResource StatNumber}" FontSize="18"
-                                                                       Foreground="{DynamicResource GoldDeepBrush}" />
-                                                            <TextBlock Text="محقق" Style="{StaticResource StatCaption}" />
-                                                        </StackPanel>
-                                                        <StackPanel Grid.Column="2">
-                                                            <TextBlock Text="{Binding RequiredDailyOutputForFamilyText}"
-                                                                       Style="{StaticResource StatNumber}" FontSize="18" />
-                                                            <TextBlock Text="مطلوب يوميًا" Style="{StaticResource StatCaption}" />
-                                                        </StackPanel>
-                                                    </Grid>
-
-                                                    <StackPanel Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
-
-                                <ItemsControl ItemsSource="{Binding Products}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate DataType="{x:Type vm:MonthlyPlanProductRow}">
-                                            <!-- Effect={x:Null}: كارت متكرر جوه ItemsControl — الظل بيلغي ClearType، شوف CLAUDE.md.
-                                                 Padding/Margin موسّعين شوية — نفس نفس التنفّس بتاع كروت الإنتاج اليومي -->
-                                            <Border Margin="0,0,0,10" Padding="16,13" Effect="{x:Null}">
-                                                <Border.Style>
-                                                    <Style TargetType="Border" BasedOn="{StaticResource Card}">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsComplete}" Value="False">
-                                                                <Setter Property="Background" Value="{DynamicResource WarnBgBrush}" />
-                                                                <Setter Property="BorderBrush" Value="{DynamicResource WarnBrush}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <StackPanel>
-                                                    <!-- الصف الأول: اسم + خطة + بار تقدم ملوّن + نسبة + مقارنة الشهر اللي فات -->
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*" MinWidth="140" />
-                                                            <ColumnDefinition Width="90" />
-                                                            <ColumnDefinition Width="220" />
-                                                            <ColumnDefinition Width="70" />
-                                                            <ColumnDefinition Width="Auto" />
-                                                        </Grid.ColumnDefinitions>
-
-                                                        <DockPanel Grid.Column="0" VerticalAlignment="Center">
-                                                            <materialDesign:PackIcon DockPanel.Dock="Right" Kind="AlertOutline" Width="14" Height="14"
-                                                                                     Margin="0,0,6,0" VerticalAlignment="Center"
-                                                                                     Foreground="{DynamicResource WarnBrush}"
-                                                                                     ToolTip="ناقصه وزن القطعة أو المادة"
-                                                                                     Visibility="{Binding IsComplete, Converter={StaticResource InverseBoolToVis}}" />
-                                                            <!-- رابط سريع لصفحة المنتج نفسه (البند 11) -->
-                                                            <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Padding="3"
-                                                                    Margin="0,0,4,0" Click="OpenProductPage_Click" Tag="{Binding ProductId}"
-                                                                    ToolTip="افتح صفحة المنتج">
-                                                                <materialDesign:PackIcon Kind="OpenInNew" Width="13" Height="13"
-                                                                                         Foreground="{DynamicResource TextMutedBrush}" />
-                                                            </Button>
-                                                            <TextBlock Text="{Binding ProductName}" VerticalAlignment="Center" FontWeight="SemiBold"
-                                                                       TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                        </DockPanel>
-
-                                                        <TextBox Name="QuantityBox" Grid.Column="1" Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
-                                                                 Width="80" TextAlignment="Center" Tag="{Binding}"
-                                                                 IsEnabled="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                 LostFocus="QuantityBox_LostFocus" ToolTip="الكمية المخططة" />
-
-                                                        <!-- بار التقدم الملوّن (البند 1) — Behind/OnTrack/Ahead، بدل رقم عاري.
-                                                             Maximum ثابت 150 (نفس تقصير ProgressBarPercent) — أعلى من 150%
-                                                             بيتقص بصريًا، العارضة مش أرقام دقيقة -->
-                                                        <ProgressBar Grid.Column="2" Height="8" Margin="10,0" VerticalAlignment="Center"
-                                                                     Minimum="0" Maximum="150" Value="{Binding ProgressBarPercent, Mode=OneWay}"
-                                                                     Background="{DynamicResource MeterTrackBrush}" BorderThickness="0"
-                                                                     ui:ThemeBrush.ForegroundKey="{Binding StatusInkKey}" />
-
-                                                        <!-- مقارنة الشهر اللي فات اتنقلت لشاشة الإحصائيات، شوف CLAUDE.md -->
-                                                        <TextBlock Grid.Column="3" Text="{Binding PercentText}" FontWeight="Bold"
-                                                                   VerticalAlignment="Center" HorizontalAlignment="Center"
-                                                                   ui:ThemeBrush.ForegroundKey="{Binding StatusInkKey}" />
-                                                    </Grid>
-
-                                                    <!-- الصف الثاني: انتاج اليوم | المطلوب النهارده بالظبط | توقّع نهاية الشهر | تصليحات -->
-                                                    <WrapPanel Margin="0,9,0,0">
-                                                        <TextBlock FontSize="11.5" Margin="0,0,18,4" Foreground="{DynamicResource TextMutedBrush}">
-                                                            <Run Text="إنتاج النهارده:" /><Run Text="{Binding TodayCompleted, Mode=OneWay}" FontWeight="Bold"
-                                                                Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                        </TextBlock>
-                                                        <TextBlock FontSize="11.5" Margin="0,0,18,4" Foreground="{DynamicResource TextMutedBrush}"
-                                                                   Visibility="{Binding HasRequiredDailyOutput, Converter={StaticResource BoolToVis}}">
-                                                            <Run Text="المطلوب النهارده:" /><Run Text="{Binding RequiredDailyOutput, Mode=OneWay}" FontWeight="Bold"
-                                                                Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                        </TextBlock>
-                                                        <TextBlock FontSize="11.5" Margin="0,0,18,4" Foreground="{DynamicResource TextMutedBrush}"
-                                                                   Visibility="{Binding HasForecast, Converter={StaticResource BoolToVis}}">
-                                                            <Run Text="توقّع نهاية الشهر:" /><Run Text="{Binding ForecastEndOfMonth, Mode=OneWay}" FontWeight="Bold"
-                                                                Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                        </TextBlock>
-                                                        <!-- عرض بس دلوقتي — الإدخال اتنقل لشاشة تسجيل الإنتاج اليومي، شوف CLAUDE.md -->
-                                                        <TextBlock FontSize="11.5" Margin="0,0,18,4" Foreground="{DynamicResource TextMutedBrush}">
-                                                            <Run Text="تصليحات:" /><Run Text="{Binding CorrectionText, Mode=OneWay}" FontWeight="Bold"
-                                                                Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                        </TextBlock>
-
-                                                        <!-- الخطة اليومية: هدف يومي يدوي بيحدده المستخدم بنفسه، مختلف عن
-                                                             "المطلوب النهارده" المحسوب فوق (اللي بيتغيّر كل ما الأيام تنقص) -->
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                            <TextBlock Text="الخطة اليومية:" FontSize="11.5" VerticalAlignment="Center"
-                                                                       Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,6,0" />
-                                                            <TextBox Text="{Binding DailyTargetText, UpdateSourceTrigger=PropertyChanged}"
-                                                                     Width="60" TextAlignment="Center" FontSize="11.5" Tag="{Binding}"
-                                                                     IsEnabled="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                     LostFocus="DailyTargetBox_LostFocus"
-                                                                     ToolTip="هدف يومي يدوي — سايبه فاضي يعني مفيش هدف محدد لهذا المنتج" />
-                                                        </StackPanel>
-                                                        <views:FieldError Message="{Binding DailyTargetError}" Margin="0,0,0,4" />
-                                                        <Border Background="{DynamicResource GoldTintBrush}" CornerRadius="8" Padding="7,1" Margin="0,0,0,4"
-                                                                Visibility="{Binding IsOutsidePlan, Converter={StaticResource BoolToVis}}">
-                                                            <TextBlock Text="إنتاج خارج الخطة" FontSize="10.5" FontWeight="Bold"
-                                                                       Foreground="{DynamicResource GoldDeepBrush}" />
-                                                        </Border>
-                                                        <!-- وصل لخطة الفترة كاملة قبل نهايتها — تنبيه إيجابي، مش "ماشي صح" العادية (البند 5) -->
-                                                        <Border Background="{DynamicResource GoodTintBrush}" CornerRadius="8" Padding="7,1" Margin="0,0,0,4"
-                                                                Visibility="{Binding HasReachedTarget, Converter={StaticResource BoolToVis}}">
-                                                            <TextBlock Text="🎯 وصل للهدف بدري" FontSize="10.5" FontWeight="Bold"
-                                                                       Foreground="{DynamicResource GoodBrush}" />
-                                                        </Border>
-                                                        <!-- تفاصيل الوزن اتنقلت لشاشة الإحصائيات، شوف CLAUDE.md -->
-                                                    </WrapPanel>
-                                                </StackPanel>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                                                    </StackPanel>
-                                            </StackPanel>
-                                        </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
+                            <ItemsControl ItemsSource="{Binding Families}" ItemTemplate="{StaticResource PlanFamilyTile}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+
+            <!-- من غير تجميع: كل العيلات في شبكة واحدة — مفيش سطر شبه فاضي لمادة فيها كارت واحد -->
+            <ItemsControl ItemsSource="{Binding VisibleFamilies}" ItemTemplate="{StaticResource PlanFamilyTile}"
+                          Visibility="{Binding GroupByMaterial, Converter={StaticResource InverseBoolToVis}}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+
+            <!-- البحث/الفلتر مطلعش حاجة -->
+            <Border Style="{StaticResource Card}" Padding="18" Visibility="{Binding HasNoVisibleFamilies, Converter={StaticResource BoolToVis}}">
+                <StackPanel HorizontalAlignment="Center">
+                    <materialDesign:PackIcon Kind="FilterRemoveOutline" Width="28" Height="28" HorizontalAlignment="Center"
+                                             Foreground="{DynamicResource TextMutedBrush}" />
+                    <TextBlock Text="مفيش عيلات بالفلتر أو البحث ده" FontSize="13.5" FontWeight="SemiBold" Margin="0,8,0,0"
+                               HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ═══════════ وضع الجدول — كل المنتجات بخانة الخطة، Enter ينقل للي بعدها زي الإكسل.
+             الحفظ في LostFocus من غير إعادة تحميل (AfterTableEdit)، والتحميل الكامل لما يرجع للكروت. ═══════════ -->
+        <StackPanel Visibility="{Binding IsTableMode, Converter={StaticResource BoolToVis}}">
+            <Grid Margin="12,0,12,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="180" />
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="80" />
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="110" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="المنتج" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" />
+                <TextBlock Grid.Column="1" Text="الخطة" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                <TextBlock Grid.Column="2" Text="المحقق" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                <TextBlock Grid.Column="3" Text="النسبة" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                <TextBlock Grid.Column="4" Text="المطلوب يوميًا" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                <TextBlock Grid.Column="5" Text="التوقّع" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding TableItems}">
+                <ItemsControl.Resources>
+                    <DataTemplate DataType="{x:Type vm:MonthlyPlanProductRow}">
+                        <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="12,4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" MinWidth="180" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="110" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding ProductName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBox Name="QuantityBox" Grid.Column="1" Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
+                                         Width="84" TextAlignment="Center" Tag="{Binding}"
+                                         IsEnabled="{Binding DataContext.IsEditable, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                         LostFocus="QuantityBox_LostFocus" KeyDown="TableQuantityBox_KeyDown" ToolTip="الكمية المخططة — Enter للي بعده" />
+                                <TextBlock Grid.Column="2" Text="{Binding EffectiveAchieved, StringFormat=N0}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource GoldDeepBrush}" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="3" Text="{Binding PercentText}" HorizontalAlignment="Center" VerticalAlignment="Center" FlowDirection="LeftToRight"
+                                           FontWeight="Bold" ui:ThemeBrush.ForegroundKey="{Binding StatusInkKey}" />
+                                <TextBlock Grid.Column="4" Text="{Binding RequiredDailyOutput, StringFormat=N0}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Grid.Column="5" Text="{Binding ForecastEndOfMonth, StringFormat=N0}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.Resources>
+            </ItemsControl>
+        </StackPanel>
+        </StackPanel>
+
+        <!-- ═══════════ صفحة العيلة: رجوع + اسم + أرقام + منتجاتها للتعديل ═══════════ -->
+        <StackPanel Visibility="{Binding IsPlanFamilyOpen, Converter={StaticResource BoolToVis}}">
+            <DockPanel Margin="2,0,2,14">
+                <Button DockPanel.Dock="Left" Command="{Binding ClosePlanFamilyCommand}" Style="{StaticResource GhostButton}"
+                        Padding="12,8" Margin="0,0,14,0" VerticalAlignment="Center" ToolTip="ارجع لكل العيلات">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ArrowRight" Width="16" Height="16" VerticalAlignment="Center" />
+                        <TextBlock Text="كل العيلات" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Button>
+                <Button DockPanel.Dock="Right" Command="{Binding NextPlanFamilyCommand}" Style="{StaticResource GhostButton}"
+                        Padding="12,8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="العيلة اللي بعدها" Margin="0,0,6,0" />
+                        <materialDesign:PackIcon Kind="ArrowLeft" Width="16" Height="16" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <StackPanel VerticalAlignment="Center" DataContext="{Binding SelectedPlanFamily}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding FamilyName}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <Border CornerRadius="{DynamicResource RadiusSmall}" Padding="9,2" Margin="10,0,0,0" VerticalAlignment="Center"
+                                ui:ThemeBrush.BackgroundKey="{Binding StatusTintKey}">
+                            <TextBlock Text="{Binding CardPercentText}" FontWeight="Bold" FontSize="12.5" FlowDirection="LeftToRight"
+                                       ui:ThemeBrush.ForegroundKey="{Binding StatusInkKey}" />
+                        </Border>
+                    </StackPanel>
+                    <TextBlock FontSize="12" Margin="0,4,0,0" Foreground="{DynamicResource TextMutedBrush}">
+                        <Run Text="{Binding MaterialName, Mode=OneWay}" /><Run Text=" · خطة " /><Run Text="{Binding Subtotal, Mode=OneWay, StringFormat=N0}" />
+                        <Run Text=" · محقق " /><Run Text="{Binding AchievedSubtotal, Mode=OneWay, StringFormat=N0}" />
+                        <Run Text=" · مطلوب يوميًا " /><Run Text="{Binding RequiredDailyOutputForFamilyText, Mode=OneWay}" />
+                    </TextBlock>
+                </StackPanel>
+            </DockPanel>
+
+            <ItemsControl ItemsSource="{Binding SelectedPlanFamily.Products}" ItemTemplate="{StaticResource PlanProductTemplate}" />
+        </StackPanel>
         </StackPanel>
         </ScrollViewer>
     </Grid>
@@ -512,9 +809,11 @@
 
     <!-- ═══════════ تبويب "الإنتاج اليومي" — إدخال يدوي صرف، بديل المحقق
          التلقائي، شوف CLAUDE.md. دايمًا عن النهارده الحقيقي، مستقل عن
-         تنقّل الشهر/السنة فوق. كارت لكل عيلة بدل قايمة مفرودة — تدوس تفتح
-         تشوف منتجاتها، غير المُدخل يطلع فوق جواها، صح أخضر لكل منتج ولكل
-         عيلة خلصت بالكامل. ═══════════ -->
+         تنقّل الشهر/السنة فوق. شاشتين جوه نفس التبويب:
+           • الشبكة: كارت مقفول لكل عيلة جنب بعض (اسم + تقدّم + حالة)
+           • صفحة العيلة: بتتفتح بالضغط على الكارت، فيها منتجاتها للتسجيل
+             (غير المُدخل فوق) + رجوع للشبكة + العيلة اللي بعدها
+         MonthlyPlanViewModel.SelectedTodayFamily هو اللي بيبدّل بينهم. ═══════════ -->
     <TabItem Header="الإنتاج اليومي">
         <Grid Margin="14,10,14,10">
             <Grid.RowDefinitions>
@@ -522,154 +821,240 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Margin="2,0,0,12" Foreground="{DynamicResource TextMutedBrush}" FontSize="12.5">
-                <Run Text="إدخال يدوي لإنتاج كل منتج النهارده — رقم مستقل تمامًا عن الأجور ورحلة الإنتاج" />
-                <Run Text="{Binding TodayEntryDate, Mode=OneWay, StringFormat='({0:yyyy/MM/dd})'}" />
-            </TextBlock>
+            <!-- ── رأس الشبكة: التاريخ + ملخص اليوم ── -->
+            <DockPanel Grid.Row="0" Margin="2,0,2,14"
+                       Visibility="{Binding IsTodayFamilyOpen, Converter={StaticResource InverseBoolToVis}}">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="{DynamicResource GoldTintBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="12,6" Margin="0,0,8,0">
+                        <TextBlock FontWeight="Bold" Foreground="{DynamicResource GoldDeepBrush}">
+                            <Run Text="{Binding TodayFilledCount, Mode=OneWay}" /><Run Text=" من " /><Run Text="{Binding TodayTotalCount, Mode=OneWay}" /><Run Text=" منتج اتسجل" />
+                        </TextBlock>
+                    </Border>
+                    <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="12,6">
+                        <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}">
+                            <Run Text="{Binding TodayDoneFamiliesCount, Mode=OneWay}" /><Run Text=" من " /><Run Text="{Binding TodayFamiliesCount, Mode=OneWay}" /><Run Text=" عيلة خلصت" />
+                        </TextBlock>
+                    </Border>
+                </StackPanel>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock FontSize="15" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}">
+                        <Run Text="إنتاج النهارده" />
+                        <Run Text="{Binding TodayEntryDate, Mode=OneWay, StringFormat='({0:yyyy/MM/dd})'}" FontWeight="Normal"
+                             Foreground="{DynamicResource TextMutedBrush}" />
+                    </TextBlock>
+                    <TextBlock Text="اختار عيلة عشان تسجّل إنتاج منتجاتها — رقم يدوي مستقل تمامًا عن الأجور ورحلة الإنتاج"
+                               FontSize="12" Margin="0,3,0,0" Foreground="{DynamicResource TextMutedBrush}" />
+                </StackPanel>
+            </DockPanel>
 
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <!-- كروت العيلة جنب بعض (WrapPanel) مش تحت بعض — نفس تعديل تبويب التخطيط، شوف CLAUDE.md -->
+            <!-- ── رأس صفحة العيلة: رجوع + اسم + تقدّم + العيلة اللي بعدها ── -->
+            <DockPanel Grid.Row="0" Margin="2,0,2,14"
+                       Visibility="{Binding IsTodayFamilyOpen, Converter={StaticResource BoolToVis}}">
+                <Button DockPanel.Dock="Left" Command="{Binding CloseTodayFamilyCommand}" Style="{StaticResource GhostButton}"
+                        Padding="12,8" Margin="0,0,14,0" VerticalAlignment="Center" ToolTip="ارجع لكل العيلات">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="ArrowRight" Width="16" Height="16" VerticalAlignment="Center" />
+                        <TextBlock Text="كل العيلات" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Button>
+                <Button DockPanel.Dock="Right" Command="{Binding NextTodayFamilyCommand}" Style="{StaticResource GhostButton}"
+                        Padding="12,8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="العيلة اللي بعدها" Margin="0,0,6,0" />
+                        <materialDesign:PackIcon Kind="ArrowLeft" Width="16" Height="16" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <StackPanel VerticalAlignment="Center" DataContext="{Binding SelectedTodayFamily}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding HeaderText}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <materialDesign:PackIcon Kind="CheckCircle" Width="18" Height="18" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                 Foreground="{DynamicResource SuccessBrush}" ToolTip="كل منتجات العيلة دي اتسجلوا النهارده"
+                                                 Visibility="{Binding AllFilled, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <Border Width="160" Height="6" CornerRadius="3" Background="{DynamicResource MeterTrackBrush}" VerticalAlignment="Center">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="{Binding FilledColumn}" />
+                                    <ColumnDefinition Width="{Binding RemainingColumn}" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" CornerRadius="3" Background="{DynamicResource GoldDeepBrush}" />
+                            </Grid>
+                        </Border>
+                        <TextBlock Text="{Binding ProgressText}" FontSize="12" Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextMutedBrush}" />
+                    </StackPanel>
+                </StackPanel>
+            </DockPanel>
+
+            <!-- ── الشبكة: كارت مقفول لكل عيلة، جنب بعض ── -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Visibility="{Binding IsTodayFamilyOpen, Converter={StaticResource InverseBoolToVis}}">
                 <ItemsControl ItemsSource="{Binding TodayFamilyGroups}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:MonthlyPlanTodayFamilyGroupRow}">
-                            <!-- شكل الكارت زي كروت العمال/المنتجات — نفس تعديل كروت التخطيط، شوف CLAUDE.md.
-                                 Width بيتغيّر بالحالة زي كارت التخطيط بالظبط -->
-                            <Border Effect="{x:Null}" Background="{DynamicResource SurfaceAltBrush}" Padding="14" Margin="0,0,14,14">
+                            <Button Style="{StaticResource CardButton}" Width="300" Margin="0,0,14,14"
+                                    Command="{Binding DataContext.OpenTodayFamilyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}" ToolTip="اضغط عشان تسجّل إنتاج العيلة دي">
+                                <Border Style="{StaticResource Card}" Padding="16,14">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <materialDesign:PackIcon DockPanel.Dock="Left" Kind="ChevronLeft" Width="18" Height="18"
+                                                                     VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                                            <Border Width="34" Height="34" CornerRadius="9" Margin="0,0,10,0">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{DynamicResource GoldTintBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AllFilled}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <materialDesign:PackIcon Width="18" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <materialDesign:PackIcon.Style>
+                                                        <Style TargetType="materialDesign:PackIcon">
+                                                            <Setter Property="Kind" Value="PackageVariantClosed" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource GoldDeepBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AllFilled}" Value="True">
+                                                                    <Setter Property="Kind" Value="Check" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </materialDesign:PackIcon.Style>
+                                                </materialDesign:PackIcon>
+                                            </Border>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding HeaderText}" FontSize="14.5" FontWeight="Bold" TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                <TextBlock Text="{Binding ProgressText}" FontSize="11.5" Margin="0,2,0,0"
+                                                           Foreground="{DynamicResource TextMutedBrush}" />
+                                            </StackPanel>
+                                        </DockPanel>
+
+                                        <DockPanel Margin="0,14,0,0">
+                                            <Border DockPanel.Dock="Left" CornerRadius="8" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AllFilled}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding StatusText}" FontSize="11.5" FontWeight="SemiBold">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AllFilled}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Border>
+                                            <Border Height="6" CornerRadius="3" Background="{DynamicResource MeterTrackBrush}" VerticalAlignment="Center">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="{Binding FilledColumn}" />
+                                                        <ColumnDefinition Width="{Binding RemainingColumn}" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Grid.Column="0" CornerRadius="3" Background="{DynamicResource GoldDeepBrush}" />
+                                                </Grid>
+                                            </Border>
+                                        </DockPanel>
+                                    </StackPanel>
+                                </Border>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- ── صفحة العيلة: منتجاتها للتسجيل ── -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Visibility="{Binding IsTodayFamilyOpen, Converter={StaticResource BoolToVis}}">
+                <ItemsControl ItemsSource="{Binding SelectedTodayFamily.Products}" Margin="0,0,0,10">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:MonthlyPlanTodayEntryRow}">
+                            <Border Margin="0,0,0,8" Padding="14,11" Effect="{x:Null}">
                                 <Border.Style>
                                     <Style TargetType="Border" BasedOn="{StaticResource Card}">
-                                        <Setter Property="Width" Value="300" />
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsExpanded}" Value="True">
-                                                <Setter Property="Width" Value="640" />
+                                            <DataTrigger Binding="{Binding IsFilled}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
                                 <StackPanel>
-                                    <Button Command="{Binding ToggleExpandedCommand}" Style="{StaticResource GhostButton}"
-                                            HorizontalContentAlignment="Stretch" Padding="0" Background="Transparent" BorderThickness="0"
-                                            Margin="0,0,0,10">
-                                        <DockPanel>
-                                            <materialDesign:PackIcon DockPanel.Dock="Left" Width="16" Height="16" VerticalAlignment="Center"
-                                                                     Foreground="{DynamicResource TextMutedBrush}">
-                                                <materialDesign:PackIcon.Style>
-                                                    <Style TargetType="materialDesign:PackIcon">
-                                                        <Setter Property="Kind" Value="ChevronDown" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsExpanded}" Value="False">
-                                                                <Setter Property="Kind" Value="ChevronLeft" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </materialDesign:PackIcon.Style>
-                                            </materialDesign:PackIcon>
-                                            <materialDesign:PackIcon DockPanel.Dock="Left" Kind="CheckCircle" Width="16" Height="16"
-                                                                     Margin="10,0,0,0" VerticalAlignment="Center"
-                                                                     Foreground="{DynamicResource SuccessBrush}"
-                                                                     ToolTip="كل منتجات العيلة دي اتسجلوا النهارده"
-                                                                     Visibility="{Binding AllFilled, Converter={StaticResource BoolToVis}}" />
-                                            <TextBlock Text="{Binding HeaderText}" Style="{StaticResource SectionTitle}" Margin="10,0,0,0" />
-                                        </DockPanel>
-                                    </Button>
-
-                                    <!-- عمودين زي أرقام كارت العامل (حضور/غياب/الصافي) بدل سطر نص باهت -->
-                                    <Grid Margin="26,0,0,10">
+                                    <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" MinWidth="140" />
+                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0">
-                                            <TextBlock Text="{Binding FilledCount, Mode=OneWay}"
-                                                       Style="{StaticResource StatNumber}" FontSize="18"
-                                                       Foreground="{DynamicResource GoldDeepBrush}" />
-                                            <TextBlock Text="اتسجل" Style="{StaticResource StatCaption}" />
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1">
-                                            <TextBlock Text="{Binding TotalCount, Mode=OneWay}"
-                                                       Style="{StaticResource StatNumber}" FontSize="18" />
-                                            <TextBlock Text="إجمالي المنتجات" Style="{StaticResource StatCaption}" />
-                                        </StackPanel>
+
+                                        <DockPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <materialDesign:PackIcon DockPanel.Dock="Right" Kind="CheckCircle" Width="16" Height="16"
+                                                                     Margin="0,0,6,0" VerticalAlignment="Center"
+                                                                     Foreground="{DynamicResource GoodBrush}"
+                                                                     ToolTip="اتسجل النهارده"
+                                                                     Visibility="{Binding IsFilled, Converter={StaticResource BoolToVis}}" />
+                                            <TextBlock Text="{Binding ProductName}" VerticalAlignment="Center" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        </DockPanel>
+
+                                        <TextBox Name="TodayQuantityBox" Grid.Column="1"
+                                                 Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
+                                                 Width="80" TextAlignment="Center" Tag="{Binding}"
+                                                 LostFocus="TodayQuantityBox_LostFocus" KeyDown="TodayQuantityBox_KeyDown"
+                                                 ToolTip="إنتاج المنتج ده النهارده" />
+
+                                        <Button Grid.Column="2" Style="{StaticResource GhostButton}" Padding="8,5" Margin="8,0,0,0"
+                                                Command="{Binding DataContext.UseRealProductionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="{Binding RealProductionTooltip}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="ContentCopy" Width="13" Height="13" VerticalAlignment="Center" />
+                                                <TextBlock Text="استخدم نفس الرقم الحقيقي" FontSize="11" Margin="4,0,0,0" />
+                                            </StackPanel>
+                                        </Button>
+
+                                        <Button Grid.Column="3" Style="{StaticResource GhostButton}" Padding="8,5" Margin="8,0,0,0"
+                                                Command="{Binding DataContext.CopyYesterdayCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="{Binding YesterdayTooltip}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="ArrowLeftBottom" Width="13" Height="13" VerticalAlignment="Center" />
+                                                <TextBlock Text="انسخ إنتاج أمبارح" FontSize="11" Margin="4,0,0,0" />
+                                            </StackPanel>
+                                        </Button>
                                     </Grid>
 
-                                    <ItemsControl ItemsSource="{Binding Products}" Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate DataType="{x:Type vm:MonthlyPlanTodayEntryRow}">
-                                                <Border Margin="0,0,0,8" Padding="14,11" Effect="{x:Null}">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border" BasedOn="{StaticResource Card}">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsFilled}" Value="True">
-                                                                    <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                    <StackPanel>
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*" MinWidth="140" />
-                                                                <ColumnDefinition Width="90" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                            </Grid.ColumnDefinitions>
-
-                                                            <DockPanel Grid.Column="0" VerticalAlignment="Center">
-                                                                <materialDesign:PackIcon DockPanel.Dock="Right" Kind="CheckCircle" Width="16" Height="16"
-                                                                                         Margin="0,0,6,0" VerticalAlignment="Center"
-                                                                                         Foreground="{DynamicResource GoodBrush}"
-                                                                                         ToolTip="اتسجل النهارده"
-                                                                                         Visibility="{Binding IsFilled, Converter={StaticResource BoolToVis}}" />
-                                                                <TextBlock Text="{Binding ProductName}" VerticalAlignment="Center" FontWeight="SemiBold"
-                                                                           TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                            </DockPanel>
-
-                                                            <TextBox Name="TodayQuantityBox" Grid.Column="1"
-                                                                     Text="{Binding QuantityText, UpdateSourceTrigger=PropertyChanged}"
-                                                                     Width="80" TextAlignment="Center" Tag="{Binding}"
-                                                                     LostFocus="TodayQuantityBox_LostFocus" KeyDown="TodayQuantityBox_KeyDown"
-                                                                     ToolTip="إنتاج المنتج ده النهارده" />
-
-                                                            <Button Grid.Column="2" Style="{StaticResource GhostButton}" Padding="8,5" Margin="8,0,0,0"
-                                                                    Command="{Binding DataContext.UseRealProductionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                    CommandParameter="{Binding}"
-                                                                    ToolTip="{Binding RealProductionTooltip}">
-                                                                <StackPanel Orientation="Horizontal">
-                                                                    <materialDesign:PackIcon Kind="ContentCopy" Width="13" Height="13" VerticalAlignment="Center" />
-                                                                    <TextBlock Text="استخدم نفس الرقم الحقيقي" FontSize="11" Margin="4,0,0,0" />
-                                                                </StackPanel>
-                                                            </Button>
-
-                                                            <Button Grid.Column="3" Style="{StaticResource GhostButton}" Padding="8,5" Margin="8,0,0,0"
-                                                                    Command="{Binding DataContext.CopyYesterdayCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                    CommandParameter="{Binding}"
-                                                                    ToolTip="{Binding YesterdayTooltip}">
-                                                                <StackPanel Orientation="Horizontal">
-                                                                    <materialDesign:PackIcon Kind="ArrowLeftBottom" Width="13" Height="13" VerticalAlignment="Center" />
-                                                                    <TextBlock Text="انسخ إنتاج أمبارح" FontSize="11" Margin="4,0,0,0" />
-                                                                </StackPanel>
-                                                            </Button>
-                                                        </Grid>
-
-                                                        <!-- تحذير اختلاف غير مانع — الحفظ بيكمل عادي حتى لو التحذير ظاهر -->
-                                                        <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="{DynamicResource RadiusSmall}"
-                                                                Padding="8,5" Margin="0,8,0,0"
-                                                                Visibility="{Binding HasMismatchWarning, Converter={StaticResource BoolToVis}}">
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <materialDesign:PackIcon Kind="AlertOutline" Width="14" Height="14" VerticalAlignment="Center"
-                                                                                         Foreground="{DynamicResource WarnBrush}" />
-                                                                <TextBlock Text="الرقم مختلف عن المسجل في تسجيل الإنتاج اليومي، متأكد؟" FontSize="11.5"
-                                                                           Margin="6,0,0,0" Foreground="{DynamicResource WarnBrush}" />
-                                                            </StackPanel>
-                                                        </Border>
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                    <!-- تحذير اختلاف غير مانع — الحفظ بيكمل عادي حتى لو التحذير ظاهر -->
+                                    <Border Background="{DynamicResource WarnBgBrush}" CornerRadius="{DynamicResource RadiusSmall}"
+                                            Padding="8,5" Margin="0,8,0,0"
+                                            Visibility="{Binding HasMismatchWarning, Converter={StaticResource BoolToVis}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="AlertOutline" Width="14" Height="14" VerticalAlignment="Center"
+                                                                     Foreground="{DynamicResource WarnBrush}" />
+                                            <TextBlock Text="الرقم مختلف عن المسجل في تسجيل الإنتاج اليومي، متأكد؟" FontSize="11.5"
+                                                       Margin="6,0,0,0" Foreground="{DynamicResource WarnBrush}" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>

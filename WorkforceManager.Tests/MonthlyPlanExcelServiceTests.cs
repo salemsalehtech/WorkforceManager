@@ -61,7 +61,7 @@ namespace WorkforceManager.Tests
             Assert.True(File.Exists(_filePath));
 
             using var workbook = new XLWorkbook(_filePath);
-            var sheet = workbook.Worksheets.First();
+            var sheet = workbook.Worksheet(MonthlyPlanExcelService.DetailSheetName);
             var totalRow = FindRowByLabel(sheet, "الإجمالي العام");
 
             Assert.Equal(expectedPlan, sheet.Cell(totalRow, ColPlan).GetValue<int>());
@@ -102,7 +102,7 @@ namespace WorkforceManager.Tests
                 _db.GetService<MonthlyPlanExcelService>(scope).Export(tracking, "يوليو 2026", _filePath);
 
             using var workbook = new XLWorkbook(_filePath);
-            var sheet = workbook.Worksheets.First();
+            var sheet = workbook.Worksheet(MonthlyPlanExcelService.DetailSheetName);
             var productRow = FindRowByLabel(sheet, row.ProductName);
 
             var achPercent = sheet.Cell(productRow, ColAchPercent).GetValue<double>();
@@ -148,7 +148,7 @@ namespace WorkforceManager.Tests
                 _db.GetService<MonthlyPlanExcelService>(scope).Export(tracking, "يوليو 2026", _filePath);
 
             using var workbook = new XLWorkbook(_filePath);
-            var sheet = workbook.Worksheets.First();
+            var sheet = workbook.Worksheet(MonthlyPlanExcelService.DetailSheetName);
             var familyRow = FindRowByLabel(sheet, "إجمالي عيلة تصدير");
             var exported = sheet.Cell(familyRow, ColRequiredDaily).GetValue<int>();
 
@@ -183,8 +183,8 @@ namespace WorkforceManager.Tests
 
                 using (var wb1 = new XLWorkbook(firstExportPath))
                 {
-                    var familyRow1 = FindRowByLabel(wb1.Worksheets.First(), "إجمالي عيلة الخطة الحية");
-                    Assert.Equal(100, wb1.Worksheets.First().Cell(familyRow1, ColPlan).GetValue<int>());
+                    var familyRow1 = FindRowByLabel(wb1.Worksheet(MonthlyPlanExcelService.DetailSheetName), "إجمالي عيلة الخطة الحية");
+                    Assert.Equal(100, wb1.Worksheet(MonthlyPlanExcelService.DetailSheetName).Cell(familyRow1, ColPlan).GetValue<int>());
                 }
 
                 // الخطة اتغيّرت — التصدير الجديد لازم يعكسها، مش يفضل على القيمة القديمة
@@ -195,8 +195,8 @@ namespace WorkforceManager.Tests
                     _db.GetService<MonthlyPlanExcelService>(scope).Export(await GetTrackingAsync(), "يوليو 2026", _filePath);
 
                 using var wb2 = new XLWorkbook(_filePath);
-                var familyRow2 = FindRowByLabel(wb2.Worksheets.First(), "إجمالي عيلة الخطة الحية");
-                Assert.Equal(999, wb2.Worksheets.First().Cell(familyRow2, ColPlan).GetValue<int>());
+                var familyRow2 = FindRowByLabel(wb2.Worksheet(MonthlyPlanExcelService.DetailSheetName), "إجمالي عيلة الخطة الحية");
+                Assert.Equal(999, wb2.Worksheet(MonthlyPlanExcelService.DetailSheetName).Cell(familyRow2, ColPlan).GetValue<int>());
             }
             finally
             {
@@ -221,8 +221,8 @@ namespace WorkforceManager.Tests
                 int totalBefore;
                 using (var wb = new XLWorkbook(beforePath))
                 {
-                    var footerRow = FindRowByLabel(wb.Worksheets.First(), "أيام الشغل");
-                    totalBefore = int.Parse(wb.Worksheets.First().Cell(footerRow, ColPlan).GetString().Split(':')[1].Trim());
+                    var footerRow = FindRowByLabel(wb.Worksheet(MonthlyPlanExcelService.DetailSheetName), "أيام الشغل");
+                    totalBefore = int.Parse(wb.Worksheet(MonthlyPlanExcelService.DetailSheetName).Cell(footerRow, ColPlan).GetString().Split(':')[1].Trim());
                 }
 
                 using (var scope = _db.CreateScope())
@@ -232,8 +232,8 @@ namespace WorkforceManager.Tests
                     _db.GetService<MonthlyPlanExcelService>(scope).Export(await GetTrackingAsync(), "يوليو 2026", _filePath);
 
                 using var workbook = new XLWorkbook(_filePath);
-                var footerRowAfter = FindRowByLabel(workbook.Worksheets.First(), "أيام الشغل");
-                var totalAfter = int.Parse(workbook.Worksheets.First().Cell(footerRowAfter, ColPlan).GetString().Split(':')[1].Trim());
+                var footerRowAfter = FindRowByLabel(workbook.Worksheet(MonthlyPlanExcelService.DetailSheetName), "أيام الشغل");
+                var totalAfter = int.Parse(workbook.Worksheet(MonthlyPlanExcelService.DetailSheetName).Cell(footerRowAfter, ColPlan).GetString().Split(':')[1].Trim());
 
                 Assert.Equal(totalBefore - 1, totalAfter); // العطلة الجديدة قللت أيام الشغل الكلية
             }
@@ -272,7 +272,7 @@ namespace WorkforceManager.Tests
                 _db.GetService<MonthlyPlanExcelService>(scope).Export(tracking, "يوليو 2026", _filePath);
 
             using var workbook = new XLWorkbook(_filePath);
-            var sheet = workbook.Worksheets.First();
+            var sheet = workbook.Worksheet(MonthlyPlanExcelService.DetailSheetName);
             var totalRow = FindRowByLabel(sheet, "الإجمالي العام");
 
             // بس المنتج اللي ليه وزن (10جم × 50 = 500جم = 0.5كجم) — مش المنتج التاني من غير وزن
@@ -309,7 +309,7 @@ namespace WorkforceManager.Tests
                 _db.GetService<MonthlyPlanExcelService>(scope).Export(tracking, "يوليو 2026", _filePath);
 
             using var workbook = new XLWorkbook(_filePath);
-            var sheet = workbook.Worksheets.First();
+            var sheet = workbook.Worksheet(MonthlyPlanExcelService.DetailSheetName);
 
             var sectionHeaderRow = FindRowByLabel(sheet, "منتجات خارج الخطة");
             var ringRow = FindRowByLabel(sheet, ringName);
@@ -318,6 +318,193 @@ namespace WorkforceManager.Tests
             Assert.True(ringRow > sectionHeaderRow); // تحت قسمه المستقل بعد الإجمالي العام
             Assert.True(ringRow > familyRow); // مش جوه مجموعة العيلة العادية
             Assert.Equal(25, sheet.Cell(ringRow, ColAchieved).GetValue<int>());
+        }
+
+        // ═══════════ الشيت الأول: نفس أعمدة شيت المصنع بمعادلات حية ═══════════
+
+        // ترتيب شيت المصنع: العيلة، المنتج، الخطة، المخطط، المحقق، إنتاج اليوم، Ach %، نسبة المحقق،
+        // وزن القطعة، إجمالي الوزن، إجمالي الإنتاج اليومي، تصليحات
+        private const int FFamily = 1, FProduct = 2, FFamilyPlan = 3, FPlan = 4, FAchieved = 5, FToday = 6,
+            FAch = 7, FProRated = 8, FPieceWeight = 9, FTotalWeight = 10, FFamilyToday = 11, FCorrections = 12;
+
+        private static int FindRow(IXLWorksheet sheet, int column, string text)
+        {
+            var lastRow = sheet.LastRowUsed()!.RowNumber();
+            for (var r = 1; r <= lastRow; r++)
+                if (sheet.Cell(r, column).GetString() == text) return r;
+            throw new InvalidOperationException($"'{text}' مش موجود في العمود {column}");
+        }
+
+        [Fact]
+        public async Task FactorySheet_has_the_factory_column_order_and_live_formulas()
+        {
+            var familyId = await _db.InScopeAsync<ProductFamilyService, int>(s => s.CreateAsync("عقله 29"));
+            using (var scope = _db.CreateScope())
+            {
+                var db = _db.GetService<AppDbContext>(scope);
+                var chain = (await db.Products.FindAsync(TestDatabase.ProductChainId))!;
+                var ring = (await db.Products.FindAsync(TestDatabase.ProductRingId))!;
+                chain.FamilyId = familyId; chain.PieceWeightGrams = 77m; chain.Material = Core.Enums.Material.Copper;
+                ring.FamilyId = familyId; ring.Material = Core.Enums.Material.Copper;
+                await db.SaveChangesAsync();
+            }
+
+            using (var scope = _db.CreateScope())
+            {
+                var plan = _db.GetService<MonthlyPlanService>(scope);
+                await plan.SetPlanAsync(TestDatabase.ProductChainId, Year, Month, 1000);
+                await plan.SetPlanAsync(TestDatabase.ProductRingId, Year, Month, 500);
+                var tracking = _db.GetService<MonthlyPlanTrackingService>(scope);
+                await tracking.SetDailyEntryAsync(TestDatabase.ProductChainId, Today, 600);
+                await tracking.SetDailyEntryAsync(TestDatabase.ProductRingId, Today, 100);
+            }
+
+            var rows = await GetTrackingAsync();
+            var chainRow = rows.Single(t => t.ProductId == TestDatabase.ProductChainId);
+
+            using (var scope = _db.CreateScope())
+                _db.GetService<MonthlyPlanExcelService>(scope).Export(rows, "يوليو 2026", _filePath,
+                    new Business.DTOs.ReportExportOptions { DepartmentName = "الصنفرة" });
+
+            using var workbook = new XLWorkbook(_filePath);
+            Assert.Equal(new[] { "اللوحة", "الخطة الشهرية", "تفاصيل" }, workbook.Worksheets.Select(w => w.Name));
+            var sheet = workbook.Worksheet("الخطة الشهرية");
+
+            var headerRow = FindRow(sheet, FProduct, "المنتج");
+            Assert.Equal(
+                new[] { "العيلة", "المنتج", "الخطة", "المخطط", "المحقق", "إنتاج اليوم", "Ach %", "نسبة المحقق",
+                        "وزن القطعة (كجم)", "إجمالي الوزن (كجم)", "إجمالي الإنتاج اليومي", "تصليحات" },
+                Enumerable.Range(1, 12).Select(c => sheet.Cell(headerRow, c).GetString()));
+            Assert.Equal(1, FindRow(sheet, 1, "قسم الصنفرة"));
+
+            var r = FindRow(sheet, FProduct, chainRow.ProductName);
+            Assert.True(sheet.Cell(r, FAch).HasFormula);
+            Assert.True(sheet.Cell(r, FProRated).HasFormula);
+            Assert.True(sheet.Cell(r, FTotalWeight).HasFormula);
+
+            Assert.Equal(0.6, sheet.Cell(r, FAch).GetValue<double>(), 3);                           // 600 ÷ 1000
+            Assert.Equal((double)chainRow.AchievedPercent!.Value, sheet.Cell(r, FProRated).GetValue<double>(), 3); // نفس رقم الشاشة
+            Assert.Equal(46.2, sheet.Cell(r, FTotalWeight).GetValue<double>(), 3);                  // 600 × 0.077
+            Assert.Equal(600, sheet.Cell(r, FToday).GetValue<int>());
+
+            // الخطة وإجمالي الإنتاج اليومي على مستوى العيلة = SUM منتجاتها (خلية مدمجة)
+            var familyFirstRow = sheet.Cell(r, FFamily).MergedRange().FirstCell().Address.RowNumber;
+            Assert.Equal("عقله 29", sheet.Cell(familyFirstRow, FFamily).GetString());
+            Assert.Equal(1500, sheet.Cell(familyFirstRow, FFamilyPlan).GetValue<int>());
+            Assert.Equal(700, sheet.Cell(familyFirstRow, FFamilyToday).GetValue<int>());
+
+            var copperTotal = FindRow(sheet, FFamily, "إجمالي محقق النحاس");
+            var grand = FindRow(sheet, FFamily, "الإجمالي العام");
+            Assert.Equal(700, sheet.Cell(copperTotal, FAchieved).GetValue<int>());
+            Assert.Equal(rows.Where(t => !t.IsOutsidePlan).Sum(t => t.PlannedQuantity), sheet.Cell(grand, FPlan).GetValue<int>());
+            Assert.Equal(rows.Where(t => !t.IsOutsidePlan).Sum(t => t.EffectiveAchieved), sheet.Cell(grand, FAchieved).GetValue<int>());
+
+            var workdaysRow = FindRow(sheet, FFamily, "باقي الأيام");
+            Assert.Equal(chainRow.RemainingWorkdays, sheet.Cell(workdaysRow, FFamilyPlan).GetValue<int>());
+        }
+
+        [Fact]
+        public async Task FactorySheet_ratios_recalculate_when_the_plan_is_edited_in_excel()
+        {
+            using (var scope = _db.CreateScope())
+            {
+                await _db.GetService<MonthlyPlanService>(scope).SetPlanAsync(TestDatabase.ProductChainId, Year, Month, 1000);
+                await _db.GetService<MonthlyPlanTrackingService>(scope).SetDailyEntryAsync(TestDatabase.ProductChainId, Today, 500);
+            }
+            var rows = await GetTrackingAsync();
+            var name = rows.Single(t => t.ProductId == TestDatabase.ProductChainId).ProductName;
+
+            using (var scope = _db.CreateScope())
+                _db.GetService<MonthlyPlanExcelService>(scope).Export(rows, "يوليو 2026", _filePath);
+
+            using var workbook = new XLWorkbook(_filePath);
+            var sheet = workbook.Worksheet("الخطة الشهرية");
+            var r = FindRow(sheet, FProduct, name);
+
+            sheet.Cell(r, FPlan).Value = 2000; // المستخدم عدّل المخطط في الإكسل
+            workbook.RecalculateAllFormulas();
+
+            Assert.Equal(0.25, sheet.Cell(r, FAch).GetValue<double>(), 3);
+        }
+
+        // ═══════════ يوم بيوم + اللوحة + الحماية + التجميع ═══════════
+
+        private async Task<(List<Business.DTOs.MonthlyPlanTrackingDto> Rows, Business.DTOs.MonthlyPlanDailyBreakdownDto Daily)> SeedTwoDaysAsync()
+        {
+            using (var scope = _db.CreateScope())
+            {
+                await _db.GetService<MonthlyPlanService>(scope).SetPlanAsync(TestDatabase.ProductChainId, Year, Month, 2600);
+                var tracking = _db.GetService<MonthlyPlanTrackingService>(scope);
+                await tracking.SetDailyEntryAsync(TestDatabase.ProductChainId, new DateTime(Year, Month, 1), 100);
+                await tracking.SetDailyEntryAsync(TestDatabase.ProductChainId, new DateTime(Year, Month, 2), 200);
+                await tracking.SetCorrectionAsync(TestDatabase.ProductChainId, new DateTime(Year, Month, 2), 10);
+            }
+            var rows = await GetTrackingAsync();
+            var daily = await _db.InScopeAsync<MonthlyPlanTrackingService, Business.DTOs.MonthlyPlanDailyBreakdownDto>(
+                s => s.GetDailyBreakdownAsync(Year, Month, Today));
+            return (rows, daily);
+        }
+
+        [Fact]
+        public async Task DailySheet_spreads_achieved_over_days_and_totals_match()
+        {
+            var (rows, daily) = await SeedTwoDaysAsync();
+            var chainName = rows.Single(t => t.ProductId == TestDatabase.ProductChainId).ProductName;
+
+            using (var scope = _db.CreateScope())
+                _db.GetService<MonthlyPlanExcelService>(scope).Export(rows, "يوليو 2026", _filePath, daily: daily);
+
+            using var workbook = new XLWorkbook(_filePath);
+            Assert.Equal(new[] { "اللوحة", "الخطة الشهرية", "تفاصيل", "يوم بيوم" }, workbook.Worksheets.Select(w => w.Name));
+
+            var sheet = workbook.Worksheet("يوم بيوم");
+            var r = FindRow(sheet, 1, chainName);
+            Assert.Equal(100, sheet.Cell(r, 3).GetValue<int>());  // يوم 1
+            Assert.Equal(210, sheet.Cell(r, 4).GetValue<int>());  // يوم 2 = 200 + تصليح 10
+            Assert.Equal(310, sheet.Cell(r, 3 + 31).GetValue<int>()); // عمود الإجمالي
+
+            var totalRow = FindRow(sheet, 1, "إجمالي اليوم");
+            Assert.Equal(rows.Sum(t => t.EffectiveAchieved), sheet.Cell(totalRow, 3 + 31).GetValue<int>());
+        }
+
+        [Fact]
+        public async Task Dashboard_kpis_are_formulas_over_the_plan_sheet()
+        {
+            var (rows, daily) = await SeedTwoDaysAsync();
+
+            using (var scope = _db.CreateScope())
+                _db.GetService<MonthlyPlanExcelService>(scope).Export(rows, "يوليو 2026", _filePath, daily: daily);
+
+            using var workbook = new XLWorkbook(_filePath);
+            var dashboard = workbook.Worksheet("اللوحة");
+            var labelRow = FindRow(dashboard, 1, "نسبة الإنجاز");
+            var completion = dashboard.Cell(labelRow + 1, 1);
+
+            var planned = rows.Where(t => !t.IsOutsidePlan).Sum(t => t.PlannedQuantity);
+            var achieved = rows.Where(t => !t.IsOutsidePlan).Sum(t => t.EffectiveAchieved);
+            Assert.True(completion.HasFormula);
+            Assert.Equal((double)achieved / planned, completion.GetValue<double>(), 4);
+        }
+
+        [Fact]
+        public async Task PlanSheet_is_protected_except_raw_inputs_and_detail_families_are_grouped()
+        {
+            var (rows, _) = await SeedTwoDaysAsync();
+            var chainName = rows.Single(t => t.ProductId == TestDatabase.ProductChainId).ProductName;
+
+            using (var scope = _db.CreateScope())
+                _db.GetService<MonthlyPlanExcelService>(scope).Export(rows, "يوليو 2026", _filePath);
+
+            using var workbook = new XLWorkbook(_filePath);
+            var sheet = workbook.Worksheet("الخطة الشهرية");
+            Assert.True(sheet.IsProtected);
+            var r = FindRow(sheet, FProduct, chainName);
+            Assert.False(sheet.Cell(r, FPlan).Style.Protection.Locked);   // الخطة بتتعدّل
+            Assert.True(sheet.Cell(r, FAch).Style.Protection.Locked);     // المعادلة مقفولة
+
+            var detail = workbook.Worksheet(MonthlyPlanExcelService.DetailSheetName);
+            var detailRow = FindRowByLabel(detail, chainName);
+            Assert.True(detail.Row(detailRow).OutlineLevel > 0);
         }
     }
 }

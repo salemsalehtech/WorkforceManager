@@ -1,5 +1,5 @@
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using WorkforceManager.Business.DTOs;
 
 namespace WorkforceManager.UI.ViewModels
@@ -52,22 +52,28 @@ namespace WorkforceManager.UI.ViewModels
     }
 
     /// <summary>
-    /// عيلة (أو "بدون عيلة") جوّه تبويب "الإنتاج اليومي" — AllFilled صح
-    /// أخضر لما كل منتجاتها تتسجل النهارده. الصفوف بتتبني من جديد كل
-    /// تحميل (مش mutation حي)، فـAllFilled محسوبة عادي من غير أي ربط أحداث.
+    /// عيلة (أو "بدون عيلة") جوّه تبويب "الإنتاج اليومي" — كارت مقفول في
+    /// الشبكة، والضغط عليه بيفتح صفحة العيلة لوحدها للتسجيل
+    /// (MonthlyPlanViewModel.SelectedTodayFamily). مفيش فتح/قفل جوه الكارت
+    /// نفسه خلاص: الكروت المفتوحة كانت بتطوّل الشبكة وبتنزل تحت بعض.
+    /// الصفوف بتتبني من جديد كل تحميل (مش mutation حي)، فكل الخصايص محسوبة عادي.
     /// </summary>
-    public partial class MonthlyPlanTodayFamilyGroupRow : ObservableObject
+    public class MonthlyPlanTodayFamilyGroupRow
     {
         public string HeaderText { get; init; } = "";
         public List<MonthlyPlanTodayEntryRow> Products { get; init; } = new();
 
-        [ObservableProperty] private bool _isExpanded = true;
-
-        [RelayCommand]
-        private void ToggleExpanded() => IsExpanded = !IsExpanded;
-
         public bool AllFilled => Products.Count > 0 && Products.All(p => p.IsFilled);
         public int FilledCount => Products.Count(p => p.IsFilled);
         public int TotalCount => Products.Count;
+        public int RemainingCount => TotalCount - FilledCount;
+
+        public string ProgressText => $"{FilledCount} من {TotalCount} اتسجلوا";
+
+        public string StatusText => AllFilled ? "خلصت" : FilledCount == 0 ? "لسه ماتسجلش" : $"فاضل {RemainingCount}";
+
+        /// <summary>شريط التقدّم: عمودين نجمة (المتسجل / الباقي)</summary>
+        public GridLength FilledColumn => new(FilledCount, GridUnitType.Star);
+        public GridLength RemainingColumn => new(RemainingCount, GridUnitType.Star);
     }
 }
