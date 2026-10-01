@@ -50,6 +50,11 @@ namespace WorkforceManager.Business.Services
                 .OrderBy(n => n)
                 .ToList();
 
+            var missingWorkers = activeWorkers
+                .Where(w => !attendedWorkerIds.Contains(w.Id))
+                .OrderBy(w => w.FullName)
+                .ToList();
+
             var missingAttendance = activeWorkers
                 .Where(w => !attendedWorkerIds.Contains(w.Id))
                 .Select(w => w.FullName)
@@ -71,7 +76,10 @@ namespace WorkforceManager.Business.Services
             {
                 ProductsWithNoEntries = emptyProducts,
                 WorkersWithNoAttendance = missingAttendance,
-                MemoryDueWithNoEntries = memoryGaps
+                MemoryDueWithNoEntries = memoryGaps,
+                WorkerIdsWithNoAttendance = missingWorkers.Select(w => w.Id).ToList(),
+                ActiveProductCount = activeProducts.Count(),
+                ActiveWorkerCount = activeWorkers.Count()
             };
         }
     }

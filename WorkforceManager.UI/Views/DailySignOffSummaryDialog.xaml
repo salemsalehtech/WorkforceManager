@@ -2,123 +2,294 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        Title="مراجعة قبل التوقيع" Width="560" SizeToContent="Height"
-        MaxHeight="700"
+        xmlns:views="clr-namespace:WorkforceManager.UI.Views"
+        Title="توقيع نهاية اليوم" Width="640" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         FlowDirection="RightToLeft" FontSize="14" FontFamily="{StaticResource AppFont}">
 
-    <!-- آخر خطوة قبل توقيع اليوم — المستخدم بيراجع كل حاجة حصلت
-         النهارده قبل ما يوافق -->
+    <!--
+      توقيع نهاية اليوم — **خطوة واحدة**: الملخص الأول، وكلمة السر في آخره جوه
+      نفس الشاشة (كانت نافذة باسورد قبل ما المستخدم يشوف هو بيوقّع على إيه).
+      من فوق لتحت:
+        1. 4 كروت: العمليات، المنتجات، الحضور، الذاكرة
+        2. النواقص كأقسام بتتفتح — الأسماء chips، وزرار يحل المشكلة جنب كل قسم
+        3. عمليات النهارده — مقفولة افتراضيًا
+        4. كلمة السر + التأكيد + "اقفل وأوقّع بكره" (لو جاي من القفل/الخروج)
+      الطول متحدد بالشاشة (MaxHeight في الكود)، والنص بس هو اللي بيعمل scroll.
+    -->
+    <Window.Resources>
+        <Style x:Key="StatCard" TargetType="Border">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Margin" Value="4" />
+        </Style>
+        <Style x:Key="Chip" TargetType="Border">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+        </Style>
+        <Style x:Key="SectionCard" TargetType="Border">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Background" Value="{DynamicResource SubtleBgBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,4,0" />
+        </Style>
+        <!-- زرار شكله نص بس (اعرض/اخفي الأسماء) — من غير إطار الـGhostButton -->
+        <Style x:Key="LinkButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <DataTemplate x:Key="ChipTemplate">
+            <Border Style="{StaticResource Chip}">
+                <TextBlock Text="{Binding}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
     <Border CornerRadius="18" Background="{DynamicResource SurfaceBrush}">
         <Border.Effect>
             <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.28" Color="{DynamicResource ShadowColor}" />
         </Border.Effect>
         <DockPanel>
+            <!-- ═══════════ الرأس ═══════════ -->
             <Border DockPanel.Dock="Top" Background="{DynamicResource SidebarBrush}"
                     CornerRadius="18,18,0,0" Padding="18,14" MouseLeftButtonDown="Window_Drag">
                 <DockPanel>
                     <Button DockPanel.Dock="Left" Foreground="{DynamicResource SidebarInkBrush}"
-                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True"
-                            ToolTip="إغلاق">
+                            Style="{StaticResource IconButton}" Padding="7,4" IsCancel="True" ToolTip="إغلاق">
                         <materialDesign:PackIcon Kind="Close" Width="15" Height="15" />
                     </Button>
                     <StackPanel>
-                        <TextBlock Text="حفظ نهائي — توقيع نهاية اليوم" Foreground="{DynamicResource SidebarInkBrush}" FontSize="15.5" FontWeight="Bold" />
-                        <TextBlock x:Name="DateText" Foreground="{DynamicResource SidebarInkBrush}" FontSize="12" Margin="0,2,0,0" />
+                        <TextBlock Text="توقيع نهاية اليوم" Foreground="{DynamicResource SidebarInkBrush}" FontSize="16" FontWeight="Bold" />
+                        <TextBlock x:Name="DateText" Foreground="{DynamicResource SidebarInkSoftBrush}" FontSize="12" Margin="0,2,0,0" />
+                        <TextBlock x:Name="ReasonText" Foreground="{DynamicResource GoldBrush}" FontSize="12" Margin="0,6,0,0"
+                                   TextWrapping="Wrap" Visibility="Collapsed" />
                     </StackPanel>
                 </DockPanel>
             </Border>
 
-            <StackPanel Margin="20,16,20,18">
-                <!-- اكتمال بيانات النهارده — إفادة قبل ما نعرض سجل العمليات،
-                     محور مختلف تمامًا (شوف DailySignOffChecklistService):
-                     مش "إيه اللي حصل" لكن "إيه اللي متعملش" -->
-                <Border x:Name="ProductsGapBox" Background="{DynamicResource WarnBgBrush}" CornerRadius="8"
-                        Padding="10,8" Margin="0,0,0,6" Visibility="Collapsed">
-                    <TextBlock x:Name="ProductsGapText" FontSize="12" TextWrapping="Wrap"
-                               Foreground="{DynamicResource WarnBrush}" />
-                </Border>
-                <Border x:Name="WorkersGapBox" Background="{DynamicResource WarnBgBrush}" CornerRadius="8"
-                        Padding="10,8" Margin="0,0,0,6" Visibility="Collapsed">
-                    <TextBlock x:Name="WorkersGapText" FontSize="12" TextWrapping="Wrap"
-                               Foreground="{DynamicResource WarnBrush}" />
-                </Border>
-                <Border x:Name="MemoryGapBox" Background="{DynamicResource WarnBgBrush}" CornerRadius="8"
-                        Padding="10,8" Margin="0,0,0,6" Visibility="Collapsed">
-                    <TextBlock x:Name="MemoryGapText" FontSize="12" TextWrapping="Wrap"
-                               Foreground="{DynamicResource WarnBrush}" />
-                </Border>
-                <Border x:Name="ChecklistClean" Background="{DynamicResource SuccessBgBrush}" CornerRadius="8"
-                        Padding="10,8" Margin="0,0,0,10" Visibility="Collapsed">
-                    <TextBlock Text="كل منتج نشط له إنتاج، وكل عامل نشط له حضور النهارده."
-                               FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource SuccessBrush}" />
-                </Border>
-                <CheckBox x:Name="ChecklistAcknowledge" Content="شفت النواقص دي واتأكدت إنها متعمدة"
-                          FontSize="12" Margin="0,0,0,12" Visibility="Collapsed"
-                          Checked="ChecklistAcknowledge_Checked" Unchecked="ChecklistAcknowledge_Unchecked" />
+            <!-- ═══════════ الذيل: كلمة السر + الأزرار (ثابت تحت، مش جوه الـscroll) ═══════════ -->
+            <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="20,14,20,16">
+                <StackPanel>
+                    <CheckBox x:Name="AcknowledgeBox" FontSize="12.5" Margin="0,0,0,10" Visibility="Collapsed"
+                              Checked="Acknowledge_Changed" Unchecked="Acknowledge_Changed"
+                              Content="شفت النواقص اللي فوق واتأكدت إنها متعمدة" />
 
-                <TextBlock x:Name="CountText" FontWeight="Bold" FontSize="13" Margin="0,0,0,10"  Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <StackPanel x:Name="PasswordSection" Margin="0,0,0,10">
+                        <TextBlock Text="كلمة سر العمليات" FontSize="12.5" FontWeight="SemiBold" Margin="0,0,0,5"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <PasswordBox x:Name="PasswordBox" FlowDirection="LeftToRight" Padding="8,6" />
+                    </StackPanel>
+                    <TextBlock x:Name="NoPasswordText" FontSize="11.5" Margin="0,0,0,10" TextWrapping="Wrap" Visibility="Collapsed"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               Text="مفيش كلمة سر عمليات متسجّلة — التوقيع هيتم من غيرها." />
 
-                <ScrollViewer MaxHeight="380" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl x:Name="EventsList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8"
-                                        Padding="10,8" Margin="0,0,0,5">
-                                    <DockPanel>
-                                        <materialDesign:PackIcon DockPanel.Dock="Right" Width="18" Height="18"
-                                                                  VerticalAlignment="Top" Margin="8,2,0,0"
-                                                                  Kind="{Binding EventIcon}">
-                                            <materialDesign:PackIcon.Style>
-                                                <Style TargetType="materialDesign:PackIcon">
-                                                    <Setter Property="Foreground" Value="{DynamicResource InkSoftBrush}" />
-                                                </Style>
-                                            </materialDesign:PackIcon.Style>
-                                        </materialDesign:PackIcon>
-                                        <StackPanel>
-                                            <DockPanel>
-                                                <TextBlock DockPanel.Dock="Left" Text="{Binding When}" FontSize="10.5"
-                                                           Foreground="{DynamicResource TextMutedBrush}" />
-                                                <TextBlock Text="{Binding EventText}" FontSize="12.5" FontWeight="Bold"
-                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                                            </DockPanel>
-                                            <TextBlock Text="{Binding EntityName}" FontSize="11.5" Margin="0,2,0,0"
-                                                       Foreground="{DynamicResource TextMutedBrush}" />
-                                            <TextBlock Text="{Binding Details}" FontSize="10.5" Margin="0,2,0,0"
-                                                       TextWrapping="Wrap"
-                                                       Visibility="{Binding HasDetails, Converter={StaticResource BoolToVis}}"
-                                                       Foreground="{DynamicResource TextMutedBrush}" />
-                                        </StackPanel>
-                                    </DockPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                    <Border x:Name="ErrorBox" Background="{DynamicResource DangerTintBrush}" CornerRadius="8" Padding="10,7"
+                            Margin="0,0,0,10" Visibility="Collapsed">
+                        <TextBlock x:Name="ErrorText" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource DangerBrush}" />
+                    </Border>
 
-                <Border x:Name="NothingHappened" Background="{DynamicResource SuccessBgBrush}" CornerRadius="8"
-                        Padding="12,10" Visibility="Collapsed">
-                    <TextBlock Text="مفيش أي عمليات اتسجلت النهارده — التوقيع بيقفل اليوم برضه."
-                               FontSize="12.5" TextWrapping="Wrap"
-                               Foreground="{DynamicResource SuccessBrush}" />
-                </Border>
-
-                <TextBlock Text="التوقيع بيقفل اليوم للتطبيق كله — بعده مش هيفضل فيه أي عملية محتاجة توقيع."
-                           FontSize="11.5" TextWrapping="Wrap" Margin="0,12,0,0"
-                           Foreground="{DynamicResource TextMutedBrush}" />
-
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,14,0,0">
-                    <Button Style="{StaticResource GhostButton}" Padding="16,8" IsCancel="True" Content="ارجع للتعديل" />
-                    <Button x:Name="ConfirmButton" Style="{StaticResource PrimaryButton}" Padding="16,8"
-                            Margin="8,0,0,0" IsDefault="True" Click="Confirm_Click">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="CheckCircleOutline" Width="15" Height="15" VerticalAlignment="Center" />
-                            <TextBlock Text="أكّد ووقّع اليوم" Margin="6,0,0,0" />
-                        </StackPanel>
-                    </Button>
+                    <DockPanel>
+                        <Button x:Name="ConfirmButton" DockPanel.Dock="Right" Style="{StaticResource PrimaryButton}" Padding="18,9"
+                                IsDefault="True" Click="Confirm_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="CheckDecagramOutline" Width="16" Height="16" VerticalAlignment="Center" />
+                                <TextBlock x:Name="ConfirmText" Text="وقّع اليوم" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="DeferButton" DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="14,9"
+                                Margin="0,0,8,0" Click="Defer_Click" Visibility="Collapsed"
+                                ToolTip="البرنامج هيتقفل، وأول ما تفتحه هيطلب منك توقيع اليوم ده">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ClockOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock x:Name="DeferText" Text="اقفل وأوقّع بكره" Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                        <Button DockPanel.Dock="Left" Style="{StaticResource GhostButton}" Padding="14,9" IsCancel="True"
+                                HorizontalAlignment="Left" Content="ارجع للبرنامج" />
+                    </DockPanel>
                 </StackPanel>
-            </StackPanel>
+            </Border>
+
+            <!-- ═══════════ الجسم ═══════════ -->
+            <ScrollViewer x:Name="BodyScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="16,14,16,10">
+
+                    <!-- 1. كروت اليوم -->
+                    <UniformGrid Columns="4" Margin="0,0,0,10">
+                        <Border x:Name="EventsCard" Style="{StaticResource StatCard}">
+                            <StackPanel>
+                                <materialDesign:PackIcon Kind="History" Width="18" Height="18" Foreground="{DynamicResource GoldDeepBrush}" />
+                                <TextBlock x:Name="EventsCount" FontSize="20" FontWeight="Bold" Margin="0,4,0,0"
+                                           HorizontalAlignment="Left" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="عملية النهارده" FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="ProductsCard" Style="{StaticResource StatCard}">
+                            <StackPanel>
+                                <materialDesign:PackIcon Kind="PackageVariantClosed" Width="18" Height="18" Foreground="{DynamicResource GoldDeepBrush}" />
+                                <TextBlock x:Name="ProductsCount" FontSize="20" FontWeight="Bold" Margin="0,4,0,0"
+                                           HorizontalAlignment="Left" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="منتج له إنتاج" FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="AttendanceCard" Style="{StaticResource StatCard}">
+                            <StackPanel>
+                                <materialDesign:PackIcon Kind="AccountCheckOutline" Width="18" Height="18" Foreground="{DynamicResource GoldDeepBrush}" />
+                                <TextBlock x:Name="AttendanceCount" FontSize="20" FontWeight="Bold" Margin="0,4,0,0"
+                                           HorizontalAlignment="Left" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="عامل له حضور" FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="MemoryCard" Style="{StaticResource StatCard}">
+                            <StackPanel>
+                                <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="18" Height="18" Foreground="{DynamicResource GoldDeepBrush}" />
+                                <TextBlock x:Name="MemoryCount" FontSize="20" FontWeight="Bold" Margin="0,4,0,0"
+                                           HorizontalAlignment="Left" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="ذاكرة مستحقة ناقصة" FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- كله تمام -->
+                    <Border x:Name="AllClearBanner" Background="{DynamicResource SuccessBgBrush}" CornerRadius="10" Padding="12,10"
+                            Margin="0,0,0,8" Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="CheckCircleOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource SuccessBrush}" />
+                            <TextBlock Text="كل عامل نشط له حضور، ومفيش ذاكرة مستحقة ناقصة — اليوم جاهز للتوقيع."
+                                       Margin="8,0,0,0" FontSize="12.5" TextWrapping="Wrap" Foreground="{DynamicResource SuccessBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 2. الحضور الناقص — مهم (بيأثر على الأجور) -->
+                    <Border x:Name="WorkersSection" Style="{StaticResource SectionCard}" BorderBrush="{DynamicResource DangerBrush}"
+                            Visibility="Collapsed">
+                        <StackPanel Margin="12,10">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                                    <Button x:Name="MarkPresentButton" Style="{StaticResource GhostButton}" Padding="10,5" Click="MarkPresent_Click"
+                                            ToolTip="بيسجّل كل العمال اللي من غير حضور النهارده حاضرين">
+                                        <StackPanel Orientation="Horizontal">
+                                            <materialDesign:PackIcon Kind="AccountMultipleCheckOutline" Width="14" Height="14" VerticalAlignment="Center" />
+                                            <TextBlock Text="سجّل الباقيين حاضرين" FontSize="12" Margin="5,0,0,0" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource GhostButton}" Padding="10,5" Margin="6,0,0,0" Click="OpenDailyEntry_Click"
+                                            Content="افتح الحضور" FontSize="12" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock x:Name="WorkersTitle" FontWeight="Bold" FontSize="13.5" Foreground="{DynamicResource DangerBrush}" />
+                                    <Button x:Name="WorkersToggle" Style="{StaticResource LinkButton}" HorizontalAlignment="Left"
+                                             Click="WorkersToggle_Click" Margin="0,2,0,0">
+                                        <TextBlock x:Name="WorkersToggleText" FontSize="11.5" TextTrimming="CharacterEllipsis" TextDecorations="Underline" Foreground="{DynamicResource TextMutedBrush}" />
+                                    </Button>
+                                </StackPanel>
+                            </DockPanel>
+                            <StackPanel x:Name="WorkersBody" Visibility="Collapsed" Margin="0,10,0,0">
+                                <TextBox x:Name="WorkersSearch" Margin="0,0,0,8" Padding="6,4" TextChanged="WorkersSearch_TextChanged"
+                                         materialDesign:HintAssist.Hint="دوّر على اسم..." Visibility="Collapsed" />
+                                <ItemsControl x:Name="WorkersChips" ItemTemplate="{StaticResource ChipTemplate}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- الذاكرة المستحقة الناقصة — مهم -->
+                    <Border x:Name="MemorySection" Style="{StaticResource SectionCard}" BorderBrush="{DynamicResource DangerBrush}"
+                            Visibility="Collapsed">
+                        <StackPanel Margin="12,10">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,5" Click="OpenMemory_Click"
+                                        Content="افتح الذاكرة" FontSize="12" />
+                                <TextBlock x:Name="MemoryTitle" FontWeight="Bold" FontSize="13.5" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource DangerBrush}" />
+                            </DockPanel>
+                            <ItemsControl x:Name="MemoryChips" ItemTemplate="{StaticResource ChipTemplate}" Margin="0,10,0,0">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- منتجات من غير إنتاج — إفادة بس (مش كل منتج بيتشغل كل يوم) -->
+                    <Border x:Name="ProductsSection" Style="{StaticResource SectionCard}" BorderBrush="{DynamicResource WarnBrush}"
+                            Visibility="Collapsed">
+                        <StackPanel Margin="12,10">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,5" VerticalAlignment="Top" Click="OpenDailyEntry_Click"
+                                        Content="افتح تسجيل الإنتاج" FontSize="12" />
+                                <StackPanel>
+                                    <TextBlock x:Name="ProductsTitle" FontWeight="Bold" FontSize="13.5" Foreground="{DynamicResource WarnBrush}" />
+                                    <Button x:Name="ProductsToggle" Style="{StaticResource LinkButton}" HorizontalAlignment="Left"
+                                             Click="ProductsToggle_Click" Margin="0,2,0,0">
+                                        <TextBlock x:Name="ProductsToggleText" FontSize="11.5" TextDecorations="Underline" Foreground="{DynamicResource TextMutedBrush}" />
+                                    </Button>
+                                </StackPanel>
+                            </DockPanel>
+                            <ItemsControl x:Name="ProductsChips" ItemTemplate="{StaticResource ChipTemplate}" Margin="0,10,0,0"
+                                          Visibility="Collapsed">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 3. عمليات النهارده — مقفولة افتراضيًا -->
+                    <Border Style="{StaticResource SectionCard}" BorderBrush="{DynamicResource GoldBrush}">
+                        <StackPanel Margin="12,10">
+                            <DockPanel>
+                                <Button x:Name="EventsToggle" DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="10,5"
+                                        Click="EventsToggle_Click" FontSize="12" />
+                                <TextBlock x:Name="EventsTitle" FontWeight="Bold" FontSize="13.5" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </DockPanel>
+                            <ItemsControl x:Name="EventsList" Margin="0,10,0,0" Visibility="Collapsed">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="10,7" Margin="0,0,0,5">
+                                            <DockPanel>
+                                                <materialDesign:PackIcon DockPanel.Dock="Right" Width="17" Height="17" VerticalAlignment="Top"
+                                                                         Margin="8,2,0,0" Kind="{Binding EventIcon}"
+                                                                         Foreground="{DynamicResource InkSoftBrush}" />
+                                                <StackPanel>
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Left" Text="{Binding When}" FontSize="10.5"
+                                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                                        <TextBlock Text="{Binding EventText}" FontSize="12.5" FontWeight="Bold"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    </DockPanel>
+                                                    <TextBlock Text="{Binding EntityName}" FontSize="11.5" Margin="0,2,0,0"
+                                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                                    <TextBlock Text="{Binding Details}" FontSize="10.5" Margin="0,2,0,0" TextWrapping="Wrap"
+                                                               Visibility="{Binding HasDetails, Converter={StaticResource BoolToVis}}"
+                                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="التوقيع بيقفل اليوم للتطبيق كله — أي عملية بعده هتحتاج توقيع جديد."
+                               FontSize="11.5" TextWrapping="Wrap" Margin="2,4,0,0" Foreground="{DynamicResource TextMutedBrush}" />
+                </StackPanel>
+            </ScrollViewer>
         </DockPanel>
     </Border>
 </Window>

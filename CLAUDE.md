@@ -3393,6 +3393,17 @@ Core  <----------------------- UI
   `MonthlyPlanPrint` builds a FlowDocument and opens the Windows print dialog, where "Microsoft Print to PDF"
   produces the PDF.
 
+- **Daily sign-off rewritten into a single step.** `DailySignOffSummaryDialog` used to be a password prompt followed
+  by a separate read-only review; now the summary comes first and the password is inline at the bottom, with the
+  signing itself happening inside the dialog (`trySignAsync`) so a wrong password shows an inline error instead of
+  closing the dialog. It shows 4 stat cards (events/products/attendance/memory) and collapsible chip sections with
+  fix-it actions: "سجّل الباقيين حاضرين" calls `AttendanceService.RecordAttendanceBatchAsync` with the new
+  `WorkerIdsWithNoAttendance`, plus buttons to open daily entry or memory. The acknowledgement checkbox now appears
+  only for attendance or memory gaps (`DailySignOffChecklist.NeedsAcknowledgement`) — products with no entries are
+  informational only, since not every product runs every day. A new "اقفل/اخرج وأوقّع بكره" choice returns
+  `Deferred`; the existing `LateSignOffCatchUpDialog` picks the day up on the next launch. The old pre-dialog
+  password window and the warning toasts before it are gone.
+
 - **الإحصائيات tab redesigned into a full analysis dashboard** — `MonthlyPlanStatisticsService` (Business) sums the
   *same* `MonthlyPlanTrackingService.GetTrackingAsync` rows (no second achieved/plan computation) plus a day-by-day
   series from `MonthlyPlanDailyEntries` + `MonthlyPlanCorrections` (previous-month series = entries only, matching

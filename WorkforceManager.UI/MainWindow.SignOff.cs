@@ -180,46 +180,92 @@ namespace WorkforceManager.UI
                     .BuildAsync(today);
             }
 
-            // الزرار مالوش رسالة: المستخدم هو اللي طلب الفلو، فالديالوج
-            // اللي جاي هو الرد. الاتنين التانيين لازم يتقالهم ليه الحاجة
-            // اللي طلبوها اتوقفت
-            if (trigger is SignOffTrigger.WindowClose)
-                Notify.Warn(
-                    "فيه شغل النهارده لسه ما اتوقّعش عليه. لازم \"حفظ نهائي\" الأول قبل ما تقفل البرنامج.",
-                    "مش هينفع تقفل");
-            else if (trigger is SignOffTrigger.Logout)
-                Notify.Warn(
-                    "فيه شغل النهارده لسه ما اتوقّعش عليه. لازم \"حفظ نهائي\" الأول قبل ما تسجّل خروج.",
-                    "مش هينفع تسجّل خروج");
+            bool passwordRequired;
+            using (var gateScope = App.AppHost.Services.CreateScope())
+                passwordRequired = await gateScope.ServiceProvider.GetRequiredService<OperationsPasswordService>().IsConfiguredAsync();
 
-            using var gateScope = App.AppHost.Services.CreateScope();
-            var gate = gateScope.ServiceProvider.GetRequiredService<OperationsPasswordService>();
+            // **خطوة واحدة**: الملخص الأول وكلمة السر في آخره (كانت نافذة باسورد
+            // قبل الملخص — المستخدم كان بيكتب السر قبل ما يشوف بيوقّع على إيه).
+            // الملخص بيعرض اللي لسه محتاج توقيع بس — عرض عمليات موقّعة خلاص كان
+            // هيخلي المستخدم يمضي على نفس الحاجة مرتين.
+            var (reason, confirmLabel, deferLabel) = trigger switch
+            {
+                SignOffTrigger.WindowClose => ("فيه شغل النهارده لسه ما اتوقّعش — وقّعه دلوقتي أو أجّله لبكره.",
+                    "وقّع واقفل البرنامج", "اقفل وأوقّع بكره"),
+                SignOffTrigger.Logout => ("فيه شغل النهارده لسه ما اتوقّعش — وقّعه دلوقتي أو أجّله لبكره.",
+                    "وقّع وسجّل خروج", "اخرج وأوقّع بكره"),
+                _ => ((string?)null, "وقّع اليوم", (string?)null)
+            };
 
-            var input = SensitiveActionDialog.Ask(
-                this, "حفظ نهائي",
-                "توقيع نهاية اليوم — بيغطي كل حاجة حصلت في البرنامج النهارده بدل ما تتأكّد من كل عملية لوحدها.",
-                SensitiveActionKind.Save, await gate.IsConfiguredAsync(), reasonRequired: false);
+            var summary = new DailySignOffSummaryDialog(
+                today, pending, checklist, passwordRequired,
+                trySignAsync: password => TrySignOffAsync(today, password),
+                markPresentAsync: checklist.WorkerIdsWithNoAttendance.Count > 0
+                    ? () => MarkRemainingPresentAsync(today, checklist.WorkerIdsWithNoAttendance)
+                    : null,
+                closingReason: reason, confirmLabel: confirmLabel, deferLabel: deferLabel)
+            { Owner = this };
+            summary.ShowDialog();
 
-            if (input is null) return false;
+            switch (summary.Outcome)
+            {
+                case DailySignOffOutcome.Signed:
+                    // نسخة إكسل من الخطة الشهرية لحد النهارده في فولدر التقارير — جاهزة تتبعت للمدير
+                    var reportPath = await ViewModels.MonthlyPlanExport.WriteDailyAutoReportAsync(
+                        App.AppHost.Services.GetRequiredService<IServiceScopeFactory>(), today);
+                    Notify.Info(
+                        reportPath is null
+                            ? $"اتوقّع يوم {today:yyyy/MM/dd} ✓ — {pending.Count} عملية."
+                            : $"اتوقّع يوم {today:yyyy/MM/dd} ✓ — {pending.Count} عملية.\nتقرير الخطة اتحفظ في: {reportPath}",
+                        "تم الحفظ النهائي");
+                    return true;
 
-            // الملخص بيعرض اللي لسه محتاج توقيع بس — عرض عمليات موقّعة
-            // خلاص كان هيخلي المستخدم يمضي على نفس الحاجة مرتين
-            var summary = new DailySignOffSummaryDialog(today, pending, checklist) { Owner = this };
-            if (summary.ShowDialog() != true) return false;
+                case DailySignOffOutcome.Deferred:
+                    // ديالوج اللحاق وقت التشغيل الجاي (LateSignOffCatchUpDialog) بيطلب الأيام الفايتة اللي ما اتوقّعتش
+                    Notify.Info("اليوم ده هيتطلب توقيعه أول ما تفتح البرنامج المرة الجاية.", "اتأجّل التوقيع");
+                    return true;
 
+                case DailySignOffOutcome.OpenDailyEntry:
+                    NavDailyEntryItem.IsChecked = true;
+                    return false;
+
+                case DailySignOffOutcome.OpenMemory:
+                    NavMemoryItem.IsChecked = true;
+                    return false;
+
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>التوقيع الفعلي — بيرجع رسالة الخطأ (كلمة سر غلط، قفل بعد محاولات...) أو null</summary>
+        private static async Task<string?> TrySignOffAsync(DateTime day, string password)
+        {
             try
             {
-                using var signScope = App.AppHost.Services.CreateScope();
-                await signScope.ServiceProvider.GetRequiredService<DailyOperationsSignOffService>()
-                    .SignOffAsync(today, input.Password);
-
-                Notify.Info($"اتوقّع يوم {today:yyyy/MM/dd} بنجاح.", "تم الحفظ النهائي");
-                return true;
+                using var scope = App.AppHost.Services.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<DailyOperationsSignOffService>().SignOffAsync(day, password);
+                return null;
             }
             catch (Exception ex)
             {
-                Notify.Warn(ex.Message, "مش هينفع");
-                return false;
+                return ex.Message;
+            }
+        }
+
+        /// <summary>"سجّل الباقيين حاضرين" — نفس مسار حفظ الحضور العادي (Upsert جماعي + مصالحة الجزاءات)</summary>
+        private static async Task<string?> MarkRemainingPresentAsync(DateTime day, IReadOnlyList<int> workerIds)
+        {
+            try
+            {
+                using var scope = App.AppHost.Services.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<AttendanceService>()
+                    .RecordAttendanceBatchAsync(day, workerIds.Select(id => (id, AttendanceStatus.Present)));
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
             }
         }
     }
