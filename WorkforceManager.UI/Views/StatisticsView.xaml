@@ -1,96 +1,908 @@
 <UserControl x:Class="WorkforceManager.UI.Views.StatisticsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:WorkforceManager.UI"
              xmlns:vm="clr-namespace:WorkforceManager.UI.ViewModels"
              xmlns:views="clr-namespace:WorkforceManager.UI.Views"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              mc:Ignorable="d"
-             d:DesignHeight="800" d:DesignWidth="1100">
+             d:DesignHeight="900" d:DesignWidth="1200">
 
     <!--
-      الإحصائيات: كل التحليل/المقارنات اللي كانت على شاشة الخطة الشهرية
-      قبل كده (البند رقم كذا في إعادة التصميم) — رسم إنتاج الشهر، مقارنة
-      كل منتج بنفس اليوم من الشهر اللي فات، تفاصيل وزن كل عيلة. بتقرأ نفس
-      بيانات MonthlyPlanTrackingService، مفيش حساب مختلف هنا. شوف CLAUDE.md.
+      الإحصائيات (تبويب جوه الخطة الشهرية) — لوحة تحليل الشهر من فوق لتحت:
+        1. شريط الشهر + "محسوبة لحد" + أيام الشغل، وتحته فلتر (عيلة/مادة) + تصدير إكسل
+        2. الكارت الرئيسي: نسبة إنجاز الخطة + علامة "المفروض لحد النهارده" + جملة الإيقاع
+        3. 12 كارت مؤشرات (إيقاع، توقّع، مطلوب يوميًا، مقارنة بالشهر اللي فات، أفضل يوم، وزن،
+           انتظام، متأخرة، متوسط آخر 3 شهور، هالك، يدوي مقابل حقيقي، إنتاجية العامل)
+        4. رسم التقدّم (تراكمي/يومي) — PlanProgressChart
+        5. حالة المنتجات + إيقاع أيام الأسبوع
+        6. محتاج اهتمام + الأفضل أداءً، وبعدهم اليدوي مقابل الحقيقي + أعلى هالك
+        7. العيلات (بنسبة الهالك)
+        8. مقارنة كل منتج بنفس اليوم من الشهر اللي فات
+      كل الأرقام من MonthlyPlanStatisticsService (بيجمع صفوف MonthlyPlanTrackingService
+      نفسها)، مفيش حساب مختلف هنا. شوف CLAUDE.md.
     -->
+    <UserControl.Resources>
+        <Style x:Key="KpiTile" TargetType="Border" BasedOn="{StaticResource Card}">
+            <Setter Property="Padding" Value="16,14" />
+            <Setter Property="Margin" Value="6" />
+        </Style>
+        <Style x:Key="KpiCaption" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="KpiValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="24" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Margin" Value="0,8,0,2" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+        <Style x:Key="KpiNote" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        </Style>
+        <Style x:Key="KpiIcon" TargetType="Border">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="Background" Value="{DynamicResource GoldTintBrush}" />
+        </Style>
+        <Style x:Key="PanelCard" TargetType="Border" BasedOn="{StaticResource Card}">
+            <Setter Property="Padding" Value="18,16" />
+            <Setter Property="Margin" Value="6" />
+        </Style>
+        <Style x:Key="LegendSwatch" TargetType="Border">
+            <Setter Property="Width" Value="10" />
+            <Setter Property="Height" Value="10" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="LegendText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Margin" Value="0,0,16,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        </Style>
+        <Style x:Key="TableHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        </Style>
+        <Style x:Key="Pill" TargetType="Border">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- تبديل وضع الرسم: تراكمي / يومي -->
+        <Style x:Key="SegmentButton" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" CornerRadius="7" Padding="14,5" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource CardBgBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <Grid Margin="14,10,14,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,14">
-            <Button Command="{Binding PreviousMonthCommand}" Style="{StaticResource IconButton}" Padding="8">
-                <materialDesign:PackIcon Kind="ChevronRight" Width="18" Height="18" />
+        <!-- ═══════════ 1. شريط الشهر + الفلتر + التصدير ═══════════ -->
+        <StackPanel Grid.Row="0">
+        <DockPanel Margin="6,0,6,10" LastChildFill="False">
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Command="{Binding PreviousMonthCommand}" Style="{StaticResource IconButton}" Padding="8" ToolTip="الشهر اللي فات">
+                    <materialDesign:PackIcon Kind="ChevronRight" Width="18" Height="18" />
+                </Button>
+                <TextBlock Text="{Binding MonthLabel}" FontSize="16" FontWeight="Bold" Margin="10,0"
+                           VerticalAlignment="Center" MinWidth="130" TextAlignment="Center"
+                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                <Button Command="{Binding NextMonthCommand}" Style="{StaticResource IconButton}" Padding="8" ToolTip="الشهر الجاي">
+                    <materialDesign:PackIcon Kind="ChevronLeft" Width="18" Height="18" />
+                </Button>
+                <Button Command="{Binding CurrentMonthCommand}" Style="{StaticResource GhostButton}" Padding="12,6" Margin="8,0,0,0"
+                        Content="الشهر الحالي" />
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                        Visibility="{Binding HasData, Converter={StaticResource BoolToVis}}">
+                <TextBlock Text="{Binding AsOfText}" FontSize="12" Margin="0,0,12,0" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextMutedBrush}" />
+                <Border Background="{DynamicResource GoldTintBrush}" CornerRadius="{DynamicResource RadiusSmall}" Padding="10,5">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="CalendarClockOutline" Width="15" Height="15" VerticalAlignment="Center"
+                                                 Foreground="{DynamicResource GoldDeepBrush}" />
+                        <TextBlock Margin="6,0,0,0" FontSize="12" FontWeight="Bold" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource GoldDeepBrush}">
+                            <Run Text="{Binding WorkdaysText, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding RemainingWorkdaysText, Mode=OneWay}" />
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- الفلتر بيطبّق على كل الشاشة (كروت، رسم، جداول) — نفس قايمة المنتجات في كل رقم -->
+        <WrapPanel Margin="6,0,6,8">
+            <StackPanel Orientation="Horizontal" Margin="0,0,14,6" VerticalAlignment="Center">
+                <materialDesign:PackIcon Kind="FilterVariant" Width="16" Height="16" VerticalAlignment="Center"
+                                         Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,8,0" />
+                <ComboBox ItemsSource="{Binding FamilyOptions}" SelectedItem="{Binding SelectedFamilyOption}"
+                          DisplayMemberPath="Label" MinWidth="170" ToolTip="اعرض عيلة واحدة بس" />
+                <ComboBox ItemsSource="{Binding MaterialOptions}" SelectedItem="{Binding SelectedMaterialOption}"
+                          DisplayMemberPath="Label" MinWidth="120" Margin="10,0,0,0" ToolTip="اعرض مادة واحدة بس" />
+                <Button Command="{Binding ClearFilterCommand}" Style="{StaticResource GhostButton}" Padding="10,6" Margin="10,0,0,0"
+                        Visibility="{Binding IsFiltered, Converter={StaticResource BoolToVis}}" ToolTip="ارجع لكل المنتجات">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="FilterRemoveOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                        <TextBlock Text="شيل الفلتر" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+            <Button Command="{Binding ExportExcelCommand}" Style="{StaticResource GhostButton}" Padding="12,7" Margin="0,0,0,6"
+                    VerticalAlignment="Center" ToolTip="ملف إكسل فيه الملخص ويوم بيوم والعيلات والمنتجات">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="FileExcelOutline" Width="15" Height="15" VerticalAlignment="Center" />
+                    <TextBlock Text="تصدير إكسل" Margin="6,0,0,0" />
+                </StackPanel>
             </Button>
-            <TextBlock Text="{Binding MonthLabel}" FontSize="16" FontWeight="Bold" Margin="10,0"
-                       VerticalAlignment="Center" MinWidth="130" TextAlignment="Center"
-                       Foreground="{DynamicResource TextPrimaryBrush}" />
-            <Button Command="{Binding NextMonthCommand}" Style="{StaticResource IconButton}" Padding="8">
-                <materialDesign:PackIcon Kind="ChevronLeft" Width="18" Height="18" />
-            </Button>
+        </WrapPanel>
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel>
-
-                <!-- ═══════════ رسم إنتاج الشهر ═══════════ -->
-                <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14">
-                    <StackPanel>
-                        <TextBlock Text="إنتاج الشهر يوم بيوم" Style="{StaticResource SectionTitle}" Margin="0,0,0,8" />
-                        <views:ProductOutputChart MinHeight="220" FillWidth="True" PlotAreaHeight="162"
-                                                  Buckets="{Binding ChartBuckets}" HasData="{Binding ChartHasData}" />
+            <Grid>
+                <!-- شهر فاضي تمامًا: مفيش خطة ولا إنتاج ولا مقارنة -->
+                <Border Style="{StaticResource PanelCard}" Padding="28" VerticalAlignment="Top"
+                        Visibility="{Binding HasData, Converter={StaticResource InverseBoolToVis}}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <materialDesign:PackIcon Kind="ChartBoxOutline" Width="38" Height="38" HorizontalAlignment="Center"
+                                                 Foreground="{DynamicResource GoldDeepBrush}" Margin="0,0,0,10" />
+                        <TextBlock Text="مفيش بيانات للشهر ده لسه" FontSize="14.5" FontWeight="Bold" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                        <TextBlock Text="الإحصائيات بتظهر أول ما تتسجل خطة الشهر أو أول إنتاج في تبويب الإنتاج اليومي"
+                                   FontSize="12.5" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
                     </StackPanel>
                 </Border>
 
-                <!-- ═══════════ وزن كل عيلة ═══════════ -->
-                <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14"
-                        Visibility="{Binding HasFamilyWeights, Converter={StaticResource BoolToVis}}">
-                    <StackPanel>
-                        <TextBlock Text="إجمالي وزن المحقق لكل عيلة" Style="{StaticResource SectionTitle}" Margin="0,0,0,8" />
-                        <ItemsControl ItemsSource="{Binding FamilyWeights}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:StatisticsFamilyWeightRow}">
-                                    <DockPanel Margin="0,0,0,6">
-                                        <TextBlock DockPanel.Dock="Left" Text="{Binding TotalWeightKg, StringFormat='{}{0:N1} كجم'}"
-                                                   FontWeight="Bold" Foreground="{DynamicResource GoldDeepBrush}" />
-                                        <TextBlock Text="{Binding FamilyName}" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    </DockPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
+                <StackPanel Visibility="{Binding HasData, Converter={StaticResource BoolToVis}}">
 
-                <!-- ═══════════ مقارنة كل منتج بنفس اليوم من الشهر اللي فات ═══════════ -->
-                <Border Style="{StaticResource Card}" Padding="16" Margin="0,0,0,14">
-                    <StackPanel>
-                        <TextBlock Text="مقارنة بنفس اليوم من الشهر اللي فات" Style="{StaticResource SectionTitle}" Margin="0,0,0,8" />
-                        <ItemsControl ItemsSource="{Binding ProductComparisons}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:StatisticsProductRow}">
-                                    <Grid Margin="0,0,0,6">
+                    <!-- ═══════════ 2. الكارت الرئيسي ═══════════ -->
+                    <Border Style="{StaticResource PanelCard}" Background="{DynamicResource InkGradientBrush}" BorderThickness="0"
+                            Padding="22,18">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,0,28,0" VerticalAlignment="Center">
+                                <TextBlock Text="إنجاز خطة الشهر" FontSize="12.5" Foreground="{DynamicResource SidebarInkSoftBrush}" />
+                                <TextBlock Text="{Binding CompletionText}" FontSize="40" FontWeight="ExtraBold" FlowDirection="LeftToRight" HorizontalAlignment="Left"
+                                           Foreground="{DynamicResource GoldBrush}" Margin="0,2,0,0" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <DockPanel Margin="0,0,0,8">
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding ExpectedText}" FontSize="11.5"
+                                               Foreground="{DynamicResource SidebarInkSoftBrush}" VerticalAlignment="Bottom"
+                                               Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}" />
+                                    <TextBlock Text="{Binding AchievedOfPlanText}" FontSize="15" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource SidebarInkBrush}" />
+                                </DockPanel>
+
+                                <!-- الشريط + علامة "المفروض لحد النهارده" فوقه -->
+                                <Grid Height="14" Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}">
+                                    <!-- شريط مرسوم بعمودين نجمة مش ProgressBar — ProgressBar المكتبة بيتحرك
+                                         من الصفر عند كل تحميل، والرقم هنا ثابت لقراية الشهر -->
+                                    <Border Height="10" VerticalAlignment="Center" CornerRadius="5" Background="{DynamicResource SidebarAltBrush}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="{Binding CompletionColumn}" />
+                                                <ColumnDefinition Width="{Binding CompletionRestColumn}" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" CornerRadius="5" Background="{DynamicResource GoldGradientBrush}" />
+                                        </Grid>
+                                    </Border>
+                                    <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" MinWidth="160" />
-                                            <ColumnDefinition Width="90" />
-                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="{Binding ExpectedColumn}" />
+                                            <ColumnDefinition Width="2" />
+                                            <ColumnDefinition Width="{Binding RemainingColumn}" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding ProductName}" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                        <TextBlock Grid.Column="1" Text="{Binding EffectiveAchieved}" HorizontalAlignment="Center"
-                                                   Foreground="{DynamicResource TextMutedBrush}" />
-                                        <TextBlock Grid.Column="2" Text="{Binding ComparisonText}" FlowDirection="LeftToRight"
-                                                   HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"
-                                                   Visibility="{Binding HasComparison, Converter={StaticResource BoolToVis}}" />
+                                        <Border Grid.Column="1" Background="{DynamicResource SidebarInkBrush}" CornerRadius="1"
+                                                ToolTip="{Binding ExpectedText}" />
                                     </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
+                                </Grid>
 
-            </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0"
+                                            Visibility="{Binding HasPlan, Converter={StaticResource BoolToVis}}">
+                                    <Border Width="8" Height="8" CornerRadius="4" VerticalAlignment="Center" Margin="0,0,8,0"
+                                            ui:ThemeBrush.BackgroundKey="{Binding PaceKey}" />
+                                    <TextBlock Text="{Binding PaceSentence}" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource SidebarInkBrush}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- ═══════════ 3. كروت المؤشرات ═══════════ -->
+                    <UniformGrid Columns="4">
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}">
+                                        <materialDesign:PackIcon Kind="Speedometer" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldDeepBrush}" />
+                                    </Border>
+                                    <TextBlock Text="الإيقاع" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding PaceText}" Style="{StaticResource KpiValue}" FlowDirection="LeftToRight" HorizontalAlignment="Left" ui:ThemeBrush.ForegroundKey="{Binding PaceKey}" />
+                                <TextBlock Text="{Binding PaceCaption}" Style="{StaticResource KpiNote}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}">
+                                        <materialDesign:PackIcon Kind="CrosshairsGps" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldDeepBrush}" />
+                                    </Border>
+                                    <TextBlock Text="توقّع نهاية الشهر" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding ForecastText}" Style="{StaticResource KpiValue}" />
+                                <TextBlock Text="{Binding ForecastCaption}" Style="{StaticResource KpiNote}" ui:ThemeBrush.ForegroundKey="{Binding ForecastKey}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}">
+                                        <materialDesign:PackIcon Kind="TargetArrow" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldDeepBrush}" />
+                                    </Border>
+                                    <TextBlock Text="المطلوب يوميًا لباقي الشهر" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding RequiredDailyText}" Style="{StaticResource KpiValue}" ui:ThemeBrush.ForegroundKey="{Binding RequiredDailyKey}" />
+                                <TextBlock Text="{Binding RequiredDailyCaption}" Style="{StaticResource KpiNote}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}">
+                                        <materialDesign:PackIcon Kind="SwapHorizontal" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldDeepBrush}" />
+                                    </Border>
+                                    <TextBlock Text="مقابل الشهر اللي فات" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding ChangeText}" Style="{StaticResource KpiValue}" FlowDirection="LeftToRight"
+                                           HorizontalAlignment="Left" ui:ThemeBrush.ForegroundKey="{Binding ChangeKey}" />
+                                <TextBlock Text="{Binding ChangeCaption}" Style="{StaticResource KpiNote}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}">
+                                        <materialDesign:PackIcon Kind="TrophyOutline" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldDeepBrush}" />
+                                    </Border>
+                                    <TextBlock Text="أعلى يوم إنتاج" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding BestDayText}" Style="{StaticResource KpiValue}" />
+                                <TextBlock Text="{Binding BestDayCaption}" Style="{StaticResource KpiNote}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}">
+                                        <materialDesign:PackIcon Kind="WeightKilogram" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldDeepBrush}" />
+                                    </Border>
+                                    <TextBlock Text="الوزن المحقق" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding WeightText}" Style="{StaticResource KpiValue}" />
+                                <TextBlock Text="{Binding WeightCaption}" Style="{StaticResource KpiNote}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}">
+                                        <materialDesign:PackIcon Kind="CalendarCheckOutline" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldDeepBrush}" />
+                                    </Border>
+                                    <TextBlock Text="انتظام التسجيل" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding ConsistencyText}" Style="{StaticResource KpiValue}" FlowDirection="LeftToRight"
+                                           HorizontalAlignment="Left" />
+                                <TextBlock Text="{Binding ConsistencyCaption}" Style="{StaticResource KpiNote}" ui:ThemeBrush.ForegroundKey="{Binding ConsistencyKey}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- حالة المنتجات المختصرة — التفصيل في الكارت تحت -->
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}" Background="{DynamicResource DangerTintBrush}">
+                                        <materialDesign:PackIcon Kind="AlertCircleOutline" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource DangerBrush}" />
+                                    </Border>
+                                    <TextBlock Text="منتجات متأخرة" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding BehindCount}" Style="{StaticResource KpiValue}" />
+                                <TextBlock Style="{StaticResource KpiNote}">
+                                    <Run Text="من" /> <Run Text="{Binding Stats.Products.Count, Mode=OneWay}" /> <Run Text="منتج شغال الشهر ده" />
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ── الصف التالت: مقارنة أطول + رحلة الإنتاج + العمالة ── -->
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}">
+                                        <materialDesign:PackIcon Kind="ChartLine" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldDeepBrush}" />
+                                    </Border>
+                                    <TextBlock Text="مقابل متوسط آخر 3 شهور" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding HistoryChangeText}" Style="{StaticResource KpiValue}" FlowDirection="LeftToRight"
+                                           HorizontalAlignment="Left" ui:ThemeBrush.ForegroundKey="{Binding HistoryChangeKey}" />
+                                <TextBlock Text="{Binding HistoryCaption}" Style="{StaticResource KpiNote}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}" Background="{DynamicResource DangerTintBrush}">
+                                        <materialDesign:PackIcon Kind="DeleteVariant" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource DangerBrush}" />
+                                    </Border>
+                                    <TextBlock Text="نسبة الهالك" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding ScrapText}" Style="{StaticResource KpiValue}" FlowDirection="LeftToRight"
+                                           HorizontalAlignment="Left" ui:ThemeBrush.ForegroundKey="{Binding ScrapKey}" />
+                                <TextBlock Text="{Binding ScrapCaption}" Style="{StaticResource KpiNote}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}">
+                                        <materialDesign:PackIcon Kind="CompareHorizontal" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldDeepBrush}" />
+                                    </Border>
+                                    <TextBlock Text="اليدوي مقابل الحقيقي" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding ManualVsRealText}" Style="{StaticResource KpiValue}" FlowDirection="LeftToRight"
+                                           HorizontalAlignment="Left" ui:ThemeBrush.ForegroundKey="{Binding ManualVsRealKey}" />
+                                <TextBlock Text="{Binding ManualVsRealCaption}" Style="{StaticResource KpiNote}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource KpiTile}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Style="{StaticResource KpiIcon}">
+                                        <materialDesign:PackIcon Kind="AccountHardHatOutline" Width="17" Height="17" HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" Foreground="{DynamicResource GoldDeepBrush}" />
+                                    </Border>
+                                    <TextBlock Text="إنتاجية العامل الحاضر" Style="{StaticResource KpiCaption}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding PerWorkerText}" Style="{StaticResource KpiValue}" />
+                                <TextBlock Text="{Binding PerWorkerCaption}" Style="{StaticResource KpiNote}" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <!-- ═══════════ 4. رسم التقدّم ═══════════ -->
+                    <Border Style="{StaticResource PanelCard}">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,12">
+                                <Border DockPanel.Dock="Right" Background="{DynamicResource SurfaceAltBrush}" CornerRadius="9" Padding="3" VerticalAlignment="Top">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton Style="{StaticResource SegmentButton}" GroupName="ChartMode" Content="تراكمي"
+                                                     IsChecked="{Binding IsCumulativeChart, Mode=OneWay}" Command="{Binding ShowCumulativeChartCommand}" />
+                                        <RadioButton Style="{StaticResource SegmentButton}" GroupName="ChartMode" Content="يوم بيوم"
+                                                     IsChecked="{Binding IsDailyChart, Mode=OneWay}"
+                                                     Command="{Binding ShowDailyChartCommand}" />
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel>
+                                    <TextBlock Text="تقدّم الشهر" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="عدّي بالماوس على أي يوم عشان تشوف تفاصيله" FontSize="11.5" Margin="0,2,0,0"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                </StackPanel>
+                            </DockPanel>
+
+                            <views:PlanProgressChart Height="270"
+                                                     Days="{Binding ChartDays}" IsCumulative="{Binding IsCumulativeChart}"
+                                                     DailyPlanRate="{Binding DailyPlanRate}" AsOfDate="{Binding AsOfDate}"
+                                                     AccentBrush="{DynamicResource GoldBrush}" AccentDeepBrush="{DynamicResource GoldDeepBrush}"
+                                                     PlanBrush="{DynamicResource InkSoftBrush}" PreviousBrush="{DynamicResource InkFaintBrush}"
+                                                     GridBrush="{DynamicResource LineBrush}" HolidayBrush="{DynamicResource SurfaceAltBrush}"
+                                                     TextBrush="{DynamicResource TextMutedBrush}" TextStrongBrush="{DynamicResource TextPrimaryBrush}"
+                                                     TooltipBackground="{DynamicResource CardBgBrush}" />
+
+                            <!-- مفتاح الرسم -->
+                            <WrapPanel Margin="0,10,0,0">
+                                <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource GoldBrush}" />
+                                <TextBlock Style="{StaticResource LegendText}" Text="المحقق" />
+                                <Border Style="{StaticResource LegendSwatch}" Height="2" CornerRadius="0" Width="14" Background="{DynamicResource InkSoftBrush}" />
+                                <TextBlock Style="{StaticResource LegendText}" Text="{Binding PlanLegendText}" />
+                                <StackPanel Orientation="Horizontal" Visibility="{Binding IsCumulativeChart, Converter={StaticResource BoolToVis}}">
+                                    <Border Style="{StaticResource LegendSwatch}" Height="2" CornerRadius="0" Width="14" Background="{DynamicResource GoldDeepBrush}" />
+                                    <TextBlock Style="{StaticResource LegendText}" Text="التوقّع بالإيقاع الحالي" />
+                                    <Border Style="{StaticResource LegendSwatch}" Height="2" CornerRadius="0" Width="14" Background="{DynamicResource InkFaintBrush}" />
+                                    <TextBlock Style="{StaticResource LegendText}" Text="الشهر اللي فات" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Visibility="{Binding IsCumulativeChart, Converter={StaticResource InverseBoolToVis}}">
+                                    <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource GoldDeepBrush}" />
+                                    <TextBlock Style="{StaticResource LegendText}" Text="أعلى يوم" />
+                                </StackPanel>
+                                <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource SurfaceAltBrush}"
+                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" />
+                                <TextBlock Style="{StaticResource LegendText}" Text="إجازة" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ═══════════ 5. حالة المنتجات + إيقاع الأسبوع ═══════════ -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Style="{StaticResource PanelCard}">
+                            <StackPanel>
+                                <TextBlock Text="حالة المنتجات مقابل الإيقاع" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+
+                                <TextBlock Text="مفيش منتجات ليها خطة الشهر ده" FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}"
+                                           Visibility="{Binding HasStatusBreakdown, Converter={StaticResource InverseBoolToVis}}" />
+
+                                <StackPanel Visibility="{Binding HasStatusBreakdown, Converter={StaticResource BoolToVis}}">
+                                    <Grid Height="14">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="{Binding AheadWidth}" />
+                                                <ColumnDefinition Width="{Binding OnTrackWidth}" />
+                                                <ColumnDefinition Width="{Binding BehindWidth}" />
+                                                <ColumnDefinition Width="{Binding OutsidePlanWidth}" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Background="{DynamicResource GoldBrush}" CornerRadius="4" Margin="1.5,0" />
+                                            <Border Grid.Column="1" Background="{DynamicResource GoldDeepBrush}" CornerRadius="4" Margin="1.5,0" />
+                                            <Border Grid.Column="2" Background="{DynamicResource DangerBrush}" CornerRadius="4" Margin="1.5,0" />
+                                            <Border Grid.Column="3" Background="{DynamicResource InkFaintBrush}" CornerRadius="4" Margin="1.5,0" />
+                                        </Grid>
+
+                                    <UniformGrid Columns="4" Margin="0,16,0,0">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource GoldBrush}" />
+                                                <TextBlock Text="سابق" Style="{StaticResource KpiNote}" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding AheadCount}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        </StackPanel>
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource GoldDeepBrush}" />
+                                                <TextBlock Text="ماشي صح" Style="{StaticResource KpiNote}" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding OnTrackCount}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        </StackPanel>
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource DangerBrush}" />
+                                                <TextBlock Text="متأخر" Style="{StaticResource KpiNote}" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding BehindCount}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                                       Foreground="{DynamicResource DangerBrush}" />
+                                        </StackPanel>
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Style="{StaticResource LegendSwatch}" Background="{DynamicResource InkFaintBrush}" />
+                                                <TextBlock Text="خارج الخطة" Style="{StaticResource KpiNote}" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding OutsidePlanCount}" FontSize="22" FontWeight="Bold" Margin="0,4,0,0"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        </StackPanel>
+                                    </UniformGrid>
+
+                                    <TextBlock Text="سابق = فوق 110% من المفروض لحد النهارده · متأخر = تحت 90%" Margin="0,14,0,0"
+                                               Style="{StaticResource HintText}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1" Style="{StaticResource PanelCard}">
+                            <StackPanel>
+                                <TextBlock Text="متوسط الإنتاج حسب يوم الأسبوع" Style="{StaticResource SectionTitle}" Margin="0,0,0,4" />
+                                <TextBlock Text="{Binding WeekdayInsight}" FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,10" />
+
+                                <TextBlock Text="لسه مفيش أيام شغل متسجّلة" FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}"
+                                           Visibility="{Binding HasWeekdayData, Converter={StaticResource InverseBoolToVis}}" />
+
+                                <ItemsControl ItemsSource="{Binding Weekdays}"
+                                              Visibility="{Binding HasWeekdayData, Converter={StaticResource BoolToVis}}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Rows="1" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:StatisticsWeekdayRow}">
+                                            <StackPanel Margin="4,0">
+                                                <TextBlock Text="{Binding AverageText}" FontSize="11.5" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,4" />
+                                                <Grid Height="96">
+                                                    <Border Width="26" Height="{Binding BarHeight}" VerticalAlignment="Bottom"
+                                                            CornerRadius="5,5,0,0" ui:ThemeBrush.BackgroundKey="{Binding BarKey}" />
+                                                </Grid>
+                                                <Border Height="1" Background="{DynamicResource LineBrush}" />
+                                                <TextBlock Text="{Binding DayName}" FontSize="11.5" HorizontalAlignment="Center" Margin="0,6,0,0"
+                                                           Foreground="{DynamicResource TextMutedBrush}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- ═══════════ 6. محتاج اهتمام + الأفضل أداءً ═══════════ -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Style="{StaticResource PanelCard}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <materialDesign:PackIcon Kind="AlertOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource DangerBrush}" Margin="0,0,8,0" />
+                                    <TextBlock Text="محتاج اهتمام" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Visibility="{Binding HasNeedsAttention, Converter={StaticResource InverseBoolToVis}}">
+                                    <materialDesign:PackIcon Kind="CheckCircleOutline" Width="16" Height="16" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldDeepBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="مفيش منتجات متأخرة — كله ماشي مع الإيقاع" FontSize="12.5"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                </StackPanel>
+
+                                <ItemsControl ItemsSource="{Binding NeedsAttention}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:StatisticsProductRow}">
+                                            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,8">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                        <TextBlock FontSize="11.5" Margin="0,3,0,0" Foreground="{DynamicResource TextMutedBrush}">
+                                                            <Run Text="{Binding GapText, Mode=OneWay}" /><Run Text=" · المطلوب " /><Run Text="{Binding RequiredDailyText, Mode=OneWay}" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                    <Border Grid.Column="1" Style="{StaticResource Pill}" Margin="10,0,0,0"
+                                                            ui:ThemeBrush.BackgroundKey="{Binding StatusTintKey}">
+                                                        <TextBlock Text="{Binding PaceText}" FontWeight="Bold" FontSize="12.5" FlowDirection="LeftToRight"
+                                                                   ui:ThemeBrush.ForegroundKey="{Binding StatusInkKey}" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1" Style="{StaticResource PanelCard}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <materialDesign:PackIcon Kind="StarOutline" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldDeepBrush}" Margin="0,0,8,0" />
+                                    <TextBlock Text="الأفضل أداءً" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <TextBlock Text="لسه مفيش منتجات ليها خطة وإنتاج" FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}"
+                                           Visibility="{Binding HasTopPerformers, Converter={StaticResource InverseBoolToVis}}" />
+
+                                <ItemsControl ItemsSource="{Binding TopPerformers}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:StatisticsProductRow}">
+                                            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,8">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                        <TextBlock Text="{Binding AchievedOfPlanText}" FontSize="11.5" Margin="0,3,0,0"
+                                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                                    </StackPanel>
+                                                    <Border Grid.Column="1" Style="{StaticResource Pill}" Margin="10,0,0,0"
+                                                            ui:ThemeBrush.BackgroundKey="{Binding StatusTintKey}">
+                                                        <TextBlock Text="{Binding PaceText}" FontWeight="Bold" FontSize="12.5" FlowDirection="LeftToRight"
+                                                                   ui:ThemeBrush.ForegroundKey="{Binding StatusInkKey}" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- ═══════════ 6ب. اليدوي مقابل الحقيقي + أعلى هالك (من رحلة الإنتاج) ═══════════ -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Style="{StaticResource PanelCard}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <materialDesign:PackIcon Kind="CompareHorizontal" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource WarnBrush}" Margin="0,0,8,0" />
+                                    <TextBlock Text="اليدوي مقابل الإنتاج الحقيقي" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="منتجات الرقم اليدوي فيها بعيد عن رحلة الإنتاج بأكتر من 15% — غالبًا غلطة إدخال"
+                                           Style="{StaticResource HintText}" Margin="0,0,0,10" />
+
+                                <StackPanel Orientation="Horizontal" Visibility="{Binding HasMismatches, Converter={StaticResource InverseBoolToVis}}">
+                                    <materialDesign:PackIcon Kind="CheckCircleOutline" Width="16" Height="16" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource GoldDeepBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="الأرقام اليدوية متطابقة مع الإنتاج الحقيقي" FontSize="12.5"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                </StackPanel>
+
+                                <ItemsControl ItemsSource="{Binding Mismatches}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,8">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                        <TextBlock FontSize="11.5" Margin="0,3,0,0" Foreground="{DynamicResource TextMutedBrush}">
+                                                            <Run Text="يدوي" /> <Run Text="{Binding Manual, Mode=OneWay, StringFormat=N0}" /><Run Text=" · حقيقي" />
+                                                            <Run Text="{Binding Real, Mode=OneWay, StringFormat=N0}" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                    <Border Grid.Column="1" Style="{StaticResource Pill}" Background="{DynamicResource WarnTintBrush}" Margin="10,0,0,0">
+                                                        <TextBlock Text="{Binding Difference, StringFormat='{}{0:+#,##0;-#,##0;0}'}" FontWeight="Bold" FontSize="12.5"
+                                                                   FlowDirection="LeftToRight" Foreground="{DynamicResource WarnBrush}" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1" Style="{StaticResource PanelCard}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <materialDesign:PackIcon Kind="DeleteVariant" Width="18" Height="18" VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource DangerBrush}" Margin="0,0,8,0" />
+                                    <TextBlock Text="أعلى نسبة هالك" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="هالك ÷ (تام + هالك) على كل المراحل، من رحلة الإنتاج" Style="{StaticResource HintText}" Margin="0,0,0,10" />
+
+                                <TextBlock Text="مفيش هالك متسجّل الشهر ده" FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}"
+                                           Visibility="{Binding HasTopScrap, Converter={StaticResource InverseBoolToVis}}" />
+
+                                <ItemsControl ItemsSource="{Binding TopScrap}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:StatisticsProductRow}">
+                                            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="0,8">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0">
+                                                        <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                        <TextBlock Text="{Binding ScrapDetailText}" FontSize="11.5" Margin="0,3,0,0"
+                                                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                                    </StackPanel>
+                                                    <Border Grid.Column="1" Style="{StaticResource Pill}" Background="{DynamicResource DangerTintBrush}" Margin="10,0,0,0">
+                                                        <TextBlock Text="{Binding ScrapPercentText}" FontWeight="Bold" FontSize="12.5"
+                                                                   FlowDirection="LeftToRight" Foreground="{DynamicResource DangerBrush}" />
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- ═══════════ 7. العيلات ═══════════ -->
+                    <Border Style="{StaticResource PanelCard}" Visibility="{Binding HasFamilies, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <TextBlock Text="أداء العيلات" Style="{StaticResource SectionTitle}" Margin="0,0,0,12" />
+
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" MinWidth="140" />
+                                    <ColumnDefinition Width="3*" />
+                                    <ColumnDefinition Width="70" />
+                                    <ColumnDefinition Width="90" />
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="80" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="العيلة" Style="{StaticResource TableHeader}" />
+                                <TextBlock Grid.Column="1" Text="الإنجاز من خطة الشهر" Style="{StaticResource TableHeader}" Margin="10,0" />
+                                <TextBlock Grid.Column="2" Text="النسبة" Style="{StaticResource TableHeader}" HorizontalAlignment="Center" />
+                                <TextBlock Grid.Column="3" Text="الحالة" Style="{StaticResource TableHeader}" HorizontalAlignment="Center" />
+                                <TextBlock Grid.Column="4" Text="الوزن" Style="{StaticResource TableHeader}" HorizontalAlignment="Center" />
+                                <TextBlock Grid.Column="5" Text="الهالك" Style="{StaticResource TableHeader}" HorizontalAlignment="Center" ToolTip="هالك ÷ (تام + هالك) من رحلة الإنتاج" />
+                            </Grid>
+
+                            <ItemsControl ItemsSource="{Binding Families}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:StatisticsFamilyRow}">
+                                        <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="0,10">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="2*" MinWidth="140" />
+                                                    <ColumnDefinition Width="3*" />
+                                                    <ColumnDefinition Width="70" />
+                                                    <ColumnDefinition Width="90" />
+                                                    <ColumnDefinition Width="110" />
+                                                    <ColumnDefinition Width="80" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding FamilyName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    <TextBlock Text="{Binding ProductCountText}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                                                    <Border Height="8" CornerRadius="4" Background="{DynamicResource MeterTrackBrush}">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="{Binding CompletionColumn}" />
+                                                                <ColumnDefinition Width="{Binding CompletionRestColumn}" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Grid.Column="0" CornerRadius="4" ui:ThemeBrush.BackgroundKey="{Binding StatusInkKey}" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding AchievedOfPlanText}" FontSize="11" Margin="0,4,0,0"
+                                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="2" Text="{Binding CompletionText}" FontWeight="Bold" FlowDirection="LeftToRight" VerticalAlignment="Center"
+                                                           HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                <Border Grid.Column="3" Style="{StaticResource Pill}" HorizontalAlignment="Center"
+                                                        ui:ThemeBrush.BackgroundKey="{Binding StatusTintKey}" ToolTip="{Binding PaceText}">
+                                                    <TextBlock Text="{Binding StatusLabel}" FontSize="11.5" FontWeight="SemiBold"
+                                                               ui:ThemeBrush.ForegroundKey="{Binding StatusInkKey}" />
+                                                </Border>
+                                                <TextBlock Grid.Column="4" Text="{Binding WeightText}" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                           Foreground="{DynamicResource GoldDeepBrush}" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="5" Text="{Binding ScrapText}" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                           FlowDirection="LeftToRight" Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ═══════════ 8. مقارنة بنفس اليوم من الشهر اللي فات ═══════════ -->
+                    <Border Style="{StaticResource PanelCard}" Visibility="{Binding HasComparisons, Converter={StaticResource BoolToVis}}">
+                        <StackPanel>
+                            <TextBlock Text="مقارنة كل منتج بنفس اليوم من الشهر اللي فات" Style="{StaticResource SectionTitle}" Margin="0,0,0,12" />
+
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" MinWidth="160" />
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="90" />
+                                    <ColumnDefinition Width="100" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="المنتج" Style="{StaticResource TableHeader}" />
+                                <TextBlock Grid.Column="1" Text="الشهر ده" Style="{StaticResource TableHeader}" HorizontalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="الشهر اللي فات" Style="{StaticResource TableHeader}" HorizontalAlignment="Center" />
+                                <TextBlock Grid.Column="3" Text="الفرق" Style="{StaticResource TableHeader}" HorizontalAlignment="Center" />
+                                <TextBlock Grid.Column="4" Text="التغيير" Style="{StaticResource TableHeader}" HorizontalAlignment="Center" />
+                            </Grid>
+
+                            <ItemsControl ItemsSource="{Binding ProductComparisons}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:StatisticsProductRow}">
+                                        <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" MinWidth="160" />
+                                                    <ColumnDefinition Width="110" />
+                                                    <ColumnDefinition Width="110" />
+                                                    <ColumnDefinition Width="90" />
+                                                    <ColumnDefinition Width="100" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding ProductName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    <TextBlock Text="{Binding FamilyName}" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" Text="{Binding EffectiveAchieved, StringFormat=N0}" FontWeight="Bold"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                <TextBlock Grid.Column="2" Text="{Binding SameDayPreviousMonth, StringFormat=N0}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                                                <TextBlock Grid.Column="3" Text="{Binding DifferenceText}" FlowDirection="LeftToRight"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           ui:ThemeBrush.ForegroundKey="{Binding ChangeKey}" />
+                                                <TextBlock Grid.Column="4" Text="{Binding ChangeText}" FlowDirection="LeftToRight" FontWeight="Bold"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           ui:ThemeBrush.ForegroundKey="{Binding ChangeKey}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </Grid>
         </ScrollViewer>
     </Grid>
 </UserControl>

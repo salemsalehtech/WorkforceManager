@@ -116,6 +116,8 @@ namespace WorkforceManager.Tests
             services.AddScoped<ProductFamilyService>();
             services.AddScoped<MonthlyPlanService>();
             services.AddScoped<MonthlyPlanTrackingService>();
+            services.AddScoped<MonthlyPlanStatisticsService>();
+            services.AddScoped<MonthlyPlanStatisticsExcelService>();
             services.AddScoped<MonthlyPlanExcelService>();
             services.AddScoped<PlanPeriodService>();
             services.AddScoped<WorkerManagementService>();

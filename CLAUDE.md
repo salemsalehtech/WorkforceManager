@@ -3358,6 +3358,32 @@ Core  <----------------------- UI
   `InitializeNavIndicator` array, DI registration, `NavigableScreens.cs` entry) documented by the
   PlanPeriod-tab-merge commit's reverse of the same checklist.
 
+- **Statistics round 2: filters, 3-month trend, real production/scrap, per-worker output, morning brief.**
+  `MonthlyPlanStatisticsService.GetAsync` takes a `MonthlyPlanStatisticsFilter` (family and/or material, applied to
+  tracking rows AND every series through the same product-id set). It adds a same-day average over the last 3
+  months (months with no entries at all are skipped, not counted as 0), real production + scrap per product from
+  `ProductionChartService` (manual-vs-real mismatch list at the same 15% threshold as the daily tab's own warning),
+  and present workers per day from `Attendances` (output per present worker; disabled under a filter because
+  attendance is not per family). `Build` now takes a `MonthlyPlanStatisticsInputs` object.
+  `MonthlyPlanStatisticsExcelService` exports 4 sheets. Morning brief: `GetTodayBriefingAsync` runs once on
+  `MainWindow.Loaded` (not per navigation; see the bell comment for why), adds a bell item that opens the monthly
+  plan, and shows one `Notify.Info` toast. `StatisticsViewModel` refreshes all bindings with
+  `OnPropertyChanged(string.Empty)` on `Stats` change instead of a 50-name `NotifyPropertyChangedFor` list.
+
+- **الإحصائيات tab redesigned into a full analysis dashboard** — `MonthlyPlanStatisticsService` (Business) sums the
+  *same* `MonthlyPlanTrackingService.GetTrackingAsync` rows (no second achieved/plan computation) plus a day-by-day
+  series from `MonthlyPlanDailyEntries` + `MonthlyPlanCorrections` (previous-month series = entries only, matching
+  `SameDayPreviousMonth`); all math is pure in `MonthlyPlanStatisticsMath.Build` (tests:
+  `MonthlyPlanStatisticsServiceTests`). Screen: hero completion card with an "expected by today" marker, 8 KPI tiles
+  (pace, forecast, required daily vs current average, vs last month, best day, weight, recording consistency, behind
+  count), `PlanProgressChart` (new OnRender control — cumulative burn-up with plan/forecast/last-month lines or daily
+  bars vs planned daily rate, holidays shaded, hover tooltip; forced LTR because RTL mirrors drawn text), status
+  breakdown, weekday averages, needs-attention / top performers, family table, per-product comparison table (only
+  products with plan or activity). The old chart (real production via `ProductionChartService`) was dropped here: it
+  measured a different number than the manual "achieved" the plan uses. Percentages use
+  `StatisticsStatusKeys.Percent`, not `:P0` — the Arabic culture pattern inserts an ALM mark that renders as a box
+  inside LTR text. Progress bars are star-column Borders, not `ProgressBar` (MaterialDesign animates from 0 on load).
+
 - **الإنتاج اليومي tab regrouped into family cards, mirroring the planning tab's redesign** — was a flat
   `ItemsControl` directly over `TodayEntryRows` (every active product in one list); now
   `MonthlyPlanViewModel.TodayFamilyGroups` (built alongside `TodayEntryRows`, not replacing it — the flat
