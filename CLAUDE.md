@@ -3370,6 +3370,29 @@ Core  <----------------------- UI
   plan, and shows one `Notify.Info` toast. `StatisticsViewModel` refreshes all bindings with
   `OnPropertyChanged(string.Empty)` on `Stats` change instead of a 50-name `NotifyPropertyChangedFor` list.
 
+- **Monthly plan Excel export: factory-sheet layout, dashboard/daily sheets, protection, auto-export.** At the
+  user's explicit request (they sent the old "قسم الصنفرة" sheet), sheet 2 (`MonthlyPlanFactorySheet`, "الخطة
+  الشهرية") reproduces the factory column order: العيلة | المنتج | الخطة | المخطط | المحقق | إنتاج اليوم | Ach % |
+  نسبة المحقق | وزن القطعة | إجمالي الوزن | إجمالي الإنتاج اليومي | تصليحات, plus المطلوب يوميًا
+  (`ROUNDUP((D-E)/WorkdaysRemaining)`), نفس اليوم الشهر اللي فات and التغيير (▲/▼ number format). Family, family
+  plan and family daily total are merged cells. Only raw numbers are values; everything else (Ach %, نسبة المحقق,
+  total weight, family/material/grand totals, remaining days) is a live formula over named ranges
+  (`WorkdaysTotal`/`WorkdaysElapsed`/`WorkdaysRemaining`), so editing a plan in Excel recalculates everything. The
+  sheet is protected with no password; only raw input cells are unlocked. Deliberate deviations from the old sheet:
+  the family plan is a SUM (app rule), "إنتاج اليوم" is one column (the app records one number, not لمعة/صنفرة), and
+  المحقق includes corrections (same number as the screen). The title is "قسم {DepartmentName}" via
+  `ReportExportOptions.DepartmentName`. The previous detailed table (required daily, forecast, daily target) is kept
+  as sheet 3 `MonthlyPlanExcelService.DetailSheetName` — family +/- grouping lives there too, because Excel blocks
+  outline toggling on a protected sheet.
+  Sheet 1 **اللوحة** (`MonthlyPlanDashboardSheet`, first and active) is KPI cards plus in-cell `REPT()` bars for the
+  month, families and days — all formulas over the other sheets; ClosedXML cannot draw real charts. Sheet 4 **يوم
+  بيوم** (`MonthlyPlanDailySheet`, data from `MonthlyPlanTrackingService.GetDailyBreakdownAsync`) is products × days
+  with a colour scale and grey holiday columns. `MonthlyPlanExport.WriteAsync` (UI) is the one writer used by the
+  export button and by an automatic copy saved after sign-off
+  (`Documents\WMS تقارير\الخطة الشهرية\الخطة الشهرية yyyy-MM-dd.xlsx`). There is no PDF library in the project:
+  `MonthlyPlanPrint` builds a FlowDocument and opens the Windows print dialog, where "Microsoft Print to PDF"
+  produces the PDF.
+
 - **الإحصائيات tab redesigned into a full analysis dashboard** — `MonthlyPlanStatisticsService` (Business) sums the
   *same* `MonthlyPlanTrackingService.GetTrackingAsync` rows (no second achieved/plan computation) plus a day-by-day
   series from `MonthlyPlanDailyEntries` + `MonthlyPlanCorrections` (previous-month series = entries only, matching

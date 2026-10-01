@@ -34,6 +34,9 @@ namespace WorkforceManager.Business.Services
         private const int ColForecast = 10;
         private const int ColWeightKg = 11;
 
+        /// <summary>اسم شيت الجدول التفصيلي (التاني) — الأول هو شيت المصنع</summary>
+        public const string DetailSheetName = "تفاصيل";
+
         private static readonly string[] Headers =
         {
             "المنتج", "مخطط الشهر", "محقق", "تصليحات", "Ach %", "نسبة المحقق",
@@ -42,7 +45,7 @@ namespace WorkforceManager.Business.Services
 
         public void Export(
             List<MonthlyPlanTrackingDto> tracking, string monthLabel, string filePath,
-            ReportExportOptions? options = null)
+            ReportExportOptions? options = null, MonthlyPlanDailyBreakdownDto? daily = null)
         {
             if (tracking.Count == 0)
                 throw new InvalidOperationException("مفيش بيانات في الخطة الشهرية دي للتصدير");
@@ -50,11 +53,16 @@ namespace WorkforceManager.Business.Services
             options ??= new ReportExportOptions();
 
             using var workbook = new XLWorkbook();
-            var sheet = workbook.Worksheets.Add(ReportTableExcelService.SheetName("الخطة الشهرية", workbook));
+
+            // الشيت الأول: نفس أعمدة شيت المصنع وترتيبه بمعادلات حية، شوف MonthlyPlanFactorySheet
+            var layout = MonthlyPlanFactorySheet.Write(workbook, tracking, monthLabel, options);
+
+            // الشيت التاني: الجدول التفصيلي (المطلوب يوميًا، التوقّع، الخطة اليومية...) — أرقام مش موجودة في شيت المصنع
+            var sheet = workbook.Worksheets.Add(ReportTableExcelService.SheetName(DetailSheetName, workbook));
             sheet.RightToLeft = true;
 
             var lastColumn = Headers.Length;
-            var row = ReportTableExcelService.WriteTitleBlock(sheet, lastColumn, "الخطة الشهرية", monthLabel, options);
+            var row = ReportTableExcelService.WriteTitleBlock(sheet, lastColumn, "الخطة الشهرية — تفاصيل", monthLabel, options);
 
             var headerRow = row;
             for (var c = 0; c < Headers.Length; c++)
@@ -98,11 +106,15 @@ namespace WorkforceManager.Business.Services
                     sheet.Cell(row, 1).Style.Font.SetBold().Font.SetFontColor(ReportTableExcelService.AccentColor);
                     row++;
 
+                    var familyFirstRow = row;
                     foreach (var p in products.OrderBy(p => p.ProductName))
                     {
                         WriteProductRow(sheet, row, p);
                         row++;
                     }
+
+                    // زرار +/− على جنب: تقفل العيلة وتفضل شايف صف إجماليها بس
+                    sheet.Rows(familyFirstRow, row - 1).Group();
 
                     WriteSubtotalRow(sheet, row, products, label: $"إجمالي {familyName}");
                     row++;
@@ -120,6 +132,14 @@ namespace WorkforceManager.Business.Services
             var lastRow = row;
 
             ReportTableExcelService.Finish(sheet, headerRow, lastRow, lastColumn, firstColumnWidth: 26);
+
+            // يوم بيوم (لو البيانات اتبعتت) واللوحة في الأول — اللوحة معادلات على الشيتين التانيين
+            (int, int, int)? dailyLayout = daily is null
+                ? null
+                : MonthlyPlanDailySheet.Write(workbook, tracking, daily, monthLabel, options);
+            MonthlyPlanDashboardSheet.Write(workbook, layout, monthLabel, options, dailyLayout,
+                daily is null ? DateTime.Today : new DateTime(daily.Year, daily.Month, 1));
+
             workbook.SaveAs(filePath);
         }
 
