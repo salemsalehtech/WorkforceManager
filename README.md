@@ -1,80 +1,105 @@
-# نظام إدارة إنتاجية وأجور العمال — WorkforceManager
+<div align="center">
 
-تطبيق سطح مكتب (WPF) لإدارة العمال ومهاراتهم، والمنتجات ومراحل تصنيعها،
-وتسجيل الإنتاج اليومي مع حساب الأجور تلقائيًا وتقييم الأداء.
+<img src="docs/logo.png" alt="شعار إدارة قسم الصنفرة" width="120" />
 
-## هيكل المشروع (Clean Architecture مبسّطة)
+# إدارة قسم الصنفرة
 
-```
-WorkforceManager/
-├── WorkforceManager.Core/         # النماذج (Models) + الواجهات المجردة (Interfaces) — مفيش أي اعتماد على EF Core أو WPF
-│   ├── Models/                    # Worker, Product, ProductionStage, WorkerSkill, DailyProduction
-│   ├── Enums/                     # SkillLevel
-│   └── Interfaces/                # IGenericRepository, IWorkerRepository, IProductRepository, IDailyProductionRepository
-│
-├── WorkforceManager.Data/         # طبقة الوصول لقاعدة البيانات (EF Core + SQLite)
-│   ├── AppDbContext.cs            # إعداد العلاقات بين الجداول
-│   ├── Repositories/              # تنفيذ الـ Interfaces
-│   └── Migrations/                # هتتولد تلقائيًا بأمر dotnet ef
-│
-├── WorkforceManager.Business/     # منطق الأعمال (حساب الأجر، تقييم الأداء)
-│   ├── Services/                  # WageCalculationService, PerformanceEvaluationService
-│   └── DTOs/                      # WorkerDailySummaryDto, StageBreakdownDto
-│
-├── WorkforceManager.UI/           # واجهة WPF (MVVM + Material Design)
-│   ├── Views/                     # الشاشات (تُبنى في الخطوة القادمة)
-│   ├── ViewModels/                # منطق كل شاشة (CommunityToolkit.Mvvm)
-│   ├── App.xaml(.cs)              # إعداد Dependency Injection وربط كل الطبقات
-│   └── MainWindow.xaml(.cs)       # القائمة الرئيسية والتنقل بين الشاشات
-│
-└── WorkforceManager.sln
-```
+**WorkforceManager** — برنامج سطح مكتب لإدارة قسم صنفرة الحنفيات والمحابس:
+العمال ويومياتهم، المنتجات ومراحل تصنيعها، خطة الإنتاج الشهرية، والأجور.
 
-## لماذا الهيكل ده؟
+![Version](https://img.shields.io/badge/version-3.0.0-C2A14D)
+![.NET](https://img.shields.io/badge/.NET-8-512BD4)
+![WPF](https://img.shields.io/badge/UI-WPF-342E28)
+![SQLite](https://img.shields.io/badge/DB-SQLite-003B57)
+![Offline](https://img.shields.io/badge/works-offline-2E7D32)
 
-- **Core** مفيهوش أي اعتماد على قاعدة بيانات أو واجهة — تقدر تغيّر SQLite لـ SQL Server مستقبلًا من غير ما تلمس النماذج أو منطق الأعمال.
-- **Data** مسؤولة بس عن الحفظ والاسترجاع، مفيهاش أي قرار عمل (Business Decision).
-- **Business** فيها كل القواعد الحسابية (حساب الأجر، تصنيف الأداء) في مكان واحد، قابلة للاختبار بمعزل عن الواجهة.
-- **UI** بتستهلك الطبقات التانية بس عن طريق Dependency Injection، مفيهاش أي منطق حسابي مكتوب جوه كود الشاشة.
+</div>
 
-## متطلبات التشغيل على جهازك
+---
 
-1. **.NET 8 SDK** — تحميل من: https://dotnet.microsoft.com/download/dotnet/8.0
-2. **Visual Studio 2022** (أي إصدار حتى Community المجاني) مع الحزمة Workload:
-   - ".NET Desktop Development"
+## البرنامج بيعمل إيه؟
 
-## خطوات التشغيل لأول مرة
+بيسجّل شغل القسم يوم بيوم: مين اشتغل على أنهي مرحلة من أنهي منتج وكام قطعة، ومن الأرقام دي
+بيطلّع يوميات كل عامل وأجره، وبيتابع المصنع ماشي إزاي في خطة الشهر. كل البيانات على نفس
+الجهاز (مفيش سيرفر ولا إنترنت)، والواجهة كلها عربي.
 
+## الشاشات
+
+البرنامج مقسوم لأربع أقسام في الشريط العلوي، وكل قسم بيفتح على كروت تختار منها الصفحة:
+
+| القسم | جوّاه |
+|---|---|
+| **الرئيسية** | ملخص الأسبوع (القطع المكتملة، اليوميات، أحسن وأقل عامل)، تنبيهات النهارده، تقدّم خطة الشهر |
+| **إدارة العمال** | العمال ومهاراتهم (تقييم بالنجوم لكل مرحلة) · الحضور والغياب · الجزاءات · السلف والحوافز · تقييم ومتابعة العمال · تقارير العمال (أجور وإنتاج، طباعة وإكسل) |
+| **إدارة الإنتاج** | المنتجات ومراحلها وعائلاتها · **الإنتاج الشهري للمنتجات** (التخطيط، الإنتاج اليومي، الإحصائيات، تصدير شيت المصنع) · **تسجيل يوميات العمال** (إنتاج العمال اليوم، الرصيد الأولي، مراجعة اليوم، خطط الإنتاج المحفوظة، الهالك) |
+| **المزيد** | الحساب وتسجيل الخروج · حفظ نهائي (توقيع اليوم) · الإعدادات: الحماية، الحسابات الإدارية، النسخ الاحتياطي، الهوية والمظهر، الدليل |
+
+### حاجات بتسهّل الشغل اليومي
+
+- **بحث ذكي (Ctrl+K):** يدوّر في كل حاجة، ويجاوب أسئلة مباشرة زي «حضور النهارده» أو «المتأخر في الخطة»
+  أو «هالك امبارح»، ويفهم أوامر زي «سجّل غياب أحمد» أو «أضف عامل».
+- **شاشة العمال على المراحل:** كل مراحل المنتج قدامك مرة واحدة وإنت بتوزّع العمال، والمؤشر بينقل للمرحلة اللي بعدها لوحده.
+- **التنقل بالأسهم ↑/↓** بين خانات الإدخال زي إكسل، و Enter للي بعده.
+- **شيت الإنتاج الشهري** بنفس شكل شيت المصنع، والعائلات بالترتيب اللي تختاره.
+- **حماية العمليات الحساسة** بكلمة سر منفصلة، وحذف ناعم بسجل لكل عملية.
+- **نسخ احتياطي** تلقائي كل يوم + نسخة خارجية على فلاشة + استرجاع.
+
+## التسطيب عند العميل
+
+1. شغّل `WorkforceManager-Setup-v3.0.0.exe` واضغط Next لحد ما يخلص — كل المتطلبات جوّاه.
+2. البيانات بتتحفظ في `C:\ProgramData\WorkforceManager\workforce.db`، بعيد عن فولدر البرنامج.
+
+**التحديث لإصدار جديد:** خد نسخة احتياطية من الإعدادات، اقفل البرنامج، وشغّل السيتب الجديد.
+البرنامج بيفتح على نفس البيانات ويحدّث قاعدة البيانات لوحده، ومش بيمسحها حتى لو اتشال البرنامج.
+
+## للمطوّرين
+
+### المتطلبات
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) على Windows
+- Visual Studio 2022 أو VS Code (اختياري)
+- [Inno Setup 6](https://jrsoftware.org/isinfo.php) لبناء ملف التثبيت بس
+
+### التشغيل
 ```bash
-# من داخل مجلد WorkforceManager
 dotnet restore
-
-# تثبيت أداة EF Core (مرة واحدة بس على جهازك)
-dotnet tool install --global dotnet-ef
-
-# إنشاء أول Migration (توليد جداول قاعدة البيانات من النماذج)
-dotnet ef migrations add InitialCreate --project WorkforceManager.Data --startup-project WorkforceManager.UI
-
-# تشغيل التطبيق (هينشئ قاعدة البيانات SQLite تلقائيًا أول مرة)
-dotnet run --project WorkforceManager.UI
+dotnet run --project WorkforceManager.UI   # بيعمل قاعدة البيانات ويحدّثها لوحده أول ما يفتح
+dotnet test                                # اختبارات المنطق + اختبارات الواجهة (WPF حقيقي)
 ```
 
-قاعدة البيانات هتتخزن في:
-`C:\Users\<اسم المستخدم>\AppData\Local\WorkforceManager\workforce.db`
+تغيير في الموديلات محتاج migration:
+```bash
+dotnet tool install --global dotnet-ef
+dotnet ef migrations add <Name> --project WorkforceManager.Data --startup-project WorkforceManager.UI
+```
 
-## الحالة الحالية
+### بناء نسخة للتوزيع
+```powershell
+.\publish.ps1 -Mode Installer                       # ملف تثبيت واحد → dist\WorkforceManager-Setup-v<الإصدار>.exe
+.\publish.ps1 -Mode Installer -SeedDatabase "<نسخة احتياطية.db>"   # نفس الحاجة ومعاها بيانات مبدئية
+.\publish.ps1                                       # فولدر محمول + zip
+.\clean.ps1                                         # مسح كل ملفات البناء
+```
+رقم الإصدار في مكان واحد: `Directory.Build.props` (`<Version>`).
 
-- [x] النماذج الأربعة الأساسية (Worker, Product, ProductionStage, DailyProduction) + جدول الربط WorkerSkill
-- [x] طبقة قاعدة البيانات (AppDbContext + Repositories)
-- [x] خدمات منطق الأعمال (حساب الأجر + تقييم الأداء مقارنة بالمتوسط)
-- [x] هيكل واجهة WPF أساسي (Shell + Navigation + DI)
-- [ ] بناء الشاشات الفعلية (Views): العمال، المنتجات، تسجيل الإنتاج، التقارير
-- [ ] استيراد بيانات العمال والمنتجات من ملفات Excel
-- [ ] نظام نسخ احتياطي تلقائي لقاعدة البيانات
-- [ ] تصدير التقارير PDF
+### هيكل المشروع
 
-## ملاحظة مهمة
+```
+Core  ←  Data  ←  Business  ←  UI
+```
 
-هذا الهيكل جاهز 100% للفتح مباشرة في Visual Studio والبناء عليه. الخطوة
-القادمة المنطقية هي بناء الشاشات (Views) الأربعة بالترتيب: العمال ← المنتجات
-← تسجيل الإنتاج ← التقارير.
+| المشروع | دوره |
+|---|---|
+| `WorkforceManager.Core` | الموديلات والـ enums والـ interfaces ودوال حساب نقية — من غير أي اعتماد على EF أو WPF |
+| `WorkforceManager.Data` | EF Core + SQLite: `AppDbContext`، الـ repositories، الـ migrations، مكان ملف البيانات |
+| `WorkforceManager.Business` | كل قواعد الشغل: حساب اليوميات والأجور، الحضور، الخطة الشهرية، التقارير، البحث |
+| `WorkforceManager.UI` | WPF بنمط MVVM (CommunityToolkit.Mvvm) + MaterialDesign، والـ DI في `App.xaml.cs` |
+| `WorkforceManager.Tests` | اختبارات xUnit على SQLite حقيقي (مش InMemory) |
+| `WorkforceManager.UiTests` | بتفتح كل ملفات XAML فعليًا وبتختبر الديالوجات والكيبورد على خيط WPF واحد |
+
+التفاصيل الكاملة لكل قرار تصميم في [`CLAUDE.md`](CLAUDE.md).
+
+## سجل الإصدارات
+
+**3.0.0** — شريط تنقل علوي بدل القايمة الجانبية، نظام كروت لكل قسم، بحث ذكي بالأسئلة والأوامر،
+شاشة كاملة لتوزيع العمال على المراحل، التنقل بالأسهم، ترتيب العائلات في شيت الإكسل، حذف الخطة
+بيمسح الإنتاج اليومي المرتبط بيها، تصحيح عدّاد القطع المكتملة، اسم وشعار جديد.
