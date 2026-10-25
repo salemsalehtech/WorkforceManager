@@ -1,5 +1,5 @@
 ﻿; ══════════════════════════════════════════════════════════════════════
-;  ملف تثبيت — نظام إدارة إنتاجية وأجور العمال
+;  ملف تثبيت — إدارة قسم الصنفرة
 ;
 ;  مبيتبنيش بإيده: publish.ps1 -Mode Installer هو اللي بينشر البرنامج
 ;  الأول وبعدين بينادي ISCC.exe ويمرّر له AppVersion و AppDir و OutDir
@@ -30,7 +30,7 @@
   #define OutDir "..\dist"
 #endif
 
-#define AppName "نظام إدارة إنتاجية وأجور العمال"
+#define AppName "إدارة قسم الصنفرة"
 #define AppExeName "WorkforceManager.exe"
 ; غيّر السطر ده لاسمك أو اسم شركتك — بيظهر في "إضافة أو إزالة البرامج"
 #define AppPublisher "WorkforceManager"

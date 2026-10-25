@@ -31,15 +31,19 @@ namespace WorkforceManager.UI.Tour
     {
         public static IReadOnlyList<NavigableScreen> Entries { get; } = new List<NavigableScreen>
         {
-            new() { Title = "العمال", NavItemName = "NavWorkersItem" },
+            new() { Title = "إدارة العمال", NavItemName = "NavWorkersItem" },
+            new() { Title = "الحضور والغياب", NavItemName = "NavAttendanceItem" },
+            new() { Title = "الجزاءات", NavItemName = "NavPenaltiesItem" },
+            new() { Title = "السلف والحوافز", NavItemName = "NavAdjustmentsItem" },
+            new() { Title = "إدارة الإنتاج", NavItemName = "NavProductionItem" },
             new() { Title = "المنتجات والمراحل", NavItemName = "NavProductsItem" },
-            new() { Title = "الخطة الشهرية", NavItemName = "NavMonthlyPlanItem" },
-            new() { Title = "تسجيل الإنتاج اليومي", NavItemName = "NavDailyEntryItem" },
-            new() { Title = "الذاكرة", NavItemName = "NavMemoryItem" },
-            new() { Title = "التقييم والمتابعة", NavItemName = "NavEvaluationItem" },
-            new() { Title = "التقارير", NavItemName = "NavReportsItem" },
+            new() { Title = "الإنتاج الشهري للمنتجات", NavItemName = "NavMonthlyPlanItem" },
+            new() { Title = "تسجيل يوميات العمال", NavItemName = "NavDailyEntryItem" },
+            new() { Title = "خطط الإنتاج المحفوظة", NavItemName = "NavMemoryItem" },
+            new() { Title = "تقييم ومتابعة العمال", NavItemName = "NavEvaluationItem" },
+            new() { Title = "تقارير العمال", NavItemName = "NavReportsItem" },
             new() { Title = "سجل العمليات", NavItemName = "NavActivityLogItem" },
-            new() { Title = "الإعدادات والنسخ", NavItemName = "NavSettingsItem" },
+            new() { Title = "الإعدادات", NavItemName = "NavSettingsItem" },
             new() { Title = "الحسابات الإدارية", NavItemName = "NavDepartmentAccountsItem" },
             new() { Title = "الدليل", NavItemName = "NavHelpItem" },
         };

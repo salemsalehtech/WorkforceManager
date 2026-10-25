@@ -40,17 +40,12 @@ namespace WorkforceManager.Business.Services
         private const int ColTotalWeight = 10;
         private const int ColFamilyToday = 11;
         private const int ColCorrections = 12;
-        // أعمدة زيادة بعد ترتيب شيت المصنع — مش موجودة في الشيت القديم
-        private const int ColRequired = 13;
-        private const int ColPrevious = 14;
-        private const int ColChange = 15;
-        private const int LastColumn = ColChange;
+        private const int LastColumn = ColCorrections;
 
         private static readonly string[] Headers =
         {
             "العيلة", "المنتج", "الخطة", "المخطط", "المحقق", "إنتاج اليوم", "Ach %", "نسبة المحقق",
-            "وزن القطعة (كجم)", "إجمالي الوزن (كجم)", "إجمالي الإنتاج اليومي", "تصليحات",
-            "المطلوب يوميًا", "نفس اليوم الشهر اللي فات", "التغيير"
+            "وزن القطعة (كجم)", "إجمالي الوزن (كجم)", "إجمالي الإنتاج اليومي", "تصليحات"
         };
 
         // ألوان شيت المصنع اللي اتعوّدوا عليها — بس أهدى شوية
@@ -65,10 +60,9 @@ namespace WorkforceManager.Business.Services
         private const string WholeNumber = "#,##0";
         private const string Percent = "0%";
 
-        public static Layout Write(XLWorkbook workbook, List<MonthlyPlanTrackingDto> tracking, string periodText, ReportExportOptions options)
+        public static void Write(XLWorkbook workbook, List<MonthlyPlanTrackingDto> tracking, string periodText, ReportExportOptions options)
         {
             var sheet = workbook.Worksheets.Add(ReportTableExcelService.SheetName(SheetName, workbook));
-            var familyRows = new List<(string, int, int)>();
             sheet.RightToLeft = true;
 
             var title = string.IsNullOrWhiteSpace(options.DepartmentName) ? "الخطة الشهرية" : $"قسم {options.DepartmentName!.Trim()}";
@@ -102,7 +96,9 @@ namespace WorkforceManager.Business.Services
 
                 var families = material
                     .GroupBy(p => p.FamilyName ?? MonthlyPlanStatisticsFilter.NoFamily)
-                    .OrderBy(g => g.Key == MonthlyPlanStatisticsFilter.NoFamily ? 1 : 0).ThenBy(g => g.Key);
+                    .OrderBy(g => g.Key == MonthlyPlanStatisticsFilter.NoFamily ? 1 : 0)
+                    .ThenBy(g => g.Min(p => p.FamilySortOrder)) // ترتيب العائلات اللي المستخدم اختاره (إدارة العائلات)
+                    .ThenBy(g => g.Key);
 
                 foreach (var family in families)
                 {
@@ -113,7 +109,6 @@ namespace WorkforceManager.Business.Services
                         row++;
                     }
                     MergeFamilyCells(sheet, family.Key, familyFirstRow, row - 1);
-                    familyRows.Add((family.Key, familyFirstRow, row - 1));
                 }
 
                 materialTotalRows.Add(row);
@@ -134,9 +129,6 @@ namespace WorkforceManager.Business.Services
                 paceRange.AddConditionalFormat().WhenBetween(0.0000001, 0.8999999).Fill.SetBackgroundColor(BehindFill);
                 paceRange.AddConditionalFormat().WhenGreaterThan(1.1).Fill.SetBackgroundColor(AheadFill);
                 sheet.Range(firstDataRow, ColAch, grandRow, ColAch).AddConditionalFormat().DataBar(XLColor.FromHtml("#C2A14D"));
-                var change = sheet.Range(firstDataRow, ColChange, grandRow, ColChange);
-                change.AddConditionalFormat().WhenLessThan(0).Font.SetFontColor(XLColor.FromHtml("#A0342A"));
-                change.AddConditionalFormat().WhenGreaterThan(0).Font.SetFontColor(XLColor.FromHtml("#3A7D2C"));
             }
 
             var lastTableRow = row - 1;
@@ -168,49 +160,12 @@ namespace WorkforceManager.Business.Services
                 .AllowElement(XLSheetProtectionElements.FormatRows)
                 .AllowElement(XLSheetProtectionElements.SelectEverything);
 
-            var layout = new Layout { SheetName = sheet.Name, GrandRow = grandRow };
-            layout.Families.AddRange(familyRows);
-            return layout;
         }
 
         private static string Ref(int column, int row) => XLHelper.GetColumnLetterFromNumber(column) + row;
 
         /// <summary>الأرقام الخام — الوحيدة اللي مش مقفولة بعد حماية الشيت</summary>
-        private static readonly int[] InputColumns = { ColPlan, ColAchieved, ColToday, ColPieceWeight, ColCorrections, ColPrevious };
-
-        /// <summary>
-        /// المطلوب يوميًا = (المخطط − المحقق) ÷ باقي الأيام مقرّب لفوق (نفس MonthlyPlanFamilyMath)،
-        /// والتغيير عن نفس اليوم الشهر اللي فات بسهم ▲/▼ من تنسيق الرقم نفسه
-        /// </summary>
-        private static void WriteRequiredAndChange(IXLWorksheet sheet, int row)
-        {
-            var plan = Ref(ColPlan, row);
-            var achieved = Ref(ColAchieved, row);
-            var previous = Ref(ColPrevious, row);
-            sheet.Cell(row, ColRequired).FormulaA1 =
-                $"IF(OR({plan}=0,WorkdaysRemaining=0),\"\",MAX(0,ROUNDUP(({plan}-{achieved})/WorkdaysRemaining,0)))";
-            sheet.Cell(row, ColRequired).Style.NumberFormat.Format = WholeNumber;
-            sheet.Cell(row, ColChange).FormulaA1 = $"IF({previous}=0,\"\",{achieved}/{previous}-1)";
-            sheet.Cell(row, ColChange).Style.NumberFormat.Format = "▲ 0%;▼ 0%;0%";
-        }
-
-        /// <summary>أماكن الصفوف المهمة — شيت "اللوحة" بيبني معادلاته عليها</summary>
-        public class Layout
-        {
-            public string SheetName { get; init; } = "";
-            public int GrandRow { get; init; }
-            public List<(string Family, int FirstRow, int LastRow)> Families { get; } = new();
-
-            public string Cell(int column, int row) => $"'{SheetName}'!{XLHelper.GetColumnLetterFromNumber(column)}{row}";
-            public string PlanCol => XLHelper.GetColumnLetterFromNumber(ColPlan);
-            public string AchievedCol => XLHelper.GetColumnLetterFromNumber(ColAchieved);
-            public string FamilyPlanColumnRange(int first, int last) =>
-                $"'{SheetName}'!{XLHelper.GetColumnLetterFromNumber(ColPlan)}{first}:{XLHelper.GetColumnLetterFromNumber(ColPlan)}{last}";
-            public string FamilyAchievedColumnRange(int first, int last) =>
-                $"'{SheetName}'!{XLHelper.GetColumnLetterFromNumber(ColAchieved)}{first}:{XLHelper.GetColumnLetterFromNumber(ColAchieved)}{last}";
-
-            public const int Plan = ColPlan, Achieved = ColAchieved, ProRated = ColProRated, Today = ColToday, Required = ColRequired, Weight = ColTotalWeight;
-        }
+        private static readonly int[] InputColumns = { ColPlan, ColAchieved, ColToday, ColPieceWeight, ColCorrections };
 
         private static void WriteProductRow(IXLWorksheet sheet, int row, MonthlyPlanTrackingDto p)
         {
@@ -229,10 +184,7 @@ namespace WorkforceManager.Business.Services
                 $"IF(OR({plan}=0,WorkdaysElapsed=0),\"\",{achieved}/({plan}*WorkdaysElapsed/WorkdaysTotal))";
             sheet.Cell(row, ColTotalWeight).FormulaA1 = $"IF({weight}=\"\",\"\",{achieved}*{weight})";
 
-            sheet.Cell(row, ColPrevious).Value = p.SameDayPreviousMonth ?? 0;
-            WriteRequiredAndChange(sheet, row);
-
-            foreach (var c in new[] { ColPlan, ColAchieved, ColToday, ColCorrections, ColPrevious })
+            foreach (var c in new[] { ColPlan, ColAchieved, ColToday, ColCorrections })
                 sheet.Cell(row, c).Style.NumberFormat.Format = WholeNumber;
 
             // الخانات الخام بس اللي تتعدّل — المعادلات مقفولة (حماية الشيت في Write)
@@ -277,7 +229,7 @@ namespace WorkforceManager.Business.Services
             var labelCell = sheet.Range(row, ColFamily, row, ColProduct).Merge();
             labelCell.Value = label;
 
-            foreach (var c in new[] { ColFamilyPlan, ColPlan, ColAchieved, ColToday, ColTotalWeight, ColFamilyToday, ColCorrections, ColPrevious })
+            foreach (var c in new[] { ColFamilyPlan, ColPlan, ColAchieved, ColToday, ColTotalWeight, ColFamilyToday, ColCorrections })
             {
                 sheet.Cell(row, c).FormulaA1 = sumFormula(c);
                 sheet.Cell(row, c).Style.NumberFormat.Format = c == ColTotalWeight ? "#,##0.0" : WholeNumber;
@@ -290,7 +242,6 @@ namespace WorkforceManager.Business.Services
                 $"IF(OR({plan}=0,WorkdaysElapsed=0),\"\",{achieved}/({plan}*WorkdaysElapsed/WorkdaysTotal))";
             sheet.Cell(row, ColAch).Style.NumberFormat.Format = Percent;
             sheet.Cell(row, ColProRated).Style.NumberFormat.Format = Percent;
-            WriteRequiredAndChange(sheet, row);
 
             var range = sheet.Range(row, ColFamily, row, LastColumn);
             range.Style.Font.SetBold();

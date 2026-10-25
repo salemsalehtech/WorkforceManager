@@ -144,7 +144,7 @@
                 <UniformGrid.RenderTransform><TranslateTransform Y="14" /></UniformGrid.RenderTransform>
 
                 <Button Style="{StaticResource HomeClickCard}" Click="Pieces_Click"
-                        ToolTip="افتح رسم إنتاج المنتجات في التقييم والمتابعة">
+                        ToolTip="افتح رسم إنتاج المنتجات في تقييم ومتابعة العمال">
                     <Border Style="{StaticResource HomeCard}">
                         <StackPanel>
                             <DockPanel>
@@ -232,7 +232,7 @@
                         <StackPanel>
                             <materialDesign:PackIcon Kind="PlayCircleOutline" Width="26" Height="26"
                                                      Foreground="{DynamicResource InkOnAccentBrush}" />
-                            <TextBlock Text="تسجيل الإنتاج اليومي" Margin="0,10,0,0" FontWeight="Bold"
+                            <TextBlock Text="تسجيل يوميات العمال" Margin="0,10,0,0" FontWeight="Bold"
                                        FontSize="{DynamicResource FontBase}" Foreground="{DynamicResource InkOnAccentBrush}"
                                        TextWrapping="Wrap" />
                             <TextBlock Text="ابدأ يوم جديد: إنتاج، حضور، جزاءات" Margin="0,4,0,0" TextWrapping="Wrap"
@@ -312,7 +312,7 @@
                 <!-- الرسم: نفس ProductOutputChart + ProductionChartService بتوع التقييم،
                      أسبوع الشغل الحالي يوم بيوم، من غير فلتر ولا مدة -->
                 <Button x:Name="ChartCard" Style="{StaticResource HomeClickCard}" Click="Pieces_Click"
-                        ToolTip="افتح رسم إنتاج المنتجات كامل في التقييم والمتابعة">
+                        ToolTip="افتح رسم إنتاج المنتجات كامل في تقييم ومتابعة العمال">
                     <Border Style="{StaticResource HomeCard}">
                         <DockPanel>
                             <DockPanel DockPanel.Dock="Top">
@@ -479,7 +479,7 @@
 
                 <!-- خطة الشهر: نسبة محقق إجمالية لحد النهارده (MonthlyPlanTrackingService،
                      نفس صيغة نسبة المحقق في شاشة الخطة الشهرية) — الضغط بيفتح الشاشة -->
-                <Button Style="{StaticResource HomeClickCard}" Click="MonthlyPlan_Click" ToolTip="افتح الخطة الشهرية">
+                <Button Style="{StaticResource HomeClickCard}" Click="MonthlyPlan_Click" ToolTip="افتح الإنتاج الشهري للمنتجات">
                     <Border Style="{StaticResource HomeCard}">
                         <StackPanel>
                             <DockPanel>
@@ -488,13 +488,13 @@
                                                              HorizontalAlignment="Center" VerticalAlignment="Center"
                                                              Foreground="{DynamicResource GoldBrush}" />
                                 </Border>
-                                <TextBlock Text="الخطة الشهرية" Margin="10,0,0,0" Style="{StaticResource CardLabel}" />
+                                <TextBlock Text="الإنتاج الشهري للمنتجات" Margin="10,0,0,0" Style="{StaticResource CardLabel}" />
                             </DockPanel>
                             <TextBlock Text="{Binding MonthlyPlanPercentText}" Margin="0,12,0,0"
                                        FontSize="{DynamicResource FontTitle}" FontWeight="Bold"
                                        Foreground="{DynamicResource TextPrimaryBrush}"
                                        Visibility="{Binding HasMonthlyPlanData, Converter={StaticResource BoolToVis}}" />
-                            <TextBlock Text="محقق من الخطة الشهرية" Style="{StaticResource CardLabel}" FontWeight="Normal"
+                            <TextBlock Text="محقق من الإنتاج الشهري" Style="{StaticResource CardLabel}" FontWeight="Normal"
                                        Visibility="{Binding HasMonthlyPlanData, Converter={StaticResource BoolToVis}}" />
                             <TextBlock Text="لسه مفيش خطة مسجّلة الشهر ده" Margin="0,12,0,0" TextWrapping="Wrap"
                                        Style="{StaticResource CardLabel}" FontWeight="Normal"

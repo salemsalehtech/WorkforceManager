@@ -47,6 +47,7 @@ namespace WorkforceManager.UI.ViewModels
         public DailyEntryViewModel(IServiceScopeFactory scopeFactory)
         {
             _scopeFactory = scopeFactory;
+            InitializeFlowAccordion();
 
             // خيارات الخصم الثابتة لقائمة الجزاءات
             DeductionOptions = new List<DeductionOption>
@@ -67,6 +68,19 @@ namespace WorkforceManager.UI.ViewModels
         /// </summary>
         [ObservableProperty]
         private int _selectedTabIndex;
+
+        /// <summary>
+        /// بيتنادى كل ما حد يطلب تبويب معيّن برمجيًا (OpenTab) حتى لو هو نفسه المختار أصلًا —
+        /// الشاشة بتسمعه وتفتح الصفحة من صفحة الكروت. SelectedTabIndex لوحدها مش كفاية: مابتتغيّرش لو الرقم زي ما هو.
+        /// </summary>
+        public event Action? TabRequested;
+
+        public void OpenTab(int index)
+        {
+            IsWorkersMode = false;
+            SelectedTabIndex = index;
+            TabRequested?.Invoke();
+        }
 
         /// <summary>المنتجات النشطة بمراحلها — لـ ComboBox تبويب الرصيد الأولي (للقراءة بس)</summary>
         public IReadOnlyList<ProductOption> Products => _products;
@@ -183,16 +197,8 @@ namespace WorkforceManager.UI.ViewModels
         /// </summary>
         // ترتيب التبويبات في DailyEntryView.xaml — مكان واحد بس للأرقام دي
         public const int ProductionTab = 0;
-        public const int AttendanceTab = 3;
-        public const int PenaltiesTab = 4;
-        public const int AdjustmentsTab = 5;
-
-        public static int TabIndexFor(DailyEntryWorkerTarget target) => target switch
-        {
-            DailyEntryWorkerTarget.Penalty => PenaltiesTab,
-            DailyEntryWorkerTarget.Adjustment => AdjustmentsTab,
-            _ => AttendanceTab
-        };
+        public const int MemoryTab = 3;
+        // الحضور والجزاءات والسلف مبقوش تبويبات هنا — بقوا تبويبات في إدارة العمال (AttendanceView وPenaltiesView وAdjustmentsView)
 
         /// <summary>
         /// "سجّل حضور/جزاء/سلفة" من كارت العامل: التبويب المطلوب والعامل متحدد
@@ -203,7 +209,6 @@ namespace WorkforceManager.UI.ViewModels
         public async Task FocusWorkerAsync(int workerId, string workerName, DailyEntryWorkerTarget target)
         {
             await InitializeAsync();
-            SelectedTabIndex = TabIndexFor(target);
 
             var row = AttendanceRows.FirstOrDefault(r => r.WorkerId == workerId);
             switch (target)
@@ -312,6 +317,73 @@ namespace WorkforceManager.UI.ViewModels
         // ======================= قسم رحلات الإنتاج (منتج أو أكتر في اليوم) =======================
 
         public ObservableCollection<FlowSessionViewModel> FlowSessions { get; } = new();
+
+        /// <summary>
+        /// الرحلة المفتوحة دلوقتي (أكورديون: واحدة بس) — شريط الحفظ الثابت تحت بيشتغل عليها.
+        /// null لو كلهم مطويين أو مفيش رحلات.
+        /// </summary>
+        public FlowSessionViewModel? ActiveFlow => FlowSessions.FirstOrDefault(s => s.IsExpanded);
+
+        /// <summary>
+        /// شاشة "العمال على المراحل" (WorkersOverlay) مفتوحة: بتغطي الصفحة بكل مراحل <see cref="ActiveFlow"/> قدام المستخدم
+        /// مرة واحدة. بتتقفل لوحدها لو الرحلة المفتوحة اتغيّرت أو اتشالت أو المستخدم راح لصفحة تانية (<see cref="OpenTab"/>).
+        /// </summary>
+        [ObservableProperty]
+        private bool _isWorkersMode;
+
+        [RelayCommand]
+        private void OpenWorkersMode()
+        {
+            if (ActiveFlow is not null) IsWorkersMode = true;
+        }
+
+        [RelayCommand]
+        private void CloseWorkersMode() => IsWorkersMode = false;
+
+        private bool _syncingExpansion;
+
+        private void InitializeFlowAccordion()
+        {
+            FlowSessions.CollectionChanged += (_, e) =>
+            {
+                if (e.NewItems is not null)
+                {
+                    foreach (FlowSessionViewModel session in e.NewItems)
+                    {
+                        session.ExpandedChanged += OnFlowExpandedChanged;
+                        // رحلة جديدة بتتفتح والباقي بيتطوي — دي اللي المستخدم لسه ضايفها وهيشتغل عليها
+                        session.IsExpanded = true;
+                        OnFlowExpandedChanged(session); // الافتراضي true فمفيش حدث تغيير يطوي الباقي لوحده
+                    }
+                }
+
+                // لو اللي كانت مفتوحة اتشالت، افتح آخر رحلة باقية بدل ما الشريط يفضل من غير هدف
+                if (FlowSessions.Count > 0 && FlowSessions.All(s => !s.IsExpanded))
+                    FlowSessions[^1].IsExpanded = true;
+
+                OnPropertyChanged(nameof(ActiveFlow));
+                if (ActiveFlow is null) IsWorkersMode = false;
+            };
+        }
+
+        private void OnFlowExpandedChanged(FlowSessionViewModel opened)
+        {
+            if (_syncingExpansion) return;
+
+            _syncingExpansion = true;
+            try
+            {
+                if (opened.IsExpanded)
+                    foreach (var other in FlowSessions.Where(s => s != opened)) other.IsExpanded = false;
+            }
+            finally
+            {
+                _syncingExpansion = false;
+            }
+
+            OnPropertyChanged(nameof(ActiveFlow));
+            if (ActiveFlow is null) IsWorkersMode = false;
+        }
 
         /// <summary>
         /// رحلة جديدة مربوطة بيوم الشاشة وتحديث الحضور والسجلات بعد حفظها.
@@ -443,7 +515,7 @@ namespace WorkforceManager.UI.ViewModels
             if (target is not null)
                 SelectedInitialBalanceProduct = target;
 
-            SelectedTabIndex = 1;
+            OpenTab(1);
         }
 
         [RelayCommand(AllowConcurrentExecutions = false)]
@@ -713,7 +785,7 @@ namespace WorkforceManager.UI.ViewModels
                 return;
             }
 
-            SelectedTabIndex = 0;
+            OpenTab(0);
         }
 
         // ======================= قسم سجلات اليوم (التصحيح) =======================

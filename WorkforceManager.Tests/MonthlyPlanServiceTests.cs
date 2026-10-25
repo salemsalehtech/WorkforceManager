@@ -374,6 +374,37 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
+        public async Task DeletePlanForMonthAsync_also_removes_that_months_daily_entries_and_corrections_but_not_other_months()
+        {
+            var inMonth = new DateTime(Year, Month, 3);
+            var otherMonth = new DateTime(Year, Month, 1).AddDays(-2);
+
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.SetPlanAsync(TestDatabase.ProductRingId, Year, Month, 100); return true; });
+            using (var scope = _db.CreateScope())
+            {
+                var tracking = _db.GetService<MonthlyPlanTrackingService>(scope);
+                await tracking.SetDailyEntryAsync(TestDatabase.ProductRingId, inMonth, 40);
+                await tracking.SetCorrectionAsync(TestDatabase.ProductRingId, inMonth, 5);
+                await tracking.SetDailyEntryAsync(TestDatabase.ProductRingId, otherMonth, 7);
+            }
+
+            var counts = await _db.InScopeAsync<MonthlyPlanService, (int, int, int)>(s => s.CountMonthDataAsync(Year, Month));
+            Assert.Equal((1, 1, 1), counts);
+
+            await _db.InScopeAsync<MonthlyPlanService, bool>(async s =>
+            { await s.DeletePlanForMonthAsync(Year, Month); return true; });
+
+            using var check = _db.CreateScope();
+            var db = _db.GetService<AppDbContext>(check);
+
+            // خطة جديدة لنفس الشهر لازم تبدأ من صفر — مفيش محقق قديم فاضل من الخطة المحذوفة
+            Assert.False(await db.MonthlyPlanDailyEntries.AnyAsync(e => e.Date == inMonth));
+            Assert.False(await db.MonthlyPlanCorrections.AnyAsync(c => c.Date == inMonth));
+            Assert.True(await db.MonthlyPlanDailyEntries.AnyAsync(e => e.Date == otherMonth));
+        }
+
+        [Fact]
         public async Task Unique_index_on_product_year_month_prevents_duplicate_rows_at_db_level()
         {
             using (var scope = _db.CreateScope())

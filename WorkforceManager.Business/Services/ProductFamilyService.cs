@@ -21,7 +21,7 @@ namespace WorkforceManager.Business.Services
         /// <summary>كل العائلات مع عدد منتجات كل واحدة — استعلام واحد</summary>
         public async Task<List<ProductFamilyDto>> GetAllWithCountsAsync() =>
             await _db.ProductFamilies
-                .OrderBy(f => f.Name)
+                .OrderBy(f => f.SortOrder).ThenBy(f => f.Name)
                 .Select(f => new ProductFamilyDto(f.Id, f.Name, f.Products.Count))
                 .ToListAsync();
 
@@ -35,10 +35,35 @@ namespace WorkforceManager.Business.Services
             if (await _db.ProductFamilies.AnyAsync(f => f.Name == trimmed))
                 throw new InvalidOperationException($"في عيلة اسمها \"{trimmed}\" بالفعل");
 
-            var family = new Core.Models.ProductFamily { Name = trimmed };
+            // عيلة جديدة بتتحط في الآخر
+            var nextOrder = await _db.ProductFamilies.Select(f => (int?)f.SortOrder).MaxAsync() ?? -1;
+            var family = new Core.Models.ProductFamily { Name = trimmed, SortOrder = nextOrder + 1 };
             _db.ProductFamilies.Add(family);
             await _db.SaveChangesAsync();
             return family.Id;
+        }
+
+        /// <summary>
+        /// ↑/↓ في إدارة العائلات: بتبدّل العيلة مع اللي فوقها/تحتها في الترتيب. قبل التبديل بنرقّم الكل من جديد
+        /// (0، 1، 2…) بالترتيب الحالي، فأي تكرار قديم في SortOrder (عائلات اتعملت قبل العمود ده) مابيبوّظش الحركة.
+        /// بيرجّع false لو العيلة أصلًا أول/آخر واحدة.
+        /// </summary>
+        public async Task<bool> MoveAsync(int familyId, bool up)
+        {
+            var families = await _db.ProductFamilies.OrderBy(f => f.SortOrder).ThenBy(f => f.Name).ToListAsync();
+            for (var i = 0; i < families.Count; i++) families[i].SortOrder = i;
+
+            var index = families.FindIndex(f => f.Id == familyId);
+            var neighbor = up ? index - 1 : index + 1;
+            if (index < 0 || neighbor < 0 || neighbor >= families.Count)
+            {
+                await _db.SaveChangesAsync();
+                return false;
+            }
+
+            (families[index].SortOrder, families[neighbor].SortOrder) = (families[neighbor].SortOrder, families[index].SortOrder);
+            await _db.SaveChangesAsync();
+            return true;
         }
 
         public async Task RenameAsync(int familyId, string newName)

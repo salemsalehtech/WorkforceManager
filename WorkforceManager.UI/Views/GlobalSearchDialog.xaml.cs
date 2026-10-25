@@ -34,6 +34,18 @@ namespace WorkforceManager.UI.Views
         private readonly Func<string, Task<IReadOnlyList<GlobalSearchResult>>> _search;
         private readonly DispatcherTimer _debounce;
         private int _searchGeneration;
+        private readonly Func<GlobalSearchResult, Task<SearchIntentAnswer?>>? _preview;
+        private int _previewGeneration;
+
+        /// <summary>أوامر سريعة بتظهر قبل ما تكتب — دوسة بتكتب العبارة، والبحث بيعرض الأمر كنتيجة تختارها</summary>
+        private static readonly string[] QuickActionHints =
+        {
+            "سجّل غياب",
+            "سجّل جزاء",
+            "أضف عامل",
+            "سجّل إنتاج",
+            "حفظ نهائي",
+        };
 
         /// <summary>
         /// أمثلة ثابتة بتعرّف بالنيات لما صندوق البحث فاضي — من غير الأمثلة
@@ -48,15 +60,23 @@ namespace WorkforceManager.UI.Views
             "أقل إنتاج الأسبوع ده",
             "مين أحسن عامل",
             "إنتاج امبارح",
+            "حضور النهارده",
+            "المتأخر في الخطة",
+            "هالك الأسبوع ده",
+            "إنتاج الشهر ده",
         };
 
         public GlobalSearchResult? Chosen { get; private set; }
 
-        private GlobalSearchDialog(Func<string, Task<IReadOnlyList<GlobalSearchResult>>> search)
+        private GlobalSearchDialog(
+            Func<string, Task<IReadOnlyList<GlobalSearchResult>>> search,
+            Func<GlobalSearchResult, Task<SearchIntentAnswer?>>? preview,
+            IReadOnlyList<SearchSuggestion>? alerts)
         {
             InitializeComponent();
 
             _search = search;
+            _preview = preview;
             _debounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
             _debounce.Tick += async (_, _) =>
             {
@@ -65,6 +85,13 @@ namespace WorkforceManager.UI.Views
             };
 
             HintChipsList.ItemsSource = ExampleHints;
+            QuickActionsList.ItemsSource = QuickActionHints;
+
+            if (alerts is { Count: > 0 })
+            {
+                AlertsList.ItemsSource = alerts;
+                AlertsSection.Visibility = Visibility.Visible;
+            }
 
             // "آخر بحث" بس لو فيه فعلًا اختيارات مسجّلة قبل كده — قايمة فاضية
             // (أول تشغيل للبرنامج مثلًا) معناها القسم ده مايتعرضش خالص
@@ -82,9 +109,11 @@ namespace WorkforceManager.UI.Views
 
         /// <summary>بيعرض النافذة ويرجّع اللي المستخدم اختاره، أو null لو لغى</summary>
         public static GlobalSearchResult? Ask(
-            Window? owner, Func<string, Task<IReadOnlyList<GlobalSearchResult>>> search)
+            Window? owner, Func<string, Task<IReadOnlyList<GlobalSearchResult>>> search,
+            Func<GlobalSearchResult, Task<SearchIntentAnswer?>>? preview = null,
+            IReadOnlyList<SearchSuggestion>? alerts = null)
         {
-            var dialog = new GlobalSearchDialog(search);
+            var dialog = new GlobalSearchDialog(search, preview, alerts);
             if (owner is not null) dialog.Owner = owner;
 
             return dialog.ShowDialog() == true ? dialog.Chosen : null;
@@ -143,6 +172,46 @@ namespace WorkforceManager.UI.Views
             SearchBox.Focus();
         }
 
+        /// <summary>دوسة على تنبيه — بتكتب السؤال اللي بيجاوبه (Tag) وتشغّل البحث العادي</summary>
+        private void AlertChip_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { Tag: string query }) return;
+
+            SearchBox.Text = query;
+            SearchBox.CaretIndex = query.Length;
+            SearchBox.Focus();
+        }
+
+        /// <summary>
+        /// كارت المعاينة: كل ما نتيجة عامل/منتج تتحدد بنعرض ملخصها جنب القايمة (من غير ما تفتح الشاشة).
+        /// نتيجة معاينة قديمة وصلت متأخرة بعد تحديد تاني بتترمي (_previewGeneration).
+        /// </summary>
+        private async void ResultsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var generation = ++_previewGeneration;
+
+            if (_preview is null || ResultsList.SelectedItem is not GlobalSearchResult item)
+            {
+                ShowPreview(null);
+                return;
+            }
+
+            SearchIntentAnswer? answer;
+            try { answer = await _preview(item); }
+            catch { answer = null; }
+
+            if (generation != _previewGeneration) return;
+            ShowPreview(answer);
+        }
+
+        private void ShowPreview(SearchIntentAnswer? answer)
+        {
+            PreviewTitle.Text = answer?.Title ?? "";
+            PreviewLines.ItemsSource = answer?.Lines;
+            PreviewCard.Visibility = answer is null ? Visibility.Collapsed : Visibility.Visible;
+            PreviewPlaceholder.Visibility = answer is null ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             // تحت أو Enter من صندوق البحث بيوديك لأول نتيجة، بدل ما تحتاج تدوس Tab
@@ -194,4 +263,10 @@ namespace WorkforceManager.UI.Views
             if (e.ChangedButton == MouseButton.Left) DragMove();
         }
     }
+}
+
+namespace WorkforceManager.UI.Views
+{
+    /// <summary>تنبيه في البحث قبل الكتابة: النص اللي بيظهر، والسؤال اللي بيتكتب لما تدوس عليه</summary>
+    public sealed record SearchSuggestion(string Text, string Query);
 }

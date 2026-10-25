@@ -223,9 +223,9 @@ namespace WorkforceManager.UI.Views
             if (Main is { } mw) mw.NavMemoryItem.IsChecked = true;
         }
 
-        /// <summary>الغياب والسلسلة → تبويب "الحضور والغياب" جوّه تسجيل الإنتاج اليومي</summary>
+        /// <summary>الغياب والسلسلة → تبويب "الحضور والغياب" جوّه إدارة العمال</summary>
         private void Absences_Click(object sender, RoutedEventArgs e) =>
-            Main?.OpenDailyEntryTab(MainWindow.DailyEntryAttendanceTab);
+            Main?.OpenWorkerAttendance();
 
         /// <summary>أحسن/أقل عامل → ملفه، بنفس هبوط البحث السريع على عامل</summary>
         private async void Worker_Click(object sender, RoutedEventArgs e)

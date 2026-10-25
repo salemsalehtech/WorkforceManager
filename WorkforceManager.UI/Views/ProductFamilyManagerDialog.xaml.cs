@@ -59,6 +59,30 @@ namespace WorkforceManager.UI.Views
             FamiliesList.Visibility = _rows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         }
 
+        private void MoveUp_Click(object sender, RoutedEventArgs e) => _ = MoveAsync(sender, up: true);
+        private void MoveDown_Click(object sender, RoutedEventArgs e) => _ = MoveAsync(sender, up: false);
+
+        /// <summary>↑/↓ — بيبدّل العيلة مع جارتها في الترتيب المحفوظ (ProductFamilyService.MoveAsync) وفي القايمة قدامك</summary>
+        private async Task MoveAsync(object sender, bool up)
+        {
+            if (sender is not FrameworkElement { Tag: FamilyRow row }) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var moved = await scope.ServiceProvider.GetRequiredService<ProductFamilyService>().MoveAsync(row.Id, up);
+                if (!moved) return;
+
+                var index = _rows.IndexOf(row);
+                _rows.Move(index, up ? index - 1 : index + 1);
+                ChangesMade = true;
+            }
+            catch (Exception ex)
+            {
+                Notify.Warn(ex.Message, "خطأ في الترتيب");
+            }
+        }
+
         private async void Rename_Click(object sender, RoutedEventArgs e)
         {
             if (sender is not FrameworkElement { Tag: FamilyRow row }) return;

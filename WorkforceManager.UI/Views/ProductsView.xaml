@@ -632,7 +632,7 @@
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <!-- منتج موقوف مالوش خطة شهرية تتحدد -->
-                                            <MenuItem Header="الخطة الشهرية" Click="ShowMonthlyPlanMenuItem_Click"
+                                            <MenuItem Header="الإنتاج الشهري للمنتجات" Click="ShowMonthlyPlanMenuItem_Click"
                                                       IsEnabled="{Binding CanUseMonthlyPlan}">
                                                 <MenuItem.Icon>
                                                     <materialDesign:PackIcon Kind="CalendarMonth" Width="15" Height="15" />

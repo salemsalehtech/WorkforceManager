@@ -50,7 +50,19 @@ namespace WorkforceManager.Business.DTOs
         /// (AssignSkillAsync هو نفسه). AnswerAsync بيحدد العامل بس؛ الهبوط
         /// بيفعّل ToggleAddSkillsCommand الموجود على شاشة العمال.
         /// </summary>
-        AssignSkill
+        AssignSkill,
+
+        /// <summary>"هالك النهارده/امبارح/الأسبوع ده" — بلا اسم، الهالك في المصنع كله لفترة أو يوم</summary>
+        Scrap,
+
+        /// <summary>"المتأخر في الخطة" — المنتجات اللي إيقاعها متأخر في خطة الشهر الحالي</summary>
+        PlanBehind,
+
+        /// <summary>"حضور النهارده" — بلا اسم: كام حاضر وكام غايب وكام لسه متسجّلش (مع الأسماء)</summary>
+        DayAttendance,
+
+        /// <summary>"إنتاج الأسبوع ده/الشهر ده" — بلا اسم ولا يوم محدد: إجمالي المصنع (تام/داخل/هالك) للفترة</summary>
+        PeriodProduction
     }
 
     /// <summary>ناتج تفكيك عبارة البحث لنية + اسم مرشّح — منطق نقي، مفيش قاعدة بيانات هنا</summary>

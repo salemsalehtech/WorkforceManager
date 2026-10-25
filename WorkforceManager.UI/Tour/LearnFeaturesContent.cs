@@ -98,8 +98,8 @@ namespace WorkforceManager.UI.Tour
                             new()
                             {
                                 Title = "توقيع العمليات اليومية",
-                                Description = "زرار \"حفظ نهائي\" في آخر القايمة الجانبية.",
-                                TargetElementName = "FinalSaveButton",
+                                Description = "زرار \"حفظ نهائي\" جوّه \"المزيد\" في الشريط العلوي.",
+                                TargetElementName = "MoreToggle",
                                 Screen = TourScreen.None
                             }
                         }
@@ -182,8 +182,8 @@ namespace WorkforceManager.UI.Tour
                             new()
                             {
                                 Title = "تسجيل خروج نضيف لكل حساب",
-                                Description = "زرار تسجيل الخروج جنب اسمك في آخر القايمة الجانبية.",
-                                TargetElementName = "AccountCard",
+                                Description = "زرار تسجيل الخروج جنب اسمك جوّه \"المزيد\" في الشريط العلوي.",
+                                TargetElementName = "MoreToggle",
                                 Screen = TourScreen.None
                             }
                         }
@@ -352,8 +352,7 @@ namespace WorkforceManager.UI.Tour
                                 Title = "شيفتات العمال بالساعة",
                                 Description = "من تبويب \"الحضور والغياب\" — كل عامل بالساعة عنده شرايط شيفت بدل حالة حضور عادية.",
                                 TargetElementName = "AttendanceSummaryRow",
-                                Screen = TourScreen.DailyEntry,
-                                TabIndex = 3
+                                Screen = TourScreen.WorkerAttendance
                             }
                         }
                     }

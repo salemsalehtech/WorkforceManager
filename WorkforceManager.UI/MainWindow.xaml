@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:views="clr-namespace:WorkforceManager.UI.Views"
-        Title="نظام إدارة إنتاجية وأجور العمال"
+        Title="إدارة قسم الصنفرة"
         Height="720" Width="1200"
         MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterScreen"
@@ -44,48 +44,35 @@
         <Grid.LayoutTransform>
             <ScaleTransform x:Name="UiScale" ScaleX="1" ScaleY="1" />
         </Grid.LayoutTransform>
-        <!-- عرض الشريط بيتحسب في الكود (SidebarRatio) — كان 248 ثابتة،
-             فكان بياخد 18% من شاشة 1362 و13% من شاشة 1917، يعني بيبان
-             عريض على دي ورفيع على دي. النسبة بتخليه متسق، والمساحة
-             الزيادة على الشاشة الكبيرة بتروح للمحتوى مش للشريط. -->
-        <Grid.ColumnDefinitions>
-            <!-- Auto: العرض الفعلي بقى خاصية Width على SidebarBorder نفسه
-                 (double عادي، قابل للتحريك)، مش هنا — شوف تعليق SidebarBorder -->
-            <ColumnDefinition x:Name="SidebarColumn" Width="Auto" />
-            <ColumnDefinition Width="*" />
-        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-        <!-- ══════════ القائمة الجانبية ══════════
-             أسود دافي مصمت مش متدرّج: التدرّج بيخلي البنود اللي فوق والبنود
-             اللي تحت على خلفيتين مختلفتين، فالشريط الدهبي بتاع البند
-             النشط بيبان بقوّتين حسب مكانه. اللون الواحد بيخلي كل بند
-             يتعامل مع نفس الأرضية. -->
-        <!-- TextElement.FontFamily هنا بس، مش على كل عنصر لوحده — بتتوارث لكل
-             حاجة تحتها (ماعدا NavItem style اللي عنده Setter صريح بيكسر
-             الوراثة، شوف Core.xaml). Border مش Control/TextElement فمالوش
-             خاصية FontFamily بتاعته — لازم الصيغة المرفقة (Attached Property)
-             عشان الوراثة تشتغل من عنصر مش قابل للكتابة عادي. -->
-        <!-- Width صريح هنا (مش عرض عمود Grid) عشان يبقى قابل للتحريك
-             بـDoubleAnimation عادي — GridLength (لو العمود هو اللي بيحمل
-             العرض) مالهوش حركة مباشرة في WPF. SidebarColumn بقى Auto
-             وبيتبع عرض الـBorder ده تلقائيًا. القيمة هنا (248) ابتدائية
-             بس — ApplySidebarWidth بيظبطها فورًا عند فتح النافذة. -->
-        <Border x:Name="SidebarBorder" Grid.Column="0" Width="248" Background="{DynamicResource SidebarBrush}"
+        <!-- ══════════ الشريط العلوي (كان القايمة الجانبية) ══════════
+             شريط واحد فوق كل الشاشات: اللوجو والاسم (= الرئيسية)، بنود التنقل الأربعة،
+             وعلى الطرف التاني التاريخ والبحث السريع والجرس وحفظ نهائي والحساب.
+             أسود دافي مصمت زي القايمة القديمة بالظبط (SidebarBrush) عشان البنود الذهبية
+             والبند المختار يفضلوا على نفس الأرضية. TextElement.FontFamily هنا بس فبتتوارث لكل
+             اللي تحته (Border مالوش FontFamily بتاعه — شوف تعليق NavItem في Core.xaml). -->
+        <Border x:Name="TopBar" Grid.Row="0" Background="{DynamicResource SidebarBrush}" Padding="18,6" BorderBrush="#33C2A14D" BorderThickness="0,0,0,1" Panel.ZIndex="10"
                 TextElement.FontFamily="{DynamicResource SidebarFont}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="20" ShadowDepth="3" Direction="270" Opacity="0.28" Color="Black" />
+            </Border.Effect>
             <Grid>
-            <!-- كل محتوى الشريط القديم — عنصر واحد قابل للإخفاء ككل عند
-                 الطي (Opacity)، بدل أجزاء منفصلة. زرار الطي نفسه تحت،
-                 برّه العنصر ده عمدًا، عشان يفضل ظاهر في الحالتين -->
-            <DockPanel x:Name="SidebarContent">
-                <!-- الهوية -->
-                <StackPanel DockPanel.Dock="Top" Margin="16,20,16,20">
-                    <!-- اللوجو والاسم = "الرئيسية": دوسة عليهم بترجع للرئيسية من أي شاشة
-                         (HomeLogo_Click). وهو مطوي فيه نسخة صغيرة من اللوجو تحت زرار
-                         الطي بتعمل نفس الحاجة (CollapsedHomeButton) -->
-                    <Button x:Name="HomeLogoButton" Style="{StaticResource CardButton}" Click="HomeLogo_Click"
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />      <!-- 0 اللوجو (بداية) -->
+                    <ColumnDefinition Width="Auto" />   <!-- 1 التنقل (في النص) -->
+                    <ColumnDefinition Width="*" />      <!-- 2 بحث + جرس + المزيد (نهاية) -->
+                </Grid.ColumnDefinitions>
+
+                <!-- اللوجو والاسم = "الرئيسية": دوسة عليهم بترجع للرئيسية من أي شاشة (HomeLogo_Click).
+                     اسم المصنع والقسم بيتظبطوا من الإعدادات؛ لو مفيش اسم بيرجع لـ WMS. -->
+                    <Button x:Name="HomeLogoButton" Grid.Column="0" HorizontalAlignment="Left" Style="{StaticResource CardButton}" Click="HomeLogo_Click"
                             ToolTip="الرئيسية" AutomationProperties.Name="الرئيسية" Padding="0">
                     <StackPanel Orientation="Horizontal" Margin="4">
-                        <views:WmsLogo x:Name="SidebarLogo" Width="46" Height="46" />
+                        <views:WmsLogo x:Name="SidebarLogo" Width="34" Height="34" />
                         <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
                             <!-- كان مكتوب "إدارة الإنتاج والأجور" — جملة
                                  بتوصف البرنامج، والبرنامج مفتوح قدام
@@ -93,10 +80,10 @@
                                  النسخة دي بتاعة مين، وبيتظبطوا من
                                  الإعدادات. لو مفيش اسم بيرجع للاسم
                                  العام بدل سطر فاضي. -->
-                            <TextBlock x:Name="FactoryText" Text="WMS" FontSize="17" FontWeight="Bold"
+                            <TextBlock x:Name="FactoryText" Text="إدارة قسم الصنفرة" FontSize="15" FontWeight="Bold"
                                        FontFamily="{DynamicResource SidebarFontBold}"
                                        Foreground="{DynamicResource GoldBrush}"
-                                       TextTrimming="CharacterEllipsis" MaxWidth="160" />
+                                       TextTrimming="CharacterEllipsis" MaxWidth="190" />
                             <TextBlock x:Name="DepartmentText" FontSize="11"
                                        Margin="0,1,0,0" TextTrimming="CharacterEllipsis" MaxWidth="160"
                                        Foreground="{DynamicResource SidebarInkSoftBrush}" />
@@ -104,51 +91,128 @@
                     </StackPanel>
                     </Button>
 
-                    <!-- خط دهبي رفيع بيفصل الهوية عن التنقل -->
-                    <Border Height="1" Margin="0,18,0,0" Opacity="0.35"
-                            Background="{DynamicResource GoldGradientBrush}" />
-
-                    <!-- بطاقة اليوم — أول عنصر محتوى بعد الهوية مباشرة
-                         (كانت آخر عنصر تحت القايمة، اتنقلت هنا) -->
-                    <Border x:Name="DateCard" Margin="0,14,0,0" Padding="13,11"
-                            CornerRadius="{DynamicResource RadiusSmall}"
-                            Background="{DynamicResource SidebarAltBrush}"
-                            Style="{StaticResource HoverGrowCard}">
-                        <StackPanel>
-                            <!-- التاريخ بالعربي بيتكتب من الكود عند فتح النافذة -->
-                            <TextBlock x:Name="TodayText" FontSize="12.5" FontWeight="SemiBold"
-                                       FontFamily="{DynamicResource SidebarFontSemiBold}"
-                                       Foreground="{DynamicResource SidebarInkBrush}" />
-                            <TextBlock Text="أسبوع العمل: الخميس ← الأربعاء" FontSize="10.5"
-                                       Margin="0,3,0,0"
-                                       Foreground="{DynamicResource SidebarInkSoftBrush}" />
+                <!-- التنقل: RadioButton لكل شاشة، والمختار عليه الخلفية والخط الدهبي. التنقل بـ Checked + Click
+                     مع بعض عن قصد: Checked للتنقل الفعلي، وClick لإعادة تحميل الشاشة المفتوحة أصلًا
+                     (Checked مبيتنفذش لو الزرار متعلم بالفعل). الاتنين على NavigateToView_Checked، اللي
+                     بيعرف الشاشة من Tag الزرار نفسه. البنود المخفية في الآخر مسارات برمجية بس. -->
+                <!-- حاوية كبسولة للبنود: خلفية أفتح شوية من الشريط عشان البنود تبان كمجموعة واحدة -->
+                <Border Grid.Column="1" Margin="0" Padding="3" CornerRadius="13" VerticalAlignment="Center"
+                        Background="{DynamicResource SidebarAltBrush}">
+                <StackPanel x:Name="NavHost" Orientation="Horizontal" VerticalAlignment="Center">
+                    <RadioButton x:Name="NavHomeItem" Style="{StaticResource TopNavItem}" IsChecked="True"
+                                 Tag="{x:Type views:HomeView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
+                                 AutomationProperties.Name="الرئيسية">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="HomeOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                            <TextBlock Text="الرئيسية" Margin="10,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
-                    </Border>
+                    </RadioButton>
 
-                    <!-- بحث سريع + جرس الإشعارات جنب بعض، صف واحد -->
-                    <Grid Margin="0,14,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                    <RadioButton x:Name="NavWorkersItem" Style="{StaticResource TopNavItem}"
+                                 Tag="{x:Type views:WorkersHubView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
+                                 AutomationProperties.Name="إدارة العمال">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="AccountGroup" Width="18" Height="18" VerticalAlignment="Center" />
+                            <TextBlock Text="إدارة العمال" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
 
-                        <Button x:Name="GlobalSearchButton" Grid.Column="1" Padding="10,7" HorizontalContentAlignment="Left"
-                                Style="{StaticResource GhostButton}"
+                    <!-- إدارة الإنتاج: المنتجات والمراحل + الخطة الشهرية + تسجيل الإنتاج اليومي (كروت، ProductionHubView) -->
+                    <RadioButton x:Name="NavProductionItem" Style="{StaticResource TopNavItem}"
+                                 Tag="{x:Type views:ProductionHubView}"
+                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
+                                 AutomationProperties.Name="إدارة الإنتاج">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Factory" Width="18" Height="18" VerticalAlignment="Center" />
+                            <TextBlock Text="إدارة الإنتاج" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <!-- عدد خطط الذاكرة المستحقة النهارده أو المتأخرة — الذاكرة جوّه التسجيل اليومي جوّه إدارة الإنتاج -->
+                            <Border x:Name="MemoryBadge" Background="{DynamicResource DangerBgBrush}"
+                                    CornerRadius="8" Padding="6,1" Margin="6,0,0,0"
+                                    VerticalAlignment="Center" Visibility="Collapsed">
+                                <TextBlock x:Name="MemoryBadgeText" FontSize="10.5" FontWeight="Bold"
+                                           Foreground="{DynamicResource DangerBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </RadioButton>
+
+                    <!-- مسارات برمجية مخفية (HiddenRoutes) لنفس سبب باقي المسارات تحت — شوف EmbeddedRoutes -->
+                    <RadioButton x:Name="NavProductsItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:ProductsView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="المنتجات والمراحل" />
+                    <RadioButton x:Name="NavMonthlyPlanItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:MonthlyPlanView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="الإنتاج الشهري للمنتجات" />
+                    <RadioButton x:Name="NavDailyEntryItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:DailyEntryView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="تسجيل يوميات العمال" />
+
+                    <!-- الإعدادات اتنقلت لقايمة "المزيد" (SettingsMenuButton) — البند هنا مسار برمجي مخفي بس:
+                         البحث والجولة والرئيسية لسه بيعملوا NavSettingsItem.IsChecked = true، وشاشة الإعدادات
+                         بتتفتح بنفس طريقة سجل العمليات (من غير بند ظاهر معلّم، شوف OpenStandaloneRoute). -->
+                    <RadioButton x:Name="NavSettingsItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:SettingsView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="الإعدادات" />
+
+                    <!-- مسارات برمجية بس (مخفية، مجموعة منفصلة فمش بتفكّ تحديد أي بند ظاهر).
+                         الشاشات دي اتنقلت جوّه شاشات تانية، لكن البحث السريع والجولة
+                         والرئيسية وغيرهم لسه بيقولوا "افتح الذاكرة" بـ NavMemoryItem.IsChecked
+                         — NavigateToView_Checked بيحوّل كل واحد لأبوه ويختار التبويب/القسم
+                         المناسب (EmbeddedRoutes في MainWindow.xaml.cs). -->
+                    <RadioButton x:Name="NavAttendanceItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:AttendanceView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="الحضور والغياب" />
+                    <RadioButton x:Name="NavPenaltiesItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:PenaltiesView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="الجزاءات" />
+                    <RadioButton x:Name="NavAdjustmentsItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:AdjustmentsView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="السلف والحوافز" />
+                    <RadioButton x:Name="NavMemoryItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:MemoryView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="الذاكرة" />
+                    <RadioButton x:Name="NavEvaluationItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:ReportsView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="تقييم ومتابعة العمال" />
+                    <RadioButton x:Name="NavReportsItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:ReportBuilderView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="تقارير العمال" />
+                    <RadioButton x:Name="NavActivityLogItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:ActivityLogView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="سجل العمليات" />
+                    <RadioButton x:Name="NavDepartmentAccountsItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:DepartmentAccountsView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="الحسابات الإدارية" />
+                    <RadioButton x:Name="NavHelpItem" GroupName="HiddenRoutes" Visibility="Collapsed"
+                                 Tag="{x:Type views:HelpView}" Checked="NavigateToView_Checked"
+                                 AutomationProperties.Name="الدليل" />
+                </StackPanel>
+                </Border>
+
+
+                <!-- مجموعة اليمين-فعليًا-الشمال: بحث + جرس + المزيد. HorizontalAlignment=Right = الطرف النهائي في واجهة عربية -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <!-- بحث سريع -->
+                        <Button x:Name="GlobalSearchButton" Margin="0" Padding="12,8" MinWidth="170" HorizontalContentAlignment="Stretch"
+                                Style="{StaticResource TopBarButton}"
                                 Click="GlobalSearch_Click" ToolTip="بحث سريع عن عامل أو منتج (Ctrl+K)"
                                 AutomationProperties.Name="بحث سريع">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Magnify" Width="16" Height="16" VerticalAlignment="Center" />
-                                <TextBlock Text="بحث سريع" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="12.5" />
-                            </StackPanel>
+                            <DockPanel LastChildFill="True">
+                                <!-- اختصار الكيبورد على الطرف التاني، شكل "حقل بحث" مش زرار عادي -->
+                                <Border DockPanel.Dock="Left" CornerRadius="6" Padding="7,2" Margin="14,0,0,0" VerticalAlignment="Center"
+                                        Background="#1FFFFFFF">
+                                    <TextBlock Text="Ctrl K" FontSize="10.5" FontWeight="SemiBold" Opacity="0.65" />
+                                </Border>
+                                <materialDesign:PackIcon DockPanel.Dock="Right" Kind="Magnify" Width="17" Height="17" VerticalAlignment="Center" />
+                                <TextBlock Text="بحث سريع" Margin="9,0,0,0" VerticalAlignment="Center" FontSize="12.5" Opacity="0.85" />
+                            </DockPanel>
                         </Button>
 
-                        <!-- جرس الإشعارات: تجميع تنبيهات مش ليها مكان تاني حاليًا (سجل
-                             العمليات، عمال محتاجين انتباه) — الذاكرة والأرصدة القديمة
-                             ليهم كارت خاص في الرئيسية بأفعاله (ابدأ الآن/أجّل)، فمش
-                             مكرّرين هنا (شوف CLAUDE.md) -->
-                        <Grid Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center">
-                            <ToggleButton x:Name="NotificationBellToggle" Style="{StaticResource ToolbarToggle}"
-                                          Padding="9" ToolTip="الإشعارات"
+                <!-- جرس الإشعارات: تجميع تنبيهات (سجل العمليات، عمال محتاجين انتباه، موجز الخطة) -->
+                        <Grid Margin="10,0,0,0" VerticalAlignment="Center">
+                            <ToggleButton x:Name="NotificationBellToggle" Style="{StaticResource TopBarToggle}"
+                                          Padding="10" ToolTip="الإشعارات"
                                           AutomationProperties.Name="الإشعارات">
                                 <materialDesign:PackIcon Kind="BellOutline" Width="17" Height="17" />
                             </ToggleButton>
@@ -211,520 +275,97 @@
                                                            Foreground="{DynamicResource TextPrimaryBrush}" />
                                             </StackPanel>
                                         </Button>
+
+                                        <!-- سجل العمليات اتنقل هنا من القايمة الجانبية: دايمًا ظاهر (مش بس لما فيه عمليات جديدة)
+                                             وشارة عدد العمليات الجديدة جنبه — بتتصفّر أول ما الشاشة تتفتح (ActivityLogViewModel.LoadAsync) -->
+                                        <Separator Margin="0,6,0,6" />
+                                        <Button x:Name="NotificationOpenLogButton" Click="NotificationActivityItem_Click"
+                                                Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left"
+                                                Padding="8,7" AutomationProperties.Name="سجل العمليات">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="16" Height="16"
+                                                                         VerticalAlignment="Center" Foreground="{DynamicResource GoldBrush}" />
+                                                <TextBlock Text="سجل العمليات" Margin="8,0,0,0" FontSize="12.5"
+                                                           VerticalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                <!-- DangerBgBrush/DangerBrush زوج ألوان متباين بالتصميم في الثيمين -->
+                                                <Border x:Name="ActivityBadge" Background="{DynamicResource DangerBgBrush}"
+                                                        CornerRadius="8" Padding="6,1" Margin="6,0,0,0"
+                                                        VerticalAlignment="Center" Visibility="Collapsed">
+                                                    <TextBlock x:Name="ActivityBadgeText" FontSize="10.5" FontWeight="Bold"
+                                                               Foreground="{DynamicResource DangerBrush}" />
+                                                </Border>
+                                            </StackPanel>
+                                        </Button>
                                     </StackPanel>
                                 </Border>
                             </Popup>
                         </Grid>
-                    </Grid>
-                </StackPanel>
 
-                <!-- توقيع نهاية اليوم — آخر عنصر في القائمة الجانبية
-                     بالكامل (أول عنصر Dock="Bottom" في الترتيب = أبعد
-                     حاجة لتحت في DockPanel)، تحت بطاقة اليوم وكارت
-                     الحساب. البوابة الوحيدة الباقية للأفعال اليومية
-                     المتكررة (Tier B) بعد ما اتشالت منها الباسوردات
-                     الفورية — نفس الزرار ده هو اللي بيفتح لما البرنامج
-                     يرفض يقفل قبل التوقيع. -->
-                <Border DockPanel.Dock="Bottom" Margin="16,0,16,10">
-                    <Button x:Name="FinalSaveButton" Click="FinalSave_Click"
-                            Style="{StaticResource PrimaryButton}" Padding="0,10"
-                            HorizontalContentAlignment="Center"
-                            ToolTip="مراجعة وتوقيع كل حاجة حصلت النهارده"
-                            AutomationProperties.Name="حفظ نهائي">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <materialDesign:PackIcon Kind="CheckCircleOutline" Width="17" Height="17" VerticalAlignment="Center" />
-                            <TextBlock Text="حفظ نهائي" Margin="8,0,0,0" VerticalAlignment="Center" FontWeight="Bold" />
-                        </StackPanel>
-                    </Button>
-                </Border>
-
-                <!-- الحساب الداخل بيه + زرار الخروج: آخر حاجة في القايمة
-                     الجانبية (تحت بطاقة اليوم) — ظاهرة في كل الشاشات،
-                     عشان أي حد يقدر يبدّل حساب من غير ما يقفل البرنامج
-                     كله (مهم دلوقتي إن الحسابات الإدارية بقى لكل واحدة
-                     يوزر وباسورد لوحدها). -->
-                <Border x:Name="AccountCard" DockPanel.Dock="Bottom" Margin="16,0,16,10" Padding="12,9"
-                        CornerRadius="{DynamicResource RadiusSmall}"
-                        Background="{DynamicResource SidebarAltBrush}"
-                        Style="{StaticResource HoverGrowCard}">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Left" Click="Logout_Click"
-                                Style="{StaticResource IconButton}" Padding="6,4"
-                                Foreground="{DynamicResource GoldBrush}" ToolTip="تسجيل الخروج"
-                                AutomationProperties.Name="تسجيل الخروج">
-                            <materialDesign:PackIcon Kind="LogoutVariant" Width="20" Height="20" />
-                        </Button>
-                        <views:WorkerAvatar x:Name="AccountAvatar" DockPanel.Dock="Left" Diameter="34"
-                                             Margin="6,0,0,0" VerticalAlignment="Center" />
-                        <TextBlock x:Name="SignedInAsText" FontSize="13" Margin="8,0,0,0"
-                                   FontFamily="{DynamicResource SidebarFontSemiBold}" FontWeight="SemiBold"
-                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource SidebarInkBrush}" />
-                    </DockPanel>
-                </Border>
-
-                <!-- عناصر التنقل -->
-                <!--
-                  ScrollViewer حوالين قايمة التنقل: القايمة آخر عنصر في
-                  الـ DockPanel، يعني بتاخد اللي فاضل بعد البطاقات المرصوصة
-                  تحت — ولما المساحة تقل كانت **بتتقص في صمت**. ده اللي خلا
-                  "الحسابات الإدارية" تختفي أول ما التكبير قلّل الارتفاع
-                  المنطقي. دلوقتي بتزحلق بدل ما تخفي، فمفيش بند يبقى غير
-                  قابل للوصول مهما كان مقاس الشاشة أو عدد البنود.
-                  مش بديل عن ظبط مساحة التصميم (شوف DesignHeight) — ده
-                  الحزام اللي بيمنع الاختفاء الصامت لو الاتنين اختلفوا.
-                -->
-                <!-- Grid ملفوف حوالين الـScrollViewer عشان NavIndicator (الشريط
-                     الدهبي المشترك اللي بينزلق بين البنود، شوف MainWindow.xaml.cs's
-                     PositionNavIndicator) يقدر يتراكب فوق القايمة من غير ما
-                     يبقى جزء من محتواها القابل للتمرير -->
-                <Grid x:Name="NavIndicatorHost">
-                <ScrollViewer x:Name="NavScrollViewer" VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Margin="12,4,12,0">
-                    <!-- التنقل بـ Checked + Click مع بعض عن قصد:
-                         Checked للتنقل الفعلي والكيبورد، وClick لإعادة تحميل الشاشة
-                         المفتوحة أصلًا (Checked مبيتنفذش لو الزرار متعلم بالفعل).
-                         الاتنين على نفس الـhandler الواحد (NavigateToView_Checked)، اللي
-                         بيعرف الشاشة المطلوبة من Tag بتاع الزرار نفسه. -->
-                    <RadioButton x:Name="NavHomeItem" Style="{StaticResource NavItem}" IsChecked="True"
-                                 Tag="{x:Type views:HomeView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="الرئيسية">
+                <!-- المزيد: الحساب (الاسم + تسجيل الخروج) وحفظ نهائي اتجمّعوا هنا بدل ما يزحموا الشريط.
+                     حفظ نهائي هو البوابة الوحيدة للأفعال اليومية المتكررة — نفس الزرار هو اللي بيفتح لما
+                     البرنامج يرفض يقفل قبل التوقيع. الحساب ظاهر فيه كل مرة عشان أي حد يبدّل حساب من غير ما
+                     يقفل البرنامج. الاتنين (FinalSaveButton وAccountCard) لسه بنفس الأسماء. -->
+                <Grid Margin="10,0,0,0" VerticalAlignment="Center">
+                    <ToggleButton x:Name="MoreToggle" Style="{StaticResource TopBarToggle}" Padding="12,8"
+                                  ToolTip="الحساب وحفظ نهائي" AutomationProperties.Name="المزيد">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="HomeOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="الرئيسية" Margin="10,0,0,0" VerticalAlignment="Center" />
+                            <materialDesign:PackIcon Kind="DotsHorizontal" Width="18" Height="18" VerticalAlignment="Center" />
+                            <TextBlock Text="المزيد" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="12.5" FontWeight="SemiBold" />
                         </StackPanel>
-                    </RadioButton>
+                    </ToggleButton>
 
-                    <RadioButton x:Name="NavWorkersItem" Style="{StaticResource NavItem}"
-                                 Tag="{x:Type views:WorkersView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="العمال">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="AccountGroup" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="العمال" Margin="10,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </RadioButton>
+                    <Popup IsOpen="{Binding IsChecked, ElementName=MoreToggle, Mode=TwoWay}"
+                           StaysOpen="False" PlacementTarget="{Binding ElementName=MoreToggle}"
+                           Placement="Bottom" AllowsTransparency="True" PopupAnimation="Fade">
+                        <Border Style="{StaticResource ToolbarPopupCard}" FlowDirection="RightToLeft" Width="280">
+                            <StackPanel>
+                                <Border x:Name="AccountCard" Padding="10,8" CornerRadius="12"
+                                        Background="{DynamicResource SubtleBgBrush}">
+                                    <DockPanel>
+                                        <Button x:Name="LogoutButton" DockPanel.Dock="Left" Click="Logout_Click"
+                                                Style="{StaticResource IconButton}" Padding="6,4"
+                                                ToolTip="تسجيل الخروج" AutomationProperties.Name="تسجيل الخروج">
+                                            <materialDesign:PackIcon Kind="LogoutVariant" Width="20" Height="20" />
+                                        </Button>
+                                        <views:WorkerAvatar x:Name="AccountAvatar" DockPanel.Dock="Left" Diameter="34"
+                                                             Margin="6,0,0,0" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="SignedInAsText" FontSize="13" Margin="10,0,0,0"
+                                                   FontWeight="SemiBold" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    </DockPanel>
+                                </Border>
 
-                    <RadioButton x:Name="NavProductsItem" Style="{StaticResource NavItem}"
-                                 Tag="{x:Type views:ProductsView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="المنتجات والمراحل">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="PackageVariantClosed" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="المنتجات والمراحل" Margin="10,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </RadioButton>
+                                <!-- الإعدادات (كانت بند في الشريط): فيها الحماية والحسابات الإدارية والنسخ الاحتياطي والدليل -->
+                                <Button x:Name="SettingsMenuButton" Margin="0,8,0,0" Click="OpenSettings_Click"
+                                        Style="{StaticResource GhostButton}" Padding="12,9" HorizontalContentAlignment="Left"
+                                        AutomationProperties.Name="الإعدادات">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" VerticalAlignment="Center" />
+                                        <TextBlock Text="الإعدادات" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                                    </StackPanel>
+                                </Button>
 
-                    <RadioButton x:Name="NavMonthlyPlanItem" Style="{StaticResource NavItem}"
-                                 Tag="{x:Type views:MonthlyPlanView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="الخطة الشهرية">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="CalendarMonthOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="الخطة الشهرية" Margin="10,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </RadioButton>
-
-                    <RadioButton x:Name="NavDailyEntryItem" Style="{StaticResource NavItem}"
-                                 Tag="{x:Type views:DailyEntryView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="تسجيل الإنتاج اليومي">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ClipboardEditOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="تسجيل الإنتاج اليومي" Margin="10,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </RadioButton>
-
-                    <!-- جنب التسجيل اليومي عن قصد: الذاكرة هي اللي بتوصّل
-                         للتسجيل ("ابدأ الآن")، فمكانها الطبيعي جنبه -->
-                    <RadioButton x:Name="NavMemoryItem" Style="{StaticResource NavItem}"
-                                 Tag="{x:Type views:MemoryView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="الذاكرة">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="الذاكرة" Margin="10,0,0,0" VerticalAlignment="Center" />
-                            <!-- عدد خطط الذاكرة المستحقة النهارده أو المتأخرة (نفس نمط شارة سجل العمليات تحت) -->
-                            <Border x:Name="MemoryBadge" Background="{DynamicResource DangerBgBrush}"
-                                    CornerRadius="8" Padding="6,1" Margin="6,0,0,0"
-                                    VerticalAlignment="Center" Visibility="Collapsed">
-                                <TextBlock x:Name="MemoryBadgeText" FontSize="10.5" FontWeight="Bold"
-                                           Foreground="{DynamicResource DangerBrush}" />
-                            </Border>
-                        </StackPanel>
-                    </RadioButton>
-
-                    <!-- شاشتين مختلفتين عن قصد: التقييم بتتشاف وبيتصرّف
-                         منها، والتقارير بتطلّع ورق. خلطهم في شاشة واحدة
-                         كان بيخلي المدير يدوّر على اللي بيهمه وسط تبويبات
-                         بتعمل حاجة تانية خالص. -->
-                    <RadioButton x:Name="NavEvaluationItem" Style="{StaticResource NavItem}"
-                                 Tag="{x:Type views:ReportsView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="التقييم والمتابعة">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ChartBar" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="التقييم والمتابعة" Margin="10,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </RadioButton>
-
-                    <RadioButton x:Name="NavReportsItem" Style="{StaticResource NavItem}"
-                                 Tag="{x:Type views:ReportBuilderView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="التقارير">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="التقارير" Margin="10,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </RadioButton>
-
-                    <!-- فتح الشاشة بيصفّر آخر وقت مشاهدة جوه الـ ViewModel نفسها؛
-                         الرجوع هنا بعد شوية (تنقّل تاني) هو اللي بيعرض الصفر فعليًا -->
-                    <RadioButton x:Name="NavActivityLogItem" Style="{StaticResource NavItem}"
-                                 Tag="{x:Type views:ActivityLogView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="سجل العمليات">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="سجل العمليات" Margin="10,0,0,0" VerticalAlignment="Center" />
-                            <!-- عدد العمليات اللي اتسجّلت من آخر مرة الحساب ده فتح
-                                 السجل — بتتصفّر أول ما الشاشة تتفتح (ActivityLogViewModel.LoadAsync) -->
-                            <!-- DangerBgBrush/DangerBrush زوج ألوان متباين بالتصميم في الثيمين
-                                 (نفس زوج شارة الحذف في سجل العمليات) — لون Danger الصريح بيعكس
-                                 نفسه بين الثيمين فمش آمن لوحده كخلفية مصمتة -->
-                            <Border x:Name="ActivityBadge" Background="{DynamicResource DangerBgBrush}"
-                                    CornerRadius="8" Padding="6,1" Margin="6,0,0,0"
-                                    VerticalAlignment="Center" Visibility="Collapsed">
-                                <TextBlock x:Name="ActivityBadgeText" FontSize="10.5" FontWeight="Bold"
-                                           Foreground="{DynamicResource DangerBrush}" />
-                            </Border>
-                        </StackPanel>
-                    </RadioButton>
-
-                    <RadioButton x:Name="NavSettingsItem" Style="{StaticResource NavItem}"
-                                 Tag="{x:Type views:SettingsView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="الإعدادات والنسخ">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="الإعدادات والنسخ" Margin="10,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </RadioButton>
-
-                    <!-- قايمة منفصلة تمامًا عن "العمال والمهارات" —
-                         الحسابات دي مش عمال إنتاج -->
-                    <RadioButton x:Name="NavDepartmentAccountsItem" Style="{StaticResource NavItem}"
-                                 Tag="{x:Type views:DepartmentAccountsView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="الحسابات الإدارية">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="AccountTie" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="الحسابات الإدارية" Margin="10,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </RadioButton>
-
-                    <!-- مرجع دائم بشرح كل شاشة + جولة سبوت لايت قصيرة لكل ميزة —
-                         آخر عنصر عن قصد، زي أي "مساعدة" في أي برنامج -->
-                    <RadioButton x:Name="NavHelpItem" Style="{StaticResource NavItem}"
-                                 Tag="{x:Type views:HelpView}"
-                                 Checked="NavigateToView_Checked" Click="NavigateToView_Checked"
-                                 AutomationProperties.Name="الدليل">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="HelpCircleOutline" Width="18" Height="18" VerticalAlignment="Center"
-                                                     Foreground="{DynamicResource GoldBrush}" />
-                            <TextBlock Text="الدليل" Margin="10,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </RadioButton>
-                </StackPanel>
-                </ScrollViewer>
-
-                <!-- المؤشر الدهبي المشترك للبند المختار — عنصر واحد بينزلق
-                     بدل ما كل بند يفعّل شريطه الخاص لوحده (كان كده قبل كده،
-                     Opacity 0↔1 بلا حركة). موضعه بيتظبط برمجيًا
-                     (PositionNavIndicator) بـTranslateTransform، مش Margin —
-                     أرخص للحركة ومايأثرش على تخطيط باقي البنود. IsHitTestVisible
-                     False عشان ميحجبش دوسة على أي بند. -->
-                <Border x:Name="NavIndicator" Width="3" HorizontalAlignment="Right" VerticalAlignment="Top"
-                        CornerRadius="2" Background="{DynamicResource GoldGradientBrush}"
-                        IsHitTestVisible="False" Opacity="0">
-                    <Border.RenderTransform>
-                        <TranslateTransform x:Name="NavIndicatorTransform" />
-                    </Border.RenderTransform>
-                </Border>
+                                <Button x:Name="FinalSaveButton" Margin="0,10,0,0" Click="FinalSave_Click"
+                                        Style="{StaticResource PrimaryButton}" Padding="0,10"
+                                        HorizontalContentAlignment="Center"
+                                        ToolTip="مراجعة وتوقيع كل حاجة حصلت النهارده"
+                                        AutomationProperties.Name="حفظ نهائي">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <materialDesign:PackIcon Kind="CheckCircleOutline" Width="17" Height="17" VerticalAlignment="Center" />
+                                        <TextBlock Text="حفظ نهائي" Margin="8,0,0,0" VerticalAlignment="Center" FontWeight="Bold" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
                 </Grid>
-            </DockPanel>
-
-            <!-- زرار طي/فتح الشريط — ثابت في نفس المكان دايمًا (الحافة
-                 الداخلية، جنب حد المحتوى)، برّه SidebarContent فمايختفيش
-                 معاه. **HorizontalAlignment="Right" مقصودة** — الـGrid
-                 الأب موروث FlowDirection=RightToLeft من النافذة، فـWPF
-                 بيعكس معنى Left/Right وقت حل التخطيط: "Right" هنا فعليًا
-                 بتترسم عند الحافة اليسرى الحقيقية (بعيد عن اللوجو اللي في
-                 أول الصف الأفقي، يعني الحافة اليمنى). "Left" كانت بتتحط
-                 فوق اللوجو بالظبط لنفس السبب بالعكس — شوف تعليق CLAUDE.md.
-                 الأيقونة بتتقلب في الكود (SidebarToggle_Click) —
-                 ChevronDoubleLeft وهو مطوي (دوس تفتح لجوّه)، ChevronDoubleRight
-                 وهو مفتوح (دوس تقفل لبرّه) -->
-            <Border Width="36" Height="36" CornerRadius="18"
-                    Background="{DynamicResource SidebarAltBrush}"
-                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,26,10,0">
-                <Grid>
-                    <Button x:Name="SidebarToggleButton" Click="SidebarToggle_Click" Style="{StaticResource IconButton}" Padding="0"
-                            Width="36" Height="36" ToolTip="طي القائمة الجانبية (Ctrl+B)"
-                            AutomationProperties.Name="طي أو فتح القائمة الجانبية">
-                        <materialDesign:PackIcon x:Name="SidebarToggleIcon" Kind="ChevronDoubleRight"
-                                                  Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                    </Button>
-                    <!-- نقطة تنبيه صغيرة — بتبان لو فيه بادچ معلّق (سجل عمليات/
-                         ذاكرة مستحقة) وقت ما الشريط يكون مطوي، عشان تنبيه
-                         مهم ميضيعش لمجرد إن المستخدم طاوي الشريط -->
-                    <Border x:Name="SidebarToggleBadgeDot" Width="9" Height="9" CornerRadius="4.5"
-                            Background="{DynamicResource DangerBrush}"
-                            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-1,-1,0"
-                            IsHitTestVisible="False" Visibility="Collapsed" />
-                </Grid>
-            </Border>
-            <!-- لوجو صغير = "الرئيسية" وهو مطوي — اللوجو الكبير جوّه SidebarContent
-                 بيختفي مع الطي، والنسخة دي بتفضل ظاهرة في الشريط الضيق تحت زرار
-                 الطي، فالرجوع للرئيسية متاح من أي شاشة في الحالتين -->
-            <Border x:Name="CollapsedHomeButtonPill" Width="38" Height="38" CornerRadius="10"
-                    HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,74,0,0"
-                    Visibility="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
-                <Border.Style>
-                    <Style TargetType="Border">
-                        <Setter Property="Background" Value="Transparent" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsChecked, ElementName=NavHomeItem}" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Border.Style>
-                <Button x:Name="CollapsedHomeButton" Style="{StaticResource CardButton}" Click="HomeLogo_Click"
-                        ToolTip="الرئيسية" AutomationProperties.Name="الرئيسية">
-                    <views:WmsLogo Width="30" Height="30" />
-                </Button>
-            </Border>
-
-            <!-- أيقونات التنقل وهو مطوي — نفس الأيقونات بالظبط اللي في القايمة
-                 المفرودة (Kind منسوخ حرفيًا، مش مصدر جديد)، كل واحدة بس بتحط
-                 IsChecked=true على الـRadioButton الحقيقي بتاعها (CollapsedNavIcon_Click
-                 بياخد اسمه من Tag) — نفس مسار Checked/Navigate الحالي بالظبط،
-                 صفر منطق تنقل جديد. الدائرة (Border) اللي لافة كل زرار هي خلفية
-                 "مختار" فاتحة (SidebarAltBrush) لما الشاشة دي هي المفتوحة، بنفس
-                 لون خلفية البند المختار في القايمة المفرودة — الأيقونة نفسها
-                 فاضلة دهبية دايمًا زي القايمة المفرودة بالظبط (مفيش تتبّع حالة
-                 على لون الأيقونة، نفس القاعدة). ScrollViewer هنا زي NavScrollViewer
-                 بالظبط، احتياطًا لشاشة قصيرة. -->
-            <ScrollViewer Margin="0,118,0,10" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                          Visibility="{Binding IsSidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
-                <StackPanel x:Name="CollapsedNavStack" HorizontalAlignment="Center">
-                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavWorkersItem}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Button Style="{StaticResource IconButton}" Tag="NavWorkersItem" Click="CollapsedNavIcon_Click"
-                                ToolTip="العمال" AutomationProperties.Name="العمال">
-                            <materialDesign:PackIcon Kind="AccountGroup" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                        </Button>
-                    </Border>
-
-                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavProductsItem}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Button Style="{StaticResource IconButton}" Tag="NavProductsItem" Click="CollapsedNavIcon_Click"
-                                ToolTip="المنتجات والمراحل" AutomationProperties.Name="المنتجات والمراحل">
-                            <materialDesign:PackIcon Kind="PackageVariantClosed" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                        </Button>
-                    </Border>
-
-                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavMonthlyPlanItem}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Button Style="{StaticResource IconButton}" Tag="NavMonthlyPlanItem" Click="CollapsedNavIcon_Click"
-                                ToolTip="الخطة الشهرية" AutomationProperties.Name="الخطة الشهرية">
-                            <materialDesign:PackIcon Kind="CalendarMonthOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                        </Button>
-                    </Border>
-
-                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavDailyEntryItem}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Button Style="{StaticResource IconButton}" Tag="NavDailyEntryItem" Click="CollapsedNavIcon_Click"
-                                ToolTip="تسجيل الإنتاج اليومي" AutomationProperties.Name="تسجيل الإنتاج اليومي">
-                            <materialDesign:PackIcon Kind="ClipboardEditOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                        </Button>
-                    </Border>
-
-                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavMemoryItem}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Button Style="{StaticResource IconButton}" Tag="NavMemoryItem" Click="CollapsedNavIcon_Click"
-                                ToolTip="الذاكرة" AutomationProperties.Name="الذاكرة">
-                            <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                        </Button>
-                    </Border>
-
-                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavEvaluationItem}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Button Style="{StaticResource IconButton}" Tag="NavEvaluationItem" Click="CollapsedNavIcon_Click"
-                                ToolTip="التقييم والمتابعة" AutomationProperties.Name="التقييم والمتابعة">
-                            <materialDesign:PackIcon Kind="ChartBar" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                        </Button>
-                    </Border>
-
-                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavReportsItem}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Button Style="{StaticResource IconButton}" Tag="NavReportsItem" Click="CollapsedNavIcon_Click"
-                                ToolTip="التقارير" AutomationProperties.Name="التقارير">
-                            <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                        </Button>
-                    </Border>
-
-                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavActivityLogItem}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Button Style="{StaticResource IconButton}" Tag="NavActivityLogItem" Click="CollapsedNavIcon_Click"
-                                ToolTip="سجل العمليات" AutomationProperties.Name="سجل العمليات">
-                            <materialDesign:PackIcon Kind="ClipboardTextClockOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                        </Button>
-                    </Border>
-
-                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavSettingsItem}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Button Style="{StaticResource IconButton}" Tag="NavSettingsItem" Click="CollapsedNavIcon_Click"
-                                ToolTip="الإعدادات والنسخ" AutomationProperties.Name="الإعدادات والنسخ">
-                            <materialDesign:PackIcon Kind="CogOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                        </Button>
-                    </Border>
-
-                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,6">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavDepartmentAccountsItem}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Button Style="{StaticResource IconButton}" Tag="NavDepartmentAccountsItem" Click="CollapsedNavIcon_Click"
-                                ToolTip="الحسابات الإدارية" AutomationProperties.Name="الحسابات الإدارية">
-                            <materialDesign:PackIcon Kind="AccountTie" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                        </Button>
-                    </Border>
-
-                    <Border Width="38" Height="38" CornerRadius="10" Margin="0,0,0,0">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsChecked, ElementName=NavHelpItem}" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
-                        <Button Style="{StaticResource IconButton}" Tag="NavHelpItem" Click="CollapsedNavIcon_Click"
-                                ToolTip="الدليل" AutomationProperties.Name="الدليل">
-                            <materialDesign:PackIcon Kind="HelpCircleOutline" Width="18" Height="18" Foreground="{DynamicResource GoldBrush}" />
-                        </Button>
-                    </Border>
                 </StackPanel>
-            </ScrollViewer>
             </Grid>
         </Border>
 
         <!-- ══════════ منطقة المحتوى ══════════ -->
-        <Grid Grid.Column="1">
+        <Grid Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -762,7 +403,7 @@
              بإحداثيات فعلية (TransformToVisual)، ولو سبنا RTL الموروثة
              كانت هتنعكس Margin.Left/HorizontalAlignment="Left" على الجنب
              التاني. النص العربي جوه الفقاعة بيرجّع RTL بنفسه. -->
-        <Grid x:Name="TourOverlay" Grid.ColumnSpan="2" Visibility="Collapsed" Panel.ZIndex="1000"
+        <Grid x:Name="TourOverlay" Grid.RowSpan="2" Visibility="Collapsed" Panel.ZIndex="1000"
               FlowDirection="LeftToRight">
             <!-- دوسة على المنطقة المعتمة (برّه الفقاعة والهالة) = زي "تخطي الكل" —
                  نفس تعامل أي Overlay/Dialog تاني بيتقفل بدوسة برّه -->

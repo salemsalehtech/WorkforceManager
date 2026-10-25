@@ -371,7 +371,7 @@
         </Setter>
     </Style>
 
-    <!-- ============ بند القايمة الجانبية ============ -->
+    <!-- ============ بند شريط التنقل العلوي (كان القايمة الجانبية) ============ -->
     <Style x:Key="NavItem" TargetType="RadioButton">
         <Setter Property="FontFamily" Value="{DynamicResource SidebarFont}" />
         <Setter Property="FontSize" Value="{DynamicResource FontBase}" />
@@ -428,6 +428,11 @@
                             </Border.Background>
                         </Border>
 
+                        <!-- خط دهبي تحت البند المختار — القايمة بقت شريط علوي (كانت جانبية بمؤشر منزلق) -->
+                        <Border x:Name="Underline" Height="3" VerticalAlignment="Bottom" Margin="12,0,12,0"
+                                CornerRadius="2" Opacity="0" IsHitTestVisible="False"
+                                Background="{DynamicResource GoldGradientBrush}" />
+
                         <!-- الشريط الدهبي على حرف البند النشط بقى عنصر واحد
                              مشترك بيتحرك (NavIndicator في MainWindow.xaml)
                              بدل شريط منفصل لكل بند — شوف MainWindow.xaml.cs's
@@ -472,6 +477,7 @@
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SidebarAltBrush}" />
                             <Setter TargetName="Glow" Property="Opacity" Value="1" />
+                            <Setter TargetName="Underline" Property="Opacity" Value="1" />
                             <!-- العنصر المختار أبيض/فاتح مقابل الباقي الدهبي — انعكاس
                                  مقصود عن الوضع الأول (دهبي للمختار بس) بناءً على تفضيل
                                  بصري بعد المراجعة -->
@@ -480,6 +486,108 @@
                             <!-- عائلة الوزن الحقيقية، مش نفس عائلة النص العادي بـFontWeight بس —
                                  كل وزن في IBM Plex Sans Arabic عائلة خط منفصلة، شوف تعليق
                                  SidebarFontSemiBold في أول الملف ده -->
+                            <Setter Property="FontFamily" Value="{DynamicResource SidebarFontSemiBold}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- أزرار الشريط العلوي (بحث، جرس، المزيد): كبسولة داكنة بنفس خلفية حاوية البنود وحدّ دهبي عند التمرير —
+         بدل الأزرار البيضا اللي كانت بتنفر على الشريط الأسود -->
+    <Style x:Key="TopBarButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{DynamicResource SidebarInkBrush}" />
+        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="12" Background="{TemplateBinding Background}"
+                            BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GoldBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="TopBarToggle" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{DynamicResource SidebarInkBrush}" />
+        <Setter Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Bd" CornerRadius="12" Background="{TemplateBinding Background}"
+                            BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GoldBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GoldBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+      بند الشريط العلوي (الشكل العصري): كبسولة جوّه حاوية مستديرة. المختار بيتملّي دهبي متدرّج
+      بنص غامق (تباين عالي) بدل ما كان أبيض على رمادي، والتمرير بيفتّح الخلفية بس.
+      الأيقونة جوّه البند من غير Foreground صريح عشان ترث لون النص (غامق على الدهبي) — لو اتحط
+      عليها GoldBrush هتختفي على الخلفية الدهبية.
+    -->
+    <Style x:Key="TopNavItem" TargetType="RadioButton">
+        <Setter Property="FontFamily" Value="{DynamicResource SidebarFont}" />
+        <Setter Property="FontSize" Value="{DynamicResource FontBase}" />
+        <Setter Property="Foreground" Value="{DynamicResource SidebarInkSoftBrush}" />
+        <Setter Property="Margin" Value="2,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="FocusVisualStyle">
+            <Setter.Value>
+                <Style>
+                    <Setter Property="Control.Template">
+                        <Setter.Value>
+                            <ControlTemplate />
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Pill" CornerRadius="10" Background="Transparent" Padding="14,7">
+                        <ContentPresenter VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Pill" Property="Background" Value="{DynamicResource SidebarAltBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SidebarInkBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Pill" Property="Background" Value="{DynamicResource GoldGradientBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SidebarBrush}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
                             <Setter Property="FontFamily" Value="{DynamicResource SidebarFontSemiBold}" />
                         </Trigger>
                     </ControlTemplate.Triggers>

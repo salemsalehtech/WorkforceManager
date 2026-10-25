@@ -53,7 +53,10 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>نفس القيمة على كل صفوف الشهر ده — أرخص من نداء تاني من الشاشة عشان "الأيام المتبقية" البارزة</summary>
         int TotalWorkdays,
-        int RemainingWorkdays)
+        int RemainingWorkdays,
+
+        // ترتيب عيلة المنتج اللي المستخدم اختاره (ProductFamily.SortOrder) — منتج من غير عيلة = آخر حاجة
+        int FamilySortOrder = int.MaxValue)
     {
         /// <summary>وزن المحقق الفعلي = وزن القطعة × EffectiveAchieved — null لو المنتج ماله وزن مسجّل</summary>
         public decimal? TotalWeightGrams => PieceWeightGrams is { } w ? w * EffectiveAchieved : null;

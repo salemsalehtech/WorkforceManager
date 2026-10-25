@@ -48,7 +48,8 @@ namespace WorkforceManager.UI
         /// </summary>
         private async void GlobalSearch_Click(object sender, RoutedEventArgs e)
         {
-            var chosen = GlobalSearchDialog.Ask(this, SearchAllCategoriesAsync);
+            var alerts = await BuildSearchAlertsAsync();
+            var chosen = GlobalSearchDialog.Ask(this, SearchAllCategoriesAsync, PreviewSearchResultAsync, alerts);
             if (chosen is null) return;
 
             await LandOnSearchResultAsync(chosen);
@@ -70,6 +71,7 @@ namespace WorkforceManager.UI
             results.AddRange(MatchSettings(query));
             results.AddRange(MatchHelpContent(query));
             results.AddRange(MatchScreens(query));
+            results.AddRange(await MatchActionsAsync(query));
 
             // إجابة النية (لو العبارة اتفهمت كنية) بتتحط دايمًا على الرأس —
             // شوف SearchIntentService.AnswerResultScore. مفيش خصم اسكور هنا:
@@ -232,7 +234,7 @@ namespace WorkforceManager.UI
 
                 case SearchCategory.ProductionStage:
                     NavProductsItem.IsChecked = true;
-                    if (MainContent?.Content is ProductsView stageView &&
+                    if (ScreenOf<ProductsView>() is { } stageView &&
                         stageView.DataContext is ViewModels.ProductsViewModel stageVm)
                     {
                         // اسم المنتج الأب (SecondaryText) بيوصّل لصفحة المنتج الصح —
@@ -263,7 +265,7 @@ namespace WorkforceManager.UI
                 case SearchCategory.MemoryPlan:
                     NavMemoryItem.IsChecked = true;
                     await Task.Delay(SearchLandingSettleDelayMs);
-                    if (MainContent?.Content is MemoryView { DataContext: ViewModels.MemoryViewModel memoryVm } &&
+                    if (ScreenOf<MemoryView>() is { DataContext: ViewModels.MemoryViewModel memoryVm } &&
                         chosen.MemoryPlanId is { } planId)
                     {
                         var plan = await _session.GetRequiredService<ProductionMemoryService>().GetAsync(planId);
@@ -273,7 +275,7 @@ namespace WorkforceManager.UI
 
                 case SearchCategory.ActivityLogEntry:
                     NavActivityLogItem.IsChecked = true;
-                    if (MainContent?.Content is ActivityLogView { DataContext: ViewModels.ActivityLogViewModel logVm })
+                    if (ScreenOf<ActivityLogView>() is { DataContext: ViewModels.ActivityLogViewModel logVm })
                     {
                         // زي بحث العمال/المنتجات: بتتظبط قبل التحميل الطبيعي
                         // (Loaded → LoadAsync) بدل ما تتنادى تاني وتتسابق معاه
@@ -288,14 +290,14 @@ namespace WorkforceManager.UI
                     NavReportsItem.IsChecked = true;
                     // القوالب بتتحمّل تزامنيًا في الـ Constructor (ReportTemplateStore.Load
                     // ملف JSON بسيط)، فمفيش تأخير محتاج هنا عكس باقي الفئات
-                    if (MainContent?.Content is ReportBuilderView { DataContext: ViewModels.ReportBuilderViewModel reportVm })
+                    if (ScreenOf<ReportBuilderView>() is { DataContext: ViewModels.ReportBuilderViewModel reportVm })
                         reportVm.SelectedTemplate = reportVm.Templates.FirstOrDefault(t => t.Name == chosen.ReportTemplateName);
                     break;
 
                 case SearchCategory.DepartmentAccount:
                     NavDepartmentAccountsItem.IsChecked = true;
                     await Task.Delay(SearchLandingSettleDelayMs);
-                    if (MainContent?.Content is DepartmentAccountsView { DataContext: ViewModels.DepartmentAccountsViewModel deptVm })
+                    if (ScreenOf<DepartmentAccountsView>() is { DataContext: ViewModels.DepartmentAccountsViewModel deptVm })
                     {
                         var account = deptVm.Accounts.FirstOrDefault(a => a.WorkerId == chosen.WorkerId);
                         if (account is not null) deptVm.OpenProfileCommand.Execute(account);
@@ -304,10 +306,13 @@ namespace WorkforceManager.UI
 
                 case SearchCategory.Setting:
                     NavSettingsItem.IsChecked = true;
-                    if (MainContent?.Content is FrameworkElement settingsView && chosen.SettingTargetElementName is not null &&
+                    if (MainContent?.Content is SettingsView settingsView && chosen.SettingTargetElementName is not null &&
                         settingsView.FindName(chosen.SettingTargetElementName) is FrameworkElement settingElement)
                     {
-                        settingElement.BringIntoView();
+                        // القسم اللي فيه العنصر لازم يتفتح الأول — عنصر في قسم مخفي مفيهوش حاجة يتمرّر ليها
+                        settingsView.ShowSectionOf(chosen.SettingTargetElementName);
+                        settingElement.Dispatcher.BeginInvoke(
+                            System.Windows.Threading.DispatcherPriority.Loaded, new Action(settingElement.BringIntoView));
                     }
                     break;
 
@@ -322,7 +327,7 @@ namespace WorkforceManager.UI
 
                 case SearchCategory.HelpTopic:
                     NavHelpItem.IsChecked = true;
-                    if (MainContent?.Content is HelpView { DataContext: ViewModels.HelpViewModel helpVm })
+                    if (ScreenOf<HelpView>() is { DataContext: ViewModels.HelpViewModel helpVm })
                     {
                         if (chosen.IsFaqEntry)
                         {
@@ -342,6 +347,10 @@ namespace WorkforceManager.UI
                     }
                     break;
 
+                case SearchCategory.Action:
+                    await RunSearchActionAsync(chosen);
+                    break;
+
                 case SearchCategory.IntentAnswer:
                     // فعل ("أضيف مرحلة/مهارة") لازم هبوط خاص بيفتح نفس
                     // الديالوج/اللوحة اللي المستخدم كان هيفتحها بإيده —
@@ -354,10 +363,189 @@ namespace WorkforceManager.UI
                     // بس بالاسم الصافي (IntentAnswer.Name)، مش عنوان البطاقة
                     // الكامل (PrimaryText هنا = نفس الاسم الصافي أصلًا، شوف
                     // SearchAllCategoriesAsync)
+                    else if (chosen.IntentAnswer?.Kind is SearchIntentKind.DayAttendance or SearchIntentKind.DayAbsence)
+                        NavAttendanceItem.IsChecked = true;
+                    else if (chosen.IntentAnswer?.Kind == SearchIntentKind.PlanBehind)
+                        OpenScreen<MonthlyPlanView>()?.ShowPage(0);
+                    else if (chosen.IntentAnswer?.Kind == SearchIntentKind.Scrap)
+                        OpenDailyEntryPage(DailyEntryScrapTab);
+                    else if (chosen.IntentAnswer?.Kind is SearchIntentKind.DayProduction or SearchIntentKind.PeriodProduction)
+                        OpenDailyEntryPage(DailyEntryReviewTab);
                     else if (chosen.WorkerId is not null) await LandOnWorkerAsync(chosen.PrimaryText, chosen.WorkerId);
                     else if (chosen.ProductId is not null) LandOnProduct(chosen.PrimaryText);
                     break;
             }
+        }
+
+        // ======================= البحث الذكي: أوامر مباشرة + معاينة + تنبيهات =======================
+
+        /// <summary>أرقام صفحات التسجيل اليومي اللي البحث بيفتحها مباشرة (نفس ترتيب PageDefinitions في DailyEntryView)</summary>
+        private const int DailyEntryProductionTab = 0;
+        private const int DailyEntryReviewTab = 2;
+        private const int DailyEntryScrapTab = 4;
+
+        private void OpenDailyEntryPage(int tab)
+        {
+            NavDailyEntryItem.IsChecked = true; // مسار مخفي → إدارة الإنتاج ← تسجيل يوميات العمال
+            _session.GetRequiredService<ViewModels.DailyEntryViewModel>().OpenTab(tab);
+        }
+
+        /// <summary>
+        /// الأوامر اللي البحث طالبها (Tour.SearchableActions) كنتايج. أمر بياخد عامل والكلام الزيادة اسمه:
+        /// بندوّر عليه بنفس محرك البحث (فئة العمال) — ولو اتكتب ملزوق بحرف الجر ("لأحمد") بنجرّب من غير "ل".
+        /// </summary>
+        private async Task<IEnumerable<GlobalSearchResult>> MatchActionsAsync(string query)
+        {
+            var found = new List<GlobalSearchResult>();
+            var search = _session.GetRequiredService<GlobalSearchService>();
+
+            foreach (var (action, exact, remainder) in Tour.SearchableActions.Match(query))
+            {
+                GlobalSearchResult? worker = null;
+                if (exact && action.TargetsWorker && remainder.Length > 0)
+                {
+                    worker = await FindWorkerAsync(search, remainder)
+                             ?? (remainder.StartsWith("ل", StringComparison.Ordinal) && remainder.Length > 3
+                                 ? await FindWorkerAsync(search, remainder[1..])
+                                 : null);
+                }
+
+                found.Add(new GlobalSearchResult
+                {
+                    Category = SearchCategory.Action,
+                    ActionKey = action.Key,
+                    PrimaryText = worker is null ? action.Title : $"{action.Title} — {worker.PrimaryText}",
+                    SecondaryText = action.Description,
+                    WorkerId = worker?.WorkerId,
+                    // أمر مكتوب صراحة فوق إجابة النية (1100)، ولسه بيتكتب تحت النتايج الواضحة
+                    Score = exact ? SearchIntentService.AnswerResultScore + 100 : 900
+                });
+            }
+
+            return found;
+        }
+
+        private static async Task<GlobalSearchResult?> FindWorkerAsync(GlobalSearchService search, string name) =>
+            (await search.SearchAsync(name))
+                .Where(r => r.Category == SearchCategory.Worker)
+                .OrderByDescending(r => r.Score)
+                .FirstOrDefault();
+
+        /// <summary>تنفيذ أمر من البحث — نفس الأزرار والفورمات اللي المستخدم كان هيوصلها بإيده، مفيش كتابة تلقائية</summary>
+        private async Task RunSearchActionAsync(GlobalSearchResult chosen)
+        {
+            const string separator = " — ";
+            var cut = chosen.PrimaryText.IndexOf(separator, StringComparison.Ordinal);
+            var workerName = cut >= 0 ? chosen.PrimaryText[(cut + separator.Length)..] : "";
+
+            switch (chosen.ActionKey)
+            {
+                case Tour.SearchableActions.RecordAttendance:
+                case Tour.SearchableActions.RecordPenalty:
+                case Tour.SearchableActions.RecordAdjustment:
+                    var target = chosen.ActionKey switch
+                    {
+                        Tour.SearchableActions.RecordPenalty => ViewModels.DailyEntryWorkerTarget.Penalty,
+                        Tour.SearchableActions.RecordAdjustment => ViewModels.DailyEntryWorkerTarget.Adjustment,
+                        _ => ViewModels.DailyEntryWorkerTarget.Attendance
+                    };
+                    if (chosen.WorkerId is { } workerId)
+                    {
+                        await OpenDailyEntryForWorkerAsync(workerId, workerName, target);
+                    }
+                    else
+                    {
+                        var page = target switch
+                        {
+                            ViewModels.DailyEntryWorkerTarget.Penalty => NavPenaltiesItem,
+                            ViewModels.DailyEntryWorkerTarget.Adjustment => NavAdjustmentsItem,
+                            _ => NavAttendanceItem
+                        };
+                        page.IsChecked = true;
+                    }
+                    break;
+
+                case Tour.SearchableActions.AddWorker:
+                    if (OpenScreen<WorkersView>() is { DataContext: ViewModels.WorkersViewModel workersVm })
+                    {
+                        await Task.Delay(SearchLandingSettleDelayMs);
+                        workersVm.AddWorkerCommand.Execute(null);
+                    }
+                    break;
+
+                case Tour.SearchableActions.AddProduct:
+                    if (OpenScreen<ProductsView>() is { DataContext: ViewModels.ProductsViewModel productsVm })
+                    {
+                        await Task.Delay(SearchLandingSettleDelayMs);
+                        productsVm.AddProductCommand.Execute(null);
+                    }
+                    break;
+
+                case Tour.SearchableActions.RecordProduction:
+                    OpenDailyEntryPage(DailyEntryProductionTab);
+                    break;
+
+                case Tour.SearchableActions.FinalSave:
+                    FinalSave_Click(this, new RoutedEventArgs());
+                    break;
+
+                case Tour.SearchableActions.Backup:
+                    NavSettingsItem.IsChecked = true;
+                    (MainContent?.Content as SettingsView)?.SelectSection(SettingsView.BackupSection);
+                    break;
+
+                case Tour.SearchableActions.ExportMonthlyPlan:
+                    if (OpenScreen<MonthlyPlanView>() is { } planView)
+                    {
+                        planView.ShowPage(0);
+                        await planView.WhenLoaded;
+                        if (planView.DataContext is ViewModels.MonthlyPlanViewModel planVm) planVm.ExportExcelCommand.Execute(null);
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>كارت المعاينة جنب نتايج البحث: ملخص العامل/المنتج المحدد من غير ما تفتح شاشته</summary>
+        private async Task<SearchIntentAnswer?> PreviewSearchResultAsync(GlobalSearchResult result)
+        {
+            var intents = _session.GetRequiredService<SearchIntentService>();
+            if (result.Category is SearchCategory.Worker or SearchCategory.Action && result.WorkerId is { } workerId)
+                return await intents.PreviewWorkerAsync(workerId);
+            if (result.Category == SearchCategory.Product && result.ProductId is { } productId)
+                return await intents.PreviewProductAsync(productId);
+            return null;
+        }
+
+        /// <summary>
+        /// تنبيهات النهارده اللي بتظهر في البحث قبل ما تكتب — كل تنبيه دوسة عليه بتكتب السؤال اللي بيجاوبه
+        /// (نفس النيات العادية). بتتحسب مرة واحدة لما البحث يتفتح؛ فشلها مايمنعش البحث نفسه.
+        /// </summary>
+        private async Task<IReadOnlyList<SearchSuggestion>> BuildSearchAlertsAsync()
+        {
+            var alerts = new List<SearchSuggestion>();
+            try
+            {
+                var stats = _session.GetRequiredService<HubStatsService>();
+                var workers = await stats.GetWorkersStatsAsync(DateTime.Today);
+                var unrecorded = workers.ActiveWorkers - workers.PresentToday - workers.AbsentToday;
+                if (unrecorded > 0) alerts.Add(new($"{unrecorded} عامل لسه حضوره متسجّلش", "حضور النهارده"));
+                if (workers.AbsentToday > 0) alerts.Add(new($"{workers.AbsentToday} غايب النهارده", "غياب النهارده"));
+
+                var daily = await stats.GetDailyEntryStatsAsync(DateTime.Today);
+                if (daily.DueMemoryPlans > 0) alerts.Add(new($"{daily.DueMemoryPlans} خطة محفوظة مستحقة", "خطط الإنتاج المحفوظة"));
+                if (daily.ScrapPiecesToday > 0) alerts.Add(new($"هالك النهارده: {daily.ScrapPiecesToday:N0} قطعة", "هالك النهارده"));
+
+                var today = DateTime.Today;
+                var behind = (await _session.GetRequiredService<MonthlyPlanTrackingService>().GetTrackingAsync(today.Year, today.Month, today))
+                    .Count(t => !t.IsOutsidePlan && t.PlannedQuantity > 0 && t.Status == PlanPaceStatus.Behind);
+                if (behind > 0) alerts.Add(new($"{behind} منتج متأخر في الخطة", "المتأخر في الخطة"));
+            }
+            catch
+            {
+                // التنبيهات مساعدة مش أساسية — البحث يفتح عادي من غيرها
+            }
+
+            return alerts;
         }
 
         /// <summary>
@@ -369,7 +557,7 @@ namespace WorkforceManager.UI
         private async Task LandOnAddStageAsync(GlobalSearchResult chosen)
         {
             NavProductsItem.IsChecked = true;
-            if (MainContent?.Content is not ProductsView { DataContext: ViewModels.ProductsViewModel productsVm }) return;
+            if (ScreenOf<ProductsView>() is not { DataContext: ViewModels.ProductsViewModel productsVm }) return;
 
             productsVm.SearchText = chosen.PrimaryText;
             await Task.Delay(SearchLandingSettleDelayMs);
@@ -390,8 +578,7 @@ namespace WorkforceManager.UI
         /// </summary>
         private async Task LandOnAssignSkillAsync(GlobalSearchResult chosen)
         {
-            NavWorkersItem.IsChecked = true;
-            if (MainContent?.Content is not WorkersView { DataContext: ViewModels.WorkersViewModel workersVm }) return;
+            if (OpenScreen<WorkersView>() is not { DataContext: ViewModels.WorkersViewModel workersVm }) return;
 
             workersVm.SearchText = chosen.PrimaryText;
             await Task.Delay(SearchLandingSettleDelayMs);
@@ -407,8 +594,7 @@ namespace WorkforceManager.UI
         /// <summary>هبوط على عامل بعينه — مشترك بين فئة Worker العادية وإجابة نية عن عامل</summary>
         internal async Task LandOnWorkerAsync(string searchName, int? workerId)
         {
-            NavWorkersItem.IsChecked = true;
-            if (MainContent?.Content is WorkersView { DataContext: ViewModels.WorkersViewModel workersVm })
+            if (OpenScreen<WorkersView>() is { DataContext: ViewModels.WorkersViewModel workersVm })
             {
                 // بتتظبط قبل التحميل الطبيعي فبيلقطها لوحده أول ما يخلص
                 workersVm.SearchText = searchName;
@@ -421,7 +607,7 @@ namespace WorkforceManager.UI
         internal void LandOnProduct(string searchName)
         {
             NavProductsItem.IsChecked = true;
-            if (MainContent?.Content is ProductsView { DataContext: ViewModels.ProductsViewModel productsVm })
+            if (ScreenOf<ProductsView>() is { DataContext: ViewModels.ProductsViewModel productsVm })
                 productsVm.SearchText = searchName;
         }
     }

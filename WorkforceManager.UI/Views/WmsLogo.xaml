@@ -7,7 +7,7 @@
              FlowDirection="LeftToRight">
 
     <!--
-      لوجو WMS: مونوجرام في مربع مدوّر.
+      لوجو قسم الصنفرة: صامولة سداسية بحنفية ونقطة ميّة ولمعة في مربع مدوّر (كان مونوجرام WMS).
 
       مرسوم بـ XAML مش صورة عن قصد: بيفضل حاد في أي مقاس ومع أي دقة
       شاشة، وبيتلوّن مع الثيم لوحده، ومبيزوّدش ملف على الحزمة.
@@ -16,6 +16,14 @@
       دهبية، وجوّاه الحروف دهبي. الحدّة الدهبية رفيعة عن قصد — التخانة
       بتحوّل الفخامة لثقل.
     -->
+    <UserControl.Resources>
+        <!-- ألوان العلامة ثابتة (مش من الثيم) عشان تطلع نفسها في أيقونة البرنامج المتولّدة Assets/app.ico -->
+        <LinearGradientBrush x:Key="MarkGold" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#F3D27A" Offset="0" />
+            <GradientStop Color="#C2A14D" Offset="0.55" />
+            <GradientStop Color="#8A6D1F" Offset="1" />
+        </LinearGradientBrush>
+    </UserControl.Resources>
     <Viewbox Stretch="Uniform">
         <Grid Width="100" Height="100">
 
@@ -36,28 +44,20 @@
                 </Border.Background>
             </Border>
 
-            <!-- الحروف: الشعار الافتراضي. بيتشال لو المستخدم رفع شعاره
-                 هو من الإعدادات — نفس الإطار الأسود بالحدّ الدهبي فاضل
-                 زي ما هو، بس اللي جواه بيتبدّل (شوف Refresh في الكود) -->
-            <Grid x:Name="DefaultMark">
-                <TextBlock Text="WMS"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           FontFamily="Segoe UI, Tahoma"
-                           FontSize="30" FontWeight="Bold"
-                           Foreground="{DynamicResource GoldGradientBrush}">
-                    <!-- تباعد الحروف بيدي الاختصار وقار — من غيره بيبقى
-                         مزنوق زي كلمة مقطوعة -->
-                    <TextBlock.RenderTransform>
-                        <TranslateTransform Y="1" />
-                    </TextBlock.RenderTransform>
-                </TextBlock>
-
-                <!-- خط دهبي تحت الحروف: بيربط الاختصار بفكرة الخط الإنتاجي -->
-                <Rectangle Width="42" Height="2.5" RadiusX="1.5" RadiusY="1.5"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Margin="0,46,0,0"
-                           Fill="{DynamicResource GoldGradientBrush}" Opacity="0.9" />
-            </Grid>
+            <!-- العلامة الافتراضية: صامولة سداسية (رمز السباكة) وجواها حنفية بخط واحد سميك ونقطة ميّة ولمعة —
+                 قسم صنفرة الحنفيات والمحابس. رسم مسطّح بخط موحّد عشان يفضل واضح في أي مقاس. بيتشال لو
+                 المستخدم رفع شعاره هو من الإعدادات (شوف Refresh في الكود)؛ الإطار الأسود بالحدّ الدهبي فاضل زي ما هو. -->
+            <Canvas x:Name="DefaultMark" Width="100" Height="100">
+                <Polygon Points="50,10 84,30 84,70 50,90 16,70 16,30" Stroke="{StaticResource MarkGold}" StrokeThickness="4"
+                         StrokeLineJoin="Round" Fill="#10FFFFFF" />
+                <Path Data="M 36,29 L 56,29" Stroke="{StaticResource MarkGold}" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                <Path Data="M 46,30 L 46,41 M 30,64 L 30,50 Q 30,41 39,41 L 66,41 Q 71,41 71,46 L 71,52"
+                      Stroke="{StaticResource MarkGold}" StrokeThickness="7" StrokeLineJoin="Round"
+                      StrokeStartLineCap="Flat" StrokeEndLineCap="Flat" />
+                <Path Fill="{StaticResource MarkGold}" Data="M 71,58 C 71,58 64,67 64,71 A 7,7 0 0 0 78,71 C 78,67 71,58 71,58 Z" />
+                <Path Canvas.Left="23" Canvas.Top="76" Fill="#FFF3C4"
+                      Data="M 0,-7 L 1.8,-1.8 L 7,0 L 1.8,1.8 L 0,7 L -1.8,1.8 L -7,0 L -1.8,-1.8 Z" />
+            </Canvas>
 
             <!-- شعار المصنع المرفوع من الإعدادات — جوّه نفس المربع
                  والحدّ الدهبي، بديل "WMS" مش زيادة عليه -->

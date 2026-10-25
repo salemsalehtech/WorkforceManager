@@ -20,7 +20,9 @@ namespace WorkforceManager.UI.ViewModels
         public string? FamilyName { get; init; }
         public int RealProductionToday { get; init; }
         public int YesterdayQuantity { get; init; }
-        public bool IsFilled { get; init; }
+        public int FamilySortOrder { get; init; } = int.MaxValue;
+        /// <summary>اتسجل له رقم النهارده — قابل للتغيير عشان الحفظ يحدّث الصف مكانه من غير ما القايمة تتبني من جديد</summary>
+        [ObservableProperty] private bool _isFilled;
 
         [ObservableProperty] private string _quantityText = "";
 
@@ -47,6 +49,7 @@ namespace WorkforceManager.UI.ViewModels
             ProductId = dto.ProductId, ProductName = dto.ProductName,
             FamilyId = dto.FamilyId, FamilyName = dto.FamilyName,
             RealProductionToday = dto.RealProductionToday, YesterdayQuantity = dto.YesterdayQuantity,
+            FamilySortOrder = dto.FamilySortOrder,
             IsFilled = dto.IsFilled, QuantityText = dto.IsFilled ? dto.ManualQuantity.ToString() : "",
         };
     }
@@ -58,7 +61,7 @@ namespace WorkforceManager.UI.ViewModels
     /// نفسه خلاص: الكروت المفتوحة كانت بتطوّل الشبكة وبتنزل تحت بعض.
     /// الصفوف بتتبني من جديد كل تحميل (مش mutation حي)، فكل الخصايص محسوبة عادي.
     /// </summary>
-    public class MonthlyPlanTodayFamilyGroupRow
+    public class MonthlyPlanTodayFamilyGroupRow : ObservableObject
     {
         public string HeaderText { get; init; } = "";
         public List<MonthlyPlanTodayEntryRow> Products { get; init; } = new();
@@ -75,5 +78,8 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>شريط التقدّم: عمودين نجمة (المتسجل / الباقي)</summary>
         public GridLength FilledColumn => new(FilledCount, GridUnitType.Star);
         public GridLength RemainingColumn => new(RemainingCount, GridUnitType.Star);
+
+        /// <summary>بعد حفظ صف جواها: كل الأرقام المحسوبة (العدّاد، الحالة، شريط التقدّم) تتحدّث مكانها</summary>
+        public void Refresh() => OnPropertyChanged(string.Empty);
     }
 }

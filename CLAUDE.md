@@ -3393,6 +3393,143 @@ Core  <----------------------- UI
   `MonthlyPlanPrint` builds a FlowDocument and opens the Windows print dialog, where "Microsoft Print to PDF"
   produces the PDF.
 
+- **إدارة العمال (the old العمال nav item) now also holds الحضور والغياب / الجزاءات / السلف والحوافز**, moved out of
+  تسجيل الإنتاج اليومي. They are three new views (`AttendanceView`, `PenaltiesView`, `AdjustmentsView`) whose XAML is the old
+  tab bodies verbatim; each is `EntryDateBar` + the old grid, with `DataContext` = the **same scoped `DailyEntryViewModel`**
+  (one `EntryDate` and one set of unsaved rows for the whole session). Hub tab order: العمال | الحضور والغياب | الجزاءات |
+  السلف والحوافز | تقييم ومتابعة العمال | تقارير العمال. تسجيل الإنتاج اليومي is now تسجيل الإنتاج | الرصيد الأولي | سجلات
+  اليوم | الذاكرة | الهالك (scrap = tab 4; `AttendanceTab`/`PenaltiesTab`/`AdjustmentsTab`/`TabIndexFor` deleted).
+  Hidden routes `NavAttendanceItem`/`NavPenaltiesItem`/`NavAdjustmentsItem` + `TourScreen.WorkerAttendance/WorkerPenalties/
+  WorkerAdjustments` keep Home's absences tile, worker-card "سجّل حضور/جزاء/سلفة" (`OpenDailyEntryForWorkerAsync`), search and
+  the tour working. Ctrl+S on the attendance tab is handled by `AttendanceView.TrySave`, not `DailyEntryView`.
+- **Card landing pages replaced the tab strips / side list** (إدارة العمال, تسجيل الإنتاج اليومي, الإعدادات). Entering one of
+  these screens from the sidebar shows a grid of cards (`HubLandingView`, items are `HubCardInfo`: icon, title, one-line
+  description, optional live `StatText`); clicking a card opens that page under a thin `HubPageBar` (back button + "الشاشة ←
+  الصفحة" path). Re-clicking the sidebar item always returns to the cards (`NavigateToView_Checked` calls
+  `DailyEntryView.ShowLanding()` for the scoped daily-entry view; the other two are Transient so they start on the cards anyway).
+  - `CardHubHost` (in `EmbeddedScreens.cs`, replaced `TabbedScreenHost`) hosts whole existing screens as pages; opened pages stay
+    alive when you go back to the cards, so unsaved input survives. `WorkersHubView` is its only subclass.
+  - `DailyEntryView` keeps its `TabControl` (the pages share one view model) but the tab headers are collapsed; the cards drive
+    `DailyEntryViewModel.OpenTab(index)`, which raises `TabRequested` even when the index is unchanged. **Always use `OpenTab`,
+    never assign `SelectedTabIndex`** — otherwise the view stays on the cards (the tour, search landing and
+    "ابدأ الآن" from الذاكرة all go through it).
+  - `SettingsView` sections are now cards (`Sections` array) instead of the side list; `SelectSection`/`ShowSectionOf` open one.
+  - Live numbers come from `HubStatsService` (Business; counts only, no new calculations): workers hub = active workers,
+    today's present/absent, penalties, adjustments; daily-entry hub = today's production records, open initial balances,
+    due memory plans, today's scrap pieces. A failed stats load just leaves the cards without a number.
+- **Version 3.0.0 (2026-10-23)** — `Directory.Build.props` `<Version>`/`<FileVersion>`/`<LatestReleaseDate>` bumped together; installer built with `publish.ps1 -Mode Installer` (no `-SeedDatabase`) → `dist/WorkforceManager-Setup-v3.0.0.exe`. The today-entry page of الإنتاج الشهري now saves a typed number **in place** (`MonthlyPlanViewModel.SaveTodayEntryInPlaceAsync`, `IsFilled` observable, group `Refresh()`) instead of reloading/reordering the list — the reload destroyed the box the ↓ arrow had just moved to. `KeyboardShortcuts.ArrowNavigation` is registered on `Window` (not TextBox) and reads `Keyboard.FocusedElement`; `KeepFocusThroughReload` re-focuses the same-named box by index if a screen still rebuilds its list.
+- **Family order (3.0.0):** `ProductFamily.SortOrder` (migration `AddProductFamilySortOrder` backfills existing families alphabetically, so nothing moves until the user reorders). Set with ↑/↓ in إدارة العائلات (`ProductFamilyService.MoveAsync` renumbers 0..n then swaps; new families go last). Carried as `FamilySortOrder` on `MonthlyPlanTrackingDto`/`MonthlyPlanTodayEntryDto` (optional trailing record parameter, default `int.MaxValue` = no family) and used by the factory sheet + detail sheet of the Excel export, the الإنتاج الشهري family cards (new default sort "ترتيب المصنع" = `PlanFamilySort.Custom`) and the today-entry family grid. The plan-creation wizard still lists families by name.
+
+- **Deleting a month's plan now deletes everything tied to it** (`MonthlyPlanService.DeletePlanForMonthAsync`): plan rows,
+  sub-periods, **`MonthlyPlanDailyEntry` (الإنتاج اليومي للمنتجات), `MonthlyPlanCorrection` (تصليحات) and
+  `MonthlyPlanSnapshot`** for that calendar month. Before, the manual daily entries survived, so a new plan for the same month
+  started with the old plan's "achieved". Worker production/wages (`DailyProduction`) and the work-calendar holidays are not
+  plan data and are untouched. The confirm dialog is now `AskDangerous` with the exact counts (`CountMonthDataAsync`).
+- **↑/↓ move between input boxes everywhere** (Excel-like): one class handler on `TextBox.PreviewKeyDown` registered in
+  `App.OnStartup` → `KeyboardShortcuts.ArrowNavigation` (nearest eligible TextBox below/above by on-screen position, same column preferred — WPF's own `FocusNavigationDirection.Down` landed on buttons; and the handler must use `sender`, not `e.OriginalSource`, which is a template part; the target's text is
+  selected). Excluded by `ShouldMoveWithArrows`: multi-line or read-only boxes, any box whose `Name` contains "Search" (arrows
+  drive suggestion lists there), and boxes inside ComboBox/DataGrid/ListBox/DatePicker/Calendar/`WorkerSearchBox`. Name new
+  search boxes with "Search" or they will lose arrow keys. Tests: `ArrowNavigationTests`.
+- **Quick search, round 3 ("smarter search").** First a real bug: search landings on a worker did
+  `NavWorkersItem.IsChecked = true; ScreenOf<WorkersView>()` — but إدارة العمال opens on its cards, so `WorkersView` didn't
+  exist yet and every worker result/intent silently did nothing. **`MainWindow.OpenScreen<T>()`** now opens the exact page
+  inside its hub (and builds it synchronously); use it whenever code needs a screen that may live behind cards (search,
+  tour's `TourScreen.Workers`, the bell's "محتاجين انتباه"). Additions:
+  - **New intents** (`SearchIntentService`, pure parse + builders): `Scrap` ("هالك [النهارده|امبارح|الأسبوع ده]"),
+    `PlanBehind` ("المتأخر في الخطة" — `MonthlyPlanTrackingService` rows with `Status == Behind`), `DayAttendance` ("حضور
+    النهارده": present / absent / not-recorded-yet with names; "حضور أحمد" falls back to the worker `Absence` answer),
+    `PeriodProduction` ("إنتاج الشهر ده" — completed/started/scrap from `DailyProductionReportService`). Day words
+    (النهارده/امبارح/weekday) now resolve for scrap/attendance/absence too, so "غياب امبارح" is no longer read as a worker
+    named "امبارح". "في"/"الخطه" are filler once an intent is found. Tests: `SearchIntentNewKindsTests`.
+  - **Actions** (`SearchCategory.Action`, `Tour/SearchableActions.cs`, run by `MainWindow.RunSearchActionAsync`): سجّل
+    حضور/غياب، سجّل جزاء، سجّل سلفة/حافز (the rest of the phrase is resolved to a worker through `GlobalSearchService`, also
+    without a glued "ل"), أضف عامل/منتج، سجّل إنتاج، حفظ نهائي، نسخة احتياطية، صدّر الإنتاج الشهري. Full phrase = score
+    1200 (above intent answers), a phrase still being typed = 900. They only open the same forms/buttons the user would —
+    nothing is written automatically. Triggers are normalized at match time. Tests: `SearchableActionsTests` (UiTests).
+  - **Preview card** in `GlobalSearchDialog` (now 900px wide): selecting a worker/product/action-with-worker loads
+    `SearchIntentService.PreviewWorkerAsync`/`PreviewProductAsync` (this work week; product also shows its month-plan status).
+  - **Before typing**: "محتاج انتباهك النهارده" alerts (`MainWindow.BuildSearchAlertsAsync`: unrecorded attendance, absences,
+    due saved plans, today's scrap, behind-plan products — each chip types the question that answers it) + "أوامر سريعة".
+  - Intent answers without a person/product now land somewhere useful (attendance page, monthly planning page, scrap/review
+    pages of the daily view).
+- **"العمال على المراحل" is now a full-screen workspace, not an inline list.** Inside an open flow it is a single big button
+  (`OpenWorkersModeCommand`); the stage card is a shared resource (`StageCardTemplate`, `UserControl.Resources` in
+  `DailyEntryView.xaml`) used by `WorkersOverlay`, a layer over the whole page (Row 1–2 of `PagesLayer`) that shows **every stage
+  of `ActiveFlow` at once**. `ColumnFlowPanel AutoFit` picks the fewest columns (max 5) whose tallest column fits the
+  viewport (`FitHeight` ← the ScrollViewer's `ViewportHeight`), stages flowing top-to-bottom then into the next column.
+  `DailyEntryViewModel.IsWorkersMode` is reset by `OpenTab`, and when no flow is open; the overlay has its own save button and
+  "رجوع للرحلة". The "after adding a worker, focus the next stage's search box" logic (`OnWorkerAdded`) works in the overlay
+  because `FlowStages_DataContextChanged` re-registers the list when `ActiveFlow` changes (Loaded only fires once).
+- **إنتاج العمال اليوم page redesigned (the production tab of the daily view).** Each product's flow card is now an
+  **accordion**: `FlowSessionViewModel.IsExpanded` (+ `ToggleExpandedCommand`), only one open at a time, coordinated by
+  `DailyEntryViewModel.InitializeFlowAccordion` (`ActiveFlow` = the open one; a newly added flow opens and collapses the rest;
+  removing the open one opens the last). Collapsed cards show product + `PreviewSummary` ("N عامل · ≈ X يومية" — pieces are
+  not summed because one piece crosses several stages) + the readiness chip. Open card order: tools row (كرّر يوم فات, تصليحات)
+  → initial-balance strip → **step 1 توزيع الإنتاج على المراحل** (range cards in a `WrapPanel`, 330px each) → **step 2 العمال
+  على المراحل** (stage cards in a 3-column `ColumnFlowPanel`: stages 1..⌈n/3⌉ stacked in the first column, then the next block in the second and third — newspaper order, not row-by-row) → preview. The old 380px right-hand panel is gone and **حفظ رحلة
+  الإنتاج moved to a sticky bar under the scroll area** (`Grid.Row="2"`, `DataContext="{Binding ActiveFlow}"`, hidden when
+  no flow is open): save button + readiness text + product/summary. Save still goes through `FlowSessionViewModel.SaveFlowCommand`.
+- **Naming + one more card level.** تسجيل الإنتاج اليومي is now **تسجيل يوميات العمال** (its cards: إنتاج العمال اليوم, الرصيد الأولي,
+  مراجعة اليوم, خطط الإنتاج المحفوظة [= الذاكرة], الهالك) and الخطة الشهرية is now **الإنتاج الشهري للمنتجات**. The monthly view
+  (`MonthlyPlanView`) lost its tab strip too: cards التخطيط | الإنتاج اليومي للمنتجات | الإحصائيات, same pattern as the
+  daily-entry view (`PagesTabs` with collapsed headers, `ShowPage(index)`, `ILandingResettable` + `INestedLandingHost`, so
+  the hub bar shows "إدارة الإنتاج ‹ الإنتاج الشهري للمنتجات ‹ الإحصائيات" on one line). `FocusProductQuantity` opens
+  page 0 first. Excel exports keep their old "الخطة الشهرية" sheet/file names on purpose (tests and users' saved files).
+- **Sidebar is now 4 items: الرئيسية | إدارة العمال | إدارة الإنتاج | الإعدادات.** إدارة الإنتاج (`ProductionHubView`, a
+  `CardHubHost`) holds المنتجات والمراحل, الخطة الشهرية and تسجيل الإنتاج اليومي as cards; the daily-entry card opens
+  `DailyEntryView`'s own second card page (5 pages), so there are two levels of cards by design, but **only one path bar**: the hub's `HubPageBar` shows "إدارة الإنتاج ← تسجيل الإنتاج اليومي ← الصفحة" on one line (`INestedLandingHost`; the daily-entry view's own bar is collapsed) and its back button goes up one level at a time (one view model, not five
+  screens). `NavProductsItem`/`NavMonthlyPlanItem`/`NavDailyEntryItem` became hidden routes like the others
+  (`EmbeddedRoutes` → `NavProductionItem`), and `MemoryView` is reached through `CardHubHost.OwnerPageOf` (Memory lives
+  inside DailyEntryView). Entering a card resets pages that implement `ILandingResettable`; programmatic `Show(type)` does not,
+  so search/tour/"ابدأ الآن" land on the exact page. `MemoryBadge` moved to the إدارة الإنتاج nav item. Stats:
+  `HubStatsService.GetProductionStatsAsync` (active products, month-plan achieved %, today's records).
+- **Top bar v2 + rename to "إدارة قسم الصنفرة".** Layout is a 3-column grid: logo (start) | nav pill with 3 items (الرئيسية, إدارة
+  العمال, إدارة الإنتاج — truly centered) | search + bell + المزيد (end). **الإعدادات left the bar**: it is a button inside the
+  المزيد popup (`SettingsMenuButton` → `OpenSettings_Click`), and `NavSettingsItem` is a hidden route like `NavActivityLogItem`;
+  both open as stand-alone screens through `OpenStandaloneRoute` (visible items get unchecked, nothing is highlighted).
+  Search/bell/More use the dark `TopBarButton`/`TopBarToggle` styles (Core.xaml) instead of the white toolbar styles.
+  **A bug worth remembering:** a `sed` that inserted multi-line text with `\<newline>` once collapsed the routing block in
+  `NavigateToView_Checked` into one `//` comment line, silently disabling every `EmbeddedRoutes` redirect (nothing failed to
+  compile). It is fixed now; if routes ever stop working, check that method first.
+  App name/identity: window titles, `Directory.Build.props` `Product`, the installer `AppName`, the readme and the default
+  top-bar brand text are all "إدارة قسم الصنفرة" (a factory name set in الإعدادات still overrides the brand text). The logo
+  (`WmsLogo.xaml`, still named that) is a gold hex nut (plumbing) holding a single-stroke faucet, a water drop and a polish sparkle — the department sands faucets and valves; its colours are fixed
+  (`MarkGold`, not theme brushes) so `Assets/app.ico` could be regenerated from the same XAML (render with WPF
+  `RenderTargetBitmap` at 16–256 px and pack PNG entries into an .ico).
+- **The sidebar is gone — navigation is a top bar (`MainWindow.xaml`, `TopBar`).** Left→right in RTL order: logo + factory name
+  (= الرئيسية), the 4 nav items (`NavItem` style, now horizontal with a gold `Underline` on the checked one), date card, quick
+  search, notification bell, and a **المزيد** dropdown (`MoreToggle`) holding the account card (`AccountCard`, logout) and حفظ نهائي (`FinalSaveButton`); the date card was removed. The tour points at `MoreToggle` for both. **Everything in older entries about the sidebar width/collapse (Ctrl+B,
+  `AnimateSidebarCollapse`, `SidebarNavigationRule`, the collapsed icon rail, the sliding `NavIndicator`, the toggle badge dot,
+  `SidebarRatio`/`DesignWidth` sidebar maths) no longer exists.** Kept on purpose: `MainWindow.IsSidebarCollapsed` is now a
+  constant `true` DP because the Workers/Products card grids bind their column count to it (`GridColumnWidthConverter`: true =
+  the wide 6-column layout, which is right now that the content has the full width); the `SidebarCollapsed` /
+  `SidebarToggleHintShown` fields in `AppSettingsStore` stay only so old settings files still load. The hidden `HiddenRoutes`
+  radio buttons live in the same `NavHost` panel. `FindTourTargetAsync` no longer opens anything — nothing is hidden anymore.
+- **Sidebar consolidated from 12 items to 6; moved screens became tabs/sections of their parents.** Visible nav:
+  الرئيسية | العمال | المنتجات والمراحل | الخطة الشهرية | تسجيل الإنتاج اليومي | الإعدادات.
+  - **تسجيل الإنتاج اليومي** gained a **الذاكرة** tab right after سجلات اليوم (`DailyEntryViewModel.MemoryTab = 3`,
+    so الحضور/الجزاءات/السلف/الهالك shifted to 4/5/6/7 — `AttendanceTab`/`PenaltiesTab`/`AdjustmentsTab`,
+    `MainWindow.DailyEntryAttendanceTab`, and every `TabIndex >= 3` in `HelpTopics`/`LearnFeaturesContent` moved +1).
+    The memory-due badge (`MemoryBadge`) now lives on that nav item.
+  - **العمال** is now `WorkersHubView` (code-only `TabbedScreenHost`): العمال | تقييم ومتابعة العمال (`ReportsView`) |
+    تقارير العمال (`ReportBuilderView`). Nothing about those two screens changed, only where they sit.
+  - **سجل العمليات** left the sidebar: it opens full-screen from a button at the bottom of the notification bell popup
+    (`NotificationOpenLogButton`, which also carries `ActivityBadge`). Opening it unchecks every visible nav item and
+    hides the gold indicator (`OpenActivityLogRoute`).
+  - **الإعدادات والنسخ → الإعدادات**, rebuilt as a right-hand section list (`SettingsView.SectionList`): الحماية |
+    الحسابات الإدارية (embeds `DepartmentAccountsView`) | النسخ الاحتياطي (external, local, restore last) | إعدادات الشغل
+    (scrap reasons, log retention) | الهوية والمظهر (report identity, logo, dark mode) | الدليل (embeds `HelpView`) | حول البرنامج.
+    A new settings card must be added to a panel **and** to `SettingsView.SectionOfElement` or search/tour can't open its section.
+  - **How old code keeps working**: `NavMemoryItem`, `NavEvaluationItem`, `NavReportsItem`, `NavActivityLogItem`,
+    `NavDepartmentAccountsItem`, `NavHelpItem` still exist as **collapsed `RadioButton`s in their own `GroupName="HiddenRoutes"`**.
+    Search landing, the tour, Home tiles and sign-off still write `NavXItem.IsChecked = true`; `NavigateToView_Checked`
+    sees the type in `MainWindow.EmbeddedRoutes`, checks the visible parent, and calls `IEmbeddedScreenHost.Show(type)` which
+    selects the tab/section **and builds the embedded screen synchronously** (`LazyScreenHost.EnsureCreated`), so the
+    "pre-set a property before Loaded fires" landing trick still works. Use `MainWindow.ScreenOf<T>()` — never
+    `MainContent.Content is T` — to reach a screen that may now be embedded; the tour's `FindTourTarget` also asks
+    `IEmbeddedScreenHost.FindElement` because each embedded screen has its own namescope.
+  - Keyboard shortcuts (Ctrl+N/S/F) are forwarded by `TabbedScreenHost` to the active tab's `IScreenShortcuts`.
+- **Excel export: اللوحة sheet and the 3 extra columns removed (user request).** The workbook is now الخطة الشهرية |  تفاصيل | يوم بيوم (no dashboard sheet — `MonthlyPlanDashboardSheet` and `MonthlyPlanFactorySheet.Layout` deleted, `Write`  returns void). The factory sheet ends at تصليحات: المطلوب يوميًا / نفس اليوم الشهر اللي فات / التغيير are gone from  it; المطلوب يوميًا still lives on the تفاصيل sheet.
 - **Daily sign-off rewritten into a single step.** `DailySignOffSummaryDialog` used to be a password prompt followed
   by a separate read-only review; now the summary comes first and the password is inline at the bottom, with the
   signing itself happening inside the dialog (`trySignAsync`) so a wrong password shows an inline error instead of

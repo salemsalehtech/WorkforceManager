@@ -30,6 +30,8 @@ namespace WorkforceManager.Business.Services
         private readonly WorkerRecognitionService _recognition;
         private readonly WeeklySummaryService _weekly;
         private readonly SkillRatingService _skillRating;
+        private readonly MonthlyPlanTrackingService _planTracking;
+        private readonly ScrapService _scrap;
 
         public SearchIntentService(
             IWorkerRepository workers,
@@ -39,8 +41,12 @@ namespace WorkforceManager.Business.Services
             DailyProductionReportService productReport,
             WorkerRecognitionService recognition,
             WeeklySummaryService weekly,
-            SkillRatingService skillRating)
+            SkillRatingService skillRating,
+            MonthlyPlanTrackingService planTracking,
+            ScrapService scrap)
         {
+            _planTracking = planTracking;
+            _scrap = scrap;
             _workers = workers;
             _products = products;
             _attendance = attendance;
@@ -109,6 +115,22 @@ namespace WorkforceManager.Business.Services
 
             ["مهاره"] = SearchIntentKind.AssignSkill,
             ["المهاره"] = SearchIntentKind.AssignSkill,
+
+            ["هالك"] = SearchIntentKind.Scrap,
+            ["الهالك"] = SearchIntentKind.Scrap,
+
+            ["متاخر"] = SearchIntentKind.PlanBehind,
+            ["المتاخر"] = SearchIntentKind.PlanBehind,
+            ["متاخره"] = SearchIntentKind.PlanBehind,
+            ["المتاخره"] = SearchIntentKind.PlanBehind,
+            ["متاخرين"] = SearchIntentKind.PlanBehind,
+            ["المتاخرين"] = SearchIntentKind.PlanBehind,
+
+            ["حضور"] = SearchIntentKind.DayAttendance,
+            ["الحضور"] = SearchIntentKind.DayAttendance,
+            ["حاضر"] = SearchIntentKind.DayAttendance,
+            ["حاضرين"] = SearchIntentKind.DayAttendance,
+            ["الحاضرين"] = SearchIntentKind.DayAttendance,
         };
 
         /// <summary>لازمة مع "مرحلة"/"مهارة" عشان تتحول لفعل حقيقي (AddStage/AssignSkill) — شوف الحارس في ParseIntent</summary>
@@ -158,7 +180,7 @@ namespace WorkforceManager.Business.Services
         /// "علي" مش "على" عمدًا (زي TopMarkerWords) — ArabicSearch.Normalize
         /// بتحوّل الألف المقصورة (ى) لياء عادية، فـ"على" بترجع "علي" فعليًا.
         /// </summary>
-        private static readonly HashSet<string> FillerWords = new() { "مين", "علي", "اللي", "الي", "فات", "الفات", "ده", "دي", "عامل", "العامل" };
+        private static readonly HashSet<string> FillerWords = new() { "مين", "علي", "اللي", "الي", "فات", "الفات", "ده", "دي", "عامل", "العامل", "في", "الخطه", "خطه" };
 
         /// <summary>فرق درجة تصنيف واحد تقريبًا (Prefix=800 لـ Substring=600) — عامل ومنتج بفرق أقل منه يتعادلوا، والعامل ياخد الأولوية</summary>
         private const int NameMatchTieMargin = 50;
@@ -250,7 +272,8 @@ namespace WorkforceManager.Business.Services
             // مرجع يوم محدد ("إنتاج يوم الثلاثاء اللي فات") — نية "انتاج" بس،
             // وبيتفحص قبل شيل كلمات الحشو عشان "اللي"/"فات" مايتحسبوش اسم
             DateTime? specificDay = null;
-            if (kind == SearchIntentKind.Production)
+            if (kind is SearchIntentKind.Production or SearchIntentKind.Scrap
+                     or SearchIntentKind.DayAttendance or SearchIntentKind.Absence)
             {
                 for (var i = 0; i < words.Count; i++)
                 {
@@ -269,6 +292,26 @@ namespace WorkforceManager.Business.Services
 
             var name = string.Join(' ', words).Trim();
 
+            // "المتأخر في الخطة": سؤال عن المصنع كله، أي كلام زيادة بيتجاهل
+            if (kind == SearchIntentKind.PlanBehind)
+                return new ParsedIntentQuery { Kind = SearchIntentKind.PlanBehind, CandidateName = "" };
+
+            // "هالك" + يوم/فترة (أو لوحدها = النهارده) — بلا اسم بس
+            if (kind == SearchIntentKind.Scrap)
+                return name.Length == 0
+                    ? new ParsedIntentQuery { Kind = SearchIntentKind.Scrap, CandidateName = "", Period = period, SpecificDay = specificDay }
+                    : null;
+
+            // "حضور" لوحدها = المصنع كله في يوم؛ "حضور أحمد" = نفس سؤال غياب/حضور العامل
+            if (kind == SearchIntentKind.DayAttendance)
+                return name.Length == 0
+                    ? new ParsedIntentQuery { Kind = SearchIntentKind.DayAttendance, CandidateName = "", Period = period, SpecificDay = specificDay }
+                    : new ParsedIntentQuery { Kind = SearchIntentKind.Absence, CandidateName = name, Period = period };
+
+            // "إنتاج الأسبوع ده/الشهر ده" بلا اسم ولا يوم = إجمالي المصنع للفترة
+            if (kind == SearchIntentKind.Production && specificDay is null && name.Length == 0 && period is not null)
+                return new ParsedIntentQuery { Kind = SearchIntentKind.PeriodProduction, CandidateName = "", Period = period };
+
             // "انتاج" + مرجع يوم + مفيش اسم تاني فاضل = إنتاج المصنع كله في
             // يوم بعينه، مش إنتاج عامل/منتج. "انتاج" لوحدها من غير مرجع يوم
             // لسه مش نية (تحت) — الغموض أعلى من كده
@@ -277,7 +320,7 @@ namespace WorkforceManager.Business.Services
 
             // "غياب" من غير اسم = مين غايب في المصنع كله، مش غياب عامل بعينه
             if (kind == SearchIntentKind.Absence && name.Length == 0)
-                return new ParsedIntentQuery { Kind = SearchIntentKind.DayAbsence, CandidateName = "", Period = period };
+                return new ParsedIntentQuery { Kind = SearchIntentKind.DayAbsence, CandidateName = "", Period = period, SpecificDay = specificDay };
 
             // أعلى/أقل إنتاج مبيسألوش عن حد بالاسم أصلًا — ترتيب عام للمصنع
             // كله. اسم فاضل جوه العبارة (مثلًا "أعلى إنتاج دبلة") مزيج مش
@@ -352,6 +395,10 @@ namespace WorkforceManager.Business.Services
             // النيات دي بلا اسم أصلًا — مفيش داعي نحاول نطابق عامل/منتج خالص
             if (parsed.Kind == SearchIntentKind.DayProduction) return await BuildDayProductionAnswerAsync(parsed);
             if (parsed.Kind == SearchIntentKind.DayAbsence) return await BuildDayAbsenceAnswerAsync(parsed);
+            if (parsed.Kind == SearchIntentKind.Scrap) return await BuildScrapAnswerAsync(parsed);
+            if (parsed.Kind == SearchIntentKind.PlanBehind) return await BuildPlanBehindAnswerAsync();
+            if (parsed.Kind == SearchIntentKind.DayAttendance) return await BuildDayAttendanceAnswerAsync(parsed);
+            if (parsed.Kind == SearchIntentKind.PeriodProduction) return await BuildPeriodProductionAnswerAsync(parsed);
             if (parsed.Kind is SearchIntentKind.TopProduction or SearchIntentKind.BottomProduction)
                 return await BuildTopBottomProductionAnswerAsync(parsed);
             if (parsed.Kind is SearchIntentKind.TopWorker or SearchIntentKind.BottomWorker)
@@ -748,6 +795,215 @@ namespace WorkforceManager.Business.Services
             };
         }
 
+        private static string DayLabel(DateTime day) =>
+            day.Date == DateTime.Today ? "النهارده"
+            : day.Date == DateTime.Today.AddDays(-1) ? "امبارح"
+            : $"{ArabicDayName(day.DayOfWeek)} ({day:yyyy/MM/dd})";
+
+        /// <summary>الفترة المطلوبة: يوم محدد لو اتقال (امبارح/الثلاثاء)، وإلا كلمة الفترة، وإلا النهارده</summary>
+        private static (DateTime From, DateTime To, string Label) ResolveDayOrPeriod(ParsedIntentQuery parsed)
+        {
+            if (parsed.SpecificDay is { } day) return (day.Date, day.Date, DayLabel(day));
+
+            var kind = parsed.Period ?? ReportPeriodKind.Today;
+            var (from, to) = ReportPeriod.Resolve(kind);
+            return (from, to, ReportPeriod.Name(kind));
+        }
+
+        /// <summary>"هالك النهارده/امبارح/الأسبوع ده" — إجمالي الهالك ومين أكتر منتج/مرحلة اتشال منها</summary>
+        private async Task<SearchIntentAnswer> BuildScrapAnswerAsync(ParsedIntentQuery parsed)
+        {
+            var (from, to, label) = ResolveDayOrPeriod(parsed);
+            var records = await _scrap.GetByRangeAsync(from, to);
+
+            if (records.Count == 0)
+                return new SearchIntentAnswer { Kind = SearchIntentKind.Scrap, Title = $"الهالك — {label}", EmptyNote = "مفيش هالك في الفترة دي" };
+
+            var lines = new List<SearchIntentAnswerLine>
+            {
+                new() { Label = "إجمالي الهالك", Value = $"{records.Sum(r => r.PieceCount):N0} قطعة" }
+            };
+            lines.AddRange(records
+                .GroupBy(r => r.StageDisplay)
+                .Select(g => (Stage: g.Key, Pieces: g.Sum(r => r.PieceCount)))
+                .OrderByDescending(x => x.Pieces)
+                .Take(6)
+                .Select(x => new SearchIntentAnswerLine { Label = x.Stage, Value = $"{x.Pieces:N0} قطعة" }));
+
+            return new SearchIntentAnswer { Kind = SearchIntentKind.Scrap, Title = $"الهالك — {label}", Lines = lines };
+        }
+
+        /// <summary>"المتأخر في الخطة" — منتجات خطة الشهر الحالي اللي إيقاعها متأخر (نفس حالة كروت الإنتاج الشهري)</summary>
+        private async Task<SearchIntentAnswer> BuildPlanBehindAnswerAsync()
+        {
+            var today = DateTime.Today;
+            var tracking = await _planTracking.GetTrackingAsync(today.Year, today.Month, today);
+            var behind = tracking
+                .Where(t => !t.IsOutsidePlan && t.PlannedQuantity > 0 && t.Status == PlanPaceStatus.Behind)
+                .OrderBy(t => t.AchievedPercent ?? 0)
+                .ToList();
+
+            if (behind.Count == 0)
+            {
+                return new SearchIntentAnswer
+                {
+                    Kind = SearchIntentKind.PlanBehind,
+                    Title = "المتأخر في خطة الشهر",
+                    EmptyNote = tracking.Any(t => t.PlannedQuantity > 0) ? "مفيش منتج متأخر — كله ماشي على الخطة" : "مفيش خطة للشهر ده لسه"
+                };
+            }
+
+            return new SearchIntentAnswer
+            {
+                Kind = SearchIntentKind.PlanBehind,
+                Title = $"المتأخر في خطة الشهر ({behind.Count} منتج)",
+                Lines = behind.Take(8).Select(t => new SearchIntentAnswerLine
+                {
+                    Label = t.ProductName,
+                    Value = $"{t.EffectiveAchieved:N0} من {t.PlannedQuantity:N0}"
+                            + (t.RequiredDailyOutput is { } req ? $" · المطلوب يوميًا {req:N0}" : "")
+                }).ToList()
+            };
+        }
+
+        /// <summary>"حضور النهارده" — كام حاضر وكام غايب، ومين لسه حضوره متسجّلش (بالأسماء)</summary>
+        private async Task<SearchIntentAnswer> BuildDayAttendanceAnswerAsync(ParsedIntentQuery parsed)
+        {
+            var day = parsed.SpecificDay ?? DateTime.Today;
+            var label = DayLabel(day);
+
+            var workers = (await _workers.GetAllWithSkillsAsync()).Where(w => w.IsActive).ToList();
+            var records = (await _attendance.GetByRangeAsync(day.Date, day.Date))
+                .Where(a => workers.Any(w => w.Id == a.WorkerId))
+                .ToList();
+
+            var present = records.Count(a => !a.IsAbsence);
+            var absent = records.Where(a => a.IsAbsence).ToList();
+            var recordedIds = records.Select(a => a.WorkerId).ToHashSet();
+            var unrecorded = workers.Where(w => !recordedIds.Contains(w.Id)).Select(w => w.FullName).OrderBy(n => n).ToList();
+
+            var lines = new List<SearchIntentAnswerLine>
+            {
+                new() { Label = "حاضر", Value = $"{present} عامل" },
+                new() { Label = "غايب", Value = absent.Count == 0 ? "مفيش" : $"{absent.Count} عامل" },
+                new() { Label = "لسه متسجّلش", Value = unrecorded.Count == 0 ? "الكل اتسجّل" : $"{unrecorded.Count} عامل" },
+            };
+            lines.AddRange(absent.Select(a => new SearchIntentAnswerLine
+            {
+                Label = workers.First(w => w.Id == a.WorkerId).FullName,
+                Value = a.Status == AttendanceStatus.AbsentWithoutPermission ? "غايب من غير إذن" : "غايب بإذن"
+            }));
+            if (unrecorded.Count > 0)
+                lines.Add(new SearchIntentAnswerLine { Label = "متسجّلوش", Value = string.Join("، ", unrecorded.Take(8)) + (unrecorded.Count > 8 ? "…" : "") });
+
+            return new SearchIntentAnswer { Kind = SearchIntentKind.DayAttendance, Title = $"الحضور — {label}", Lines = lines };
+        }
+
+        /// <summary>"إنتاج الأسبوع ده/الشهر ده" — إجمالي المصنع للفترة: تام (آخر مرحلة) + داخل الخط + هالك</summary>
+        private async Task<SearchIntentAnswer> BuildPeriodProductionAnswerAsync(ParsedIntentQuery parsed)
+        {
+            var kind = parsed.Period ?? ReportPeriodKind.ThisWeek;
+            var (from, to) = ReportPeriod.Resolve(kind);
+            var report = await _productReport.GetForRangeAsync(from, to);
+            var label = ReportPeriod.Name(kind);
+
+            var lines = new List<SearchIntentAnswerLine>
+            {
+                new() { Label = "تم إنتاجه (تام)", Value = $"{report.TotalCompletedPieces:N0} قطعة" },
+                new() { Label = "دخل الخط", Value = $"{report.TotalStartedPieces:N0} قطعة" },
+                new() { Label = "هالك", Value = $"{report.TotalScrapPieces:N0} قطعة" },
+            };
+            lines.AddRange(report.Products
+                .Where(p => p.CompletedPieces > 0)
+                .OrderByDescending(p => p.CompletedPieces)
+                .Take(5)
+                .Select(p => new SearchIntentAnswerLine { Label = p.ProductName, Value = $"{p.CompletedPieces:N0} تام" }));
+
+            return new SearchIntentAnswer
+            {
+                Kind = SearchIntentKind.PeriodProduction,
+                Title = $"إنتاج المصنع — {label}",
+                EmptyNote = report.TotalCompletedPieces == 0 && report.TotalStartedPieces == 0 ? "مفيش إنتاج مسجّل في الفترة دي" : null,
+                Lines = lines
+            };
+        }
+
+        // ======================= معاينة نتيجة البحث (كارت جنب القايمة) =======================
+
+        /// <summary>
+        /// ملخص سريع لعامل في كارت المعاينة جنب نتايج البحث — أسبوع الشغل الحالي من نفس تقرير العامل
+        /// (ProductionReportService) اللي "إنتاج/غياب [اسم]" بيستخدمه، فالأرقام هي هي.
+        /// </summary>
+        public async Task<SearchIntentAnswer?> PreviewWorkerAsync(int workerId)
+        {
+            var worker = (await _workers.GetAllWithSkillsAsync()).FirstOrDefault(w => w.Id == workerId);
+            if (worker is null) return null;
+
+            var (from, to) = ReportPeriod.Resolve(ReportPeriodKind.ThisWeek);
+            var r = await _workerReport.GetWorkerReportAsync(worker.Id, from, to);
+            var lastDay = r.ByDay.Where(d => d.Pieces > 0).Select(d => d.Date).DefaultIfEmpty().Max();
+
+            return new SearchIntentAnswer
+            {
+                Kind = SearchIntentKind.Production,
+                Title = $"{worker.FullName} — الأسبوع ده",
+                WorkerId = worker.Id,
+                Name = worker.FullName,
+                Lines = new List<SearchIntentAnswerLine>
+                {
+                    new() { Label = "صافي اليوميات", Value = $"{r.NetWorkdays:0.##}" },
+                    new() { Label = "حضور", Value = $"{r.PresentDays} يوم" },
+                    new() { Label = "غياب", Value = $"{r.AbsentWithPermissionDays + r.AbsentWithoutPermissionDays} يوم" + (r.AbsentWithoutPermissionDays > 0 ? $" ({r.AbsentWithoutPermissionDays} من غير إذن)" : "") },
+                    new() { Label = "جزاءات", Value = r.Penalties.Count == 0 ? "مفيش" : $"{r.Penalties.Count} ({r.PenaltyDeduction:0.##} يوم خصم)" },
+                    new() { Label = "سلف / حوافز", Value = $"{r.AdvanceEgp:0.##} / {r.BonusEgp:0.##} جنيه" },
+                    new() { Label = "آخر يوم إنتاج", Value = lastDay == default ? "مفيش إنتاج الأسبوع ده" : DayLabel(lastDay) },
+                }
+            };
+        }
+
+        /// <summary>ملخص سريع لمنتج: إنتاجه الأسبوع ده (تام/داخل/هالك) + وضعه في خطة الشهر</summary>
+        public async Task<SearchIntentAnswer?> PreviewProductAsync(int productId)
+        {
+            var product = (await _products.GetAllWithStagesAsync()).FirstOrDefault(p => p.Id == productId);
+            if (product is null) return null;
+
+            var (from, to) = ReportPeriod.Resolve(ReportPeriodKind.ThisWeek);
+            var row = (await _productReport.GetForRangeAsync(from, to)).Products.FirstOrDefault(p => p.ProductId == productId);
+
+            var today = DateTime.Today;
+            var plan = (await _planTracking.GetTrackingAsync(today.Year, today.Month, today))
+                .FirstOrDefault(t => t.ProductId == productId && !t.IsOutsidePlan && t.PlannedQuantity > 0);
+
+            var lines = new List<SearchIntentAnswerLine>
+            {
+                new() { Label = "تام الأسبوع ده", Value = $"{row?.CompletedPieces ?? 0:N0} قطعة" },
+                new() { Label = "دخل الخط", Value = $"{row?.StartedPieces ?? 0:N0} قطعة" },
+                new() { Label = "هالك", Value = $"{row?.ScrapPieces ?? 0:N0} قطعة" },
+                new() { Label = "المراحل", Value = $"{product.Stages.Count} مرحلة" },
+            };
+            lines.Add(plan is null
+                ? new SearchIntentAnswerLine { Label = "خطة الشهر", Value = "مش في خطة الشهر ده" }
+                : new SearchIntentAnswerLine
+                {
+                    Label = "خطة الشهر",
+                    Value = $"{plan.EffectiveAchieved:N0} من {plan.PlannedQuantity:N0}" + plan.Status switch
+                    {
+                        PlanPaceStatus.Behind => " · متأخر",
+                        PlanPaceStatus.Ahead => " · سابق",
+                        _ => " · ماشي صح"
+                    }
+                });
+
+            return new SearchIntentAnswer
+            {
+                Kind = SearchIntentKind.Production,
+                Title = $"{product.Name} — الأسبوع ده",
+                ProductId = product.Id,
+                Name = product.Name,
+                Lines = lines
+            };
+        }
+
         private static string ArabicDayName(DayOfWeek day) => day switch
         {
             DayOfWeek.Sunday => "الأحد",
@@ -769,8 +1025,8 @@ namespace WorkforceManager.Business.Services
         private async Task<SearchIntentAnswer> BuildDayAbsenceAnswerAsync(ParsedIntentQuery parsed)
         {
             var periodKind = parsed.Period ?? ReportPeriodKind.Today;
-            var (from, to) = ReportPeriod.Resolve(periodKind);
-            var periodLabel = ReportPeriod.Name(periodKind);
+            var (from, to) = parsed.SpecificDay is { } day ? (day, day) : ReportPeriod.Resolve(periodKind);
+            var periodLabel = parsed.SpecificDay is { } d ? DayLabel(d) : ReportPeriod.Name(periodKind);
 
             var records = await _attendance.GetByRangeAsync(from, to);
             var absentRecords = records.Where(a => a.IsAbsence).ToList();

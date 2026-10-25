@@ -24,7 +24,7 @@ namespace WorkforceManager.UI.Tour
         {
             new()
             {
-                Title = "العمال",
+                Title = "إدارة العمال",
                 Icon = "AccountGroup",
                 Description =
                     "قايمة كل العمال ببطاقات: حالة، مهارات. بحث فوري بالاسم، وزرار \"فلاتر " +
@@ -300,7 +300,7 @@ namespace WorkforceManager.UI.Tour
             },
             new()
             {
-                Title = "تسجيل الإنتاج اليومي",
+                Title = "تسجيل يوميات العمال",
                 Icon = "ClipboardEditOutline",
                 Description =
                     "القلب الحقيقي للبرنامج: هنا بتسجّل إنتاج كل يوم. سبع تبويبات داخلية — من تسجيل " +
@@ -465,8 +465,7 @@ namespace WorkforceManager.UI.Tour
                                 Title = "ملخص الحضور",
                                 Description = "عدد الحاضرين والغائبين بعذر ومن غير عذر. دوس على رقم \"غايب من غير عذر\" مثلاً، والقايمة تحتيه بتتفلتر عليهم بس.",
                                 TargetElementName = "AttendanceSummaryRow",
-                                Screen = TourScreen.DailyEntry,
-                                TabIndex = 3
+                                Screen = TourScreen.WorkerAttendance
                             },
                             new()
                             {
@@ -476,16 +475,14 @@ namespace WorkforceManager.UI.Tour
                                     "مينفعش تسجّل عامل \"غايب\" وهو عنده إنتاج مسجّل النهارده — البرنامج بيوقفك ويقولّك " +
                                     "امسح السجل من تبويب \"سجلات اليوم\" الأول لو فعلًا مكانش لازم يتسجّل.",
                                 TargetElementName = "AttendanceSummaryRow",
-                                Screen = TourScreen.DailyEntry,
-                                TabIndex = 3
+                                Screen = TourScreen.WorkerAttendance
                             },
                             new()
                             {
                                 Title = "حفظ الحضور",
                                 Description = "غيّرت حالة عامل يدوي (من حاضر لغايب بعذر مثلاً)؟ التعديل ده لازم يتحفظ من هنا عشان يتسجّل فعلًا.",
                                 TargetElementName = "SaveAttendanceButton",
-                                Screen = TourScreen.DailyEntry,
-                                TabIndex = 3
+                                Screen = TourScreen.WorkerAttendance
                             }
                         }
                     },
@@ -502,8 +499,7 @@ namespace WorkforceManager.UI.Tour
                                 Title = "تسجيل جزاء",
                                 Description = "مثال: عامل اتأخر ساعتين؟ اختاره من البحث، اختار مقدار الخصم (نص يوم مثلًا)، اكتب السبب \"اتأخر\"، ودوس تسجيل.",
                                 TargetElementName = "AddPenaltyButton",
-                                Screen = TourScreen.DailyEntry,
-                                TabIndex = 4
+                                Screen = TourScreen.WorkerPenalties
                             },
                             new()
                             {
@@ -513,8 +509,7 @@ namespace WorkforceManager.UI.Tour
                                     "الجزاء اليدوي تقدر تعدّله، لكن الجزاء التلقائي (من غياب من غير عذر) مايتعدّلش من " +
                                     "هنا — غيّر حالة الحضور نفسها من تبويب \"الحضور والغياب\" لو عايز تشيله.",
                                 TargetElementName = "PenaltiesGrid",
-                                Screen = TourScreen.DailyEntry,
-                                TabIndex = 4
+                                Screen = TourScreen.WorkerPenalties
                             }
                         }
                     },
@@ -534,16 +529,14 @@ namespace WorkforceManager.UI.Tour
                                     "هتتخصم من كشفه في الفترة دي. التبويب ده الوحيد اللي بيطلب كلمة سر العمليات على " +
                                     "**كل** تسجيل، مش بس الحذف — لأنه حركة فلوس مباشرة.",
                                 TargetElementName = "AddAdjustmentButton",
-                                Screen = TourScreen.DailyEntry,
-                                TabIndex = 5
+                                Screen = TourScreen.WorkerAdjustments
                             },
                             new()
                             {
                                 Title = "حركات اليوم",
                                 Description = "كل سلفة وحافز اتسجّل النهارده، بلون مختلف حسب النوع (السلفة والحافز واضحين من بعض بصريًا).",
                                 TargetElementName = "AdjustmentsGrid",
-                                Screen = TourScreen.DailyEntry,
-                                TabIndex = 5
+                                Screen = TourScreen.WorkerAdjustments
                             }
                         }
                     },
@@ -561,7 +554,7 @@ namespace WorkforceManager.UI.Tour
                                 Description = "مثال: 5 قطع اتعطبت في مرحلة الخياطة؟ اختار المرحلة، اكتب 5، والسبب \"عيب في القماش\" مثلًا.",
                                 TargetElementName = "AddScrapButton",
                                 Screen = TourScreen.DailyEntry,
-                                TabIndex = 6
+                                TabIndex = 4
                             },
                             new()
                             {
@@ -569,7 +562,7 @@ namespace WorkforceManager.UI.Tour
                                 Description = "إجمالي الهالك وتفاصيل كل سجل — المنتج، المرحلة، العدد، والسبب.",
                                 TargetElementName = "ScrapGrid",
                                 Screen = TourScreen.DailyEntry,
-                                TabIndex = 6
+                                TabIndex = 4
                             }
                         }
                     }
@@ -641,7 +634,7 @@ namespace WorkforceManager.UI.Tour
             },
             new()
             {
-                Title = "التقييم والمتابعة",
+                Title = "تقييم ومتابعة العمال",
                 Icon = "ChartBar",
                 Description =
                     "لوحة متابعة حيّة بتتقرا على الشاشة، مش للتصدير أو الطباعة (شوف \"التقارير\" لده). " +
@@ -704,7 +697,7 @@ namespace WorkforceManager.UI.Tour
             },
             new()
             {
-                Title = "التقارير",
+                Title = "تقارير العمال",
                 Icon = "FileDocumentOutline",
                 Description =
                     "بناء تقرير مخصّص يتصدّر Excel: اختار الموضوع (إنتاج/حضور/هالك/مهارات/أجور/جزاءات/" +
@@ -868,7 +861,7 @@ namespace WorkforceManager.UI.Tour
             },
             new()
             {
-                Title = "الإعدادات والنسخ",
+                Title = "الإعدادات",
                 Icon = "CogOutline",
                 Description =
                     "كل إعدادات البرنامج في مكان واحد، مرتّبة بالأهمية: كلمة سر العمليات الحساسة " +

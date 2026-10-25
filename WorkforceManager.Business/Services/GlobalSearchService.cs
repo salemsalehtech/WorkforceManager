@@ -327,6 +327,7 @@ namespace WorkforceManager.Business.Services
             SearchCategory.Setting =>
                 result.SettingTargetElementName is { } settingName ? $"Setting:{settingName}" : null,
             SearchCategory.HelpTopic => $"Help:{result.PrimaryText}",
+            SearchCategory.Action => $"Action:{result.ActionKey}:{result.WorkerId}",
             // نفس مفتاح فئة العامل/المنتج العادية عمدًا — اختيار إجابة نية
             // عن عامل معين لازم يرقّي نفس نتيجة العامل دي لو ظهرت عادي بعدين
             SearchCategory.IntentAnswer => result.WorkerId is { } iw ? $"Worker:{iw}"
