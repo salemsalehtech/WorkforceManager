@@ -54,15 +54,17 @@ namespace WorkforceManager.UI
             _currentUser = currentUser;
             _session = session;
 
+            Current = this;
+
             InitializeComponent();
 
             // مكان الإشعارات بيتسجّل مرة واحدة هنا — بعدها أي شاشة
             // بتنادي Notify والإشعار بيوصل من غير ما تعرف مين بيعرضه
             Toasts.Register();
 
-            // تاريخ اليوم بالعربي في بطاقة أسفل القائمة الجانبية
-            TodayText.Text = DateTime.Today.ToString(
-                "dddd d MMMM yyyy", new System.Globalization.CultureInfo("ar-EG"));
+            // ضغطة على حفظ نهائي أو تسجيل الخروج جوّه "المزيد" بتقفل القايمة المنسدلة
+            FinalSaveButton.Click += (_, _) => MoreToggle.IsChecked = false;
+            LogoutButton.Click += (_, _) => MoreToggle.IsChecked = false;
 
             ShowIdentity();
             RefreshActivityBadge();
@@ -96,131 +98,11 @@ namespace WorkforceManager.UI
             // قفل غير طبيعي للنافذة وسط وضع تجربة مايسيبش ملف SQLite مؤقت معلّق
             Closed += (_, _) => _sandbox?.Dispose();
 
-            // حالة الطي المحفوظة من آخر مرة — من غير حركة، الحركة بس
-            // لدوسة المستخدم الحية. قبل أول ApplyUiScale عشان الـResize
-            // الأول (عند فتح النافذة) يحترم الحالة دي من غير وميض
-            ApplyInitialSidebarState();
 
             // التخطيط بيتصغّر لو الشاشة أضيق من مساحة التصميم — شوف ApplyUiScale
             SizeChanged += (_, _) => ApplyUiScale();
             ClampRestoreSizeToScreen();
 
-            InitializeNavIndicator();
-        }
-
-        // ======================= المؤشر الدهبي المنزلق (القايمة الجانبية) =======================
-
-        /// <summary>
-        /// true بعد أول تموضع حقيقي (بعد ما النافذة تحمّل فعليًا) — أي
-        /// Checked بعده بيتحرك بانزلاق (Storyboard)، مش بيتحط فجأة.
-        /// </summary>
-        private bool _navIndicatorPositioned;
-
-        /// <summary>
-        /// بيوصّل مستمع Checked مشترك على كل بنود التنقل الاتناشر — **زيادة
-        /// على** NavigateToView_Checked (المسؤولة عن تغيير الشاشة)، مش بديل
-        /// عنه؛ الاتنين بيشتغلوا مع بعض على نفس الحدث من غير تعارض. غرضه
-        /// الوحيد تحريك NavIndicator، منفصل تمامًا عن منطق التنقل نفسه.
-        /// </summary>
-        private void InitializeNavIndicator()
-        {
-            foreach (var item in new[]
-            {
-                NavHomeItem, NavWorkersItem, NavProductsItem, NavMonthlyPlanItem, NavDailyEntryItem, NavMemoryItem, NavEvaluationItem,
-                NavReportsItem, NavActivityLogItem, NavSettingsItem, NavDepartmentAccountsItem, NavHelpItem
-            })
-            {
-                item.Checked += NavItem_Checked;
-                item.Click += NavItem_Click;
-            }
-        }
-
-        /// <summary>
-        /// الدوسة على بند في القايمة بتطوي الشريط تلقائيًا (نفس حركة وحفظ زرار
-        /// الطي بالظبط، AnimateSidebarCollapse) عشان الشاشة تاخد العرض كله.
-        ///
-        /// Click مش Checked عن قصد: Click بس للدوسة الحقيقية بالماوس/الكيبورد
-        /// (حتى على البند المختار أصلًا)، لكن Checked بيتنادى كمان مع التنقّل
-        /// البرمجي — الجولة، بلاطات الرئيسية، البحث السريع، فتح التسجيل من
-        /// الذاكرة — ودول مش "تنقّل من القايمة". والجولة بالذات بتفتح الشريط
-        /// لو العنصر المستهدف جوّاه (MainWindow.Tour.cs)، فالطي على Checked كان
-        /// هيعمل طي وفتح ورا بعض. WPF بيطلق Checked قبل Click، فالشاشة الجديدة
-        /// بتكون اتحطت في MainContent خلاص لما الطي يبدأ.
-        /// </summary>
-        private void NavItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (SidebarNavigationRule.ShouldAutoCollapse(sender == NavHomeItem, _isSidebarCollapsed))
-                AnimateSidebarCollapse(true);
-        }
-
-        /// <summary>
-        /// أول Checked بيحصل مصطنع جوّه InitializeComponent (IsChecked="True"
-        /// على NavWorkersItem في الـXAML) قبل ما النافذة تتحمّل فعليًا —
-        /// التخطيط وقتها مش جاهز، فـTransformToAncestor هيرجّع إحداثيات
-        /// غلط. بدل ما نتجاهله (زي حراس NavX_Checked اللي بتشيك MainContent)،
-        /// بنأجّل التموضع الأول لحدث Loaded بالظبط — نفس مبدأ "استنى
-        /// التحميل الطبيعي بدل نداء ينافسه" المستخدم في أكتر من مكان في
-        /// المشروع — من غير حركة (تموضع مباشر، مش انزلاق، أول مرة بس).
-        /// </summary>
-        private void NavItem_Checked(object sender, RoutedEventArgs e)
-        {
-            if (sender is not RadioButton item) return;
-
-            // بعد التحميل بس — حالة البداية (الرئيسية) بتتظبط من غير حركة في ApplyInitialSidebarState
-            if (IsLoaded) ApplyHomeSidebarRule(item == NavHomeItem);
-
-            if (!IsLoaded)
-            {
-                RoutedEventHandler? deferred = null;
-                deferred = (_, _) =>
-                {
-                    Loaded -= deferred;
-                    PositionNavIndicator(item, animate: false);
-                    _navIndicatorPositioned = true;
-                };
-                Loaded += deferred;
-                return;
-            }
-
-            PositionNavIndicator(item, animate: _navIndicatorPositioned);
-            _navIndicatorPositioned = true;
-        }
-
-        /// <summary>
-        /// بيحرّك NavIndicator لموضع البند المختار. `TransformToAncestor`
-        /// نفس تقنية PositionTourStep الموجودة فعلًا في محرك الجولة —
-        /// بيحسب الموضع الحقيقي بغض النظر عن التمرير جوّه NavScrollViewer.
-        /// انزلاق جاري وسط تحديد جديد بيتلغي/يتستبدل لوحده (سلوك WPF
-        /// الطبيعي لـStoryboard جديدة على نفس الخاصية)، فمفيش تكديس أو قفزة.
-        /// </summary>
-        private void PositionNavIndicator(RadioButton item, bool animate)
-        {
-            var targetY = item.TransformToAncestor(NavIndicatorHost).Transform(new Point(0, 0)).Y;
-            var targetHeight = item.ActualHeight;
-
-            if (!animate)
-            {
-                NavIndicatorTransform.Y = targetY;
-                NavIndicator.Height = targetHeight;
-                NavIndicator.Opacity = 1;
-                return;
-            }
-
-            var easing = new CubicEase { EasingMode = EasingMode.EaseOut };
-            var duration = TimeSpan.FromSeconds(0.2);
-
-            var moveAnimation = new DoubleAnimation { To = targetY, Duration = duration, EasingFunction = easing };
-            Storyboard.SetTarget(moveAnimation, NavIndicatorTransform);
-            Storyboard.SetTargetProperty(moveAnimation, new PropertyPath(TranslateTransform.YProperty));
-
-            var heightAnimation = new DoubleAnimation { To = targetHeight, Duration = duration, EasingFunction = easing };
-            Storyboard.SetTarget(heightAnimation, NavIndicator);
-            Storyboard.SetTargetProperty(heightAnimation, new PropertyPath(FrameworkElement.HeightProperty));
-
-            var storyboard = new Storyboard();
-            storyboard.Children.Add(moveAnimation);
-            storyboard.Children.Add(heightAnimation);
-            storyboard.Begin();
         }
 
         // مساحة التصميم اللي كل الشاشات مبنية عليها — المرجع اللي المقياس
@@ -291,242 +173,17 @@ namespace WorkforceManager.UI
             // الديالوجات نوافذ منفصلة مش جوه الشجرة دي، فمش بتتكبّر معاها.
             // بتقرا الرقم ده عشان تطلع بنفس الحجم — شوف CrispWindows
             CurrentScale = scale;
-
-            // العرض اللي التخطيط نفسه شايفه — بعد التصغير، مش عرض النافذة
-            // الخام. على الشاشات العادية المقياس = 1 فالاتنين واحد.
-            ApplySidebarWidth(ActualWidth / scale);
         }
 
-        // الشريط نسبة من العرض المنطقي مش رقم ثابت.
-        //
-        // بعد ما التكبير اشتغل (ApplyUiScale فوق)، العرض المنطقي بيستقر
-        // حوالي 1244–1337 على أي شاشة 16:9 — و15% منه أقل من الحد الأدنى،
-        // فعمليًا **الحد الأدنى هو اللي بيحكم على الشاشات العادية**.
-        // النسبة مش كود ميت رغم كده: على الشاشات العريضة جدًا (21:9 مثلاً،
-        // العرض المنطقي ~1659) هي اللي بتمنع الشريط من إنه يبقى شعرة في
-        // لوحة عريضة.
-        private const double SidebarRatio = 0.15;
-
-        // الحد الأدنى مقيس مش متخمّن: أطول بند ("تسجيل الإنتاج اليومي")
-        // عرضه 119 بخط Tajawal عند 14، والثابت حواليه 84 (هوامش الحاوية
-        // 12+12، حشو البند 16+16، الأيقونة 18 ومسافتها 10) = 203. والبند
-        // المختار بيبقى SemiBold فبيتمدد شوية — 210 بتغطيه.
-        private const double SidebarMin = 210;
-
-        // فوق كده الشريط بيبقى مساحة ضايعة مش قايمة تنقل
-        private const double SidebarMax = 320;
-
-        // عرض الشريط وهو مطوي — بالظبط عرض زرار الطي (30) + هامشيه (9+9
-        // تقريبًا) عشان يفضل الزرار واقف في مكان معقول، مش ملزوق في الحرف
-        private const double SidebarCollapsedWidth = 52;
-
-        private const int SidebarToggleAnimationMs = 220;
-
-        private bool _isSidebarCollapsed;
-
         /// <summary>
-        /// نسخة قابلة للربط من _isSidebarCollapsed — عشان شاشات زي العمال
-        /// والمنتجات تقدر تربط عدد أعمدة شبكة الكروت بحالة الشريط
-        /// (GridColumnWidthConverter، AncestorType=Window) من غير ما تعرف
-        /// أي تفاصيل داخلية عن MainWindow. بتتحدّث مع _isSidebarCollapsed
-        /// في نفس اللحظة في كل مكان بيتغيّر فيه (ApplyInitialSidebarState،
-        /// AnimateSidebarCollapse).
+        /// "الشريط مطوي" قديمًا — دلوقتي مفيش شريط جانبي أصلًا (التنقل في شريط علوي)، فالمساحة كلها للمحتوى.
+        /// الخاصية فضلت عشان شبكات الكروت (GridColumnWidthConverter في العمال والمنتجات) بتربط عدد
+        /// أعمدتها بيها: true = العرض الواسع (6 أعمدة). ثابتة true.
         /// </summary>
         public static readonly DependencyProperty IsSidebarCollapsedProperty = DependencyProperty.Register(
-            nameof(IsSidebarCollapsed), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
+            nameof(IsSidebarCollapsed), typeof(bool), typeof(MainWindow), new PropertyMetadata(true));
 
-        public bool IsSidebarCollapsed
-        {
-            get => (bool)GetValue(IsSidebarCollapsedProperty);
-            private set => SetValue(IsSidebarCollapsedProperty, value);
-        }
-
-        // آخر عرض منطقي وصل من ApplyUiScale — لازم نحتفظ بيه عشان زرار
-        // الطي يقدر يحسب عرض حالة الفتح الصح لحظة الدوسة، من غير ما يستنى
-        // Resize جديد. القيمة الافتراضية معقولة لحد أول SizeChanged.
-        private double _lastLogicalWidth = 1244;
-
-        private void ApplySidebarWidth(double logicalWidth)
-        {
-            if (SidebarBorder is null) return;
-
-            _lastLogicalWidth = logicalWidth;
-
-            // مطوي: العرض ثابت (SidebarCollapsedWidth)، مايتجاوبش مع نسبة
-            // الشاشة خالص — Resize والشريط مطوي المفروض يفضل مطوي بعرضه
-            // الثابت، مش يرجع يتمدد لوحده
-            if (_isSidebarCollapsed)
-            {
-                SidebarBorder.Width = SidebarCollapsedWidth;
-                return;
-            }
-
-            // SidebarColumn بقى Auto (شوف MainWindow.xaml) — عرض الشريط
-            // الفعلي بقى خاصية Width على SidebarBorder نفسه (double عادي،
-            // قابل للتحريك بـDoubleAnimation)، مش GridLength بتاع العمود
-            SidebarBorder.Width = ExpandedSidebarWidth(logicalWidth);
-        }
-
-        private static double ExpandedSidebarWidth(double logicalWidth) =>
-            Math.Clamp(logicalWidth * SidebarRatio, SidebarMin, SidebarMax);
-
-        /// <summary>
-        /// حالة الطي المحفوظة من آخر تشغيل — بتتطبّق فورًا من غير أي حركة
-        /// (الحركة بس لدوسة المستخدم الحية جوّه AnimateSidebarCollapse).
-        /// </summary>
-        private void ApplyInitialSidebarState()
-        {
-            var persistedCollapsed = AppSettingsStore.Load().SidebarCollapsed;
-
-            // البرنامج بيفتح على الرئيسية دايمًا، فالشريط بيبدأ مطوي (ApplyHomeSidebarRule)
-            // — لو التفضيل المحفوظ "مفتوح" نعلّم إن الطي ده تلقائي عشان يرجع مفتوح
-            // أول ما المستخدم يخرج من الرئيسية
-            _homeAutoCollapsed = !persistedCollapsed;
-            _isSidebarCollapsed = true;
-            IsSidebarCollapsed = _isSidebarCollapsed;
-            SidebarToggleIcon.Kind = _isSidebarCollapsed ? PackIconKind.ChevronDoubleLeft : PackIconKind.ChevronDoubleRight;
-            SidebarContent.Opacity = _isSidebarCollapsed ? 0 : 1;
-            // IsEnabled=false بيوقف الـHit-testing وTab-focus مع بعض على
-            // كل المحتوى اللي جواه — Opacity=0 لوحدها بتخفي بصريًا بس
-            // تسيب العناصر قابلة للدوسة/التنقل بالكيبورد وهي مش باينة
-            SidebarContent.IsEnabled = !_isSidebarCollapsed;
-            SidebarToggleButton.ToolTip = _isSidebarCollapsed ? "فتح القائمة الجانبية (Ctrl+B)" : "طي القائمة الجانبية (Ctrl+B)";
-            // العرض الفعلي بيتظبط في أول ApplyUiScale (SizeChanged عند فتح
-            // النافذة) — مفيش داعي نكرره هنا
-
-            // النبضة لمستخدم تفضيله "مفتوح" (لسه مااكتشفش الزرار) — الزرار نفسه
-            // ظاهر في الحالتين، فنبضه وهو مطوي على الرئيسية بيوضّح إزاي يفتح القايمة
-            if (!persistedCollapsed && !AppSettingsStore.Load().SidebarToggleHintShown)
-                PlaySidebarToggleHintPulse();
-        }
-
-        /// <summary>
-        /// نبضة بسيطة (تكبير/تصغير خفيف) على زرار الطي أول مرة البرنامج
-        /// يتفتح فيها بعد إضافة الميزة — عشان تلفت النظر للزرار الجديد.
-        /// بتتعرض مرة واحدة بس (نفس نمط LastSeenTourVersion) ثم تتسجل.
-        /// </summary>
-        private void PlaySidebarToggleHintPulse()
-        {
-            var scaleTransform = new ScaleTransform(1, 1);
-            SidebarToggleButton.RenderTransformOrigin = new Point(0.5, 0.5);
-            SidebarToggleButton.RenderTransform = scaleTransform;
-
-            var pulse = new DoubleAnimation
-            {
-                From = 1, To = 1.3,
-                Duration = TimeSpan.FromMilliseconds(280),
-                AutoReverse = true,
-                RepeatBehavior = new RepeatBehavior(2),
-                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
-            };
-
-            scaleTransform.BeginAnimation(ScaleTransform.ScaleXProperty, pulse);
-            scaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, pulse);
-
-            var settings = AppSettingsStore.Load();
-            settings.SidebarToggleHintShown = true;
-            AppSettingsStore.Save(settings);
-        }
-
-        private void SidebarToggle_Click(object sender, RoutedEventArgs e) => ToggleSidebarByUser();
-
-        /// <summary>
-        /// طي/فتح بإيد المستخدم (الزرار أو Ctrl+B) — اختيار صريح بيتحفظ، وبيلغي
-        /// الطي التلقائي بتاع الرئيسية: لو فتح الشريط وهو على الرئيسية يفضل مفتوح
-        /// </summary>
-        private void ToggleSidebarByUser()
-        {
-            _homeAutoCollapsed = false;
-            AnimateSidebarCollapse(!_isSidebarCollapsed);
-        }
-
-        /// <summary>
-        /// Storyboard حقيقي (مش قفزة فورية): العرض بيتحرك من الحالي للهدف،
-        /// والمحتوى (SidebarContent، كل حاجة ماعدا زرار الطي نفسه) بيختفي/
-        /// يظهر بالتوازي — بيختفي بدري شوية عند الطي (عشان النص ميتقصّش
-        /// وهو لسه باين وسط الضغط) وبيتأخر شوية عند الفتح (يظهر بعد ما
-        /// المساحة تبقى كافية ليه).
-        ///
-        /// **بعد Completed**: BeginAnimation(WidthProperty, null) بيشيل
-        /// الحركة القديمة عن الخاصية — وإلا ApplySidebarWidth (بينادى تاني
-        /// عند أي Resize بعد كده) مش هيقدر يكتب فوق قيمة لسه متحكم فيها من
-        /// Storyboard قديم، والشريط هيتجمّد على آخر عرض اتحرك ليه.
-        /// </summary>
-        /// <param name="persist">false للطي/الفتح التلقائي بتاع الرئيسية — مايكتبش فوق تفضيل المستخدم المحفوظ</param>
-        private void AnimateSidebarCollapse(bool collapse, bool persist = true)
-        {
-            _isSidebarCollapsed = collapse;
-            IsSidebarCollapsed = collapse;
-            SidebarToggleIcon.Kind = collapse ? PackIconKind.ChevronDoubleLeft : PackIconKind.ChevronDoubleRight;
-            SidebarToggleButton.ToolTip = collapse ? "فتح القائمة الجانبية (Ctrl+B)" : "طي القائمة الجانبية (Ctrl+B)";
-            // بيتقفل فورًا وقت الطي (قبل الحركة) عشان محدش يقدر يدوس على
-            // عنصر لسه شبه باين وسط التصغير؛ بيترجع يتفتح بعد الفتح كامل
-            // (جوّه Completed) عشان ميبقاش قابل للتفاعل قبل ما يكون باين خالص
-            if (collapse) SidebarContent.IsEnabled = false;
-
-            var fromWidth = SidebarBorder.ActualWidth > 0 ? SidebarBorder.ActualWidth : SidebarBorder.Width;
-            var toWidth = collapse ? SidebarCollapsedWidth : ExpandedSidebarWidth(_lastLogicalWidth);
-            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-
-            var widthAnimation = new DoubleAnimation
-            {
-                From = fromWidth, To = toWidth,
-                Duration = TimeSpan.FromMilliseconds(SidebarToggleAnimationMs),
-                EasingFunction = ease
-            };
-            Storyboard.SetTarget(widthAnimation, SidebarBorder);
-            Storyboard.SetTargetProperty(widthAnimation, new PropertyPath(WidthProperty));
-
-            var contentOpacity = new DoubleAnimation
-            {
-                From = collapse ? 1 : 0, To = collapse ? 0 : 1,
-                Duration = TimeSpan.FromMilliseconds(collapse ? 140 : 160),
-                BeginTime = collapse ? TimeSpan.Zero : TimeSpan.FromMilliseconds(80),
-                EasingFunction = ease
-            };
-            Storyboard.SetTarget(contentOpacity, SidebarContent);
-            Storyboard.SetTargetProperty(contentOpacity, new PropertyPath(OpacityProperty));
-
-            var storyboard = new Storyboard();
-            storyboard.Children.Add(widthAnimation);
-            storyboard.Children.Add(contentOpacity);
-            storyboard.Completed += (_, _) =>
-            {
-                SidebarBorder.BeginAnimation(WidthProperty, null);
-                SidebarBorder.Width = toWidth;
-                SidebarContent.BeginAnimation(OpacityProperty, null);
-                SidebarContent.Opacity = collapse ? 0 : 1;
-                if (!collapse) SidebarContent.IsEnabled = true;
-            };
-            storyboard.Begin();
-
-            if (persist) SidebarNavigationRule.PersistCollapsed(collapse);
-        }
-
-        /// <summary>
-        /// الشريط اتطوى تلقائيًا عشان الرئيسية (مش بإيد المستخدم) — أول ما يخرج
-        /// من الرئيسية بيرجع مفتوح زي تفضيله المحفوظ. أي طي/فتح يدوي بيلغيه.
-        /// </summary>
-        private bool _homeAutoCollapsed;
-
-        /// <summary>
-        /// الرئيسية بتطوي الشريط تلقائيًا (البلاطات الكبيرة فيها هي التنقل وهي
-        /// ظاهرة، فالمساحة تروح لها) من غير ما تلمس SidebarCollapsed المحفوظ.
-        /// الخروج لأي شاشة تانية بيرجّعه مفتوح لو احنا اللي طويناه.
-        /// </summary>
-        private void ApplyHomeSidebarRule(bool onHome)
-        {
-            if (onHome && !_isSidebarCollapsed)
-            {
-                _homeAutoCollapsed = true;
-                AnimateSidebarCollapse(true, persist: false);
-            }
-            else if (!onHome && _homeAutoCollapsed)
-            {
-                _homeAutoCollapsed = false;
-                if (_isSidebarCollapsed) AnimateSidebarCollapse(false, persist: false);
-            }
-        }
+        public bool IsSidebarCollapsed => (bool)GetValue(IsSidebarCollapsedProperty);
 
         /// <summary>
         /// لوجو WMS (الكبير في الشريط المفتوح أو الصغير في المطوي) = "الرئيسية" —
@@ -534,33 +191,12 @@ namespace WorkforceManager.UI
         /// </summary>
         private void HomeLogo_Click(object sender, RoutedEventArgs e) => NavHomeItem.IsChecked = true;
 
-        /// <summary>
-        /// أيقونة تنقل وهو مطوي (الشريط الجانبي) — Tag بيحمل اسم الـRadioButton
-        /// الحقيقي (NavWorkersItem وهكذا)، فالدوسة بتحط IsChecked=true عليه
-        /// مباشرة، نفس مسار Checked/التنقل الحالي بالظبط (تبديل الشاشة، تحديث
-        /// البادچات، تحريك المؤشر) — صفر منطق تنقل جديد هنا.
-        /// </summary>
-        private void CollapsedNavIcon_Click(object sender, RoutedEventArgs e)
-        {
-            if (sender is FrameworkElement { Tag: string name } && FindName(name) is RadioButton item)
-                item.IsChecked = true;
-        }
-
         /// <summary>خانة البحث في الرئيسية — نفس GlobalSearch_Click بتاع زرار الشريط وCtrl+K بالظبط</summary>
         internal void OpenGlobalSearch() => GlobalSearch_Click(this, new RoutedEventArgs());
 
-        /// <summary>تبويب "الحضور والغياب" جوّه تسجيل الإنتاج اليومي — نفس رقم التبويب اللي الجولة بتستخدمه</summary>
-        internal const int DailyEntryAttendanceTab = 3;
+        /// <summary>تبويب "الحضور والغياب" جوّه إدارة العمال (كان في التسجيل اليومي)</summary>
+        internal void OpenWorkerAttendance() => NavAttendanceItem.IsChecked = true;
 
-        /// <summary>
-        /// يفتح تسجيل الإنتاج اليومي على تبويب معيّن — نفس اللي الجولة بتعمله
-        /// (IsChecked ثم SelectedTabIndex على نفس DailyEntryViewModel بتاع الجلسة)
-        /// </summary>
-        internal void OpenDailyEntryTab(int tabIndex)
-        {
-            NavDailyEntryItem.IsChecked = true;
-            _session.GetRequiredService<ViewModels.DailyEntryViewModel>().SelectedTabIndex = tabIndex;
-        }
 
         /// <summary>
         /// بيقصّ المقاس المستعاد (اللي بيرجعله لما يخرج من التكبير) على
@@ -596,7 +232,6 @@ namespace WorkforceManager.UI
 
             ActivityBadgeText.Text = BadgeFormat.CountText(count);
             ActivityBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            RefreshSidebarToggleBadge();
         }
 
         /// <summary>
@@ -612,7 +247,6 @@ namespace WorkforceManager.UI
 
             MemoryBadgeText.Text = BadgeFormat.CountText(count);
             MemoryBadge.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            RefreshSidebarToggleBadge();
         }
 
         /// <summary>
@@ -648,7 +282,6 @@ namespace WorkforceManager.UI
             NotificationEmptyText.Visibility = total == 0 ? Visibility.Visible : Visibility.Collapsed;
             NotificationBellBadgeText.Text = BadgeFormat.CountText(total);
             NotificationBellBadge.Visibility = total > 0 ? Visibility.Visible : Visibility.Collapsed;
-            RefreshSidebarToggleBadge();
         }
 
         /// <summary>
@@ -702,26 +335,9 @@ namespace WorkforceManager.UI
         private void NotificationAttentionItem_Click(object sender, RoutedEventArgs e)
         {
             NotificationBellToggle.IsChecked = false;
-            NavWorkersItem.IsChecked = true;
-            if (MainContent.Content is Views.WorkersView { DataContext: ViewModels.WorkersViewModel vm })
+            if (OpenScreen<Views.WorkersView>() is { DataContext: ViewModels.WorkersViewModel vm })
                 vm.ShowNeedsAttentionCommand.Execute(null);
         }
-
-        /// <summary>
-        /// نقطة صغيرة على زرار طي الشريط بتبان لو فيه تنبيه معلّق (عمليات
-        /// جديدة أو خطط ذاكرة مستحقة أو إشعار) — عشان التنبيه ميضيعش لمجرد
-        /// إن المستخدم طاوي الشريط ومابيشوفش البادچات نفسها. بتتنادى من ذيل
-        /// RefreshActivityBadge/RefreshMemoryBadge/RefreshNotificationBell التلاتة.
-        /// </summary>
-        private void RefreshSidebarToggleBadge()
-        {
-            SidebarToggleBadgeDot.Visibility =
-                ActivityBadge.Visibility == Visibility.Visible || MemoryBadge.Visibility == Visibility.Visible
-                || NotificationBellBadge.Visibility == Visibility.Visible
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
-        }
-
         /// <summary>
         /// اسم المصنع والقسم في رأس القايمة الجانبية وفي عنوان النافذة.
         ///
@@ -737,7 +353,7 @@ namespace WorkforceManager.UI
             Views.AppIcon.ApplyTo(this);
 
             var factory = string.IsNullOrWhiteSpace(settings.FactoryName)
-                ? "WMS"
+                ? "إدارة قسم الصنفرة"
                 : settings.FactoryName!.Trim();
 
             var department = settings.DepartmentName?.Trim() ?? "";
@@ -766,6 +382,99 @@ namespace WorkforceManager.UI
             text.Any(c => c >= '؀' && c <= 'ۿ');
 
         /// <summary>
+        /// الشاشات اللي اتنقلت جوّه شاشات تانية: نوع الشاشة المنقولة ← (بند التنقل الأب الظاهر
+        /// في القايمة الجانبية). أي كود قديم بيعمل `NavMemoryItem.IsChecked = true` (البحث السريع،
+        /// الجولة، بلاطات الرئيسية، التوقيع اليومي) لسه شغال زي ما هو — الحدث بيتحوّل هنا
+        /// للأب وبيتفتح التبويب/القسم المناسب، من غير ما كل مكان يعرف إن الشاشة اتنقلت.
+        /// سجل العمليات مش هنا عن قصد: بيتفتح كشاشة كاملة من جرس الإشعارات (شوف OpenStandaloneRoute).
+        /// </summary>
+        private Dictionary<Type, RadioButton> EmbeddedRoutes => new()
+        {
+            [typeof(ProductsView)] = NavProductionItem,
+            [typeof(MonthlyPlanView)] = NavProductionItem,
+            [typeof(DailyEntryView)] = NavProductionItem,
+            [typeof(MemoryView)] = NavProductionItem,
+            [typeof(AttendanceView)] = NavWorkersItem,
+            [typeof(PenaltiesView)] = NavWorkersItem,
+            [typeof(AdjustmentsView)] = NavWorkersItem,
+            [typeof(ReportsView)] = NavWorkersItem,
+            [typeof(ReportBuilderView)] = NavWorkersItem,
+            [typeof(DepartmentAccountsView)] = NavSettingsItem,
+            [typeof(HelpView)] = NavSettingsItem,
+        };
+
+        /// <summary>النافذة الحالية — بتستخدمها LazyScreenHost عشان تبني الشاشات المتداخلة من نفس نطاق الجلسة</summary>
+        public static MainWindow? Current { get; private set; }
+
+        /// <summary>بيبني شاشة (View) من نطاق الجلسة — نفس اللي NavigateToView_Checked بيعمله</summary>
+        public object ResolveScreen(Type viewType) => _session.GetRequiredService(viewType);
+
+        /// <summary>
+        /// الشاشة النوع T اللي ظاهرة دلوقتي — مباشرة في MainContent أو متداخلة جوّه
+        /// شاشة أب (تبويب/قسم). بديل `MainContent.Content is T` اللي بقى مش كفاية.
+        /// </summary>
+        internal T? ScreenOf<T>() where T : class =>
+            MainContent?.Content as T
+            ?? (MainContent?.Content as IEmbeddedScreenHost)?.Find(typeof(T)) as T;
+
+        /// <summary>
+        /// يفتح شاشة بعينها حتى لو جوّه صفحة كروت (مثلًا قايمة العمال جوّه إدارة العمال) ويرجّعها جاهزة —
+        /// بيعلّم البند الأب، وبيطلب من الأب يفتح الصفحة ويبنيها فورًا. لازم للبحث السريع والجولة: بند الأب
+        /// لوحده بيفتح على الكروت، فـ `ScreenOf&lt;T&gt;()` كان بيرجّع null والهبوط مابيعملش حاجة.
+        /// </summary>
+        internal T? OpenScreen<T>() where T : class
+        {
+            var type = typeof(T);
+            var parent = type == typeof(WorkersView) ? NavWorkersItem : EmbeddedRoutes.GetValueOrDefault(type);
+            if (parent is null || MainContent is null) return ScreenOf<T>();
+
+            if (parent.IsChecked != true) parent.IsChecked = true;
+            if (MainContent.Content is not IEmbeddedScreenHost && parent.Tag is Type parentType)
+                MainContent.Content = _session.GetRequiredService(parentType);
+
+            return (MainContent.Content as IEmbeddedScreenHost)?.Show(type) as T ?? ScreenOf<T>();
+        }
+
+        /// <summary>
+        /// بيحوّل بند تنقل مخفي لشاشته الأب: بيعلّم الأب (فيبني الشاشة لو مش ظاهرة)،
+        /// وبعدين بيختار التبويب/القسم ويبني الشاشة المتداخلة فورًا — قبل ما حد يستنى Loaded —
+        /// فالكود اللي بعده (`ScreenOf&lt;T&gt;()`) يلاقيها جاهزة.
+        /// </summary>
+        private void RouteToEmbedded(RadioButton hidden, Type embedded, RadioButton parent)
+        {
+            hidden.IsChecked = false; // عشان نفس البند يتفعّل تاني لو اتدعى تاني
+
+            if (parent.IsChecked != true)
+                parent.IsChecked = true; // بيبني الشاشة الأب لو مش ظاهرة
+            if (MainContent.Content is not IEmbeddedScreenHost)
+                MainContent.Content = _session.GetRequiredService((Type)parent.Tag);
+
+            (MainContent.Content as IEmbeddedScreenHost)?.Show(embedded);
+        }
+
+        /// <summary>
+        /// شاشة كاملة من غير بند ظاهر في الشريط (سجل العمليات من الجرس، الإعدادات من "المزيد") — فمفيش بند ظاهر يتعلّم.
+        /// بنشيل التحديد من بنود الشريط عشان ما يفضلش بند معلّم وإنت على شاشة تانية.
+        /// </summary>
+        private void OpenStandaloneRoute(RadioButton hidden, Type viewType)
+        {
+            hidden.IsChecked = false;
+            foreach (var item in VisibleNavItems) item.IsChecked = false;
+            MainContent.Content = _session.GetRequiredService(viewType);
+        }
+
+        private void OpenSettings_Click(object sender, RoutedEventArgs e)
+        {
+            MoreToggle.IsChecked = false;
+            NavSettingsItem.IsChecked = true;
+        }
+
+        private IEnumerable<RadioButton> VisibleNavItems => new[]
+        {
+            NavHomeItem, NavWorkersItem, NavProductionItem
+        };
+
+        /// <summary>
         /// Handler عام لكل بنود التنقل الـ12 — كانوا 12 نسخة متطابقة
         /// (فرق نوع الشاشة بس)، أي شارة رابعة أو تغيير في شرط الـsandbox
         /// كان محتاج يتعدّل في الـ12 مكان مع بعض. الشاشة المطلوبة بتتحدد من
@@ -776,6 +485,27 @@ namespace WorkforceManager.UI
             if (MainContent is null) return; // بيحصل مرة واحدة أثناء تهيئة النافذة
             if (ExitSandboxOnRealNavigation()) return;
             if (sender is not FrameworkElement { Tag: Type viewType }) return;
+
+            // شاشة اتنقلت جوّه شاشة تانية — حوّل للأب بدل ما تتفتح لوحدها
+            if (sender is RadioButton hidden && EmbeddedRoutes.TryGetValue(viewType, out var parentNav))
+            {
+                RouteToEmbedded(hidden, viewType, parentNav);
+                RefreshActivityBadge();
+                RefreshMemoryBadge();
+                RefreshNotificationBell();
+                return;
+            }
+
+            // سجل العمليات والإعدادات: شاشات كاملة من غير بند ظاهر في الشريط
+            if (sender is RadioButton { GroupName: "HiddenRoutes" } standalone &&
+                (viewType == typeof(ActivityLogView) || viewType == typeof(SettingsView)))
+            {
+                OpenStandaloneRoute(standalone, viewType);
+                RefreshActivityBadge();
+                RefreshMemoryBadge();
+                RefreshNotificationBell();
+                return;
+            }
 
             MainContent.Content = _session.GetRequiredService(viewType);
             RefreshActivityBadge();
@@ -793,9 +523,7 @@ namespace WorkforceManager.UI
         {
             if (MainContent is null) return;
 
-            var view = _session.GetRequiredService<DailyEntryView>();
-            MainContent.Content = view;
-            NavDailyEntryItem.IsChecked = true;
+            NavDailyEntryItem.IsChecked = true; // مسار مخفي → إدارة الإنتاج ← تسجيل الإنتاج اليومي (RouteToEmbedded)
             RefreshActivityBadge();
             RefreshMemoryBadge();
             RefreshNotificationBell();
@@ -805,16 +533,21 @@ namespace WorkforceManager.UI
         }
 
         /// <summary>
-        /// قائمة كارت العامل ← التسجيل اليومي على تبويب الحضور/الجزاءات/السلف
-        /// والعامل متحدد. نفس شكل OpenDailyEntryForMemoryAsync بالظبط (الشاشة
-        /// Scoped، فالتنقّل ده بيرجع لنفس النسخة بشغلها اللي لسه مش محفوظ).
+        /// قائمة كارت العامل ← تبويب الحضور/الجزاءات/السلف في إدارة العمال والعامل متحدد.
+        /// نفس DailyEntryViewModel (Scoped) بتاع التسجيل اليومي، فالتنقّل ده بيرجع لنفس
+        /// النسخة بشغلها اللي لسه مش محفوظ.
         /// </summary>
         public async Task OpenDailyEntryForWorkerAsync(int workerId, string workerName, ViewModels.DailyEntryWorkerTarget target)
         {
             if (MainContent is null) return;
 
-            MainContent.Content = _session.GetRequiredService<DailyEntryView>();
-            NavDailyEntryItem.IsChecked = true;
+            var tab = target switch
+            {
+                ViewModels.DailyEntryWorkerTarget.Penalty => NavPenaltiesItem,
+                ViewModels.DailyEntryWorkerTarget.Adjustment => NavAdjustmentsItem,
+                _ => NavAttendanceItem
+            };
+            tab.IsChecked = true;
             RefreshActivityBadge();
             RefreshMemoryBadge();
             RefreshNotificationBell();
@@ -840,7 +573,7 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
 
             NavReportsItem.IsChecked = true;
-            if (MainContent.Content is not ReportBuilderView view) return;
+            if (ScreenOf<ReportBuilderView>() is not { } view) return;
 
             await view.WhenLoaded;
             ((ViewModels.ReportBuilderViewModel)view.DataContext).ShowProductionFor(productId);
@@ -852,7 +585,7 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
 
             NavMonthlyPlanItem.IsChecked = true;
-            if (MainContent.Content is not MonthlyPlanView view) return;
+            if (ScreenOf<MonthlyPlanView>() is not { } view) return;
 
             await view.WhenLoaded;
             view.FocusProductQuantity(productId);
@@ -868,7 +601,7 @@ namespace WorkforceManager.UI
             if (MainContent is null) return;
 
             NavProductsItem.IsChecked = true;
-            if (MainContent.Content is not ProductsView view) return;
+            if (ScreenOf<ProductsView>() is not { } view) return;
 
             await view.WhenLoaded;
             view.ShowProductDetail(productId);
@@ -890,12 +623,6 @@ namespace WorkforceManager.UI
             {
                 e.Handled = true;
                 GlobalSearch_Click(this, e);
-            }
-
-            if (e.Key == Key.B && Keyboard.Modifiers == ModifierKeys.Control)
-            {
-                e.Handled = true;
-                ToggleSidebarByUser();
             }
 
             // Ctrl+N/S/F بيتوجّهوا للشاشة المعروضة دلوقتي بس (IScreenShortcuts) —

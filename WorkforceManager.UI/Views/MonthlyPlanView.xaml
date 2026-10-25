@@ -283,7 +283,18 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <TabControl>
+    <!-- صفحة الكروت الأول (التخطيط، الإنتاج اليومي للمنتجات، الإحصائيات)، والدوسة على كارت بتفتح التبويب
+         بتاعه. شريط التبويبات مخفي — الكروت هي التنقّل، والمسار بيتعرض في شريط إدارة الإنتاج (INestedLandingHost). -->
+    <Grid>
+        <views:HubLandingView x:Name="Landing" />
+
+        <Grid x:Name="PagesLayer" Visibility="Collapsed">
+    <TabControl x:Name="PagesTabs">
+        <TabControl.ItemContainerStyle>
+            <Style TargetType="TabItem">
+                <Setter Property="Visibility" Value="Collapsed" />
+            </Style>
+        </TabControl.ItemContainerStyle>
     <TabItem Header="التخطيط">
     <Grid Margin="14,10,14,10">
         <Grid.RowDefinitions>
@@ -1072,4 +1083,6 @@
     </TabItem>
 
     </TabControl>
+        </Grid>
+    </Grid>
 </UserControl>

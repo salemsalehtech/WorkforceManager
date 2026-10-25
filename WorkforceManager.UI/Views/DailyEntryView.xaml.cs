@@ -3,6 +3,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Microsoft.Extensions.DependencyInjection;
+using WorkforceManager.Business.Services;
 using WorkforceManager.UI.ViewModels;
 
 namespace WorkforceManager.UI.Views
@@ -12,22 +14,122 @@ namespace WorkforceManager.UI.Views
     /// الكيبورد في قايمة اقتراحات العمال) — كل منطق الشغل في
     /// DailyEntryViewModel حسب نمط MVVM المتبع في المشروع.
     /// </summary>
-    public partial class DailyEntryView : UserControl, IScreenShortcuts
+    public partial class DailyEntryView : UserControl, IScreenShortcuts, IEmbeddedScreenHost, ILandingResettable, INestedLandingHost
     {
-        public DailyEntryView(DailyEntryViewModel viewModel)
+        private readonly IServiceScopeFactory? _scopeFactory;
+        private readonly List<HubCardInfo> _cards = new();
+
+        public DailyEntryView(DailyEntryViewModel viewModel, IServiceScopeFactory scopeFactory)
         {
             InitializeComponent();
             DataContext = viewModel;
+            _scopeFactory = scopeFactory;
+
+            SetupLanding(viewModel);
 
             // تحميل المنتجات والعمال أول ما الشاشة تظهر
             Loaded += (_, _) => EntranceAnimation.PlayFadeSlideIn(this);
             Loaded += async (_, _) => await viewModel.InitializeAsync();
+            Loaded += async (_, _) => await RefreshStatsAsync();
 
             // KeyDown (مش Preview) عن قصد: خانة اختيار العامل في المرحلة بتعلّم
             // Enter إنه اتعالج في PreviewKeyDown بتاعها (إضافة عامل + نقل للمرحلة
             // اللي بعدها)، فالحدث ده مابيوصلش هنا أصلًا — مفيش معالجة مزدوجة
             KeyDown += AdvanceOnEnter;
         }
+
+        // ===== صفحة الكروت: كارت لكل تبويب (الأرقام هي نفسها SelectedTabIndex في الـ ViewModel) =====
+
+        private static readonly (string Title, string Description, MaterialDesignThemes.Wpf.PackIconKind Icon)[] PageDefinitions =
+        {
+            ("إنتاج العمال اليوم", "تسجيل رحلات إنتاج العمال بالمنتج والمراحل", MaterialDesignThemes.Wpf.PackIconKind.ClipboardEditOutline),
+            ("الرصيد الأولي", "قطع شغّالة من قبل ما تبدأ التسجيل في البرنامج", MaterialDesignThemes.Wpf.PackIconKind.PackageVariant),
+            ("مراجعة اليوم", "كل اللي اتسجّل في اليوم المختار — مراجعة وتعديل", MaterialDesignThemes.Wpf.PackIconKind.FormatListBulleted),
+            ("خطط الإنتاج المحفوظة", "خطط جاهزة تبدأ منها التسجيل بضغطة", MaterialDesignThemes.Wpf.PackIconKind.BookmarkMultipleOutline),
+            ("الهالك", "قطع اتشالت من الخط ومش هتتكمّل", MaterialDesignThemes.Wpf.PackIconKind.DeleteSweepOutline),
+        };
+
+        private void SetupLanding(DailyEntryViewModel viewModel)
+        {
+            for (var i = 0; i < PageDefinitions.Length; i++)
+            {
+                var (title, description, icon) = PageDefinitions[i];
+                _cards.Add(new HubCardInfo { Key = i.ToString(), Title = title, Description = description, Icon = icon });
+            }
+
+            Landing.Setup("تسجيل يوميات العمال", "اختار اللي عايز تسجّله أو تراجعه", _cards);
+            Landing.CardChosen += card => viewModel.OpenTab(int.Parse(card.Key));
+            PageBar.BackRequested += ShowLanding;
+
+            // أي طلب برمجي لتبويب (الجولة، البحث السريع، ابدأ الآن من الذاكرة) بيفتح الصفحة من الكروت
+            viewModel.TabRequested += () => ShowPage(viewModel.SelectedTabIndex);
+        }
+
+        // ===== INestedLandingHost: إدارة الإنتاج بتعرض المسار بتاعنا في شريطها =====
+
+        public event Action? OpenPageChanged;
+
+        public string? OpenPageTitle =>
+            PagesLayer.Visibility == Visibility.Visible && DataContext is DailyEntryViewModel vm &&
+            vm.SelectedTabIndex >= 0 && vm.SelectedTabIndex < PageDefinitions.Length
+                ? PageDefinitions[vm.SelectedTabIndex].Title
+                : null;
+
+        public void CloseOpenPage() => ShowLanding();
+
+        public void ShowLanding()
+        {
+            PagesLayer.Visibility = Visibility.Collapsed;
+            Landing.Visibility = Visibility.Visible;
+            _ = RefreshStatsAsync();
+            OpenPageChanged?.Invoke();
+        }
+
+        private void ShowPage(int index)
+        {
+            if (index < 0 || index >= PageDefinitions.Length) return;
+
+            Landing.Visibility = Visibility.Collapsed;
+            PagesLayer.Visibility = Visibility.Visible;
+            PageBar.Set("تسجيل يوميات العمال", PageDefinitions[index].Title);
+            OpenPageChanged?.Invoke();
+        }
+
+        private async Task RefreshStatsAsync()
+        {
+            if (_scopeFactory is null) return;
+
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var stats = await scope.ServiceProvider.GetRequiredService<HubStatsService>()
+                    .GetDailyEntryStatsAsync(DateTime.Today);
+
+                _cards[0].StatText = stats.ProductionRecordsToday == 0 ? "لسه مفيش تسجيل النهارده" : $"{stats.ProductionRecordsToday} سجل النهارده";
+                _cards[1].StatText = stats.ActiveInitialBalances == 0 ? "" : $"{stats.ActiveInitialBalances} رصيد شغّال";
+                _cards[3].StatText = stats.DueMemoryPlans == 0 ? "" : $"{stats.DueMemoryPlans} خطة مستحقة";
+                _cards[4].StatText = stats.ScrapPiecesToday == 0 ? "" : $"{stats.ScrapPiecesToday} قطعة هالك النهارده";
+            }
+            catch
+            {
+                // الأرقام زينة على الكروت — فشل تحميلها مايمنعش فتح أي صفحة
+            }
+        }
+
+        // ===== IEmbeddedScreenHost: الذاكرة بقت تبويب هنا (MemoryTab) =====
+
+        public object? Show(Type screenType)
+        {
+            if (screenType != typeof(MemoryView) || DataContext is not DailyEntryViewModel vm) return null;
+
+            vm.OpenTab(DailyEntryViewModel.MemoryTab);
+            return MemoryHost.EnsureCreated();
+        }
+
+        public object? Find(Type screenType) => screenType == typeof(MemoryView) ? MemoryHost.Content : null;
+
+        public FrameworkElement? FindElement(string name) =>
+            (MemoryHost.Content as FrameworkElement)?.FindName(name) as FrameworkElement;
 
         /// <summary>Enter في خانة إدخال عادية (قطع، سبب، مبلغ...) = انتقل للخانة اللي بعدها بترتيب Tab</summary>
         private static void AdvanceOnEnter(object sender, KeyEventArgs e)
@@ -40,7 +142,7 @@ namespace WorkforceManager.UI.Views
         }
 
         /// <summary>
-        /// Ctrl+S حسب التبويب المفتوح: الحضور → حفظ الحضور؛ الإنتاج → حفظ الرحلة
+        /// Ctrl+S حسب التبويب المفتوح: الإنتاج → حفظ الرحلة
         /// اللي فيها المؤشر، أو الرحلة الوحيدة لو مفيش غيرها. لو فيه أكتر من
         /// رحلة والمؤشر برّاهم مفيش حفظ — منخمّنش أنهي واحدة المقصودة.
         /// </summary>
@@ -50,7 +152,6 @@ namespace WorkforceManager.UI.Views
 
             return vm.SelectedTabIndex switch
             {
-                DailyEntryViewModel.AttendanceTab => KeyboardShortcuts.TryExecute(vm.SaveAttendanceCommand),
                 DailyEntryViewModel.ProductionTab => KeyboardShortcuts.TryExecute(FocusedFlow(vm)?.SaveFlowCommand),
                 _ => false
             };
@@ -184,6 +285,28 @@ namespace WorkforceManager.UI.Views
             // كان هيتكرر فتحصل الزحلقة مرتين
             session.WorkerAdded -= OnWorkerAdded;
             session.WorkerAdded += OnWorkerAdded;
+        }
+
+        /// <summary>
+        /// شاشة "العمال على المراحل" بتتربط على الرحلة المفتوحة (ActiveFlow) فالـDataContext بتاعها بيتغيّر من غير
+        /// ما Loaded يتنادى تاني — نفك اشتراك القديمة ونشترك في الجديدة عشان الزحلقة/الفوكس للمرحلة اللي بعدها تفضل شغالة.
+        /// </summary>
+        private void FlowStages_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (sender is not ItemsControl list) return;
+
+            if (e.OldValue is FlowSessionViewModel old)
+            {
+                old.WorkerAdded -= OnWorkerAdded;
+                _stageLists.Remove(old);
+            }
+
+            if (e.NewValue is FlowSessionViewModel current)
+            {
+                _stageLists[current] = list;
+                current.WorkerAdded -= OnWorkerAdded;
+                current.WorkerAdded += OnWorkerAdded;
+            }
         }
 
         private void FlowStages_Unloaded(object sender, RoutedEventArgs e)

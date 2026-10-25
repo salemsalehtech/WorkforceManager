@@ -21,6 +21,12 @@ namespace WorkforceManager.Core.Models
         [MaxLength(150)]
         public string Name { get; set; } = string.Empty;
 
+        /// <summary>
+        /// ترتيب العيلة اللي المستخدم اختاره (أسهم ↑/↓ في إدارة العائلات) — نفس ترتيب شيت المصنع اللي اتعوّدوا عليه.
+        /// بيتطبّق في شيت الإكسل وكروت الإنتاج الشهري. الأصغر الأول؛ عند التساوي بالاسم.
+        /// </summary>
+        public int SortOrder { get; set; }
+
         public virtual ICollection<Product> Products { get; set; } = new List<Product>();
     }
 }

@@ -9,14 +9,14 @@
              d:DesignHeight="650" d:DesignWidth="1100">
 
     <!--
-      شاشة الإعدادات.
+      شاشة الإعدادات — قايمة أقسام على الجنب (تقسيم منطقي لكل حاجة كانت في الصفحة
+      الطويلة)، والمحتوى بيتبدّل على حسب القسم المختار.
 
-      **الترتيب من فوق لتحت = الأهمية.** الشاشة دي بيتفتح فيها إعداد
-      واحد وبتتقفل، فاللي فوق هو اللي المستخدم هيشوفه من غير ما يدوّر:
-      الحماية الأول (كلمة سر العمليات والنسخ الخارجي — دول اللي لو
-      مفعّلوش تضيع شغل)، بعدين إعدادات الشغل اليومي، وفي الآخر النادر
-      والخطر. **الاسترجاع آخر حاجة عن قصد**: بيمسح البيانات الحالية،
-      فمكانه بعيد عن إيد اللي بيتصفّح.
+      الأقسام: الحماية | الحسابات الإدارية | النسخ الاحتياطي | إعدادات الشغل | الهوية
+      والمظهر | الدليل | حول البرنامج. "الحسابات الإدارية" و"الدليل" كانوا شاشتين
+      مستقلتين في القايمة الجانبية، اتنقلوا هنا كأقسام (LazyScreenHost) — بيتبنوا لما
+      القسم يتفتح بس. الاسترجاع آخر حاجة في قسم النسخ الاحتياطي عن قصد: بيمسح
+      البيانات الحالية، فمكانه بعيد عن إيد اللي بيتصفّح.
     -->
     <UserControl.Resources>
         <!-- عنوان مجموعة: بيفصل الشاشة لتلات مناطق بدل قايمة كروت
@@ -28,38 +28,35 @@
             <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
         </Style>
     </UserControl.Resources>
+    <Grid>
+        <!-- صفحة الكروت الأول: كارت لكل قسم، والدوسة بتفتحه تحت شريط رجوع -->
+        <views:HubLandingView x:Name="Landing" />
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="14,10,14,14">
-        <!--
-          عمود المحتوى **بيبدأ من أول الصفحة** (اليمين في واجهة عربية)
-          والفاضي بيروح للناحية التانية.
+        <Grid x:Name="PagesLayer" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-          كان StackPanel بـ HorizontalAlignment="Right" وMaxWidth —
-          وفي FlowDirection=RightToLeft الـ Right بيتعكس ويرسم على
-          الشمال، فالمحتوى كان بيبدأ من نص الشاشة وسايب فراغ على
-          اليمين. العمود الصريح هنا مبيتعكسش ولا بيحتاج حد يفتكر
-          القاعدة دي.
-        -->
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <!-- عمود المحتوى بياخد العرض كله لحد 940، والتاني Auto
-                     وفاضي فبياخد صفر — يعني الفاضي بيتولد من السقف
-                     مش من قسمة العرض. عمودين نجمة كانوا هيقسموا
-                     الشاشة نصين والكارت ياخد نص العرض بس. -->
-                <ColumnDefinition Width="*" MaxWidth="940" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+            <views:HubPageBar x:Name="PageBar" Grid.Row="0" />
 
-            <StackPanel Grid.Column="0">
+        <!-- ══════════ محتوى القسم ══════════ -->
+        <Grid Grid.Row="1">
 
-                <!-- ══════════ (١) الحماية ══════════ -->
-                <TextBlock Text="الحماية — لو دي مظبوطة الباقي كله بيهون"
-                           Style="{StaticResource GroupCaption}" Margin="4,0,0,8" />
+            <!-- أقسام الإعدادات العادية: كلها في نفس الخلية، واحد بس ظاهر (ShowSection) -->
+            <ScrollViewer x:Name="SettingsScroll" VerticalScrollBarVisibility="Auto" Padding="14,10,14,14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <!-- عمود المحتوى بياخد العرض كله لحد 940 والتاني Auto وفاضي — يعني الفاضي بيتولد من السقف -->
+                        <ColumnDefinition Width="*" MaxWidth="940" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <!-- كلمة سر العمليات: أول قسم عن قصد — من غيرها الحذف
-                     وتعديل الأجور والجزاءات كلهم مفتوحين لأي حد فتح
-                     البرنامج. كانت مكتوب عليها "أول قسم عن قصد" وهي
-                     تامنة في الترتيب. -->
+                    <Grid Grid.Column="0">
+                        <!-- ===== الحماية ===== -->
+                        <StackPanel x:Name="SecurityPanel">
+                            <TextBlock Text="الحماية — لو دي مظبوطة الباقي كله بيهون"
+                                       Style="{StaticResource GroupCaption}" Margin="4,0,0,8" />
                 <Border Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -106,11 +103,12 @@
                         </Button>
                     </StackPanel>
                 </Border>
+                        </StackPanel>
 
-                <!-- النسخ الخارجي قبل المحلي: المحلي شغال لوحده من غير
-                     ما حد يعمل حاجة، والخارجي هو الوحيد اللي محتاج قرار
-                     من المستخدم — وهو كمان الوحيد اللي بينفع لو الهارد
-                     نفسه باظ. -->
+                        <!-- ===== النسخ الاحتياطي ===== -->
+                        <StackPanel x:Name="BackupPanel" Visibility="Collapsed">
+                            <TextBlock Text="النسخ الاحتياطي — حماية بياناتك لو حصلت مشكلة"
+                                       Style="{StaticResource GroupCaption}" Margin="4,0,0,8" />
                 <Border Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -147,8 +145,6 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
-
-                <!-- النسخ المحلي -->
                 <Border x:Name="BackupCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -208,14 +204,31 @@
                         </Border>
                     </StackPanel>
                 </Border>
+                            <!-- الاسترجاع آخر حاجة في القسم عن قصد: بيمسح البيانات الحالية ويعيد تشغيل البرنامج -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="History" Width="18" Height="18"
+                                                      Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="استرجاع نسخة احتياطية" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                   Text="لو حصلت مشكلة كبيرة في البيانات، تقدر ترجع لأي نسخة سابقة. البيانات الحالية بتتستبدل — وبناخد نسخة أمان منها الأول تلقائيًا، والبرنامج بيعيد تشغيل نفسه بعد الاسترجاع." />
+                        <Button x:Name="RestoreBackupButton" Command="{Binding RestoreBackupCommand}"
+                                Style="{StaticResource DangerButton}" HorizontalAlignment="Right">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Restore" Width="15" Height="15" VerticalAlignment="Center" />
+                                <TextBlock Text="استرجاع من نسخة..." Margin="6,0,0,0" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+                        </StackPanel>
 
-                <!-- ══════════ (٢) إعدادات الشغل ══════════ -->
-                <TextBlock Text="إعدادات الشغل — دي اللي بتتغيّر مع شغل المصنع"
-                           Style="{StaticResource GroupCaption}" />
-
-                <!-- ===== أسباب الهالك =====
-                     من غير قايمة، المستخدم بيكتب السبب بالإيد في الملاحظات
-                     كل مرة — وساعتها "الهالك راح فين؟" مالهاش إجابة مجمّعة. -->
+                        <!-- ===== إعدادات الشغل ===== -->
+                        <StackPanel x:Name="OperationsPanel" Visibility="Collapsed">
+                            <TextBlock Text="إعدادات الشغل — دي اللي بتتغيّر مع شغل المصنع"
+                                       Style="{StaticResource GroupCaption}" Margin="4,0,0,8" />
                 <Border x:Name="ScrapReasonsCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -290,10 +303,52 @@
                         </Border>
                     </StackPanel>
                 </Border>
+                <Border x:Name="LogRetentionCard" Style="{StaticResource Card}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="DeleteClockOutline" Width="18" Height="18"
+                                                     Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="تنظيف سجل العمليات" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
+                                   Text="سجل العمليات بيقول مين عمل إيه وإمتى وليه. السطور القديمة بتتمسح لوحدها عشان الشاشة تفضل مقروءة — البيانات نفسها (الإنتاج والأجور والجزاءات) مش بتتمس." />
 
-                <!-- ===== هوية التقارير المطبوعة =====
-                     التقرير بيخرج من البرنامج ويروح لناس مشافوش البرنامج،
-                     فلازم يقول هو بتاع مين من غير ما حد يشرح. -->
+                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,10">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="أحداث الحذف (مسح يوم / سجل / عامل / منتج / مرحلة):"
+                                               FontSize="12.5" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBox Text="{Binding LogRetentionDays, UpdateSourceTrigger=LostFocus}"
+                                             Width="60" Margin="8,0,6,0" Padding="6,4" FontSize="13"
+                                             VerticalContentAlignment="Center" />
+                                    <TextBlock Text="يوم" FontSize="12.5" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                    <TextBlock Text="أحداث الفلوس (أجر / جزاء / سلفة / تصحيح قطع):"
+                                               FontSize="12.5" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBox Text="{Binding LogFinancialRetentionDays, UpdateSourceTrigger=LostFocus}"
+                                             Width="60" Margin="8,0,6,0" Padding="6,4" FontSize="13"
+                                             VerticalContentAlignment="Center" />
+                                    <TextBlock Text="يوم" FontSize="12.5" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </StackPanel>
+
+                                <TextBlock Text="{Binding LogRetentionText}" Style="{StaticResource HintText}"
+                                           Margin="0,8,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+                        </StackPanel>
+
+                        <!-- ===== الهوية والمظهر ===== -->
+                        <StackPanel x:Name="IdentityPanel" Visibility="Collapsed">
+                            <TextBlock Text="الهوية والمظهر — شكل البرنامج والتقارير المصدَّرة"
+                                       Style="{StaticResource GroupCaption}" Margin="4,0,0,8" />
                 <Border x:Name="ReportIdentityCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -343,11 +398,6 @@
                         </Border>
                     </StackPanel>
                 </Border>
-
-                <!-- ===== شعار البرنامج ذات نفسه =====
-                     منفصل عن شعار التقارير فوق عن قصد: ده بيحل محل
-                     شعار WMS جوّه البرنامج نفسه (مربع صغير)، مش هيدر
-                     ورقة مطبوعة — نادرًا ما تناسب نفس الصورة الاتنين. -->
                 <Border x:Name="AppLogoCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -381,12 +431,6 @@
                         </Border>
                     </StackPanel>
                 </Border>
-
-                <!-- ══════════ (٣) نادر وخطر ══════════ -->
-                <TextBlock Text="حاجات بتتظبط مرة وتتنسي"
-                           Style="{StaticResource GroupCaption}" />
-
-                <!-- ===== المظهر ===== -->
                 <Border x:Name="DarkModeCard" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -407,78 +451,11 @@
                         </DockPanel>
                     </StackPanel>
                 </Border>
-
-                <!-- ===== تنظيف سجل العمليات =====
-                     مدتين مش واحدة عن قصد: كل حدث في السجل ده إما حذف أو
-                     حركة فلوس، واللي فيه فلوس السؤال عليه بييجي بعد شهور. -->
-                <Border x:Name="LogRetentionCard" Style="{StaticResource Card}" Margin="0,0,0,12">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="DeleteClockOutline" Width="18" Height="18"
-                                                     Foreground="{DynamicResource GoldDeepBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="تنظيف سجل العمليات" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
                         </StackPanel>
-                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
-                                   Text="سجل العمليات بيقول مين عمل إيه وإمتى وليه. السطور القديمة بتتمسح لوحدها عشان الشاشة تفضل مقروءة — البيانات نفسها (الإنتاج والأجور والجزاءات) مش بتتمس." />
 
-                        <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="8" Padding="12,10">
-                            <StackPanel>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="أحداث الحذف (مسح يوم / سجل / عامل / منتج / مرحلة):"
-                                               FontSize="12.5" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    <TextBox Text="{Binding LogRetentionDays, UpdateSourceTrigger=LostFocus}"
-                                             Width="60" Margin="8,0,6,0" Padding="6,4" FontSize="13"
-                                             VerticalContentAlignment="Center" />
-                                    <TextBlock Text="يوم" FontSize="12.5" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                </StackPanel>
-
-                                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                    <TextBlock Text="أحداث الفلوس (أجر / جزاء / سلفة / تصحيح قطع):"
-                                               FontSize="12.5" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    <TextBox Text="{Binding LogFinancialRetentionDays, UpdateSourceTrigger=LostFocus}"
-                                             Width="60" Margin="8,0,6,0" Padding="6,4" FontSize="13"
-                                             VerticalContentAlignment="Center" />
-                                    <TextBlock Text="يوم" FontSize="12.5" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                </StackPanel>
-
-                                <TextBlock Text="{Binding LogRetentionText}" Style="{StaticResource HintText}"
-                                           Margin="0,8,0,0" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Border>
-
-                <!-- الاسترجاع آخر حاجة في الصفحة عن قصد: بيمسح البيانات
-                     الحالية ويعيد تشغيل البرنامج، فمش المفروض يكون في
-                     طريق حد بيتصفّح الإعدادات. -->
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="History" Width="18" Height="18"
-                                                      Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Center" />
-                            <TextBlock Text="استرجاع نسخة احتياطية" Style="{StaticResource SectionTitle}" Margin="6,0,0,0" />
-                        </StackPanel>
-                        <TextBlock Style="{StaticResource HintText}" Margin="0,4,0,10" TextWrapping="Wrap"
-                                   Text="لو حصلت مشكلة كبيرة في البيانات، تقدر ترجع لأي نسخة سابقة. البيانات الحالية بتتستبدل — وبناخد نسخة أمان منها الأول تلقائيًا، والبرنامج بيعيد تشغيل نفسه بعد الاسترجاع." />
-                        <Button x:Name="RestoreBackupButton" Command="{Binding RestoreBackupCommand}"
-                                Style="{StaticResource DangerButton}" HorizontalAlignment="Right">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="Restore" Width="15" Height="15" VerticalAlignment="Center" />
-                                <TextBlock Text="استرجاع من نسخة..." Margin="6,0,0,0" />
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-                </Border>
-
-                <!-- سطر معلومات في آخر الصفحة: أول سؤالين في أي مكالمة دعم
-                     هما "شغّال على أنهي إصدار؟" و"بياناتك فين؟" — الاتنين
-                     هنا بدل ما حد يدوّر عليهم أو يخمّن.
-                     المسار بـ LeftToRight عن قصد: مسار ويندوز مكتوب
-                     بالإنجليزي، وعرضه في اتجاه عربي بيبعتر الشرطات. -->
+                        <!-- ===== حول البرنامج ===== -->
+                        <StackPanel x:Name="AboutPanel" Visibility="Collapsed">
+                            <TextBlock Text="حول البرنامج" Style="{StaticResource GroupCaption}" Margin="4,0,0,8" />
                 <StackPanel x:Name="AppInfoFooter" Margin="6,2,6,0">
                     <TextBlock Style="{StaticResource HintText}" Text="{Binding AppVersionText}" />
 
@@ -494,8 +471,18 @@
                     <TextBlock Style="{StaticResource HintText}" FlowDirection="LeftToRight"
                                TextWrapping="Wrap" Text="{Binding DataFolderText}" />
                 </StackPanel>
+                        </StackPanel>
 
-            </StackPanel>
+                    </Grid>
+                </Grid>
+            </ScrollViewer>
+
+            <!-- أقسام اتنقلت من القايمة الجانبية: شاشة كاملة، بتتبني لما القسم يتفتح بس -->
+            <views:LazyScreenHost x:Name="AccountsHost" ScreenType="{x:Type views:DepartmentAccountsView}"
+                                  Visibility="Collapsed" />
+            <views:LazyScreenHost x:Name="GuideHost" ScreenType="{x:Type views:HelpView}"
+                                  Visibility="Collapsed" />
         </Grid>
-    </ScrollViewer>
+        </Grid>
+    </Grid>
 </UserControl>

@@ -120,7 +120,9 @@ namespace WorkforceManager.Business.Services
             {
                 WeekStart = weekStart,
                 WeekEnd = weekEnd,
-                TotalPiecesThisWeek = team.Sum(s => s.TotalPieces),
+                // التام = القطع اللي خلصت آخر مرحلة لكل منتج (ProductActivityDto.CompletedPieces) — **مش** مجموع قطع العمال:
+                // القطعة بتعدّي كل المراحل، فـ 5,000 قطعة على 11 مرحلة كانت بتظهر 55,000
+                TotalPiecesThisWeek = products.Sum(p => p.CompletedPieces),
                 ActiveWorkersThisWeek = CountActive(team),
                 NetWorkdaysThisWeek = team.Sum(s => s.NetWorkdays),
                 BestWorkerOfWeek = bestWorker,
@@ -129,7 +131,7 @@ namespace WorkforceManager.Business.Services
                 WorstWorkerPreviousPieces = worstWorker is null ? 0 : previousPiecesByWorker.GetValueOrDefault(worstWorker.WorkerId),
                 StaleInitialBalances = staleBalances,
                 DueSoonMemories = dueSoonMemories,
-                PreviousWeekTotalPieces = previousWeekTeam.Sum(s => s.TotalPieces),
+                PreviousWeekTotalPieces = previousProducts.Values.Sum(),
                 PreviousWeekActiveWorkers = CountActive(previousWeekTeam),
                 PreviousWeekNetWorkdays = previousWeekTeam.Sum(s => s.NetWorkdays),
                 UnexcusedAbsencesThisWeek = team.Sum(s => s.AbsentWithoutPermissionDays),

@@ -38,9 +38,9 @@
   <!-- هوية النسخة — مكان واحد لتغيير رقم الإصدار لكل المشاريع مرة واحدة -->
   <PropertyGroup>
     <Company>WorkforceManager</Company>
-    <Product>نظام إدارة إنتاجية وأجور العمال</Product>
-    <Version>1.6.5</Version>
-    <FileVersion>1.6.5.0</FileVersion>
+    <Product>إدارة قسم الصنفرة</Product>
+    <Version>3.0.0</Version>
+    <FileVersion>3.0.0.0</FileVersion>
 
     <!--
       تواريخ الإصدار — بتتعرض في سطر المعلومات آخر شاشة الإعدادات
@@ -55,7 +55,7 @@
       نفسه مكانتش هتشتغل على كل أوضاع التوزيع.
     -->
     <FirstReleaseDate>2026-08-25</FirstReleaseDate>
-    <LatestReleaseDate>2026-09-13</LatestReleaseDate>
+    <LatestReleaseDate>2026-10-23</LatestReleaseDate>
   </PropertyGroup>
 
   <ItemGroup>

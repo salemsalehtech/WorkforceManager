@@ -68,5 +68,34 @@ namespace WorkforceManager.Tests
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 _db.InScopeAsync<ProductFamilyService, bool>(async s => { await s.RenameAsync(idA, "ب"); return true; }));
         }
+
+        // ═══════════ ترتيب العائلات (أسهم ↑/↓ في إدارة العائلات) ═══════════
+
+        private async Task<string[]> NamesInOrderAsync() =>
+            (await _db.InScopeAsync<ProductFamilyService, System.Collections.Generic.List<Business.DTOs.ProductFamilyDto>>(s => s.GetAllWithCountsAsync()))
+            .Select(f => f.Name).ToArray();
+
+        [Fact]
+        public async Task New_families_are_appended_in_creation_order_not_alphabetically()
+        {
+            await _db.InScopeAsync<ProductFamilyService, int>(s => s.CreateAsync("كبشه"));
+            await _db.InScopeAsync<ProductFamilyService, int>(s => s.CreateAsync("اللوازم"));
+
+            Assert.Equal(new[] { "كبشه", "اللوازم" }, await NamesInOrderAsync());
+        }
+
+        [Fact]
+        public async Task MoveAsync_swaps_with_the_neighbor_and_refuses_past_the_ends()
+        {
+            await _db.InScopeAsync<ProductFamilyService, int>(s => s.CreateAsync("أ"));
+            var b = await _db.InScopeAsync<ProductFamilyService, int>(s => s.CreateAsync("ب"));
+            await _db.InScopeAsync<ProductFamilyService, int>(s => s.CreateAsync("ج"));
+
+            Assert.True(await _db.InScopeAsync<ProductFamilyService, bool>(s => s.MoveAsync(b, up: true)));
+            Assert.Equal(new[] { "ب", "أ", "ج" }, await NamesInOrderAsync());
+
+            Assert.False(await _db.InScopeAsync<ProductFamilyService, bool>(s => s.MoveAsync(b, up: true)));
+            Assert.Equal(new[] { "ب", "أ", "ج" }, await NamesInOrderAsync());
+        }
     }
 }

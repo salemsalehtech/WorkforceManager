@@ -12,7 +12,10 @@ namespace WorkforceManager.UI.Tour
         Reports,
         ActivityLog,
         Settings,
-        DepartmentAccounts
+        DepartmentAccounts,
+        WorkerAttendance,
+        WorkerPenalties,
+        WorkerAdjustments
     }
 
     /// <summary>

@@ -49,6 +49,15 @@
                             <Border Style="{StaticResource Card}" Margin="0,0,0,8" Padding="12,10">
                                 <DockPanel>
                                     <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                        <!-- ترتيب العيلة (نفس ترتيب شيت المصنع): بيتطبّق في شيت الإكسل وكروت الإنتاج الشهري -->
+                                        <Button Click="MoveUp_Click" Tag="{Binding}" Style="{StaticResource IconButton}"
+                                                Padding="6" Margin="0,0,4,0" ToolTip="طلّعها لفوق في الترتيب">
+                                            <materialDesign:PackIcon Kind="ArrowUp" Width="15" Height="15" />
+                                        </Button>
+                                        <Button Click="MoveDown_Click" Tag="{Binding}" Style="{StaticResource IconButton}"
+                                                Padding="6" Margin="0,0,10,0" ToolTip="نزّلها لتحت في الترتيب">
+                                            <materialDesign:PackIcon Kind="ArrowDown" Width="15" Height="15" />
+                                        </Button>
                                         <Button Click="Rename_Click" Tag="{Binding}" Style="{StaticResource IconButton}"
                                                 Padding="6" ToolTip="تعديل الاسم">
                                             <materialDesign:PackIcon Kind="PencilOutline" Width="15" Height="15" />

@@ -55,7 +55,7 @@ namespace WorkforceManager.Business.Services
             using var workbook = new XLWorkbook();
 
             // الشيت الأول: نفس أعمدة شيت المصنع وترتيبه بمعادلات حية، شوف MonthlyPlanFactorySheet
-            var layout = MonthlyPlanFactorySheet.Write(workbook, tracking, monthLabel, options);
+            MonthlyPlanFactorySheet.Write(workbook, tracking, monthLabel, options);
 
             // الشيت التاني: الجدول التفصيلي (المطلوب يوميًا، التوقّع، الخطة اليومية...) — أرقام مش موجودة في شيت المصنع
             var sheet = workbook.Worksheets.Add(ReportTableExcelService.SheetName(DetailSheetName, workbook));
@@ -92,7 +92,7 @@ namespace WorkforceManager.Business.Services
                 var familyGroups = materialProducts
                     .Where(p => p.FamilyId is not null)
                     .GroupBy(p => (p.FamilyId!.Value, p.FamilyName ?? ""))
-                    .OrderBy(g => g.Key.Item2)
+                    .OrderBy(g => g.Min(p => p.FamilySortOrder)).ThenBy(g => g.Key.Item2) // ترتيب العائلات اللي المستخدم اختاره
                     .Select(g => (Name: g.Key.Item2, Products: g.ToList()))
                     .ToList();
 
@@ -133,12 +133,9 @@ namespace WorkforceManager.Business.Services
 
             ReportTableExcelService.Finish(sheet, headerRow, lastRow, lastColumn, firstColumnWidth: 26);
 
-            // يوم بيوم (لو البيانات اتبعتت) واللوحة في الأول — اللوحة معادلات على الشيتين التانيين
-            (int, int, int)? dailyLayout = daily is null
-                ? null
-                : MonthlyPlanDailySheet.Write(workbook, tracking, daily, monthLabel, options);
-            MonthlyPlanDashboardSheet.Write(workbook, layout, monthLabel, options, dailyLayout,
-                daily is null ? DateTime.Today : new DateTime(daily.Year, daily.Month, 1));
+            // يوم بيوم (لو البيانات اتبعتت)
+            if (daily is not null)
+                MonthlyPlanDailySheet.Write(workbook, tracking, daily, monthLabel, options);
 
             workbook.SaveAs(filePath);
         }

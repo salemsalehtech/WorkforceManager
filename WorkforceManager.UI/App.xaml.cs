@@ -102,6 +102,10 @@ namespace WorkforceManager.UI
             EventManager.RegisterClassHandler(typeof(Window), UIElement.PreviewKeyDownEvent,
                 new System.Windows.Input.KeyEventHandler(SaveShortcutInDialog));
 
+            // ↑/↓ بين خانات الإدخال في كل الشاشات (زي إكسل) — شوف KeyboardShortcuts.ArrowNavigation
+            EventManager.RegisterClassHandler(typeof(Window), UIElement.PreviewKeyDownEvent,
+                new System.Windows.Input.KeyEventHandler(KeyboardShortcuts.ArrowNavigation));
+
             // منع تشغيل نسخة تانية من البرنامج (النسخة الأولى بتفضل هي الشغالة)
             _singleInstanceMutex = new Mutex(true, @"Local\WorkforceManager_SingleInstance", out var isFirstInstance);
             if (!isFirstInstance)

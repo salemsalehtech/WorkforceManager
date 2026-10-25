@@ -89,6 +89,7 @@ namespace WorkforceManager.UI
             services.AddScoped<GlobalSearchService>();
             services.AddScoped<SearchIntentService>();
             services.AddScoped<HomeSummaryService>();
+            services.AddScoped<HubStatsService>();
             // الهوية المشتركة: مصدر واحد لـ"مين عمل كده" — الحذف الناعم
             // وسجل العمليات الاتنين بيقروا منه
             services.AddSingleton<CurrentUserContext>();
@@ -117,6 +118,11 @@ namespace WorkforceManager.UI
             services.AddTransient<ViewModels.HomeViewModel>();
             // الشاشات الداخلية Transient: نسخة جديدة نظيفة مع كل تنقّل
             services.AddTransient<Views.WorkersView>();
+            services.AddTransient<Views.WorkersHubView>();
+            services.AddTransient<Views.ProductionHubView>();
+            services.AddTransient<Views.AttendanceView>();
+            services.AddTransient<Views.PenaltiesView>();
+            services.AddTransient<Views.AdjustmentsView>();
             services.AddTransient<ViewModels.WorkersViewModel>();
             // التسجيل اليومي وحدها Scoped مش Transient: فيها توزيع
             // عمال على مراحل لسه مش محفوظ، ونسخة جديدة كل تنقّل

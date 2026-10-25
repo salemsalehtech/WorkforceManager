@@ -1,0 +1,28 @@
+<UserControl x:Class="WorkforceManager.UI.Views.EntryDateBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+
+    <!-- اختيار اليوم (نفس شريط التسجيل اليومي): DataContext بيورثه من الشاشة الأم = DailyEntryViewModel،
+         يعني اليوم المختار هنا هو نفسه المختار في تسجيل الإنتاج اليومي (EntryDate واحد للجلسة) -->
+    <Border Style="{StaticResource ToolbarCard}">
+        <StackPanel Orientation="Horizontal">
+            <materialDesign:PackIcon Kind="CalendarBlankOutline" Width="17" Height="17"
+                                     Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextPrimaryBrush}" />
+            <Button Style="{StaticResource IconButton}" Padding="5" ToolTip="يوم فات"
+                    Command="{Binding PreviousDayCommand}">
+                <materialDesign:PackIcon Kind="ChevronRight" Width="16" Height="16" />
+            </Button>
+            <DatePicker SelectedDate="{Binding EntryDate}" Width="150" VerticalAlignment="Center" Margin="4,0" />
+            <Button Style="{StaticResource IconButton}" Padding="5" ToolTip="يوم جاي"
+                    Command="{Binding NextDayCommand}">
+                <materialDesign:PackIcon Kind="ChevronLeft" Width="16" Height="16" />
+            </Button>
+            <Button Style="{StaticResource GhostButton}" Padding="10,5" Margin="8,0,0,0" FontSize="12"
+                    ToolTip="ارجع لتاريخ النهارده" Command="{Binding GoToTodayCommand}">
+                <TextBlock Text="النهارده" />
+            </Button>
+        </StackPanel>
+    </Border>
+</UserControl>

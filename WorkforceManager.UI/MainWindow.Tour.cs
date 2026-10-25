@@ -60,7 +60,7 @@ namespace WorkforceManager.UI
                     NavigateToTourScreen(step.Screen);
 
                     if (step.TabIndex is int tab)
-                        _session.GetRequiredService<ViewModels.DailyEntryViewModel>().SelectedTabIndex = tab;
+                        _session.GetRequiredService<ViewModels.DailyEntryViewModel>().OpenTab(tab);
 
                     // (MainContent.Content as ...)?.DataContext مش _session.GetRequiredService
                     // عن قصد: WorkersView/WorkersViewModel مسجّلين Transient، فـ
@@ -68,7 +68,7 @@ namespace WorkforceManager.UI
                     // ظاهرة على الشاشة (اللي NavigateToTourScreen فوق بناها) — العامل
                     // كان بيتحدد على نسخة محدش شايفها، والخطوة كانت بتتخطّى بصمت
                     if (step.SelectFirstWorker &&
-                        (MainContent.Content as FrameworkElement)?.DataContext is ViewModels.WorkersViewModel workersVm)
+                        ScreenOf<WorkersView>()?.DataContext is ViewModels.WorkersViewModel workersVm)
                         workersVm.SelectedWorker = workersVm.Workers.FirstOrDefault();
 
                     // تحديد عامل بيحمّل بروفايله (SelectedWorker/OnSelectedWorkerChanged) async
@@ -106,7 +106,7 @@ namespace WorkforceManager.UI
         {
             switch (screen)
             {
-                case Tour.TourScreen.Workers: NavWorkersItem.IsChecked = true; break;
+                case Tour.TourScreen.Workers: OpenScreen<WorkersView>(); break; // قايمة العمال نفسها، مش كروت إدارة العمال
                 case Tour.TourScreen.Products: NavProductsItem.IsChecked = true; break;
                 case Tour.TourScreen.DailyEntry: NavDailyEntryItem.IsChecked = true; break;
                 case Tour.TourScreen.Memory: NavMemoryItem.IsChecked = true; break;
@@ -115,6 +115,9 @@ namespace WorkforceManager.UI
                 case Tour.TourScreen.ActivityLog: NavActivityLogItem.IsChecked = true; break;
                 case Tour.TourScreen.Settings: NavSettingsItem.IsChecked = true; break;
                 case Tour.TourScreen.DepartmentAccounts: NavDepartmentAccountsItem.IsChecked = true; break;
+                case Tour.TourScreen.WorkerAttendance: NavAttendanceItem.IsChecked = true; break;
+                case Tour.TourScreen.WorkerPenalties: NavPenaltiesItem.IsChecked = true; break;
+                case Tour.TourScreen.WorkerAdjustments: NavAdjustmentsItem.IsChecked = true; break;
                 case Tour.TourScreen.None: break;
             }
         }
@@ -123,27 +126,18 @@ namespace WorkforceManager.UI
         private FrameworkElement? FindTourTarget(string name)
         {
             if (FindName(name) is FrameworkElement sidebarElement) return sidebarElement;
-            return (MainContent?.Content as FrameworkElement)?.FindName(name) as FrameworkElement;
+
+            // عنصر في الإعدادات: القسم اللي فيه لازم يتفتح الأول وإلا الهدف مخفي والخطوة تتخطّى
+            if (MainContent?.Content is SettingsView settings) settings.ShowSectionOf(name);
+            return (MainContent?.Content as FrameworkElement)?.FindName(name) as FrameworkElement
+                ?? (MainContent?.Content as IEmbeddedScreenHost)?.FindElement(name);
         }
 
         /// <summary>
-        /// نفس FindTourTarget، بس لو الهدف جوّه الشريط الجانبي (SidebarContent)
-        /// والشريط مطوي، بتفتحه الأول وتستنى الحركة تخلص — وإلا الخطوة كانت
-        /// هتتخطى بصمت (FindTourTarget's caller بيشيل أي هدف Visibility != Visible)
-        /// زي أي هدف مش موجود أصلًا، والجولة تفضل ناقصة من غير أي تفسير.
+        /// نفس FindTourTarget بس async (الجولة بتستناه). كان بيفتح القايمة الجانبية لو مطوية؛
+        /// التنقل بقى شريط علوي ثابت فمفيش حاجة تتفتح قبل ما الهدف يبان.
         /// </summary>
-        private async Task<FrameworkElement?> FindTourTargetAsync(string name)
-        {
-            var target = FindTourTarget(name);
-
-            if (target is not null && _isSidebarCollapsed && SidebarContent.IsAncestorOf(target))
-            {
-                AnimateSidebarCollapse(false);
-                await Task.Delay(SidebarToggleAnimationMs + 50);
-            }
-
-            return target;
-        }
+        private Task<FrameworkElement?> FindTourTargetAsync(string name) => Task.FromResult(FindTourTarget(name));
 
         /// <summary>
         /// بيحسب مكان العنصر بالنسبة لـ TourOverlay (إحداثيات فعلية —

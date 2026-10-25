@@ -144,18 +144,34 @@ namespace WorkforceManager.Business.Services
             _db.MonthlyPlans.AnyAsync(mp => mp.Year == year && mp.Month == month);
 
         /// <summary>
-        /// بيمسح خطة الشهر بالكامل — كل صفوف MonthlyPlan وكل الفترات الفرعية
-        /// (MonthlyPlanSubPeriod) بتاعة نفس السنة/الشهر، مش شهور تانية.
+        /// بيمسح خطة الشهر بالكامل **ومعاها كل اللي مربوط بيها** في نفس السنة/الشهر بس:
+        /// صفوف MonthlyPlan، الفترات الفرعية، الإنتاج اليومي للمنتجات (MonthlyPlanDailyEntry)،
+        /// التصليحات (MonthlyPlanCorrection)، ولقطات نهاية اليوم (MonthlyPlanSnapshot).
+        /// قبل كده الإنتاج اليومي كان بيفضل بعد حذف الخطة، فلما تعمل خطة جديدة لنفس الشهر
+        /// كانت بتطلع بمحقق قديم من الخطة المحذوفة. إنتاج العمال (DailyProduction) والأجور
+        /// مالهمش علاقة بالخطة ومش بيتلمسوا. الإجازات (تقويم الشغل) برضه فاضلة — مش جزء من الخطة.
         /// </summary>
         public async Task DeletePlanForMonthAsync(int year, int month)
         {
-            var plans = await _db.MonthlyPlans.Where(mp => mp.Year == year && mp.Month == month).ToListAsync();
-            _db.MonthlyPlans.RemoveRange(plans);
+            var (from, toExclusive) = (new DateTime(year, month, 1), new DateTime(year, month, 1).AddMonths(1));
 
-            var subPeriods = await _db.MonthlyPlanSubPeriods.Where(sp => sp.Year == year && sp.Month == month).ToListAsync();
-            _db.MonthlyPlanSubPeriods.RemoveRange(subPeriods);
+            _db.MonthlyPlans.RemoveRange(await _db.MonthlyPlans.Where(mp => mp.Year == year && mp.Month == month).ToListAsync());
+            _db.MonthlyPlanSubPeriods.RemoveRange(await _db.MonthlyPlanSubPeriods.Where(sp => sp.Year == year && sp.Month == month).ToListAsync());
+            _db.MonthlyPlanDailyEntries.RemoveRange(await _db.MonthlyPlanDailyEntries.Where(e => e.Date >= from && e.Date < toExclusive).ToListAsync());
+            _db.MonthlyPlanCorrections.RemoveRange(await _db.MonthlyPlanCorrections.Where(c => c.Date >= from && c.Date < toExclusive).ToListAsync());
+            _db.MonthlyPlanSnapshots.RemoveRange(await _db.MonthlyPlanSnapshots.Where(s => s.Year == year && s.Month == month).ToListAsync());
 
             await _db.SaveChangesAsync();
+        }
+
+        /// <summary>كام حاجة هتتمسح مع الخطة — عشان رسالة التأكيد تقول بالظبط (منتجات في الخطة، أيام إنتاج متسجّلة، تصليحات)</summary>
+        public async Task<(int PlanRows, int DailyEntries, int Corrections)> CountMonthDataAsync(int year, int month)
+        {
+            var (from, toExclusive) = (new DateTime(year, month, 1), new DateTime(year, month, 1).AddMonths(1));
+            return (
+                await _db.MonthlyPlans.CountAsync(mp => mp.Year == year && mp.Month == month),
+                await _db.MonthlyPlanDailyEntries.CountAsync(e => e.Date >= from && e.Date < toExclusive),
+                await _db.MonthlyPlanCorrections.CountAsync(c => c.Date >= from && c.Date < toExclusive));
         }
 
         /// <summary>

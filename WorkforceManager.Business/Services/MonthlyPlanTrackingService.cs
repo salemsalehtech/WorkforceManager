@@ -179,7 +179,8 @@ namespace WorkforceManager.Business.Services
                     SameDayPreviousMonth: previousByProduct.GetValueOrDefault(productId),
                     IsOutsidePlan: isOutsidePlan,
                     TotalWorkdays: totalWorkdays,
-                    RemainingWorkdays: remainingWorkdays));
+                    RemainingWorkdays: remainingWorkdays,
+                    FamilySortOrder: product?.Family?.SortOrder ?? int.MaxValue));
             }
 
             return result.OrderBy(r => r.ProductName).ToList();
@@ -348,7 +349,8 @@ namespace WorkforceManager.Business.Services
                 ManualQuantity: todayEntries.GetValueOrDefault(p.Id),
                 IsFilled: todayEntries.ContainsKey(p.Id),
                 RealProductionToday: realByProduct.GetValueOrDefault(p.Id),
-                YesterdayQuantity: yesterdayEntries.GetValueOrDefault(p.Id)))
+                YesterdayQuantity: yesterdayEntries.GetValueOrDefault(p.Id),
+                FamilySortOrder: p.Family?.SortOrder ?? int.MaxValue))
                 .ToList();
         }
 

@@ -149,6 +149,9 @@ namespace WorkforceManager.UI.ViewModels
         public string HeaderText { get; init; } = "";
 
         public string FamilyName { get; init; } = "";
+
+        /// <summary>ترتيب العيلة اللي المستخدم اختاره في إدارة العائلات (ProductFamily.SortOrder) — "ترتيب المصنع"</summary>
+        public int SortOrder { get; init; } = int.MaxValue;
         public string MaterialName { get; init; } = "";
 
         /// <summary>مفتاح ثابت (مادة + عيلة) — صفحة العيلة المفتوحة بتتلاقى بيه تاني بعد كل إعادة تحميل</summary>

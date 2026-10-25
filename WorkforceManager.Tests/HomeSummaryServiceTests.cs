@@ -53,22 +53,23 @@ namespace WorkforceManager.Tests
         }
 
         [Fact]
-        public async Task Weekly_totals_match_the_exact_numbers_WeeklySummaryService_reports()
+        public async Task Weekly_totals_match_WeeklySummaryService_except_pieces_which_are_completed_pieces_only()
         {
             var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(Today);
 
-            // 200 قطعة ÷ 10 بالكوتة = 20 يومية لأحمد
             await RecordProductionAsync(TestDatabase.RingStage1Id, 200, TestDatabase.WorkerAhmedId, weekStart);
+            await RecordProductionAsync(TestDatabase.RingStage2Id, 200, TestDatabase.WorkerSaidId, weekStart);
 
             var team = await _db.InScopeAsync<WeeklySummaryService, List<WorkerWeeklySummaryDto>>(
                 s => s.GetTeamWeeklySummaryAsync(weekStart));
-            var expectedPieces = team.Sum(w => w.TotalPieces);
             var expectedNetWorkdays = team.Sum(w => w.NetWorkdays);
 
             var summary = await GetSummaryAsync();
 
-            Assert.Equal(expectedPieces, summary.TotalPiecesThisWeek);
-            Assert.Equal(1, summary.ActiveWorkersThisWeek);
+            // دبلة مرحلتين: 200 على كل واحدة = 200 قطعة تامة بس (مش 400 زي ما مجموع قطع العمال بيقول)
+            Assert.Equal(200, summary.TotalPiecesThisWeek);
+            Assert.Equal(400, team.Sum(w => w.TotalPieces));
+            Assert.Equal(2, summary.ActiveWorkersThisWeek);
             Assert.Equal(expectedNetWorkdays, summary.NetWorkdaysThisWeek);
         }
 
@@ -347,8 +348,8 @@ namespace WorkforceManager.Tests
         {
             var (weekStart, _) = WeeklySummaryService.GetWorkWeekRange(Today);
 
-            await RecordProductionAsync(TestDatabase.RingStage1Id, 200, TestDatabase.WorkerAhmedId, weekStart);
-            await RecordProductionAsync(TestDatabase.RingStage1Id, 50, TestDatabase.WorkerAhmedId, weekStart.AddDays(-7));
+            await RecordProductionAsync(TestDatabase.ChainStage1Id, 200, TestDatabase.WorkerAhmedId, weekStart);
+            await RecordProductionAsync(TestDatabase.ChainStage1Id, 50, TestDatabase.WorkerAhmedId, weekStart.AddDays(-7));
 
             var summary = await GetSummaryAsync();
 

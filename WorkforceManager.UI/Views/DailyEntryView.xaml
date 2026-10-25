@@ -11,375 +11,9 @@
              d:DesignHeight="650" d:DesignWidth="1100">
 
     <!-- شاشة التسجيل اليومي: اختيار اليوم فوق + 3 تبويبات (رحلة الإنتاج / حضور / جزاءات) لنفس اليوم -->
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <!-- اختيار اليوم (مشترك لكل التبويبات) -->
-        <Border Grid.Row="0" Style="{StaticResource ToolbarCard}">
-            <DockPanel>
-                <!-- حذف إنتاج اليوم كله: كلمة سر + سبب مكتوب + حذف ناعم + إشعار،
-                     كلهم في معاملة واحدة من الأنظمة المشتركة -->
-                <Button x:Name="DeleteDayButton" DockPanel.Dock="Left" Padding="12,7" Margin="8,0,0,0"
-                        Command="{Binding DeleteDayCommand}"
-                        ToolTip="يشيل كل سجلات إنتاج اليوم (بكلمة سر وسبب)">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
-                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
-                        </Style>
-                    </Button.Style>
-                    <StackPanel Orientation="Horizontal">
-                        <materialDesign:PackIcon Kind="CalendarRemoveOutline" Width="16" Height="16"
-                                                 VerticalAlignment="Center" />
-                        <TextBlock Text="حذف إنتاج اليوم" Margin="6,0,0,0" FontSize="13" />
-                    </StackPanel>
-                </Button>
-
-                <StackPanel x:Name="DateNavPanel" Orientation="Horizontal">
-                    <materialDesign:PackIcon Kind="CalendarBlankOutline" Width="17" Height="17"
-                                             Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <Button Style="{StaticResource IconButton}" Padding="5" ToolTip="يوم فات"
-                            Command="{Binding PreviousDayCommand}">
-                        <materialDesign:PackIcon Kind="ChevronRight" Width="16" Height="16" />
-                    </Button>
-                    <DatePicker SelectedDate="{Binding EntryDate}" Width="150" VerticalAlignment="Center" Margin="4,0" />
-                    <Button Style="{StaticResource IconButton}" Padding="5" ToolTip="يوم جاي"
-                            Command="{Binding NextDayCommand}">
-                        <materialDesign:PackIcon Kind="ChevronLeft" Width="16" Height="16" />
-                    </Button>
-                    <Button Style="{StaticResource GhostButton}" Padding="10,5" Margin="8,0,0,0" FontSize="12"
-                            ToolTip="ارجع لتاريخ النهارده" Command="{Binding GoToTodayCommand}">
-                        <TextBlock Text="النهارده" />
-                    </Button>
-                </StackPanel>
-            </DockPanel>
-        </Border>
-
-        <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}">
-
-            <!-- ============ تبويب رحلات الإنتاج (منتج أو أكتر في نفس اليوم) ============ -->
-            <TabItem Header="  تسجيل الإنتاج  ">
-                <Grid Margin="10">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <!-- ملخص اللي اتسجل النهارده + إضافة منتج تاني -->
-                    <Border x:Name="ProductionSummaryBar" Grid.Row="0" Style="{StaticResource Card}" Padding="18,12" Margin="0,0,0,10">
-                        <DockPanel>
-                            <Button x:Name="AddFlowSessionButton" DockPanel.Dock="Left" Command="{Binding AddFlowSessionCommand}"
-                                    Style="{StaticResource SuccessButton}" VerticalAlignment="Center" Padding="16,9">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" VerticalAlignment="Center" />
-                                    <TextBlock Text="إضافة منتج" Margin="6,0,0,0" />
-                                </StackPanel>
-                            </Button>
-
-                            <!-- رسالة لما لسه مفيش إنتاج مسجل في اليوم -->
-                            <TextBlock DockPanel.Dock="Right" Text="لسه مفيش إنتاج مسجل النهارده"
-                                       FontSize="12.5" VerticalAlignment="Center" Margin="18,0,0,0"
-                                       Foreground="{DynamicResource TextMutedBrush}"
-                                       Visibility="{Binding DayHasNoProduction, Converter={StaticResource BoolToVis}}" />
-
-                            <!-- أرقام اليوم (بتظهر بس لما يكون فيه إنتاج) -->
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="18,0,0,0">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DayHasNoProduction}" Value="True">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
-
-                                <!-- الرقم ده **مش** مجموع القطع على كل المراحل:
-                                     القطعة بتعدّي المراحل بالترتيب، فـ 5,000 قطعة
-                                     على منتج من 11 مرحلة كانت بتطلع 55,000.
-                                     بيعرض التام، ولو مفيش تام بيعرض اللي دخل الخط
-                                     بدل ما يقول صفر ويوحي إن اليوم فاضي. -->
-                                <StackPanel Style="{StaticResource SummaryStat}">
-                                    <TextBlock Text="{Binding DayHeadlinePieces, StringFormat={}{0:N0}}"
-                                               Style="{StaticResource SummaryNumber}"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    <TextBlock Text="{Binding DayPiecesLabel}" Style="{StaticResource SummaryLabel}" />
-                                </StackPanel>
-
-                                <Border Style="{StaticResource SummaryDivider}" />
-
-                                <StackPanel Style="{StaticResource SummaryStat}">
-                                    <TextBlock Text="{Binding DayTotalWorkdays}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{DynamicResource SuccessBrush}" />
-                                    <TextBlock Text="يومية" Style="{StaticResource SummaryLabel}" />
-                                </StackPanel>
-
-                                <StackPanel Style="{StaticResource SummaryStat}">
-                                    <TextBlock Text="{Binding DayWorkersCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{DynamicResource BrandBrush}" />
-                                    <TextBlock Text="عامل" Style="{StaticResource SummaryLabel}" />
-                                </StackPanel>
-
-                                <StackPanel Style="{StaticResource SummaryStat}">
-                                    <TextBlock Text="{Binding DayProductsCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{DynamicResource TextMutedBrush}" />
-                                    <TextBlock Text="منتج" Style="{StaticResource SummaryLabel}" />
-                                </StackPanel>
-
-                                <!-- الهالك بيظهر بس لما يكون موجود: "صفر
-                                     هالك" مش معلومة، وبياخد مساحة من
-                                     الأرقام اللي بتتقري كل يوم -->
-                                <Border Style="{StaticResource SummaryDivider}"
-                                        Visibility="{Binding DayHasScrap, Converter={StaticResource BoolToVis}}" />
-
-                                <StackPanel Style="{StaticResource SummaryStat}"
-                                            Visibility="{Binding DayHasScrap, Converter={StaticResource BoolToVis}}"
-                                            ToolTip="قطع اتشالت من الخط ومش هتتكمّل">
-                                    <TextBlock Text="{Binding DayScrapPieces, StringFormat={}{0:N0}}"
-                                               Style="{StaticResource SummaryNumber}"
-                                               Foreground="{DynamicResource DangerBrush}" />
-                                    <TextBlock Text="هالك" Style="{StaticResource SummaryLabel}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-
-                    <!-- رحلة لكل منتج، تحت بعض -->
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding FlowSessions}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <!-- بطاقة رحلة منتج واحد -->
-                                    <Border Style="{StaticResource Card}" Margin="0,0,4,12">
-                                        <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-
-                                            <!-- رأس الرحلة: اختيار المنتج + إزالة الرحلة -->
-                                            <DockPanel Grid.Row="0" Margin="0,0,0,8">
-                                                <!-- الرحلة دي جاية من خطة في شاشة "الذاكرة" — مش رحلة حرة عادية،
-                                                     عشان المستخدم مايتلخبطش (FlowSessionViewModel.IsFromMemoryPlan) -->
-                                                <Border DockPanel.Dock="Top" Background="{DynamicResource InfoTintBrush}"
-                                                        CornerRadius="7" Padding="9,5" Margin="0,0,0,8"
-                                                        Visibility="{Binding IsFromMemoryPlan, Converter={StaticResource BoolToVis}}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="14" Height="14"
-                                                                                 VerticalAlignment="Center"
-                                                                                 Foreground="{DynamicResource InfoBrush}" />
-                                                        <TextBlock Text="الرحلة دي من خطة محفوظة في الذاكرة" FontSize="12" FontWeight="Bold"
-                                                                   Margin="6,0,0,0" VerticalAlignment="Center"
-                                                                   Foreground="{DynamicResource InfoBrush}" />
-                                                    </StackPanel>
-                                                </Border>
-
-                                                <!-- Dock=Bottom قبل عناصر السطر: شريط تحت السطر كله، والخطأ بيبدأ تحت "المنتج:" -->
-                                                <views:FieldError DockPanel.Dock="Bottom" Message="{Binding ProductError}" />
-                                                <TextBlock DockPanel.Dock="Left" Text="المنتج:" FontWeight="Bold"
-                                                           VerticalAlignment="Center" Margin="0,0,6,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding Products}"
-                                                          SelectedItem="{Binding SelectedProduct}"
-                                                          DisplayMemberPath="Name" Width="200" />
-                                                <Button DockPanel.Dock="Right" Foreground="{DynamicResource DangerBrush}"
-                                                        Style="{StaticResource IconButton}" Padding="8,4"
-                                                        ToolTip="إزالة رحلة المنتج ده من الشاشة (اللي اتحفظ قبل كده محفوظ عادي)"
-                                                        Command="{Binding DataContext.RemoveFlowSessionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Kind="Close" Width="12" Height="12" VerticalAlignment="Center" />
-                                                        <TextBlock Text="إزالة المنتج" FontSize="12" Margin="4,0,0,0" />
-                                                    </StackPanel>
-                                                </Button>
-                                                <!-- تكرار توزيع آخر يوم شغل على المنتج ده -->
-                                                <Button DockPanel.Dock="Left" Margin="10,0,0,0"
-                                                        Style="{StaticResource GhostButton}" Padding="12,6"
-                                                        ToolTip="يجيب نفس العمال على نفس المراحل من آخر يوم اشتغل فيه المنتج ده (من غير الأعداد)"
-                                                        Command="{Binding RepeatLastDayCommand}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Kind="ContentCopy" Width="14" Height="14" VerticalAlignment="Center" />
-                                                        <TextBlock Text="كرّر يوم فات" Margin="5,0,0,0" FontSize="12.5" />
-                                                    </StackPanel>
-                                                </Button>
-
-                                                <!-- إنشاء رصيد أولي اتنقل لتبويب "الرصيد الأولي" -->
-
-                                                <!-- تصليحات الخطة الشهرية لهذا المنتج/اليوم — مستقلة تمامًا عن
-                                                     رحلة الإنتاج والأجور (MonthlyPlanCorrection عبر
-                                                     MonthlyPlanTrackingService)، شوف CLAUDE.md -->
-                                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="10,0,0,0"
-                                                            VerticalAlignment="Center">
-                                                    <TextBlock Text="تصليحات:" FontSize="12" VerticalAlignment="Center"
-                                                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,6,0" />
-                                                    <TextBox Text="{Binding CorrectionText, UpdateSourceTrigger=PropertyChanged}"
-                                                             Width="60" TextAlignment="Center" FontSize="12" Tag="{Binding}"
-                                                             LostFocus="CorrectionBox_LostFocus"
-                                                             ToolTip="تعديل يدوي على محقق الخطة الشهرية لهذا المنتج في هذا اليوم — مستقل عن الرحلة والأجور" />
-                                                </StackPanel>
-
-                                                <!-- عدّاد الجاهزية: كام مرحلة تمام من اللي داخلة النهارده -->
-                                                <Border DockPanel.Dock="Left" CornerRadius="8" Padding="10,5" Margin="10,0,0,0"
-                                                        VerticalAlignment="Center">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="Background" Value="{DynamicResource SubtleBgBrush}" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding AllReady}" Value="True">
-                                                                    <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Width="14" Height="14" VerticalAlignment="Center">
-                                                            <materialDesign:PackIcon.Style>
-                                                                <Style TargetType="materialDesign:PackIcon">
-                                                                    <Setter Property="Kind" Value="ProgressClock" />
-                                                                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding AllReady}" Value="True">
-                                                                            <Setter Property="Kind" Value="CheckCircle" />
-                                                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </materialDesign:PackIcon.Style>
-                                                        </materialDesign:PackIcon>
-                                                        <TextBlock Text="{Binding ReadinessText}" FontSize="12" FontWeight="Medium"
-                                                                   Margin="5,0,0,0" VerticalAlignment="Center">
-                                                            <TextBlock.Style>
-                                                                <Style TargetType="TextBlock">
-                                                                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding AllReady}" Value="True">
-                                                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </TextBlock.Style>
-                                                        </TextBlock>
-                                                    </StackPanel>
-                                                </Border>
-                                            </DockPanel>
-
-                                            <!-- شريط الرصيد الأولي المُجمّع: عرض بس + زرار يفتح تبويب
-                                                 "الرصيد الأولي" لتفاصيل كل رصيد ونطاقاته وسحبه.
-                                                 كروت الأرصدة كلها اتنقلت للتبويب ده. -->
-                                            <Border Grid.Row="1" Margin="0,0,0,8" Padding="10,8"
-                                                    Background="{DynamicResource SubtleBgBrush}" CornerRadius="8">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Visibility" Value="Collapsed" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding HasInitialBalances}" Value="True">
-                                                                <Setter Property="Visibility" Value="Visible" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <StackPanel>
-                                                    <!-- العنوان + الشريط: زرار كامل بيفتح تبويب "الرصيد الأولي" -->
-                                                    <Button Command="{Binding DataContext.OpenInitialBalanceTabCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding SelectedProduct}"
-                                                            Cursor="Hand" HorizontalContentAlignment="Stretch"
-                                                            Background="Transparent" BorderThickness="0" Padding="0"
-                                                            Foreground="{DynamicResource InkBrush}"
-                                                            ToolTip="افتح تفاصيل الرصيد الأولي">
-                                                        <Button.Template>
-                                                            <ControlTemplate TargetType="Button">
-                                                                <Border Background="Transparent">
-                                                                    <ContentPresenter />
-                                                                </Border>
-                                                            </ControlTemplate>
-                                                        </Button.Template>
-                                                        <StackPanel>
-                                                            <DockPanel Margin="0,0,0,5">
-                                                                <materialDesign:PackIcon DockPanel.Dock="Left" Kind="ChevronLeft"
-                                                                                        Width="14" Height="14" VerticalAlignment="Center"
-                                                                                        Foreground="{DynamicResource TextMutedBrush}" />
-                                                                <TextBlock Text="الرصيد الأولي" FontWeight="Bold" VerticalAlignment="Center" Margin="4,0,0,0"
-                                                                           Foreground="{DynamicResource InkBrush}" />
-                                                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" FontSize="11.5"
-                                                                           Foreground="{DynamicResource TextMutedBrush}">
-                                                                    <Run Text="{Binding InitialBalanceSummary.RemainingQuantity, Mode=OneWay, StringFormat='متبقي {0:N0}'}" />
-                                                                    <Run Text=" / " />
-                                                                    <Run Text="{Binding InitialBalanceSummary.TotalQuantity, Mode=OneWay, StringFormat='{}{0:N0} إجمالي'}" />
-                                                                </TextBlock>
-                                                            </DockPanel>
-                                                            <ProgressBar Height="8" Minimum="0"
-                                                                         Maximum="{Binding InitialBalanceSummary.TotalQuantity, Mode=OneWay}"
-                                                                         Value="{Binding InitialBalanceSummary.RemainingQuantity, Mode=OneWay}"
-                                                                         Background="{DynamicResource MeterTrackBrush}"
-                                                                         Foreground="{DynamicResource InkBrush}" BorderThickness="0" />
-                                                        </StackPanel>
-                                                    </Button>
-
-                                                    <!-- تنبيه: سحب جاري على الشاشة دلوقتي، وزّع العمال وادوس حفظ -->
-                                                    <Border Margin="0,8,0,0" Padding="8,6" CornerRadius="6"
-                                                            Background="{DynamicResource WarnBgBrush}">
-                                                        <Border.Style>
-                                                            <Style TargetType="Border">
-                                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding HasPendingWithdrawal}" Value="True">
-                                                                        <Setter Property="Visibility" Value="Visible" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Border.Style>
-                                                        <DockPanel>
-                                                            <Button DockPanel.Dock="Right" Content="إلغاء السحب" Style="{StaticResource GhostButton}"
-                                                                    Padding="8,4" FontSize="11" Command="{Binding CancelPendingWithdrawalCommand}" />
-                                                            <TextBlock Text="سحب رصيد جاري — وزّع العمال على المراحل تحت وادوس حفظ"
-                                                                       FontSize="11.5" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                                        </DockPanel>
-                                                    </Border>
-                                                </StackPanel>
-                                            </Border>
-
-                                            <Grid Grid.Row="2">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="380" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <!-- عمود المراحل -->
-                                                <Grid Grid.Column="0">
-                                                    <Grid.RowDefinitions>
-                                                        <RowDefinition Height="Auto" />
-                                                        <RowDefinition Height="Auto" />
-                                                    </Grid.RowDefinitions>
-
-                                                    <!-- رسالة لما لسه مفيش منتج مختار للرحلة دي -->
-                                                    <TextBlock Grid.Row="0" Text="اختار المنتج من فوق عشان مراحله تظهر هنا"
-                                                               Foreground="{DynamicResource TextMutedBrush}" FontSize="13" Margin="4,10">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding SelectedProduct}" Value="{x:Null}">
-                                                                        <Setter Property="Visibility" Value="Visible" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-
-                                                    <!-- بلوك التحذيرات الأصفر كان هنا واتشال:
-                                                         أخطاء النطاقات بقت تحت كل نطاق في مكانه،
-                                                         و"التوزيع ≠ الإنتاج" كارت المرحلة بيقوله
-                                                         بلونه الأحمر أصلاً. -->
-
-                                                    <!-- بطاقات المراحل -->
-                                                    <ItemsControl Grid.Row="1" ItemsSource="{Binding FlowStages}"
-                                                                  Loaded="FlowStages_Loaded" Unloaded="FlowStages_Unloaded">
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
+    <UserControl.Resources>
+        <!-- بطاقة المرحلة: مستخرجة هنا عشان شاشة "العمال على المراحل" (WorkersOverlay) تستخدم نفس البطاقة بالظبط -->
+                                                            <DataTemplate x:Key="StageCardTemplate">
                                                                 <Border Background="{DynamicResource SoftPanelBgBrush}" BorderBrush="{DynamicResource SoftPanelBorderBrush}" BorderThickness="1"
                                                                         CornerRadius="8" Padding="0" Margin="0,0,4,6">
                                                                   <DockPanel>
@@ -680,85 +314,438 @@
                                                                   </DockPanel>
                                                                 </Border>
                                                             </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
-                                                </Grid>
+    </UserControl.Resources>
 
-                                                <!-- عمود توزيع الإنتاج + المعاينة + الحفظ (خاص بالرحلة دي) -->
-                                                <Border Grid.Column="1" Background="{DynamicResource SoftPanelBgBrush}"
-                                                        BorderBrush="{DynamicResource SoftPanelBorderBrush}" BorderThickness="1"
-                                                        CornerRadius="10" Margin="8,0,0,0" Padding="12">
-                                                    <StackPanel>
-                                                        <!-- كارت "شغل واقف في نص الخط" اتشال — أي شغل ناقص
-                                                             بقى بيتحول رصيد أولي تلقائيًا (شوف ProductionFlowService)
-                                                             ومكانه الوحيد دلوقتي تبويب "الرصيد الأولي". -->
+    <Grid>
+        <!-- صفحة الكروت الأول (تسجيل الإنتاج، الرصيد الأولي، سجلات اليوم، الذاكرة، الهالك)، والدوسة على كارت
+             بتفتح التبويب بتاعه تحت شريط رجوع. شريط التبويبات نفسه مخفي — الكروت هي التنقّل. -->
+        <views:HubLandingView x:Name="Landing" />
 
-                                                        <TextBlock Text="توزيع الإنتاج على المراحل" FontWeight="Bold"
-                                                                   FontSize="14" Foreground="{DynamicResource BrandBrush}" />
-                                                        <TextBlock Foreground="{DynamicResource TextMutedBrush}" FontSize="11.5" TextWrapping="Wrap" Margin="0,2,0,8"
-                                                                   Text="اكتب: من أنهي مرحلة لأنهي مرحلة اتنتج كام قطعة. النطاق الجاهز بيغطي كل المراحل — عدّله أو ضيف نطاقات تانية لو الإنتاج وقف عند مرحلة معينة." />
+        <Grid x:Name="PagesLayer" Visibility="Collapsed">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-                                                        <!-- نطاقات الإنتاج -->
-                                                        <ItemsControl ItemsSource="{Binding FlowRanges}">
-                                                            <ItemsControl.ItemTemplate>
-                                                                <DataTemplate>
-                                                                    <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
-                                                                            CornerRadius="6" Padding="8,6" Margin="0,0,0,6">
-                                                                        <StackPanel>
-                                                                            <StackPanel Orientation="Horizontal">
-                                                                                <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                                                <ComboBox ItemsSource="{Binding StageOptions}" SelectedItem="{Binding FromStage}"
-                                                                                          DisplayMemberPath="Display" Width="120" FontSize="12" />
-                                                                                <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                                                <ComboBox ItemsSource="{Binding StageOptions}" SelectedItem="{Binding ToStage}"
-                                                                                          DisplayMemberPath="Display" Width="120" FontSize="12" />
-                                                                            </StackPanel>
-                                                                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                                                                <TextBlock Text="عدد القطع:" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,6,0" />
-                                                                                <TextBox Text="{Binding PiecesText, UpdateSourceTrigger=PropertyChanged}"
-                                                                                         Width="90" Padding="6,3" FontSize="13" VerticalContentAlignment="Center" />
-                                                                                <!-- أمر الحذف على السطر نفسه (callback للرحلة) -->
-                                                                                <Button Margin="10,0,0,0"
-                                                                                        Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}"
-                                                                                        ToolTip="حذف النطاق"
-                                                                                        Command="{Binding RemoveCommand}">
-                                                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
-                                                                                </Button>
-                                                                            </StackPanel>
+        <!-- مخفي: التسجيل اليومي بيتعرض دايمًا جوّه إدارة الإنتاج وشريطها هو اللي بيعرض المسار كله في سطر واحد (INestedLandingHost) -->
+        <views:HubPageBar x:Name="PageBar" Grid.Row="0" Visibility="Collapsed" />
 
-                                                                            <!-- خطأ النطاق ده تحته مباشرة: المستخدم بيشوف
-                                                                                 المشكلة في مكانها بدل ما يدوّر في بلوك
-                                                                                 تحذيرات فوق بيتكلم عن كل النطاقات -->
-                                                                            <views:FieldError Message="{Binding Error}" />
-                                                                        </StackPanel>
-                                                                    </Border>
-                                                                </DataTemplate>
-                                                            </ItemsControl.ItemTemplate>
-                                                        </ItemsControl>
+        <!-- اختيار اليوم (مشترك لكل التبويبات) -->
+        <Border Grid.Row="1" Style="{StaticResource ToolbarCard}">
+            <DockPanel>
+                <!-- حذف إنتاج اليوم كله: كلمة سر + سبب مكتوب + حذف ناعم + إشعار،
+                     كلهم في معاملة واحدة من الأنظمة المشتركة -->
+                <Button x:Name="DeleteDayButton" DockPanel.Dock="Left" Padding="12,7" Margin="8,0,0,0"
+                        Command="{Binding DeleteDayCommand}"
+                        ToolTip="يشيل كل سجلات إنتاج اليوم (بكلمة سر وسبب)">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource GhostButton}">
+                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="CalendarRemoveOutline" Width="16" Height="16"
+                                                 VerticalAlignment="Center" />
+                        <TextBlock Text="حذف إنتاج اليوم" Margin="6,0,0,0" FontSize="13" />
+                    </StackPanel>
+                </Button>
 
-                                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                                            <Button Command="{Binding AddRangeCommand}"
-                                                                    Style="{StaticResource GhostButton}" FontSize="12.5">
-                                                                <StackPanel Orientation="Horizontal">
-                                                                    <materialDesign:PackIcon Kind="Plus" Width="13" Height="13" VerticalAlignment="Center" />
-                                                                    <TextBlock Text="إضافة نطاق تاني" Margin="4,0,0,0" />
-                                                                </StackPanel>
-                                                            </Button>
+                <StackPanel x:Name="DateNavPanel" Orientation="Horizontal">
+                    <materialDesign:PackIcon Kind="CalendarBlankOutline" Width="17" Height="17"
+                                             Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock Text="اليوم:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <Button Style="{StaticResource IconButton}" Padding="5" ToolTip="يوم فات"
+                            Command="{Binding PreviousDayCommand}">
+                        <materialDesign:PackIcon Kind="ChevronRight" Width="16" Height="16" />
+                    </Button>
+                    <DatePicker SelectedDate="{Binding EntryDate}" Width="150" VerticalAlignment="Center" Margin="4,0" />
+                    <Button Style="{StaticResource IconButton}" Padding="5" ToolTip="يوم جاي"
+                            Command="{Binding NextDayCommand}">
+                        <materialDesign:PackIcon Kind="ChevronLeft" Width="16" Height="16" />
+                    </Button>
+                    <Button Style="{StaticResource GhostButton}" Padding="10,5" Margin="8,0,0,0" FontSize="12"
+                            ToolTip="ارجع لتاريخ النهارده" Command="{Binding GoToTodayCommand}">
+                        <TextBlock Text="النهارده" />
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+        </Border>
 
-                                                            <!-- أخذ من الرصيد الأولي: بيختار رصيد/نطاق/كمية ويجهّز النطاقات
-                                                                 للسحب (بيظهر بس لما يكون فيه رصيد أولي للمنتج) -->
-                                                            <Button Command="{Binding TakeFromInitialBalanceCommand}"
-                                                                    Style="{StaticResource GhostButton}" FontSize="12.5" Margin="8,0,0,0"
-                                                                    Visibility="{Binding HasInitialBalances, Converter={StaticResource BoolToVis}}">
-                                                                <StackPanel Orientation="Horizontal">
-                                                                    <materialDesign:PackIcon Kind="PackageVariantClosed" Width="14" Height="14" VerticalAlignment="Center" />
-                                                                    <TextBlock Text="أخذ من الرصيد الأولي" Margin="4,0,0,0" />
-                                                                </StackPanel>
-                                                            </Button>
+        <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}">
+            <!-- شريط الرؤوس مخفي: التنقّل بين الصفحات بالكروت (HubLandingView) والرجوع من HubPageBar -->
+            <TabControl.ItemContainerStyle>
+                <Style TargetType="TabItem">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </Style>
+            </TabControl.ItemContainerStyle>
+
+            <!-- ============ تبويب رحلات الإنتاج (منتج أو أكتر في نفس اليوم) ============ -->
+            <TabItem Header="  تسجيل الإنتاج  ">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- ملخص اللي اتسجل النهارده + إضافة منتج تاني -->
+                    <Border x:Name="ProductionSummaryBar" Grid.Row="0" Style="{StaticResource Card}" Padding="18,12" Margin="0,0,0,10">
+                        <DockPanel>
+                            <Button x:Name="AddFlowSessionButton" DockPanel.Dock="Left" Command="{Binding AddFlowSessionCommand}"
+                                    Style="{StaticResource SuccessButton}" VerticalAlignment="Center" Padding="16,9">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Plus" Width="16" Height="16" VerticalAlignment="Center" />
+                                    <TextBlock Text="إضافة منتج" Margin="6,0,0,0" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- رسالة لما لسه مفيش إنتاج مسجل في اليوم -->
+                            <TextBlock DockPanel.Dock="Right" Text="لسه مفيش إنتاج مسجل النهارده"
+                                       FontSize="12.5" VerticalAlignment="Center" Margin="18,0,0,0"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       Visibility="{Binding DayHasNoProduction, Converter={StaticResource BoolToVis}}" />
+
+                            <!-- أرقام اليوم (بتظهر بس لما يكون فيه إنتاج) -->
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="18,0,0,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DayHasNoProduction}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <!-- الرقم ده **مش** مجموع القطع على كل المراحل:
+                                     القطعة بتعدّي المراحل بالترتيب، فـ 5,000 قطعة
+                                     على منتج من 11 مرحلة كانت بتطلع 55,000.
+                                     بيعرض التام، ولو مفيش تام بيعرض اللي دخل الخط
+                                     بدل ما يقول صفر ويوحي إن اليوم فاضي. -->
+                                <StackPanel Style="{StaticResource SummaryStat}">
+                                    <TextBlock Text="{Binding DayHeadlinePieces, StringFormat={}{0:N0}}"
+                                               Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBlock Text="{Binding DayPiecesLabel}" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+
+                                <Border Style="{StaticResource SummaryDivider}" />
+
+                                <StackPanel Style="{StaticResource SummaryStat}">
+                                    <TextBlock Text="{Binding DayTotalWorkdays}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource SuccessBrush}" />
+                                    <TextBlock Text="يومية" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+
+                                <StackPanel Style="{StaticResource SummaryStat}">
+                                    <TextBlock Text="{Binding DayWorkersCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource BrandBrush}" />
+                                    <TextBlock Text="عامل" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+
+                                <StackPanel Style="{StaticResource SummaryStat}">
+                                    <TextBlock Text="{Binding DayProductsCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                    <TextBlock Text="منتج" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+
+                                <!-- الهالك بيظهر بس لما يكون موجود: "صفر
+                                     هالك" مش معلومة، وبياخد مساحة من
+                                     الأرقام اللي بتتقري كل يوم -->
+                                <Border Style="{StaticResource SummaryDivider}"
+                                        Visibility="{Binding DayHasScrap, Converter={StaticResource BoolToVis}}" />
+
+                                <StackPanel Style="{StaticResource SummaryStat}"
+                                            Visibility="{Binding DayHasScrap, Converter={StaticResource BoolToVis}}"
+                                            ToolTip="قطع اتشالت من الخط ومش هتتكمّل">
+                                    <TextBlock Text="{Binding DayScrapPieces, StringFormat={}{0:N0}}"
+                                               Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource DangerBrush}" />
+                                    <TextBlock Text="هالك" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- رحلة لكل منتج، تحت بعض -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding FlowSessions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <!-- بطاقة رحلة منتج واحد — أكورديون: واحدة مفتوحة بتفاصيلها والباقي مطوي على عنوانه -->
+                                    <Border Style="{StaticResource Card}" Margin="0,0,4,12">
+                                        <StackPanel>
+                                            <!-- ═════ رأس الرحلة: طي/فتح + المنتج + الملخص + الجاهزية + إزالة ═════ -->
+                                            <DockPanel>
+                                                <views:FieldError DockPanel.Dock="Bottom" Message="{Binding ProductError}" />
+                                                <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Padding="6"
+                                                        Command="{Binding ToggleExpandedCommand}" Margin="0,0,6,0"
+                                                        ToolTip="طي أو فتح تفاصيل الرحلة دي">
+                                                    <materialDesign:PackIcon Width="18" Height="18">
+                                                        <materialDesign:PackIcon.Style>
+                                                            <Style TargetType="materialDesign:PackIcon">
+                                                                <Setter Property="Kind" Value="ChevronUp" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsExpanded}" Value="False">
+                                                                        <Setter Property="Kind" Value="ChevronDown" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </materialDesign:PackIcon.Style>
+                                                    </materialDesign:PackIcon>
+                                                </Button>
+                                                <TextBlock DockPanel.Dock="Left" Text="المنتج:" FontWeight="Bold"
+                                                           VerticalAlignment="Center" Margin="0,0,6,0"  Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding Products}"
+                                                          SelectedItem="{Binding SelectedProduct}"
+                                                          DisplayMemberPath="Name" Width="200" />
+                                                <!-- ملخص الرحلة (بيبان وهي مطوية كمان) -->
+                                                <TextBlock DockPanel.Dock="Left" Text="{Binding PreviewSummary}" Margin="12,0,0,0"
+                                                           FontSize="12.5" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextMutedBrush}" />
+                                                <Border DockPanel.Dock="Left" CornerRadius="8" Padding="10,5" Margin="10,0,0,0"
+                                                        VerticalAlignment="Center">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{DynamicResource SubtleBgBrush}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AllReady}" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource SuccessBgBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Width="14" Height="14" VerticalAlignment="Center">
+                                                            <materialDesign:PackIcon.Style>
+                                                                <Style TargetType="materialDesign:PackIcon">
+                                                                    <Setter Property="Kind" Value="ProgressClock" />
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding AllReady}" Value="True">
+                                                                            <Setter Property="Kind" Value="CheckCircle" />
+                                                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </materialDesign:PackIcon.Style>
+                                                        </materialDesign:PackIcon>
+                                                        <TextBlock Text="{Binding ReadinessText}" FontSize="12" FontWeight="Medium"
+                                                                   Margin="5,0,0,0" VerticalAlignment="Center">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding AllReady}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </Border>
+                                                <Button DockPanel.Dock="Left" Margin="10,0,0,0"
+                                                        Style="{StaticResource GhostButton}" Padding="12,6"
+                                                        ToolTip="يجيب نفس العمال على نفس المراحل من آخر يوم اشتغل فيه المنتج ده (من غير الأعداد)"
+                                                        Command="{Binding RepeatLastDayCommand}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="ContentCopy" Width="14" Height="14" VerticalAlignment="Center" />
+                                                        <TextBlock Text="كرّر يوم فات" Margin="5,0,0,0" FontSize="12.5" />
+                                                    </StackPanel>
+                                                </Button>
+                                                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="10,0,0,0"
+                                                            VerticalAlignment="Center">
+                                                    <TextBlock Text="تصليحات:" FontSize="12" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,6,0" />
+                                                    <TextBox Text="{Binding CorrectionText, UpdateSourceTrigger=PropertyChanged}"
+                                                             Width="60" TextAlignment="Center" FontSize="12" Tag="{Binding}"
+                                                             LostFocus="CorrectionBox_LostFocus"
+                                                             ToolTip="تعديل يدوي على محقق الخطة الشهرية لهذا المنتج في هذا اليوم — مستقل عن الرحلة والأجور" />
+                                                </StackPanel>
+                                                <Button DockPanel.Dock="Right" Foreground="{DynamicResource DangerBrush}"
+                                                        Style="{StaticResource IconButton}" Padding="8,4"
+                                                        ToolTip="إزالة رحلة المنتج ده من الشاشة (اللي اتحفظ قبل كده محفوظ عادي)"
+                                                        Command="{Binding DataContext.RemoveFlowSessionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="Close" Width="12" Height="12" VerticalAlignment="Center" />
+                                                        <TextBlock Text="إزالة" FontSize="12" Margin="4,0,0,0" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </DockPanel>
+
+                                            <!-- ═════ تفاصيل الرحلة (بتتخبّى لما تتطوي) ═════ -->
+                                            <StackPanel Margin="0,10,0,0"
+                                                        Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                                <Border Background="{DynamicResource InfoTintBrush}"
+                                                        CornerRadius="7" Padding="9,5" Margin="0,0,0,8"
+                                                        Visibility="{Binding IsFromMemoryPlan, Converter={StaticResource BoolToVis}}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <materialDesign:PackIcon Kind="BookmarkMultipleOutline" Width="14" Height="14"
+                                                                                 VerticalAlignment="Center"
+                                                                                 Foreground="{DynamicResource InfoBrush}" />
+                                                        <TextBlock Text="الرحلة دي من خطة محفوظة في الذاكرة" FontSize="12" FontWeight="Bold"
+                                                                   Margin="6,0,0,0" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource InfoBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+
+
+                                            <Border Margin="0,0,0,8" Padding="10,8"
+                                                    Background="{DynamicResource SubtleBgBrush}" CornerRadius="8">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasInitialBalances}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <StackPanel>
+                                                    <!-- العنوان + الشريط: زرار كامل بيفتح تبويب "الرصيد الأولي" -->
+                                                    <Button Command="{Binding DataContext.OpenInitialBalanceTabCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding SelectedProduct}"
+                                                            Cursor="Hand" HorizontalContentAlignment="Stretch"
+                                                            Background="Transparent" BorderThickness="0" Padding="0"
+                                                            Foreground="{DynamicResource InkBrush}"
+                                                            ToolTip="افتح تفاصيل الرصيد الأولي">
+                                                        <Button.Template>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border Background="Transparent">
+                                                                    <ContentPresenter />
+                                                                </Border>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
+                                                        <StackPanel>
+                                                            <DockPanel Margin="0,0,0,5">
+                                                                <materialDesign:PackIcon DockPanel.Dock="Left" Kind="ChevronLeft"
+                                                                                        Width="14" Height="14" VerticalAlignment="Center"
+                                                                                        Foreground="{DynamicResource TextMutedBrush}" />
+                                                                <TextBlock Text="الرصيد الأولي" FontWeight="Bold" VerticalAlignment="Center" Margin="4,0,0,0"
+                                                                           Foreground="{DynamicResource InkBrush}" />
+                                                                <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center" FontSize="11.5"
+                                                                           Foreground="{DynamicResource TextMutedBrush}">
+                                                                    <Run Text="{Binding InitialBalanceSummary.RemainingQuantity, Mode=OneWay, StringFormat='متبقي {0:N0}'}" />
+                                                                    <Run Text=" / " />
+                                                                    <Run Text="{Binding InitialBalanceSummary.TotalQuantity, Mode=OneWay, StringFormat='{}{0:N0} إجمالي'}" />
+                                                                </TextBlock>
+                                                            </DockPanel>
+                                                            <ProgressBar Height="8" Minimum="0"
+                                                                         Maximum="{Binding InitialBalanceSummary.TotalQuantity, Mode=OneWay}"
+                                                                         Value="{Binding InitialBalanceSummary.RemainingQuantity, Mode=OneWay}"
+                                                                         Background="{DynamicResource MeterTrackBrush}"
+                                                                         Foreground="{DynamicResource InkBrush}" BorderThickness="0" />
                                                         </StackPanel>
+                                                    </Button>
 
-                                                        <!-- معاينة اليوميات قبل الحفظ -->
-                                                        <Border Background="{DynamicResource SuccessBgBrush}" CornerRadius="8" Padding="10">
+                                                    <!-- تنبيه: سحب جاري على الشاشة دلوقتي، وزّع العمال وادوس حفظ -->
+                                                    <Border Margin="0,8,0,0" Padding="8,6" CornerRadius="6"
+                                                            Background="{DynamicResource WarnBgBrush}">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding HasPendingWithdrawal}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <DockPanel>
+                                                            <Button DockPanel.Dock="Right" Content="إلغاء السحب" Style="{StaticResource GhostButton}"
+                                                                    Padding="8,4" FontSize="11" Command="{Binding CancelPendingWithdrawalCommand}" />
+                                                            <TextBlock Text="سحب رصيد جاري — وزّع العمال على المراحل تحت وادوس حفظ"
+                                                                       FontSize="11.5" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                                        </DockPanel>
+                                                    </Border>
+                                                </StackPanel>
+                                            </Border>
+
+                                                <!-- ═════ الخطوة 1: توزيع الإنتاج على المراحل (النطاقات) — سطر عنوان + أزرار، وتحته كل نطاق في سطر واحد ═════ -->
+                                                <DockPanel Margin="0,0,0,6">
+                                                    <Button DockPanel.Dock="Left" Command="{Binding TakeFromInitialBalanceCommand}"
+                                                            Style="{StaticResource GhostButton}" FontSize="12" Padding="10,5" Margin="8,0,0,0"
+                                                            Visibility="{Binding HasInitialBalances, Converter={StaticResource BoolToVis}}">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <materialDesign:PackIcon Kind="PackageVariantClosed" Width="14" Height="14" VerticalAlignment="Center" />
+                                                            <TextBlock Text="أخذ من الرصيد الأولي" Margin="4,0,0,0" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <Button DockPanel.Dock="Left" Command="{Binding AddRangeCommand}"
+                                                            Style="{StaticResource GhostButton}" FontSize="12" Padding="10,5" Margin="8,0,0,0">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <materialDesign:PackIcon Kind="Plus" Width="13" Height="13" VerticalAlignment="Center" />
+                                                            <TextBlock Text="نطاق تاني" Margin="4,0,0,0" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <TextBlock Text="توزيع الإنتاج على المراحل" FontWeight="Bold" FontSize="14"
+                                                               Foreground="{DynamicResource BrandBrush}" VerticalAlignment="Center" />
+                                                    <materialDesign:PackIcon Kind="HelpCircleOutline" Width="15" Height="15" VerticalAlignment="Center"
+                                                                             Margin="6,0,0,0" Foreground="{DynamicResource TextMutedBrush}"
+                                                                             ToolTip="اكتب: من أنهي مرحلة لأنهي مرحلة اتنتج كام قطعة. النطاق الجاهز بيغطي كل المراحل — عدّله أو ضيف نطاقات تانية لو الإنتاج وقف عند مرحلة معينة." />
+                                                </DockPanel>
+                                                <ItemsControl ItemsSource="{Binding FlowRanges}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                                                                    CornerRadius="8" Padding="8,5" Margin="0,0,8,6">
+                                                                <StackPanel>
+                                                                    <!-- النطاق كله في سطر واحد: من ← إلى — عدد القطع — حذف -->
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <TextBlock Text="من" VerticalAlignment="Center" FontSize="12.5" Margin="0,0,4,0" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                                        <ComboBox ItemsSource="{Binding StageOptions}" SelectedItem="{Binding FromStage}"
+                                                                                  DisplayMemberPath="Display" Width="125" FontSize="12" />
+                                                                        <TextBlock Text="إلى" VerticalAlignment="Center" FontSize="12.5" Margin="8,0,4,0" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                                        <ComboBox ItemsSource="{Binding StageOptions}" SelectedItem="{Binding ToStage}"
+                                                                                  DisplayMemberPath="Display" Width="125" FontSize="12" />
+                                                                        <TextBlock Text="القطع:" VerticalAlignment="Center" FontSize="12.5" Margin="12,0,4,0"
+                                                                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                                        <TextBox Text="{Binding PiecesText, UpdateSourceTrigger=PropertyChanged}"
+                                                                                 Width="80" Padding="6,3" FontSize="13" VerticalContentAlignment="Center" />
+                                                                        <!-- أمر الحذف على السطر نفسه (callback للرحلة) -->
+                                                                        <Button Margin="6,0,0,0" Style="{StaticResource IconButton}"
+                                                                                Foreground="{DynamicResource DangerBrush}" ToolTip="حذف النطاق"
+                                                                                Command="{Binding RemoveCommand}">
+                                                                            <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
+                                                                        </Button>
+                                                                    </StackPanel>
+
+                                                                    <!-- خطأ النطاق ده تحته مباشرة: المستخدم بيشوف المشكلة في مكانها -->
+                                                                    <views:FieldError Message="{Binding Error}" />
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+
+                                                <!-- ═════ الخطوة 2: العمال على المراحل — زرار بيفتح شاشة كاملة بكل المراحل قدامك (WorkersOverlay) ═════ -->
+                                                <Button Command="{Binding DataContext.OpenWorkersModeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        Style="{StaticResource PrimaryButton}" Padding="18,14" Margin="0,6,0,0"
+                                                        HorizontalContentAlignment="Stretch"
+                                                        ToolTip="كل المراحل قدامك مرة واحدة — ضيف العمال على أي مرحلة من غير ما تنزل وتطلع">
+                                                    <DockPanel>
+                                                        <materialDesign:PackIcon DockPanel.Dock="Left" Kind="ChevronLeft" Width="20" Height="20"
+                                                                                 VerticalAlignment="Center" />
+                                                        <TextBlock DockPanel.Dock="Left" Text="{Binding ReadinessText}" FontSize="12.5" Margin="0,0,14,0"
+                                                                   VerticalAlignment="Center" Opacity="0.85" />
+                                                        <materialDesign:PackIcon Kind="AccountMultiplePlusOutline" Width="22" Height="22" VerticalAlignment="Center" />
+                                                        <TextBlock Text="العمال على المراحل" FontSize="15" FontWeight="Bold" Margin="10,0,0,0"
+                                                                   VerticalAlignment="Center" />
+                                                    </DockPanel>
+                                                </Button>
+
+                                                <!-- معاينة اليوميات قبل الحفظ -->
+                                                        <Border Background="{DynamicResource SuccessBgBrush}" CornerRadius="8" Padding="10" Margin="0,10,0,0">
                                                             <StackPanel>
                                                                 <TextBlock Text="معاينة اليوميات قبل الحفظ" FontWeight="Bold" FontSize="13"
                                                                            Foreground="{DynamicResource SuccessBrush}" Margin="0,0,0,4" />
@@ -790,25 +777,42 @@
                                                                 </ItemsControl>
                                                             </StackPanel>
                                                         </Border>
-
-                                                        <!-- حفظ رحلة المنتج ده -->
-                                                        <Button Command="{Binding SaveFlowCommand}"
-                                                                Style="{StaticResource PrimaryButton}" FontSize="14"
-                                                                Margin="0,10,0,0">
-                                                            <StackPanel Orientation="Horizontal">
-                                                                <materialDesign:PackIcon Kind="ContentSaveOutline" Width="16" Height="16" VerticalAlignment="Center" />
-                                                                <TextBlock Text="حفظ رحلة الإنتاج" Margin="6,0,0,0" />
-                                                            </StackPanel>
-                                                        </Button>
-                                                    </StackPanel>
-                                                </Border>
-                                            </Grid>
-                                        </Grid>
+                                            </StackPanel>
+                                        </StackPanel>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
+
+                    <!-- ═════ شريط الحفظ الثابت: ملخص الرحلة المفتوحة + حفظها — ظاهر دايمًا تحت من غير ما تنزل ═════ -->
+                    <Border Grid.Row="2" Padding="14,10" Margin="0,8,0,0" DataContext="{Binding ActiveFlow}">
+                        <Border.Style>
+                            <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Left" Command="{Binding SaveFlowCommand}"
+                                    Style="{StaticResource PrimaryButton}" FontSize="14" Padding="22,10">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ContentSaveOutline" Width="17" Height="17" VerticalAlignment="Center" />
+                                    <TextBlock Text="حفظ رحلة الإنتاج" Margin="8,0,0,0" FontWeight="Bold" />
+                                </StackPanel>
+                            </Button>
+                            <TextBlock DockPanel.Dock="Left" Text="{Binding ReadinessText}" Margin="14,0,0,0"
+                                       VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBlock VerticalAlignment="Center" FontSize="13">
+                                <Run Text="{Binding SelectedProduct.Name, Mode=OneWay}" FontWeight="Bold" />
+                                <Run Text="  —  " Foreground="{DynamicResource TextMutedBrush}" />
+                                <Run Text="{Binding PreviewSummary, Mode=OneWay}" Foreground="{DynamicResource SuccessBrush}" FontWeight="SemiBold" />
+                            </TextBlock>
+                        </DockPanel>
+                    </Border>
                 </Grid>
             </TabItem>
 
@@ -1155,540 +1159,11 @@
                 </Grid>
             </TabItem>
 
-            <!-- ============ تبويب الحضور الموحّد (بالقطعة + بالساعة) ============ -->
-            <TabItem Header="  الحضور والغياب  ">
-                <Grid Margin="14,10,14,10">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <!-- ===== شريط الملخص: حالة اليوم كلها بنظرة واحدة ===== -->
-                    <Border Grid.Row="0" Style="{StaticResource Card}" Padding="18,14" Margin="0,0,0,10">
-                        <!--
-                          كل عدّاد زرار بيفتح قسمه في القائمة اللي تحت.
-                          Tag = لون القسم (النمط بياخد منه التظليل والخط السفلي)،
-                          وIsChecked مربوط بحالة الفلتر في الـ ViewModel فالمفتوح بيبان.
-                        -->
-                        <StackPanel x:Name="AttendanceSummaryRow" Orientation="Horizontal">
-                            <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{DynamicResource BrandBrush}"
-                                          IsChecked="{Binding IsFilterAll, Mode=OneWay}"
-                                          Command="{Binding SetAttendanceFilterCommand}"
-                                          CommandParameter="{x:Static vm:AttendanceFilter.All}"
-                                          ToolTip="عرض كل العمال">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding TotalWorkersCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    <TextBlock Text="إجمالي العمال" Style="{StaticResource SummaryLabel}" />
-                                </StackPanel>
-                            </ToggleButton>
-
-                            <Border Style="{StaticResource SummaryDivider}" Margin="6,4,12,4" />
-
-                            <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{DynamicResource SuccessBrush}"
-                                          IsChecked="{Binding IsFilterPresent, Mode=OneWay}"
-                                          Command="{Binding SetAttendanceFilterCommand}"
-                                          CommandParameter="{x:Static vm:AttendanceFilter.Present}"
-                                          ToolTip="عرض الحاضرين بس">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding PresentCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{DynamicResource SuccessBrush}" />
-                                    <TextBlock Text="حاضر" Style="{StaticResource SummaryLabel}" />
-                                </StackPanel>
-                            </ToggleButton>
-
-                            <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{DynamicResource WarnBrush}"
-                                          IsChecked="{Binding IsFilterExcused, Mode=OneWay}"
-                                          Command="{Binding SetAttendanceFilterCommand}"
-                                          CommandParameter="{x:Static vm:AttendanceFilter.Excused}"
-                                          ToolTip="عرض الغايبين بإذن بس">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding ExcusedCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{DynamicResource WarnBrush}" />
-                                    <TextBlock Text="غياب بإذن" Style="{StaticResource SummaryLabel}" />
-                                </StackPanel>
-                            </ToggleButton>
-
-                            <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{DynamicResource DangerBrush}"
-                                          IsChecked="{Binding IsFilterUnexcused, Mode=OneWay}"
-                                          Command="{Binding SetAttendanceFilterCommand}"
-                                          CommandParameter="{x:Static vm:AttendanceFilter.Unexcused}"
-                                          ToolTip="عرض الغايبين بدون إذن بس">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding UnexcusedCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{DynamicResource DangerBrush}" />
-                                    <TextBlock Text="بدون إذن" Style="{StaticResource SummaryLabel}" />
-                                </StackPanel>
-                            </ToggleButton>
-
-                            <!-- كان اسمها "لسه مفيش" — مبهمة: لسه مفيش إيه؟
-                                 الاسم الجديد بيقول الحالة بالظبط -->
-                            <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{DynamicResource TextMutedBrush}"
-                                          IsChecked="{Binding IsFilterUnset, Mode=OneWay}"
-                                          Command="{Binding SetAttendanceFilterCommand}"
-                                          CommandParameter="{x:Static vm:AttendanceFilter.Unset}"
-                                          ToolTip="عرض اللي لسه محصلش تسجيل حضور — اقفلهم واحد واحد">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding UnsetCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{DynamicResource TextMutedBrush}" />
-                                    <TextBlock Text="محصلش تسجيل" Style="{StaticResource SummaryLabel}" />
-                                </StackPanel>
-                            </ToggleButton>
-
-                            <!-- شريحة نوع مش حالة حضور: عمال الساعة بكل حالاتهم.
-                                 ليهم شيفتات بمنطق مختلف، والقايمة الموحّدة بتخلطهم
-                                 مع عمال الإنتاج فصعب توصلهم -->
-                            <ToggleButton Style="{StaticResource SummaryChip}"
-                                          Tag="{DynamicResource WarnBrush}"
-                                          IsChecked="{Binding IsFilterHourly, Mode=OneWay}"
-                                          Command="{Binding SetAttendanceFilterCommand}"
-                                          CommandParameter="{x:Static vm:AttendanceFilter.Hourly}"
-                                          ToolTip="عرض عمال الساعة بس (رص / جودة / تدريب)">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding HourlyCount}" Style="{StaticResource SummaryNumber}"
-                                               Foreground="{DynamicResource WarnBrush}" />
-                                    <TextBlock Text="بالساعة" Style="{StaticResource SummaryLabel}" />
-                                </StackPanel>
-                            </ToggleButton>
-
-                            <!-- تحذير الجزاءات المتوقعة: بيظهر بس لما يكون فيه غياب بدون إذن -->
-                            <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="10"
-                                    Padding="14,8" Margin="20,0,0,0" VerticalAlignment="Center">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding UnexcusedCount}" Value="0">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="AlertCircleOutline" Width="17" Height="17"
-                                                            VerticalAlignment="Center"
-                                                            Foreground="{DynamicResource DangerBrush}" />
-                                    <TextBlock Text="{Binding PendingPenaltyText}" Margin="7,0,0,0"
-                                               VerticalAlignment="Center" FontSize="12.5" FontWeight="Medium"
-                                               Foreground="{DynamicResource DangerBrush}" />
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- ===== البحث + شرح مختصر ===== -->
-                    <Grid Grid.Row="1" Margin="2,0,2,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="300" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <Border Grid.Column="0" Background="{DynamicResource CardBgBrush}"
-                                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1.4"
-                                CornerRadius="10" Padding="12,7">
-                            <Grid>
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="Magnify" Width="17" Height="17"
-                                                            VerticalAlignment="Center"
-                                                            Foreground="{DynamicResource TextMutedBrush}" />
-                                    <TextBox Text="{Binding AttendanceSearch, UpdateSourceTrigger=PropertyChanged}"
-                                             Width="240" Margin="8,0,0,0" BorderThickness="0"
-                                             VerticalAlignment="Center" FontSize="13" Background="Transparent" />
-                                </StackPanel>
-                                <!-- نص إرشادي بيختفي أول ما المستخدم يكتب -->
-                                <TextBlock Text="دوّر باسم العامل…" Margin="30,0,0,0" IsHitTestVisible="False"
-                                           VerticalAlignment="Center" FontSize="13"
-                                           Foreground="{DynamicResource TextMutedBrush}">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding AttendanceSearch}" Value="">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </Grid>
-                        </Border>
-
-                        <TextBlock Grid.Column="1" Style="{StaticResource HintText}" FontSize="12"
-                                   Margin="16,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Text="اللي له شغل مسجّل بيتعلّم &quot;حاضر&quot; تلقائيًا · الغياب بدون إذن بيتسجّل له جزاء نص يومية لوحده (وبيتشال لو غيّرت الحالة)" />
-                    </Grid>
-
-                    <!-- ===== قائمة العمال: بطاقة لكل عامل ===== -->
-                    <Border Grid.Row="2" Style="{StaticResource Card}" Padding="10">
-                        <Grid>
-                            <!-- مفيش نتايج للبحث -->
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <StackPanel.Style>
-                                    <Style TargetType="StackPanel">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding NoAttendanceMatches}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </StackPanel.Style>
-                                <materialDesign:PackIcon Kind="AccountSearchOutline" Width="46" Height="46"
-                                                        HorizontalAlignment="Center"
-                                                        Foreground="{DynamicResource TextMutedBrush}" />
-                                <TextBlock Text="{Binding EmptyStateText}" Margin="0,10,0,0" FontSize="14"
-                                           HorizontalAlignment="Center"
-                                           Foreground="{DynamicResource TextMutedBrush}" />
-                            </StackPanel>
-
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                <ItemsControl ItemsSource="{Binding VisibleAttendanceRows}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <!-- بطاقة العامل: شريط جانبي بلون الحالة + بياناته + أزرار الحالة -->
-                                            <Border Style="{StaticResource WorkerCard}" Margin="0,0,0,7">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
-
-                                                    <!-- شريط الحالة الجانبي: لون واحد بيقول حالة العامل من بعيد -->
-                                                    <Border Grid.Column="0" Width="5" CornerRadius="3"
-                                                            ui:ThemeBrush.BackgroundKey="{Binding StatusColor}" Margin="0,2,14,2" />
-
-                                                    <!-- دايرة الحروف الأولى -->
-                                                    <Border Grid.Column="1" Width="42" Height="42" CornerRadius="21"
-                                                            Background="{DynamicResource SubtleBgBrush}"
-                                                            VerticalAlignment="Center" Margin="0,0,14,0">
-                                                        <TextBlock Text="{Binding Initials}" FontSize="15" FontWeight="Bold"
-                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                   Foreground="{DynamicResource BrandBrush}" />
-                                                    </Border>
-
-                                                    <!-- الاسم + النوع + ملاحظة الشغل -->
-                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <TextBlock Text="{Binding FullName}" FontSize="14.5"
-                                                                       FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                                                       VerticalAlignment="Center" />
-                                                            <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="7"
-                                                                    Padding="8,2" Margin="9,0,0,0" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding RoleText}" FontSize="11"
-                                                                           FontWeight="Medium"
-                                                                           Foreground="{DynamicResource BrandBrush}" />
-                                                            </Border>
-                                                        </StackPanel>
-
-                                                        <!-- سبب الحضور التلقائي -->
-                                                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                                                            <StackPanel.Style>
-                                                                <Style TargetType="StackPanel">
-                                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding HasLoggedWork}" Value="True">
-                                                                            <Setter Property="Visibility" Value="Visible" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </StackPanel.Style>
-                                                            <materialDesign:PackIcon Kind="CheckDecagram" Width="14" Height="14"
-                                                                                    VerticalAlignment="Center"
-                                                                                    Foreground="{DynamicResource SuccessBrush}" />
-                                                            <TextBlock Text="{Binding WorkNote}" FontSize="11.5" Margin="5,0,0,0"
-                                                                       VerticalAlignment="Center"
-                                                                       Foreground="{DynamicResource SuccessBrush}" />
-                                                        </StackPanel>
-
-                                                        <!-- اختصارات الشيفت (بتظهر للعامل بالساعة بس) -->
-                                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                                            <StackPanel.Style>
-                                                                <Style TargetType="StackPanel">
-                                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                                    <Style.Triggers>
-                                                                        <DataTrigger Binding="{Binding IsHourly}" Value="True">
-                                                                            <Setter Property="Visibility" Value="Visible" />
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </StackPanel.Style>
-                                                            <TextBlock Text="الشيفت:" FontSize="12" VerticalAlignment="Center"
-                                                                       Margin="0,0,9,0"
-                                                                       Foreground="{DynamicResource TextMutedBrush}" />
-                                                            <ItemsControl ItemsSource="{Binding ShiftChoices}">
-                                                                <ItemsControl.ItemsPanel>
-                                                                    <ItemsPanelTemplate>
-                                                                        <StackPanel Orientation="Horizontal" />
-                                                                    </ItemsPanelTemplate>
-                                                                </ItemsControl.ItemsPanel>
-                                                                <ItemsControl.ItemTemplate>
-                                                                    <DataTemplate>
-                                                                        <ToggleButton Style="{StaticResource ShiftChip}"
-                                                                                      IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                                      Content="{Binding Display}" />
-                                                                    </DataTemplate>
-                                                                </ItemsControl.ItemTemplate>
-                                                            </ItemsControl>
-                                                        </StackPanel>
-                                                    </StackPanel>
-
-                                                    <!-- أزرار الحالة: دوسة واحدة، والمختار بيتلون بلون حالته -->
-                                                    <ItemsControl Grid.Column="3" ItemsSource="{Binding StatusChoices}"
-                                                                  VerticalAlignment="Center" Margin="14,0,0,0">
-                                                        <ItemsControl.ItemsPanel>
-                                                            <ItemsPanelTemplate>
-                                                                <StackPanel Orientation="Horizontal" />
-                                                            </ItemsPanelTemplate>
-                                                        </ItemsControl.ItemsPanel>
-                                                        <ItemsControl.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <ToggleButton Style="{StaticResource StatusChip}"
-                                                                              IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                                            </DataTemplate>
-                                                        </ItemsControl.ItemTemplate>
-                                                    </ItemsControl>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </Grid>
-                    </Border>
-
-                    <Button x:Name="SaveAttendanceButton" Grid.Row="3" HorizontalAlignment="Left"
-                            Command="{Binding SaveAttendanceCommand}"
-                            Style="{StaticResource PrimaryButton}" Margin="0,12,0,0" Padding="22,11">
-                        <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="ContentSaveOutline" Width="17" Height="17" VerticalAlignment="Center" />
-                            <TextBlock Text="حفظ الحضور" Margin="7,0,0,0" FontSize="13.5" />
-                        </StackPanel>
-                    </Button>
-                </Grid>
-            </TabItem>
-
-            <!-- ============ تبويب الجزاءات ============ -->
-            <TabItem Header="  الجزاءات  ">
-                <Grid Margin="10">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <!-- فورم تسجيل جزاء جديد -->
-                    <Border Grid.Row="0" Background="{DynamicResource DangerBgBrush}" BorderBrush="{DynamicResource DangerBorderBrush}" BorderThickness="1"
-                            CornerRadius="12" Padding="14" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="تسجيل جزاء جديد" FontWeight="Bold" Foreground="{DynamicResource DangerBrush}" Margin="0,0,0,8" />
-                            <!-- صف الخانات في صف 0، وخطأ كل خانة تحت عمودها بالظبط في صف 1
-                                 (FieldError) — عشان التسمية تفضل في نص الخانة لما خطأ يظهر -->
-                            <Grid HorizontalAlignment="Left">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="العامل:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <views:WorkerSearchBox Grid.Column="1" Workers="{Binding AttendanceRows}"
-                                                       SelectedWorker="{Binding PenaltyWorker, Mode=TwoWay}"
-                                                       Placeholder="دوّر على العامل بالاسم…"
-                                                       Width="220" Margin="0,0,14,0" />
-                                <TextBlock Grid.Column="2" Text="الخصم:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <ComboBox Grid.Column="3" ItemsSource="{Binding DeductionOptions}" SelectedItem="{Binding SelectedDeduction}"
-                                          DisplayMemberPath="Display" Width="110" Margin="0,0,14,0" />
-                                <views:FieldError Grid.Row="1" Grid.Column="1" MaxWidth="220" Message="{Binding PenaltyWorkerError}" />
-                                <views:FieldError Grid.Row="1" Grid.Column="3" MaxWidth="160" Message="{Binding PenaltyDeductionError}" />
-                            </Grid>
-                            <DockPanel Margin="0,8,0,0">
-                                <Button x:Name="AddPenaltyButton" DockPanel.Dock="Left" Command="{Binding AddPenaltyCommand}"
-                                        Style="{StaticResource DangerButton}" VerticalAlignment="Top">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Plus" Width="15" Height="15" VerticalAlignment="Center" />
-                                        <TextBlock Text="تسجيل الجزاء" Margin="5,0,0,0" />
-                                    </StackPanel>
-                                </Button>
-                                <TextBlock Text="السبب:" VerticalAlignment="Top" Margin="12,8,6,0" DockPanel.Dock="Left" />
-                                <!-- سبب الجزاء نص حر: شرب سجاير، لبس هاندفري، ... -->
-                                <StackPanel>
-                                    <TextBox Text="{Binding PenaltyReason, UpdateSourceTrigger=PropertyChanged}"
-                                             VerticalAlignment="Center" />
-                                    <views:FieldError Message="{Binding PenaltyReasonError}" />
-                                </StackPanel>
-                            </DockPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- جزاءات اليوم المسجلة -->
-                    <Border Grid.Row="1" Style="{StaticResource Card}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="جزاءات اليوم المسجلة" Style="{StaticResource SectionTitle}" Margin="4,0,4,6" />
-                        <DataGrid x:Name="PenaltiesGrid" Grid.Row="1" ItemsSource="{Binding DayPenalties}"
-                                  Style="{StaticResource ModernDataGrid}"
-                                  AutoGenerateColumns="False" IsReadOnly="True">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="العامل" Binding="{Binding WorkerName}" Width="Auto" MinWidth="150" />
-                                <DataGridTextColumn Header="السبب" Binding="{Binding Reason}" Width="2*" />
-                                <DataGridTextColumn Header="الخصم" Binding="{Binding DeductionName}" Width="90" />
-                                <!--
-                                    أيقونة بس من غير نص — زي عمود "سجلات اليوم" بالظبط. عمود
-                                    نص+أيقونة في عرض ضيق (60-70) كان بيقصّ النص ("حذف" بتبقى
-                                    "حذ")، وده اللي كان بيبين كإطار/عمود "مش متناسق". الأيقونة
-                                    وحدها مالهاش نص يتقصّ، والـ ToolTip بيقول نفس المعنى.
-                                    نفس عرض عمود "سجلات اليوم" (120) لأنه نفس المحتوى بالظبط:
-                                    زرارين أيقونة جنب بعض.
-                                -->
-                                <DataGridTemplateColumn Header="" Width="120">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Orientation="Horizontal">
-                                                <Button Margin="0,0,4,0"
-                                                        Style="{StaticResource IconButton}" Foreground="{DynamicResource BrandBrush}"
-                                                        ToolTip="تعديل الجزاء"
-                                                        Command="{Binding DataContext.EditPenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}">
-                                                    <materialDesign:PackIcon Kind="PencilOutline" Width="13" Height="13" />
-                                                </Button>
-                                                <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}"
-                                                        ToolTip="حذف الجزاء"
-                                                        Command="{Binding DataContext.RemovePenaltyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}">
-                                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
-                                                </Button>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </Grid>
-                    </Border>
-                </Grid>
-            </TabItem>
-
-            <!-- ============ تبويب السلف والحوافز ============ -->
-            <TabItem Header="  السلف والحوافز  ">
-                <Grid Margin="10">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <!-- فورم تسجيل سلفة/حافز جديد -->
-                    <Border Grid.Row="0" Background="{DynamicResource SubtleBgBrush}" BorderBrush="{DynamicResource CardBorderBrush}"
-                            BorderThickness="1" CornerRadius="12" Padding="14" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="تسجيل سلفة أو حافز (بالجنيه)" FontWeight="Bold"
-                                       Foreground="{DynamicResource BrandBrush}" Margin="0,0,0,8" />
-                            <!-- نفس ترتيب فورم الجزاء: الخانات صف 0، خطأ كل خانة تحتها صف 1 -->
-                            <Grid HorizontalAlignment="Left">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="العامل:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <views:WorkerSearchBox Grid.Column="1" Workers="{Binding AttendanceRows}"
-                                                       SelectedWorker="{Binding AdjustmentWorker, Mode=TwoWay}"
-                                                       Placeholder="دوّر على العامل بالاسم…"
-                                                       Width="200" Margin="0,0,14,0" />
-                                <TextBlock Grid.Column="2" Text="النوع:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <ComboBox Grid.Column="3" ItemsSource="{Binding AdjustmentTypeOptions}" SelectedItem="{Binding SelectedAdjustmentType}"
-                                          DisplayMemberPath="Display" Width="110" Margin="0,0,14,0" />
-                                <TextBlock Grid.Column="4" Text="المبلغ:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                <TextBox Grid.Column="5" Text="{Binding AdjustmentAmount, UpdateSourceTrigger=PropertyChanged}"
-                                         Width="110" Padding="8,6" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="6" Text="ج" VerticalAlignment="Center" Margin="6,0,0,0" FontWeight="Bold"  Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                <views:FieldError Grid.Row="1" Grid.Column="1" MaxWidth="200" Message="{Binding AdjustmentWorkerError}" />
-                                <views:FieldError Grid.Row="1" Grid.Column="3" MaxWidth="160" Message="{Binding AdjustmentTypeError}" />
-                                <views:FieldError Grid.Row="1" Grid.Column="5" Grid.ColumnSpan="2" MaxWidth="180" Message="{Binding AdjustmentAmountError}" />
-                            </Grid>
-                            <DockPanel Margin="0,8,0,0">
-                                <Button x:Name="AddAdjustmentButton" DockPanel.Dock="Left" Command="{Binding AddAdjustmentCommand}"
-                                        Style="{StaticResource PrimaryButton}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="Plus" Width="15" Height="15" VerticalAlignment="Center" />
-                                        <TextBlock Text="تسجيل" Margin="5,0,0,0" />
-                                    </StackPanel>
-                                </Button>
-                                <TextBlock Text="البيان:" VerticalAlignment="Center" Margin="12,0,6,0" DockPanel.Dock="Left" />
-                                <!-- بيان الحركة اختياري: سلفة نص الشهر، مكافأة تارجت، ... -->
-                                <TextBox Text="{Binding AdjustmentNote, UpdateSourceTrigger=PropertyChanged}"
-                                         VerticalAlignment="Center" />
-                            </DockPanel>
-                            <TextBlock Style="{StaticResource HintText}" FontSize="11.5" Margin="0,8,0,0"
-                                       Text="السلفة بتتخصم من أجر العامل في كشف الفترة، والحافز بيتزاد. النوع بيحدد الاتجاه — المبلغ دايمًا موجب." />
-                        </StackPanel>
-                    </Border>
-
-                    <!-- حركات اليوم المسجلة -->
-                    <Border Grid.Row="1" Style="{StaticResource Card}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Text="سلف وحوافز اليوم المسجلة" Style="{StaticResource SectionTitle}" Margin="4,0,4,6" />
-                        <DataGrid x:Name="AdjustmentsGrid" Grid.Row="1" ItemsSource="{Binding DayAdjustments}"
-                                  Style="{StaticResource ModernDataGrid}"
-                                  AutoGenerateColumns="False" IsReadOnly="True">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="العامل" Binding="{Binding WorkerName}" Width="Auto" MinWidth="150" />
-                                <!-- النوع بلونه: سلفة حمرا، حافز أخضر -->
-                                <DataGridTemplateColumn Header="النوع" Width="90">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding TypeName}" ui:ThemeBrush.ForegroundKey="{Binding TypeColor}"
-                                                       FontWeight="Bold" VerticalAlignment="Center" Margin="4,0" />
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                                <DataGridTextColumn Header="المبلغ" Binding="{Binding AmountText}" Width="110" />
-                                <DataGridTextColumn Header="البيان" Binding="{Binding Note}" Width="2*" />
-                                <!-- أيقونة بس من غير نص — زي عمود "سجلات اليوم"، شوف تعليقه في تبويب الجزاءات -->
-                                <DataGridTemplateColumn Header="" Width="50">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Button Style="{StaticResource IconButton}" Foreground="{DynamicResource DangerBrush}"
-                                                    ToolTip="حذف الحركة"
-                                                    Command="{Binding DataContext.RemoveAdjustmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" />
-                                            </Button>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </Grid>
-                    </Border>
-                </Grid>
+            <!-- ============ تبويب الذاكرة (كان بند مستقل في القايمة الجانبية) ============
+                 خطط الإنتاج المحفوظة اللي بتوصّل للتسجيل ("ابدأ الآن") — مكانها الطبيعي
+                 جنب سجلات اليوم. بتتبني أول ما التبويب يتفتح (LazyScreenHost). -->
+            <TabItem x:Name="MemoryTabItem" Header="  الذاكرة  ">
+                <views:LazyScreenHost x:Name="MemoryHost" ScreenType="{x:Type views:MemoryView}" />
             </TabItem>
 
             <!--
@@ -1774,5 +1249,54 @@
                 </Grid>
             </TabItem>
         </TabControl>
+
+        <!-- ═════ شاشة "العمال على المراحل": بتغطي الصفحة كلها وفيها كل مراحل الرحلة المفتوحة قدامك مرة واحدة
+             (ColumnFlowPanel AutoFit بيختار أقل عدد أعمدة يكفي الارتفاع) — ضيف العمال وإنت بتشوف كل المراحل
+             من غير ما تنزل وتطلع. الرحلة هي ActiveFlow (نفس الـ ViewModel، فالتغييرات والحفظ هي هي). ═════ -->
+        <Border x:Name="WorkersOverlay" Grid.Row="1" Grid.RowSpan="2" Padding="10"
+                Background="{DynamicResource GroundBrush}" DataContext="{Binding ActiveFlow}"
+                Visibility="{Binding DataContext.IsWorkersMode, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Padding="14,10" Margin="0,0,0,10">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Left" Command="{Binding SaveFlowCommand}"
+                                Style="{StaticResource PrimaryButton}" FontSize="14" Padding="20,9" Margin="10,0,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ContentSaveOutline" Width="17" Height="17" VerticalAlignment="Center" />
+                                <TextBlock Text="حفظ رحلة الإنتاج" Margin="8,0,0,0" FontWeight="Bold" />
+                            </StackPanel>
+                        </Button>
+                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="14,8" Margin="0,0,12,0"
+                                Command="{Binding DataContext.CloseWorkersModeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="ArrowRight" Width="16" Height="16" VerticalAlignment="Center" />
+                                <TextBlock Text="رجوع للرحلة" Margin="6,0,0,0" FontSize="13" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock DockPanel.Dock="Left" Text="{Binding ReadinessText}" Margin="0,0,14,0"
+                                   VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock VerticalAlignment="Center" FontSize="14">
+                            <Run Text="{Binding SelectedProduct.Name, Mode=OneWay}" FontWeight="Bold" />
+                            <Run Text="  —  العمال على المراحل  —  " Foreground="{DynamicResource TextMutedBrush}" />
+                            <Run Text="{Binding PreviewSummary, Mode=OneWay}" Foreground="{DynamicResource SuccessBrush}" FontWeight="SemiBold" />
+                        </TextBlock>
+                    </DockPanel>
+                </Border>
+
+                <ScrollViewer x:Name="OverlayBody" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding FlowStages}" ItemTemplate="{StaticResource StageCardTemplate}"
+                                  Loaded="FlowStages_Loaded" Unloaded="FlowStages_Unloaded"
+                                  DataContextChanged="FlowStages_DataContextChanged">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <views:ColumnFlowPanel AutoFit="True" MaxColumns="5" Columns="3"
+                                                       FitHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+        </Grid>
     </Grid>
 </UserControl>

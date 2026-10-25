@@ -12,7 +12,7 @@ namespace WorkforceManager.UI.Views
     /// اليومية (نفس نمط WorkerOrderDialog)، مفيش زرار "حفظ" عام. تصليحات
     /// بقت للعرض بس هنا — إدخالها اتنقل لشاشة تسجيل الإنتاج اليومي، شوف CLAUDE.md.
     /// </summary>
-    public partial class MonthlyPlanView : UserControl
+    public partial class MonthlyPlanView : UserControl, ILandingResettable, INestedLandingHost
     {
         private readonly MonthlyPlanViewModel _viewModel;
         private readonly TaskCompletionSource _loadedTcs = new();
@@ -26,6 +26,7 @@ namespace WorkforceManager.UI.Views
             _viewModel = viewModel;
             DataContext = viewModel;
             StatisticsHost.Content = statisticsView;
+            SetupLanding();
 
             Loaded += (_, _) => EntranceAnimation.PlayFadeSlideIn(this);
             Loaded += async (_, _) =>
@@ -36,6 +37,53 @@ namespace WorkforceManager.UI.Views
             };
         }
 
+
+        // ===== صفحة الكروت (كانت 3 تبويبات فوق) =====
+
+        private static readonly (string Title, string Description, MaterialDesignThemes.Wpf.PackIconKind Icon)[] PageDefinitions =
+        {
+            ("التخطيط", "خطة كل منتج وعيلة في الشهر وتعديل الكميات", MaterialDesignThemes.Wpf.PackIconKind.ClipboardTextOutline),
+            ("الإنتاج اليومي للمنتجات", "إدخال إنتاج كل منتج في اليوم يدويًا", MaterialDesignThemes.Wpf.PackIconKind.PencilBoxOutline),
+            ("الإحصائيات", "تحليل الشهر: الإيقاع والتوقّع والمقارنات", MaterialDesignThemes.Wpf.PackIconKind.ChartBoxOutline),
+        };
+
+        private void SetupLanding()
+        {
+            var cards = PageDefinitions
+                .Select((p, i) => new HubCardInfo { Key = i.ToString(), Title = p.Title, Description = p.Description, Icon = p.Icon })
+                .ToList();
+
+            Landing.Setup("الإنتاج الشهري للمنتجات", "اختار اللي عايز تشوفه أو تعدّله", cards);
+            Landing.CardChosen += card => ShowPage(int.Parse(card.Key));
+        }
+
+        private int _openPage = -1;
+
+        public event Action? OpenPageChanged;
+
+        public string? OpenPageTitle => _openPage >= 0 ? PageDefinitions[_openPage].Title : null;
+
+        public void CloseOpenPage() => ShowLanding();
+
+        public void ShowLanding()
+        {
+            _openPage = -1;
+            PagesLayer.Visibility = Visibility.Collapsed;
+            Landing.Visibility = Visibility.Visible;
+            OpenPageChanged?.Invoke();
+        }
+
+        /// <summary>يفتح صفحة (0 = التخطيط، 1 = الإنتاج اليومي للمنتجات، 2 = الإحصائيات) تحت المسار</summary>
+        public void ShowPage(int index)
+        {
+            if (index < 0 || index >= PageDefinitions.Length) return;
+
+            _openPage = index;
+            PagesTabs.SelectedIndex = index;
+            Landing.Visibility = Visibility.Collapsed;
+            PagesLayer.Visibility = Visibility.Visible;
+            OpenPageChanged?.Invoke();
+        }
         /// <summary>
         /// "الخطة الشهرية" من قائمة كارت منتج: مؤشر الكيبورد على خانة الكمية
         /// بتاعته والنص متحدد. تدوير على شجرة العرض (زي DailyEntryView
@@ -43,6 +91,8 @@ namespace WorkforceManager.UI.Views
         /// </summary>
         public void FocusProductQuantity(int productId)
         {
+            // التخطيط هو الصفحة اللي فيها خانات الكمية — لازم تتفتح قبل ما ندوّر
+            ShowPage(0);
             // كروت العيلة مقفولة دايمًا — خانة المنتج موجودة بس جوه صفحة عيلته، فلازم تتفتح الأول
             // وتترسم قبل ما ندوّر عليها
             if (_viewModel.OpenPlanFamilyContaining(productId))
@@ -176,7 +226,7 @@ namespace WorkforceManager.UI.Views
 
             try
             {
-                await _viewModel.SaveTodayEntryAsync(row.ProductId, quantity);
+                await _viewModel.SaveTodayEntryInPlaceAsync(row, quantity);
             }
             catch (Exception ex)
             {

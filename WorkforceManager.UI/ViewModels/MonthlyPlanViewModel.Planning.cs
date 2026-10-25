@@ -9,7 +9,7 @@ namespace WorkforceManager.UI.ViewModels
     /// <summary>فلتر كروت العيلات في تبويب التخطيط — بيحل محل بانر "عائلات واطية" وبادچات الحالة</summary>
     public enum PlanFamilyFilter { All, Behind, OnTrack, Ahead, ForecastBelow }
 
-    public enum PlanFamilySort { LowestPercent, LargestPlan, Name }
+    public enum PlanFamilySort { Custom, LowestPercent, LargestPlan, Name }
 
     /// <summary>مادة واحدة في الشبكة بعد الفلتر/الترتيب — الإجماليات من المادة الأصلية كاملة، الكروت المفلترة بس</summary>
     public class MonthlyPlanMaterialView
@@ -116,7 +116,7 @@ namespace WorkforceManager.UI.ViewModels
 
         [ObservableProperty] private string _searchText = "";
         [ObservableProperty] private PlanFamilyFilter _familyFilter = PlanFamilyFilter.All;
-        [ObservableProperty] private PlanFamilySort _familySort = PlanFamilySort.LowestPercent;
+        [ObservableProperty] private PlanFamilySort _familySort = PlanFamilySort.Custom;
 
         /// <summary>true = أقسام نحاس/زاما زي شيت المصنع، false = كل العيلات في شبكة واحدة</summary>
         [ObservableProperty] private bool _groupByMaterial = true;
@@ -131,6 +131,7 @@ namespace WorkforceManager.UI.ViewModels
 
         public IReadOnlyList<KeyValuePair<PlanFamilySort, string>> SortOptions { get; } = new[]
         {
+            new KeyValuePair<PlanFamilySort, string>(PlanFamilySort.Custom, "ترتيب المصنع"),
             new KeyValuePair<PlanFamilySort, string>(PlanFamilySort.LowestPercent, "الأقل نسبة الأول"),
             new KeyValuePair<PlanFamilySort, string>(PlanFamilySort.LargestPlan, "الأكبر خطة الأول"),
             new KeyValuePair<PlanFamilySort, string>(PlanFamilySort.Name, "بالاسم")
@@ -167,6 +168,7 @@ namespace WorkforceManager.UI.ViewModels
         {
             PlanFamilySort.LargestPlan => families.OrderByDescending(g => g.Subtotal).ThenBy(g => g.FamilyName),
             PlanFamilySort.Name => families.OrderBy(g => g.FamilyName),
+            PlanFamilySort.Custom => families.OrderBy(g => g.SortOrder).ThenBy(g => g.FamilyName),
             _ => families.OrderBy(g => g.AveragePercent ?? decimal.MaxValue).ThenBy(g => g.FamilyName)
         };
 

@@ -1,0 +1,340 @@
+<UserControl x:Class="WorkforceManager.UI.Views.AttendanceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:WorkforceManager.UI"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:WorkforceManager.UI.ViewModels"
+             xmlns:views="clr-namespace:WorkforceManager.UI.Views"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             mc:Ignorable="d"
+             d:DesignHeight="650" d:DesignWidth="1100">
+
+    <!-- الحضور والغياب — كان تبويب في التسجيل اليومي، بقى تبويب في إدارة العمال. نفس DailyEntryViewModel بالظبط (نفس اليوم المختار). -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <views:EntryDateBar Grid.Row="0" />
+                <Grid Grid.Row="1" Margin="14,10,14,10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- ===== شريط الملخص: حالة اليوم كلها بنظرة واحدة ===== -->
+                    <Border Grid.Row="0" Style="{StaticResource Card}" Padding="18,14" Margin="0,0,0,10">
+                        <!--
+                          كل عدّاد زرار بيفتح قسمه في القائمة اللي تحت.
+                          Tag = لون القسم (النمط بياخد منه التظليل والخط السفلي)،
+                          وIsChecked مربوط بحالة الفلتر في الـ ViewModel فالمفتوح بيبان.
+                        -->
+                        <StackPanel x:Name="AttendanceSummaryRow" Orientation="Horizontal">
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{DynamicResource BrandBrush}"
+                                          IsChecked="{Binding IsFilterAll, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.All}"
+                                          ToolTip="عرض كل العمال">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding TotalWorkersCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBlock Text="إجمالي العمال" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <Border Style="{StaticResource SummaryDivider}" Margin="6,4,12,4" />
+
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{DynamicResource SuccessBrush}"
+                                          IsChecked="{Binding IsFilterPresent, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.Present}"
+                                          ToolTip="عرض الحاضرين بس">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding PresentCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource SuccessBrush}" />
+                                    <TextBlock Text="حاضر" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{DynamicResource WarnBrush}"
+                                          IsChecked="{Binding IsFilterExcused, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.Excused}"
+                                          ToolTip="عرض الغايبين بإذن بس">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding ExcusedCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource WarnBrush}" />
+                                    <TextBlock Text="غياب بإذن" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{DynamicResource DangerBrush}"
+                                          IsChecked="{Binding IsFilterUnexcused, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.Unexcused}"
+                                          ToolTip="عرض الغايبين بدون إذن بس">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding UnexcusedCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource DangerBrush}" />
+                                    <TextBlock Text="بدون إذن" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <!-- كان اسمها "لسه مفيش" — مبهمة: لسه مفيش إيه؟
+                                 الاسم الجديد بيقول الحالة بالظبط -->
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{DynamicResource TextMutedBrush}"
+                                          IsChecked="{Binding IsFilterUnset, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.Unset}"
+                                          ToolTip="عرض اللي لسه محصلش تسجيل حضور — اقفلهم واحد واحد">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding UnsetCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                    <TextBlock Text="محصلش تسجيل" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <!-- شريحة نوع مش حالة حضور: عمال الساعة بكل حالاتهم.
+                                 ليهم شيفتات بمنطق مختلف، والقايمة الموحّدة بتخلطهم
+                                 مع عمال الإنتاج فصعب توصلهم -->
+                            <ToggleButton Style="{StaticResource SummaryChip}"
+                                          Tag="{DynamicResource WarnBrush}"
+                                          IsChecked="{Binding IsFilterHourly, Mode=OneWay}"
+                                          Command="{Binding SetAttendanceFilterCommand}"
+                                          CommandParameter="{x:Static vm:AttendanceFilter.Hourly}"
+                                          ToolTip="عرض عمال الساعة بس (رص / جودة / تدريب)">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding HourlyCount}" Style="{StaticResource SummaryNumber}"
+                                               Foreground="{DynamicResource WarnBrush}" />
+                                    <TextBlock Text="بالساعة" Style="{StaticResource SummaryLabel}" />
+                                </StackPanel>
+                            </ToggleButton>
+
+                            <!-- تحذير الجزاءات المتوقعة: بيظهر بس لما يكون فيه غياب بدون إذن -->
+                            <Border Background="{DynamicResource DangerBgBrush}" CornerRadius="10"
+                                    Padding="14,8" Margin="20,0,0,0" VerticalAlignment="Center">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding UnexcusedCount}" Value="0">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="AlertCircleOutline" Width="17" Height="17"
+                                                            VerticalAlignment="Center"
+                                                            Foreground="{DynamicResource DangerBrush}" />
+                                    <TextBlock Text="{Binding PendingPenaltyText}" Margin="7,0,0,0"
+                                               VerticalAlignment="Center" FontSize="12.5" FontWeight="Medium"
+                                               Foreground="{DynamicResource DangerBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ===== البحث + شرح مختصر ===== -->
+                    <Grid Grid.Row="1" Margin="2,0,2,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="300" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Background="{DynamicResource CardBgBrush}"
+                                BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1.4"
+                                CornerRadius="10" Padding="12,7">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Magnify" Width="17" Height="17"
+                                                            VerticalAlignment="Center"
+                                                            Foreground="{DynamicResource TextMutedBrush}" />
+                                    <TextBox Text="{Binding AttendanceSearch, UpdateSourceTrigger=PropertyChanged}"
+                                             Width="240" Margin="8,0,0,0" BorderThickness="0"
+                                             VerticalAlignment="Center" FontSize="13" Background="Transparent" />
+                                </StackPanel>
+                                <!-- نص إرشادي بيختفي أول ما المستخدم يكتب -->
+                                <TextBlock Text="دوّر باسم العامل…" Margin="30,0,0,0" IsHitTestVisible="False"
+                                           VerticalAlignment="Center" FontSize="13"
+                                           Foreground="{DynamicResource TextMutedBrush}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding AttendanceSearch}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Grid.Column="1" Style="{StaticResource HintText}" FontSize="12"
+                                   Margin="16,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Text="اللي له شغل مسجّل بيتعلّم &quot;حاضر&quot; تلقائيًا · الغياب بدون إذن بيتسجّل له جزاء نص يومية لوحده (وبيتشال لو غيّرت الحالة)" />
+                    </Grid>
+
+                    <!-- ===== قائمة العمال: بطاقة لكل عامل ===== -->
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Padding="10">
+                        <Grid>
+                            <!-- مفيش نتايج للبحث -->
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding NoAttendanceMatches}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <materialDesign:PackIcon Kind="AccountSearchOutline" Width="46" Height="46"
+                                                        HorizontalAlignment="Center"
+                                                        Foreground="{DynamicResource TextMutedBrush}" />
+                                <TextBlock Text="{Binding EmptyStateText}" Margin="0,10,0,0" FontSize="14"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource TextMutedBrush}" />
+                            </StackPanel>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding VisibleAttendanceRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <!-- بطاقة العامل: شريط جانبي بلون الحالة + بياناته + أزرار الحالة -->
+                                            <Border Style="{StaticResource WorkerCard}" Margin="0,0,0,7">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- شريط الحالة الجانبي: لون واحد بيقول حالة العامل من بعيد -->
+                                                    <Border Grid.Column="0" Width="5" CornerRadius="3"
+                                                            ui:ThemeBrush.BackgroundKey="{Binding StatusColor}" Margin="0,2,14,2" />
+
+                                                    <!-- دايرة الحروف الأولى -->
+                                                    <Border Grid.Column="1" Width="42" Height="42" CornerRadius="21"
+                                                            Background="{DynamicResource SubtleBgBrush}"
+                                                            VerticalAlignment="Center" Margin="0,0,14,0">
+                                                        <TextBlock Text="{Binding Initials}" FontSize="15" FontWeight="Bold"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   Foreground="{DynamicResource BrandBrush}" />
+                                                    </Border>
+
+                                                    <!-- الاسم + النوع + ملاحظة الشغل -->
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="{Binding FullName}" FontSize="14.5"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                       VerticalAlignment="Center" />
+                                                            <Border Background="{DynamicResource SubtleBgBrush}" CornerRadius="7"
+                                                                    Padding="8,2" Margin="9,0,0,0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding RoleText}" FontSize="11"
+                                                                           FontWeight="Medium"
+                                                                           Foreground="{DynamicResource BrandBrush}" />
+                                                            </Border>
+                                                        </StackPanel>
+
+                                                        <!-- سبب الحضور التلقائي -->
+                                                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                                            <StackPanel.Style>
+                                                                <Style TargetType="StackPanel">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding HasLoggedWork}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </StackPanel.Style>
+                                                            <materialDesign:PackIcon Kind="CheckDecagram" Width="14" Height="14"
+                                                                                    VerticalAlignment="Center"
+                                                                                    Foreground="{DynamicResource SuccessBrush}" />
+                                                            <TextBlock Text="{Binding WorkNote}" FontSize="11.5" Margin="5,0,0,0"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource SuccessBrush}" />
+                                                        </StackPanel>
+
+                                                        <!-- اختصارات الشيفت (بتظهر للعامل بالساعة بس) -->
+                                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                                            <StackPanel.Style>
+                                                                <Style TargetType="StackPanel">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsHourly}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </StackPanel.Style>
+                                                            <TextBlock Text="الشيفت:" FontSize="12" VerticalAlignment="Center"
+                                                                       Margin="0,0,9,0"
+                                                                       Foreground="{DynamicResource TextMutedBrush}" />
+                                                            <ItemsControl ItemsSource="{Binding ShiftChoices}">
+                                                                <ItemsControl.ItemsPanel>
+                                                                    <ItemsPanelTemplate>
+                                                                        <StackPanel Orientation="Horizontal" />
+                                                                    </ItemsPanelTemplate>
+                                                                </ItemsControl.ItemsPanel>
+                                                                <ItemsControl.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <ToggleButton Style="{StaticResource ShiftChip}"
+                                                                                      IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                                      Content="{Binding Display}" />
+                                                                    </DataTemplate>
+                                                                </ItemsControl.ItemTemplate>
+                                                            </ItemsControl>
+                                                        </StackPanel>
+                                                    </StackPanel>
+
+                                                    <!-- أزرار الحالة: دوسة واحدة، والمختار بيتلون بلون حالته -->
+                                                    <ItemsControl Grid.Column="3" ItemsSource="{Binding StatusChoices}"
+                                                                  VerticalAlignment="Center" Margin="14,0,0,0">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <StackPanel Orientation="Horizontal" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <ToggleButton Style="{StaticResource StatusChip}"
+                                                                              IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+
+                    <Button x:Name="SaveAttendanceButton" Grid.Row="3" HorizontalAlignment="Left"
+                            Command="{Binding SaveAttendanceCommand}"
+                            Style="{StaticResource PrimaryButton}" Margin="0,12,0,0" Padding="22,11">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="ContentSaveOutline" Width="17" Height="17" VerticalAlignment="Center" />
+                            <TextBlock Text="حفظ الحضور" Margin="7,0,0,0" FontSize="13.5" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+    </Grid>
+</UserControl>

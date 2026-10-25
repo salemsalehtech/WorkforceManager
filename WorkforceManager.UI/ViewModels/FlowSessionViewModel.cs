@@ -197,6 +197,25 @@ namespace WorkforceManager.UI.ViewModels
         /// <summary>معاينة يوميات كل عامل قبل الحفظ (بتتحدث لحظيًا)</summary>
         public ObservableCollection<FlowWorkerTotalDto> FlowPreview { get; } = new();
 
+        /// <summary>
+        /// الرحلة مفتوحة (بتفاصيلها) ولا مطوية على عنوانها بس. الرحلات أكورديون: واحدة بس مفتوحة في كل لحظة،
+        /// وهي اللي شريط الحفظ الثابت تحت بيشتغل عليها (DailyEntryViewModel.ActiveFlow).
+        /// </summary>
+        [ObservableProperty]
+        private bool _isExpanded = true;
+
+        /// <summary>الأب بيسمع عشان يقفل باقي الرحلات لما واحدة تتفتح</summary>
+        public event Action<FlowSessionViewModel>? ExpandedChanged;
+
+        partial void OnIsExpandedChanged(bool value) => ExpandedChanged?.Invoke(this);
+
+        [RelayCommand]
+        private void ToggleExpanded() => IsExpanded = !IsExpanded;
+
+        /// <summary>ملخص المعاينة في سطر واحد للعنوان وللشريط التحتاني: "3 عامل · ≈ 2.4 يومية" (القطع مش بتتجمّع: القطعة الواحدة بتعدّي مراحل)</summary>
+        [ObservableProperty]
+        private string _previewSummary = "لسه مفيش توزيع";
+
         /// <summary>الأرصدة الأولية الخاصة بالمنتج المختار</summary>
         public ObservableCollection<InitialBalanceDto> InitialBalances { get; } = new();
 
@@ -806,6 +825,10 @@ namespace WorkforceManager.UI.ViewModels
                     TotalWorkdays = t.Workdays
                 });
             }
+
+            PreviewSummary = FlowPreview.Count == 0
+                ? "لسه مفيش توزيع"
+                : $"{FlowPreview.Count} عامل · ≈ {FlowPreview.Sum(w => w.TotalWorkdays):0.##} يومية";
 
             // تلوين البطاقات وعدّاد الجاهزية بيتحدّثوا مع أي تغيير
             foreach (var row in FlowStages) row.RefreshState();

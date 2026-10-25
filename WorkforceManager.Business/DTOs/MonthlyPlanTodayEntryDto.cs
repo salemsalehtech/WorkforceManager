@@ -15,5 +15,6 @@ namespace WorkforceManager.Business.DTOs
         int ManualQuantity,
         bool IsFilled,
         int RealProductionToday,
-        int YesterdayQuantity);
+        int YesterdayQuantity,
+        int FamilySortOrder = int.MaxValue);
 }

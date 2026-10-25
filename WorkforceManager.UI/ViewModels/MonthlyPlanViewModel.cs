@@ -310,11 +310,12 @@ namespace WorkforceManager.UI.ViewModels
             foreach (var g in products
                          .Where(p => p.FamilyId is not null)
                          .GroupBy(p => (p.FamilyId!.Value, p.FamilyName ?? ""))
-                         .OrderBy(g => g.Key.Item2))
+                         .OrderBy(g => g.Min(p => p.FamilySortOrder)).ThenBy(g => g.Key.Item2))
             {
                 groups.Add(new MonthlyPlanFamilyGroupRow
                 {
                     HeaderText = $"{g.Key.Item2} ({g.Count()})", FamilyName = g.Key.Item2, MaterialName = materialName,
+                    SortOrder = g.Min(p => p.FamilySortOrder),
                     Products = OrderByPace(g).Select(ToRow).ToList(),
                     RemainingWorkdays = remainingWorkdays, TotalWorkdays = totalWorkdays
                 });
@@ -399,11 +400,21 @@ namespace WorkforceManager.UI.ViewModels
                 await LoadAsync();
         }
 
-        /// <summary>"حذف الخطة" — بيمسح كل صفوف MonthlyPlan وMonthlyPlanSubPeriod للشهر ده بعد تأكيد صريح</summary>
+        /// <summary>"حذف الخطة" — بيمسح الخطة وكل المربوط بيها (الإنتاج اليومي للمنتجات، التصليحات، اللقطات) للشهر ده بعد تأكيد بالأعداد</summary>
         [RelayCommand]
         private async Task DeletePlanAsync()
         {
-            var confirmed = Notify.Ask("هتتمسح خطة الشهر ده بالكامل (كل العائلات والفترات الفرعية)، متأكد؟", "حذف الخطة");
+            (int PlanRows, int DailyEntries, int Corrections) counts;
+            using (var countScope = _scopeFactory.CreateScope())
+                counts = await countScope.ServiceProvider.GetRequiredService<MonthlyPlanService>().CountMonthDataAsync(SelectedYear, SelectedMonth);
+
+            var confirmed = Notify.AskDangerous(
+                "هتتمسح خطة الشهر ده بالكامل ومعاها كل اللي مربوط بيها:\n\n" +
+                $"• {counts.PlanRows} منتج في الخطة (والعائلات والفترات الفرعية)\n" +
+                $"• {counts.DailyEntries} تسجيل في الإنتاج اليومي للمنتجات\n" +
+                $"• {counts.Corrections} تصليحات\n\n" +
+                "إنتاج العمال ويومياتهم وأجورهم مش هيتلمسوا. متأكد؟",
+                "حذف الخطة");
             if (!confirmed) return;
 
             using (var scope = _scopeFactory.CreateScope())
@@ -505,7 +516,7 @@ namespace WorkforceManager.UI.ViewModels
             TodayFamilyGroups.Clear();
             foreach (var g in allRows.Where(r => r.FamilyId is not null)
                          .GroupBy(r => (r.FamilyId!.Value, r.FamilyName ?? ""))
-                         .OrderBy(g => g.Key.Item2))
+                         .OrderBy(g => g.Min(r => r.FamilySortOrder)).ThenBy(g => g.Key.Item2))
                 TodayFamilyGroups.Add(new MonthlyPlanTodayFamilyGroupRow { HeaderText = g.Key.Item2, Products = g.ToList() });
 
             var noFamily = allRows.Where(r => r.FamilyId is null).ToList();
@@ -554,6 +565,24 @@ namespace WorkforceManager.UI.ViewModels
 
         private bool HasNextTodayFamily() =>
             SelectedTodayFamily is not null && TodayFamilyGroups.IndexOf(SelectedTodayFamily) < TodayFamilyGroups.Count - 1;
+
+        /// <summary>
+        /// حفظ رقم اتكتب في خانة (لما المستخدم يسيبها) — بيحدّث الصف وعيلته **مكانهم** من غير ما يعيد بناء القايمة.
+        /// إعادة البناء كانت بتنقل الصف اللي اتملى لآخر القايمة (OrderTodayEntryRows) وبتشيل الخانة اللي الفوكس
+        /// راح لها، فالتنقل بالسهم ↓ لخانة المنتج اللي تحت كان بيقف بعد أول خانة.
+        /// </summary>
+        public async Task SaveTodayEntryInPlaceAsync(MonthlyPlanTodayEntryRow row, int quantity)
+        {
+            using (var scope = _scopeFactory.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<MonthlyPlanTrackingService>()
+                    .SetDailyEntryAsync(row.ProductId, TodayEntryDate, quantity);
+
+            row.IsFilled = true;
+            foreach (var group in TodayFamilyGroups.Where(g => g.Products.Contains(row))) group.Refresh();
+
+            OnPropertyChanged(nameof(TodayFilledCount));
+            OnPropertyChanged(nameof(TodayDoneFamiliesCount));
+        }
 
         public async Task SaveTodayEntryAsync(int productId, int quantity)
         {

@@ -181,7 +181,7 @@ namespace WorkforceManager.UiTests
             var ctor = typeof(GlobalSearchDialog).GetConstructors(
                 BindingFlags.Instance | BindingFlags.NonPublic).Single();
 
-            return (GlobalSearchDialog)ctor.Invoke(new object[] { search });
+            return (GlobalSearchDialog)ctor.Invoke(new object?[] { search, null, null });
         }
 
         /// <summary>بينادي RunSearchAsync مباشرة بالـ Reflection — بيتخطى الـ debounce الحقيقي (250ms) عشان الاختبار يبقى حتمي وسريع</summary>

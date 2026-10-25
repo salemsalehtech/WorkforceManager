@@ -34,15 +34,6 @@ namespace WorkforceManager.UiTests
             Assert.False(Worker(isActive: false).CanRecordDailyEntry);
         }
 
-        [Theory]
-        [InlineData(DailyEntryWorkerTarget.Attendance, DailyEntryViewModel.AttendanceTab)]
-        [InlineData(DailyEntryWorkerTarget.Penalty, DailyEntryViewModel.PenaltiesTab)]
-        [InlineData(DailyEntryWorkerTarget.Adjustment, DailyEntryViewModel.AdjustmentsTab)]
-        public void TabIndexFor_MapsEachTarget(DailyEntryWorkerTarget target, int expectedTab)
-        {
-            Assert.Equal(expectedTab, DailyEntryViewModel.TabIndexFor(target));
-        }
-
         [Fact]
         public void ProductRow_MonthlyPlan_DisabledWhenInactive()
         {

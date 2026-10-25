@@ -34,7 +34,10 @@ namespace WorkforceManager.Business.DTOs
         /// جواها — محتوى واجهة ثابت زي Setting/HelpTopic (شوف
         /// NavigableScreens في مشروع الواجهة)، مش صف قاعدة بيانات.
         /// </summary>
-        Screen
+        Screen,
+
+        /// <summary>أمر مباشر ("سجّل غياب أحمد"، "أضف عامل"، "حفظ نهائي") — بيتبني في الواجهة (SearchableActions) وبيتنفّذ في MainWindow</summary>
+        Action
     }
 
     /// <summary>
@@ -74,6 +77,9 @@ namespace WorkforceManager.Business.DTOs
 
         /// <summary>قوالب التقارير متعرّفة بالاسم، مش رقم — نفس مفتاح ReportTemplateStore</summary>
         public string? ReportTemplateName { get; init; }
+
+        /// <summary>لفئة Action بس: مفتاح الأمر (SearchableAction.Key) اللي MainWindow بينفّذه</summary>
+        public string? ActionKey { get; init; }
 
         /// <summary>
         /// **الاتنين دول بس بتتملى من الواجهة، مش من GlobalSearchService** —

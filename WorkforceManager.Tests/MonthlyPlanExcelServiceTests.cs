@@ -367,7 +367,7 @@ namespace WorkforceManager.Tests
                     new Business.DTOs.ReportExportOptions { DepartmentName = "الصنفرة" });
 
             using var workbook = new XLWorkbook(_filePath);
-            Assert.Equal(new[] { "اللوحة", "الخطة الشهرية", "تفاصيل" }, workbook.Worksheets.Select(w => w.Name));
+            Assert.Equal(new[] { "الخطة الشهرية", "تفاصيل" }, workbook.Worksheets.Select(w => w.Name));
             var sheet = workbook.Worksheet("الخطة الشهرية");
 
             var headerRow = FindRow(sheet, FProduct, "المنتج");
@@ -455,7 +455,7 @@ namespace WorkforceManager.Tests
                 _db.GetService<MonthlyPlanExcelService>(scope).Export(rows, "يوليو 2026", _filePath, daily: daily);
 
             using var workbook = new XLWorkbook(_filePath);
-            Assert.Equal(new[] { "اللوحة", "الخطة الشهرية", "تفاصيل", "يوم بيوم" }, workbook.Worksheets.Select(w => w.Name));
+            Assert.Equal(new[] { "الخطة الشهرية", "تفاصيل", "يوم بيوم" }, workbook.Worksheets.Select(w => w.Name));
 
             var sheet = workbook.Worksheet("يوم بيوم");
             var r = FindRow(sheet, 1, chainName);
@@ -465,25 +465,6 @@ namespace WorkforceManager.Tests
 
             var totalRow = FindRow(sheet, 1, "إجمالي اليوم");
             Assert.Equal(rows.Sum(t => t.EffectiveAchieved), sheet.Cell(totalRow, 3 + 31).GetValue<int>());
-        }
-
-        [Fact]
-        public async Task Dashboard_kpis_are_formulas_over_the_plan_sheet()
-        {
-            var (rows, daily) = await SeedTwoDaysAsync();
-
-            using (var scope = _db.CreateScope())
-                _db.GetService<MonthlyPlanExcelService>(scope).Export(rows, "يوليو 2026", _filePath, daily: daily);
-
-            using var workbook = new XLWorkbook(_filePath);
-            var dashboard = workbook.Worksheet("اللوحة");
-            var labelRow = FindRow(dashboard, 1, "نسبة الإنجاز");
-            var completion = dashboard.Cell(labelRow + 1, 1);
-
-            var planned = rows.Where(t => !t.IsOutsidePlan).Sum(t => t.PlannedQuantity);
-            var achieved = rows.Where(t => !t.IsOutsidePlan).Sum(t => t.EffectiveAchieved);
-            Assert.True(completion.HasFormula);
-            Assert.Equal((double)achieved / planned, completion.GetValue<double>(), 4);
         }
 
         [Fact]
